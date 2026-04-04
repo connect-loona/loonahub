@@ -27,9 +27,9 @@ async function sendChatMessage() {
     });
 
     if (!response.ok) {
-      const data = await response.json();
-      throw new Error(data.error || `Error: ${response.status}`);
-    }
+  const errorText = await response.text();
+  throw new Error(errorText || `Error: ${response.status}`);
+}
 
     const data = await response.json();
     const reply = data.reply || 'Sorry, I could not generate a response.';
