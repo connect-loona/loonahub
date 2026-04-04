@@ -26,9 +26,9 @@ async function sendChatMessage() {
       body: JSON.stringify({ message, context })
     });
 
-    if (!response.ok) {
-  const errorText = await response.text();
-  throw new Error(errorText || `Error: ${response.status}`);
+if (!response.ok) {
+  const data = await response.json();
+  throw new Error(data.error || `Error: ${response.status}`);
 }
 
     const data = await response.json();
