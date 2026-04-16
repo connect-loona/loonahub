@@ -7897,6 +7897,51 @@
           if (currentUser) renderDeckLinks();
         });
 
+        // Members sync — seed Firebase from hardcoded list on first run
+        _db.ref('members').once('value', snap => {
+          if (!snap.val()) {
+            const updates = {};
+            ALL_MEMBERS.forEach(name => {
+              const info = MEMBER_INFO[name] || {};
+              const k = _db.ref('members').push().key;
+              updates[k] = { name, color: info.color || '#888', emoji: info.emoji || '👤', role: info.role || 'Team Member' };
+            });
+            _db.ref('members').update(updates);
+          }
+        });
+        _db.ref('members').on('value', snap => {
+          const data = snap.val() || {};
+          const fbMembers = Object.values(data).filter(m => m && m.name);
+          fbMembers.forEach(m => {
+            if (!ALL_MEMBERS.includes(m.name)) ALL_MEMBERS.push(m.name);
+            const existing = MEMBER_INFO[m.name] || {};
+            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || m.avatar };
+          });
+          // Rebuild login picker to reflect new members
+          const picker = document.getElementById('member-picker');
+          if (picker) {
+            picker.innerHTML = ALL_MEMBERS.map(n => {
+              const info = MEMBER_INFO[n] || { emoji: '👤', color: '#888', role: '' };
+              const avatarHtml = info.avatar ? `<img class="pill-avatar" src="${info.avatar}">` : `<span class="pill-emoji">${info.emoji}</span>`;
+              return `<button class="member-pill" onclick="login('${n}')" style="border-color:${info.color}40">${avatarHtml}<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><div style="font-weight:600;font-size:14px">${n}</div><div style="font-size:11px;color:var(--muted)">${info.role}</div></div></button>`;
+            }).join('');
+          }
+          if (currentUser) { buildMemberTabs(currentUser); renderTeam(); renderOverview(); }
+        });
+
+        // Inactive members sync
+        _db.ref('inactive_members').once('value', snap => {
+          if (!snap.val() && INACTIVE_MEMBERS.size > 0) {
+            _db.ref('inactive_members').set([...INACTIVE_MEMBERS]);
+          }
+        });
+        _db.ref('inactive_members').on('value', snap => {
+          const arr = snap.val() || [];
+          INACTIVE_MEMBERS.clear();
+          arr.forEach(n => INACTIVE_MEMBERS.add(n));
+          if (currentUser) { renderTeam(); buildMemberTabs(currentUser); }
+        });
+
         // ── Visibility-change sync: reattach listener when tab comes back into focus ──
         // Reattach (not poll) — safe, no risk of partial data wiping tasks
         document.addEventListener('visibilitychange', () => {
@@ -9325,20 +9370,24 @@
       const color = document.getElementById('amp-color').value;
       const emoji = document.getElementById('amp-emoji').value;
 
+      const memberRole = role || dept || 'Team Member';
       if (!ALL_MEMBERS.includes(name)) ALL_MEMBERS.push(name);
-      MEMBER_INFO[name] = { color, emoji, role: role || dept || 'Team Member' };
+      MEMBER_INFO[name] = { color, emoji, role: memberRole };
 
-      buildMemberTabs(currentUser);
-      renderTeam();
-      renderOverview();
-
-      const picker = document.getElementById('member-picker');
-      if (picker) {
-        const pill = document.createElement('button');
-        pill.className = 'member-pill';
-        pill.onclick = () => login(name);
-        pill.innerHTML = `<span class="pill-emoji">${emoji}</span>${name}`;
-        picker.appendChild(pill);
+      if (_db) {
+        // Persist to Firebase — the 'members' listener will re-render everything
+        _db.ref('members').push({ name, color, emoji, role: memberRole });
+      } else {
+        // Fallback: update DOM directly when Firebase is unavailable
+        buildMemberTabs(currentUser);
+        renderTeam();
+        renderOverview();
+        const picker = document.getElementById('member-picker');
+        if (picker) {
+          const info = MEMBER_INFO[name];
+          const avatarHtml = `<span class="pill-emoji">${emoji}</span>`;
+          picker.innerHTML += `<button class="member-pill" onclick="login('${name}')" style="border-color:${color}40">${avatarHtml}<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><div style="font-weight:600;font-size:14px">${name}</div><div style="font-size:11px;color:var(--muted)">${memberRole}</div></div></button>`;
+        }
       }
 
       closeAddMember();
@@ -9719,6 +9768,7 @@
     function removeMember(name) {
       if (!confirm(`Move "${name}" to past employees? They'll be removed from active workflows.`)) return;
       INACTIVE_MEMBERS.add(name);
+      if (_db) _db.ref('inactive_members').set([...INACTIVE_MEMBERS]);
       renderTeam();
       buildMemberTabs(currentUser);
       renderOverview();
@@ -9726,6 +9776,7 @@
 
     function restoreMember(name) {
       INACTIVE_MEMBERS.delete(name);
+      if (_db) _db.ref('inactive_members').set([...INACTIVE_MEMBERS]);
       renderTeam();
       buildMemberTabs(currentUser);
       renderOverview();
