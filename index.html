@@ -7897,16 +7897,20 @@
           if (currentUser) renderDeckLinks();
         });
 
-        // Members sync — seed Firebase from hardcoded list on first run
+        // Members sync — ensure every member has a name-keyed entry in Firebase
+        // (handles first-run seeding AND migration from old random-push-key records)
         _db.ref('members').once('value', snap => {
-          if (!snap.val()) {
-            const updates = {};
-            ALL_MEMBERS.forEach(name => {
+          const data = snap.val() || {};
+          const existingKeys = new Set(Object.keys(data));
+          const updates = {};
+          ALL_MEMBERS.forEach(name => {
+            const key = fbMemberKey(name);
+            if (!existingKeys.has(key)) {
               const info = MEMBER_INFO[name] || {};
-              updates[fbMemberKey(name)] = { name, color: info.color || '#888', emoji: info.emoji || '👤', role: info.role || 'Team Member' };
-            });
-            _db.ref('members').update(updates);
-          }
+              updates[key] = { name, color: info.color || '#888', emoji: info.emoji || '👤', role: info.role || 'Team Member' };
+            }
+          });
+          if (Object.keys(updates).length > 0) _db.ref('members').update(updates);
         });
         _db.ref('members').on('value', snap => {
           const data = snap.val() || {};
@@ -7934,6 +7938,14 @@
             }).join('');
           }
           if (currentUser && teamNeedsRender) { updateTopbarAvatar(); renderProfilePanel(); renderTeam(); renderOverview(); buildMemberTabs(currentUser); }
+          // Persist to localStorage so members + avatars appear instantly on next page load
+          try {
+            const cacheList = ALL_MEMBERS.map(n => { const i = MEMBER_INFO[n] || {}; return { name: n, color: i.color, emoji: i.emoji, role: i.role }; });
+            localStorage.setItem('loona_members_cache', JSON.stringify(cacheList));
+            const avatarCache = {};
+            ALL_MEMBERS.forEach(n => { if (MEMBER_INFO[n] && MEMBER_INFO[n].avatar) avatarCache[n] = MEMBER_INFO[n].avatar; });
+            localStorage.setItem('loona_avatars', JSON.stringify(avatarCache));
+          } catch(e) {}
         });
 
         // Inactive members sync
@@ -9310,17 +9322,30 @@
           if (!MEMBER_INFO[currentUser]) MEMBER_INFO[currentUser] = {};
           MEMBER_INFO[currentUser].avatar = compressed;
 
-          // Persist to Firebase so all open dashboards update instantly
+          // Save avatar to localStorage so it loads instantly on refresh (before Firebase connects)
+          try {
+            const avatarCache = JSON.parse(localStorage.getItem('loona_avatars') || '{}');
+            avatarCache[currentUser] = compressed;
+            localStorage.setItem('loona_avatars', JSON.stringify(avatarCache));
+          } catch(e) {}
+
+          // Persist to Firebase using set() with full member data so the record always has a `name` field
           if (_db) {
-            _db.ref('members/' + fbMemberKey(currentUser)).update({ avatar: compressed })
-              .then(() => {
-                document.getElementById('toast-emoji').textContent = '📸';
-                document.getElementById('toast-msg').textContent = 'Profile photo updated!';
-                document.getElementById('toast-sub').textContent = 'Live across all dashboards';
-                const toast = document.getElementById('completion-toast');
-                toast.classList.add('show');
-                setTimeout(() => toast.classList.remove('show'), 3000);
-              });
+            const info = MEMBER_INFO[currentUser];
+            _db.ref('members/' + fbMemberKey(currentUser)).set({
+              name: currentUser,
+              color: info.color || '#888',
+              emoji: info.emoji || '👤',
+              role: info.role || 'Team Member',
+              avatar: compressed
+            }).then(() => {
+              document.getElementById('toast-emoji').textContent = '📸';
+              document.getElementById('toast-msg').textContent = 'Profile photo updated!';
+              document.getElementById('toast-sub').textContent = 'Live across all dashboards';
+              const toast = document.getElementById('completion-toast');
+              toast.classList.add('show');
+              setTimeout(() => toast.classList.remove('show'), 3000);
+            });
           }
 
           renderProfilePanel();
@@ -10654,6 +10679,25 @@
     }
 
     // ═══ BOOT ═══
+    // Load cached members + avatars from localStorage BEFORE initLogin so the picker
+    // shows all members and photos instantly without waiting for Firebase to connect.
+    (function loadMemberCache() {
+      try {
+        // Cached member list (names + basic info, no avatars — added dynamically)
+        const cached = JSON.parse(localStorage.getItem('loona_members_cache') || '[]');
+        cached.forEach(m => {
+          if (!m.name) return;
+          if (!ALL_MEMBERS.includes(m.name)) ALL_MEMBERS.push(m.name);
+          if (!MEMBER_INFO[m.name]) MEMBER_INFO[m.name] = { color: m.color || '#888', emoji: m.emoji || '👤', role: m.role || 'Team Member' };
+        });
+        // Cached avatars (stored separately because they're large base64 strings)
+        const avatarCache = JSON.parse(localStorage.getItem('loona_avatars') || '{}');
+        Object.entries(avatarCache).forEach(([name, avatar]) => {
+          if (!MEMBER_INFO[name]) MEMBER_INFO[name] = {};
+          MEMBER_INFO[name].avatar = avatar;
+        });
+      } catch(e) {}
+    })();
     document.addEventListener('DOMContentLoaded', initLogin);
     document.getElementById('add-task-modal').addEventListener('click', function (e) {
       if (e.target === this) closeAddTask();
