@@ -7903,8 +7903,7 @@
             const updates = {};
             ALL_MEMBERS.forEach(name => {
               const info = MEMBER_INFO[name] || {};
-              const k = _db.ref('members').push().key;
-              updates[k] = { name, color: info.color || '#888', emoji: info.emoji || '👤', role: info.role || 'Team Member' };
+              updates[fbMemberKey(name)] = { name, color: info.color || '#888', emoji: info.emoji || '👤', role: info.role || 'Team Member' };
             });
             _db.ref('members').update(updates);
           }
@@ -7912,12 +7911,20 @@
         _db.ref('members').on('value', snap => {
           const data = snap.val() || {};
           const fbMembers = Object.values(data).filter(m => m && m.name);
+          let pickerNeedsRebuild = false;
+          let teamNeedsRender = false;
           fbMembers.forEach(m => {
-            if (!ALL_MEMBERS.includes(m.name)) ALL_MEMBERS.push(m.name);
+            const isNew = !ALL_MEMBERS.includes(m.name);
+            if (isNew) { ALL_MEMBERS.push(m.name); pickerNeedsRebuild = true; teamNeedsRender = true; }
             const existing = MEMBER_INFO[m.name] || {};
-            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || m.avatar };
+            const newAvatar = m.avatar || existing.avatar || null;
+            const avatarChanged = newAvatar !== existing.avatar;
+            // Firebase is source of truth — prefer Firebase avatar over local
+            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: newAvatar };
+            if (avatarChanged) { pickerNeedsRebuild = true; teamNeedsRender = true; }
           });
-          // Rebuild login picker to reflect new members
+          if (!pickerNeedsRebuild) return; // nothing changed, skip all re-renders
+          // Rebuild login picker to reflect new members and updated avatars
           const picker = document.getElementById('member-picker');
           if (picker) {
             picker.innerHTML = ALL_MEMBERS.map(n => {
@@ -7926,7 +7933,7 @@
               return `<button class="member-pill" onclick="login('${n}')" style="border-color:${info.color}40">${avatarHtml}<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><div style="font-weight:600;font-size:14px">${n}</div><div style="font-size:11px;color:var(--muted)">${info.role}</div></div></button>`;
             }).join('');
           }
-          if (currentUser) { buildMemberTabs(currentUser); renderTeam(); renderOverview(); }
+          if (currentUser && teamNeedsRender) { updateTopbarAvatar(); renderProfilePanel(); renderTeam(); renderOverview(); buildMemberTabs(currentUser); }
         });
 
         // Inactive members sync
@@ -7996,6 +8003,11 @@
     }
 
     // ── Firebase CRUD wrappers ─────────────────────────────────────
+    // Sanitize a member name for use as a Firebase Realtime Database key
+    function fbMemberKey(name) {
+      return (name || '').replace(/[.#$\/\[\]\s]/g, '_');
+    }
+
     function fbAddTask(task) {
       const clean = {
         ...task,
@@ -9284,11 +9296,47 @@
       if (!file || !currentUser) return;
       const reader = new FileReader();
       reader.onload = function (e) {
-        if (!MEMBER_INFO[currentUser]) MEMBER_INFO[currentUser] = {};
-        MEMBER_INFO[currentUser].avatar = e.target.result;
-        renderProfilePanel();
-        updateTopbarAvatar();
-        renderTeam();
+        // Compress image to max 300×300 before saving to keep Firebase payload small
+        const img = new Image();
+        img.onload = function () {
+          const MAX = 300;
+          const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+          const compressed = canvas.toDataURL('image/jpeg', 0.75);
+
+          if (!MEMBER_INFO[currentUser]) MEMBER_INFO[currentUser] = {};
+          MEMBER_INFO[currentUser].avatar = compressed;
+
+          // Persist to Firebase so all open dashboards update instantly
+          if (_db) {
+            _db.ref('members/' + fbMemberKey(currentUser)).update({ avatar: compressed })
+              .then(() => {
+                document.getElementById('toast-emoji').textContent = '📸';
+                document.getElementById('toast-msg').textContent = 'Profile photo updated!';
+                document.getElementById('toast-sub').textContent = 'Live across all dashboards';
+                const toast = document.getElementById('completion-toast');
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 3000);
+              });
+          }
+
+          renderProfilePanel();
+          updateTopbarAvatar();
+          renderTeam();
+          // Rebuild login picker with new avatar
+          const picker = document.getElementById('member-picker');
+          if (picker) {
+            picker.innerHTML = ALL_MEMBERS.map(n => {
+              const info = MEMBER_INFO[n] || { emoji: '👤', color: '#888', role: '' };
+              const avatarHtml = info.avatar ? `<img class="pill-avatar" src="${info.avatar}">` : `<span class="pill-emoji">${info.emoji}</span>`;
+              return `<button class="member-pill" onclick="login('${n}')" style="border-color:${info.color}40">${avatarHtml}<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><div style="font-weight:600;font-size:14px">${n}</div><div style="font-size:11px;color:var(--muted)">${info.role}</div></div></button>`;
+            }).join('');
+          }
+        };
+        img.src = e.target.result;
       };
       reader.readAsDataURL(file);
     }
@@ -9374,21 +9422,18 @@
       if (!ALL_MEMBERS.includes(name)) ALL_MEMBERS.push(name);
       MEMBER_INFO[name] = { color, emoji, role: memberRole };
 
-      if (_db) {
-        // Persist to Firebase — the 'members' listener will re-render everything
-        _db.ref('members').push({ name, color, emoji, role: memberRole });
-      } else {
-        // Fallback: update DOM directly when Firebase is unavailable
-        buildMemberTabs(currentUser);
-        renderTeam();
-        renderOverview();
-        const picker = document.getElementById('member-picker');
-        if (picker) {
-          const info = MEMBER_INFO[name];
-          const avatarHtml = `<span class="pill-emoji">${emoji}</span>`;
-          picker.innerHTML += `<button class="member-pill" onclick="login('${name}')" style="border-color:${color}40">${avatarHtml}<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><div style="font-weight:600;font-size:14px">${name}</div><div style="font-size:11px;color:var(--muted)">${memberRole}</div></div></button>`;
-        }
+      // Update UI instantly — don't wait for Firebase round-trip
+      buildMemberTabs(currentUser);
+      renderTeam();
+      renderOverview();
+      const picker = document.getElementById('member-picker');
+      if (picker) {
+        const avatarHtml = `<span class="pill-emoji">${emoji}</span>`;
+        picker.innerHTML += `<button class="member-pill" onclick="login('${name}')" style="border-color:${color}40">${avatarHtml}<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><div style="font-weight:600;font-size:14px">${name}</div><div style="font-size:11px;color:var(--muted)">${memberRole}</div></div></button>`;
       }
+
+      // Persist to Firebase in the background
+      if (_db) _db.ref('members/' + fbMemberKey(name)).set({ name, color, emoji, role: memberRole });
 
       closeAddMember();
       document.getElementById('toast-emoji').textContent = '🎉';
