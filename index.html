@@ -8715,8 +8715,14 @@
       </div>`).join('');
 
       const teamMap = {};
+      // Seed all active members so new members (0 tasks) appear immediately
+      ALL_MEMBERS.filter(m => !INACTIVE_MEMBERS.has(m)).forEach(m => {
+        teamMap[m] = { total: 0, done: 0 };
+      });
       TASKS.forEach(t => {
         if (!t.member) return;
+        // Skip tasks belonging to inactive members
+        if (INACTIVE_MEMBERS.has(t.member)) return;
         if (!teamMap[t.member]) teamMap[t.member] = { total: 0, done: 0 };
         teamMap[t.member].total++;
         if (t.status === 'Completed') teamMap[t.member].done++;
