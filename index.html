@@ -7951,7 +7951,8 @@
           const arr = snap.val() || [];
           INACTIVE_MEMBERS.clear();
           arr.forEach(n => INACTIVE_MEMBERS.add(n));
-          if (currentUser) { renderTeam(); buildMemberTabs(currentUser); }
+          rebuildLoginPicker();
+          if (currentUser) { renderTeam(); buildMemberTabs(currentUser); renderOverview(); }
         });
 
         // ── Visibility-change sync: reattach listener when tab comes back into focus ──
