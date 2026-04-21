@@ -7951,6 +7951,7 @@
           const arr = snap.val() || [];
           INACTIVE_MEMBERS.clear();
           arr.forEach(n => INACTIVE_MEMBERS.add(n));
+          try { localStorage.setItem('loona_inactive_members', JSON.stringify(arr)); } catch(e) {}
           rebuildLoginPicker();
           if (currentUser) { renderTeam(); buildMemberTabs(currentUser); renderOverview(); }
         });
@@ -9828,6 +9829,7 @@
     function removeMember(name) {
       if (!confirm(`Move "${name}" to past employees? They'll be removed from active workflows.`)) return;
       INACTIVE_MEMBERS.add(name);
+      localStorage.setItem('loona_inactive_members', JSON.stringify([...INACTIVE_MEMBERS]));
       if (_db) _db.ref('inactive_members').set([...INACTIVE_MEMBERS]);
       rebuildLoginPicker();
       renderTeam();
@@ -9837,6 +9839,7 @@
 
     function restoreMember(name) {
       INACTIVE_MEMBERS.delete(name);
+      localStorage.setItem('loona_inactive_members', JSON.stringify([...INACTIVE_MEMBERS]));
       if (_db) _db.ref('inactive_members').set([...INACTIVE_MEMBERS]);
       renderTeam();
       buildMemberTabs(currentUser);
@@ -10687,6 +10690,9 @@
           if (!MEMBER_INFO[name]) MEMBER_INFO[name] = {};
           MEMBER_INFO[name].avatar = avatar;
         });
+        // Cached inactive members — pre-populate so login picker is correct before Firebase loads
+        const inactiveCache = JSON.parse(localStorage.getItem('loona_inactive_members') || '[]');
+        inactiveCache.forEach(n => INACTIVE_MEMBERS.add(n));
       } catch(e) {}
     })();
     document.addEventListener('DOMContentLoaded', initLogin);
