@@ -2743,6 +2743,38 @@
       <input type="file" accept="image/*" style="display:none" onchange="uploadLoginBg(this)">
     </label>
   </div>
+  <script>
+  // Runs immediately — no waiting for DOMContentLoaded or Firebase.
+  // Rebuilds the login picker from localStorage so removed members vanish
+  // and new members appear the instant the page renders.
+  (function() {
+    try {
+      var inactive = JSON.parse(localStorage.getItem('loona_inactive_members') || '[]');
+      var inactiveSet = {};
+      inactive.forEach(function(n) { inactiveSet[n] = true; });
+      var members = JSON.parse(localStorage.getItem('loona_members_cache') || '[]');
+      var avatars = JSON.parse(localStorage.getItem('loona_avatars') || '{}');
+      var active = members.filter(function(m) { return m.name && !inactiveSet[m.name]; });
+      if (active.length === 0) return; // no cache yet — leave static HTML in place
+      var picker = document.getElementById('member-picker');
+      if (!picker) return;
+      picker.innerHTML = active.map(function(m) {
+        var av = avatars[m.name];
+        var avatarHtml = av
+          ? '<img class="pill-avatar" src="' + av + '">'
+          : '<span class="pill-emoji">' + (m.emoji || '\uD83D\uDC64') + '</span>';
+        var color = m.color || '#888';
+        var role  = m.role  || '';
+        return '<button class="member-pill" onclick="login(\'' + m.name.replace(/'/g,"\\'") + '\')" style="border-color:' + color + '40">'
+          + avatarHtml
+          + '<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
+          + '<div style="font-weight:600;font-size:14px">' + m.name + '</div>'
+          + '<div style="font-size:11px;color:var(--muted)">' + role + '</div>'
+          + '</div></button>';
+      }).join('');
+    } catch(e) {}
+  })();
+  </script>
 
   <!-- =========== APP =========== -->
   <div id="app" style="display: none;">
