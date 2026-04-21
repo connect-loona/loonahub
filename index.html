@@ -7929,14 +7929,7 @@
           });
           if (!pickerNeedsRebuild) return; // nothing changed, skip all re-renders
           // Rebuild login picker to reflect new members and updated avatars
-          const picker = document.getElementById('member-picker');
-          if (picker) {
-            picker.innerHTML = ALL_MEMBERS.map(n => {
-              const info = MEMBER_INFO[n] || { emoji: '👤', color: '#888', role: '' };
-              const avatarHtml = info.avatar ? `<img class="pill-avatar" src="${info.avatar}">` : `<span class="pill-emoji">${info.emoji}</span>`;
-              return `<button class="member-pill" onclick="login('${n}')" style="border-color:${info.color}40">${avatarHtml}<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><div style="font-weight:600;font-size:14px">${n}</div><div style="font-size:11px;color:var(--muted)">${info.role}</div></div></button>`;
-            }).join('');
-          }
+          rebuildLoginPicker();
           if (currentUser && teamNeedsRender) { updateTopbarAvatar(); renderProfilePanel(); renderTeam(); renderOverview(); buildMemberTabs(currentUser); }
           // Persist to localStorage so members + avatars appear instantly on next page load
           try {
@@ -8224,20 +8217,7 @@
         login.style.backgroundPosition = 'center';
       }
 
-      const picker = document.getElementById('member-picker');
-      picker.innerHTML = ALL_MEMBERS.map(m => {
-        const info = MEMBER_INFO[m] || { emoji: '👤', color: '#888', role: '' };
-        const avatarHtml = info.avatar
-          ? `<img class="pill-avatar" src="${info.avatar}">`
-          : `<span class="pill-emoji">${info.emoji}</span>`;
-        return `<button class="member-pill" onclick="login('${m}')" style="border-color:${info.color}40">
-      ${avatarHtml}
-      <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-        <div style="font-weight:600;font-size:14px">${m}</div>
-        <div style="font-size:11px;color:var(--muted)">${info.role}</div>
-      </div>
-    </button>`;
-      }).join('');
+      rebuildLoginPicker();
     }
 
     function login(name) {
@@ -9358,14 +9338,7 @@
           updateTopbarAvatar();
           renderTeam();
           // Rebuild login picker with new avatar
-          const picker = document.getElementById('member-picker');
-          if (picker) {
-            picker.innerHTML = ALL_MEMBERS.map(n => {
-              const info = MEMBER_INFO[n] || { emoji: '👤', color: '#888', role: '' };
-              const avatarHtml = info.avatar ? `<img class="pill-avatar" src="${info.avatar}">` : `<span class="pill-emoji">${info.emoji}</span>`;
-              return `<button class="member-pill" onclick="login('${n}')" style="border-color:${info.color}40">${avatarHtml}<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><div style="font-weight:600;font-size:14px">${n}</div><div style="font-size:11px;color:var(--muted)">${info.role}</div></div></button>`;
-            }).join('');
-          }
+          rebuildLoginPicker();
         };
         img.src = e.target.result;
       };
@@ -9841,10 +9814,21 @@
 
     function closeAddBrand() { document.getElementById('add-brand-modal').classList.add('hidden'); }
 
+    function rebuildLoginPicker() {
+      const picker = document.getElementById('member-picker');
+      if (!picker) return;
+      picker.innerHTML = ALL_MEMBERS.filter(n => !INACTIVE_MEMBERS.has(n)).map(n => {
+        const info = MEMBER_INFO[n] || { emoji: '👤', color: '#888', role: '' };
+        const avatarHtml = info.avatar ? `<img class="pill-avatar" src="${info.avatar}">` : `<span class="pill-emoji">${info.emoji}</span>`;
+        return `<button class="member-pill" onclick="login('${n}')" style="border-color:${info.color}40">${avatarHtml}<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><div style="font-weight:600;font-size:14px">${n}</div><div style="font-size:11px;color:var(--muted)">${info.role}</div></div></button>`;
+      }).join('');
+    }
+
     function removeMember(name) {
       if (!confirm(`Move "${name}" to past employees? They'll be removed from active workflows.`)) return;
       INACTIVE_MEMBERS.add(name);
       if (_db) _db.ref('inactive_members').set([...INACTIVE_MEMBERS]);
+      rebuildLoginPicker();
       renderTeam();
       buildMemberTabs(currentUser);
       renderOverview();
