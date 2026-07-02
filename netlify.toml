@@ -1,3 +1,15 @@
+# LOONA Hub — Netlify config
+# Deploy: put index.html at the site root and this folder structure alongside it.
+
 [build]
   publish = "."
   functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+# The hub calls the function at:  /.netlify/functions/petpooja-attendance
+# Set these in Netlify → Site settings → Environment variables (NOT in code):
+#   PETPOOJA_CLIENT_ID
+#   PETPOOJA_CLIENT_SECRET
+#   PETPOOJA_BASE_URL
