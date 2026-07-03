@@ -11200,7 +11200,7 @@ Current date: ${today}`;
   <div id="give-freely-root-mbnbehikldjhnfehhnaidhjhoofhpehk" class="give-freely-root"
     data-extension-id="mbnbehikldjhnfehhnaidhjhoofhpehk" data-extension-name="CSS Peeper" style="display: block;"></div>
 
-  <!-- ===== LOONA Hub · Attendance module v9 (injected) ===== -->
+  <!-- ===== LOONA Hub · Attendance module v11 (injected) ===== -->
   <script>
   (function(){
     "use strict";
@@ -11225,9 +11225,9 @@ Current date: ${today}`;
       "Vivaan":  {code:"LSPL011", desg:"Team Member",               in:"10:27 am", hrs:"02h 33m", brk:"00h 00m", status:"working", monthPresent:17, monthLate:2, monthAbsent:0, dept:"Video Production",  joinDate:"2026-05-01", leavesTaken:1},
       "Diya":    {code:"LSPL012", desg:"Sr. Manager – Strategy/OPS",in:"10:32 am", hrs:"02h 28m", brk:"00h 00m", status:"late",    monthPresent:18, monthLate:2, monthAbsent:0, dept:"Marketing & Social",joinDate:"2025-07-01", leavesTaken:4},
       "Ananya":  {code:"LSPL013", desg:"Team Member",               in:"11:58 am", hrs:"00h 30m", brk:"00h 00m", status:"late",    monthPresent:16, monthLate:3, monthAbsent:1, dept:"Content",           joinDate:"2026-06-01", leavesTaken:1},
-      "Karnik":  {code:"Remote",  desg:"Senior Designer",           in:"—",        hrs:"—",       brk:"—",       status:"remote",  monthPresent:0,  monthLate:0, monthAbsent:0, dept:"Graphic Design",    joinDate:"2026-03-24", leavesTaken:3, remote:true},
-      "Ankita":  {code:"Remote",  desg:"Operations",                in:"—",        hrs:"—",       brk:"—",       status:"remote",  monthPresent:0,  monthLate:0, monthAbsent:0, dept:"Accounts & Ops",    joinDate:"2024-11-01", leavesTaken:4, remote:true},
-      "Archisha":{code:"Remote",  desg:"Writer",                    in:"—",        hrs:"—",       brk:"—",       status:"remote",  monthPresent:0,  monthLate:0, monthAbsent:0, dept:"Content",           joinDate:"2026-04-01", leavesTaken:6, remote:true}
+      "Karnik":  {code:"—",       desg:"Senior Designer",           in:"—",        hrs:"—",       brk:"—",       status:"remote",  monthPresent:0,  monthLate:0, monthAbsent:0, dept:"Graphic Design",    joinDate:"2026-03-24", leavesTaken:3, remote:true},
+      "Ankita":  {code:"—",       desg:"Operations",                in:"—",        hrs:"—",       brk:"—",       status:"remote",  monthPresent:0,  monthLate:0, monthAbsent:0, dept:"Accounts & Ops",    joinDate:"2024-11-01", leavesTaken:4, remote:true},
+      "Archisha":{code:"—",       desg:"Writer",                    in:"—",        hrs:"—",       brk:"—",       status:"remote",  monthPresent:0,  monthLate:0, monthAbsent:0, dept:"Content",           joinDate:"2026-04-01", leavesTaken:6, remote:true}
     };
     var DEFAULT={code:"—",desg:"—",in:"—",hrs:"—",brk:"—",status:"off",monthPresent:0,monthLate:0,monthAbsent:0,dept:"—",joinDate:null,leavesTaken:0};
     var APPROVALS=[
@@ -11241,19 +11241,22 @@ Current date: ${today}`;
     var HOLIDAYS=[]; var _holRef=null;
     function cacheHol(){ try{localStorage.setItem("loona_holidays",JSON.stringify(HOLIDAYS));}catch(e){} }
     function loadHolCache(){ try{var s=localStorage.getItem("loona_holidays"); if(s)return JSON.parse(s);}catch(e){} return [{date:"2026-07-16",name:"Company Holiday"}]; }
+    function whenFirebaseReady(cb){
+      if(window.firebase && firebase.apps && firebase.apps.length){ cb(); return; }
+      var n=0, iv=setInterval(function(){ n++;
+        if(window.firebase && firebase.apps && firebase.apps.length){ clearInterval(iv); cb(); }
+        else if(n>40){ clearInterval(iv); } }, 500);
+    }
     function initHolidays(){
-      try{
-        if(window.firebase && firebase.apps && firebase.apps.length){
-          _holRef=firebase.database().ref("loona_holidays");
-          _holRef.on("value",function(snap){
-            var v=snap.val()||{};
-            HOLIDAYS=Object.keys(v).map(function(k){return {key:k,date:v[k].date,name:v[k].name};});
-            cacheHol(); if(window.renderAttendanceOverview) window.renderAttendanceOverview();
-          });
-          return;
-        }
-      }catch(e){}
       HOLIDAYS=loadHolCache();
+      whenFirebaseReady(function(){
+        _holRef=firebase.database().ref("loona_holidays");
+        _holRef.on("value",function(snap){
+          var v=snap.val()||{};
+          HOLIDAYS=Object.keys(v).map(function(k){return {key:k,date:v[k].date,name:v[k].name};});
+          cacheHol(); if(window.renderAttendanceOverview) window.renderAttendanceOverview();
+        });
+      });
     }
     function isHoliday(ds){ for(var i=0;i<HOLIDAYS.length;i++) if(HOLIDAYS[i].date===ds) return HOLIDAYS[i].name||"Holiday"; return null; }
     window.attAddHoliday=function(){
@@ -11280,7 +11283,7 @@ Current date: ${today}`;
     function isSat(ds){ return new Date(ds+"T00:00:00").getDay()===6; }
     function shiftFor(ds){ return isSat(ds)?SHIFT_SAT:SHIFT_WD; }
     function reqFor(ds){ return isSat(ds)?REQ_SAT:REQ_WD; }
-    function statusLabel(s){ return {working:"Working",present:"Present",late:"Late",off:"Time Off",weekoff:"Week Off",leave:"On Leave",absent:"Absent",holiday:"Holiday",future:"—",remote:"Remote"}[s]||s; }
+    function statusLabel(s){ return {working:"Working",present:"Present",late:"Late",off:"Time Off",weekoff:"Week Off",leave:"On Leave",absent:"Absent",holiday:"Holiday",future:"—",remote:"Hub-only"}[s]||s; }
     function pill(s){ return '<span class="att-pill '+s+'">'+statusLabel(s)+'</span>'; }
 
     function dayRecord(name,ds){
@@ -11551,6 +11554,7 @@ Current date: ${today}`;
           if(isHoliday(ds)) return;                           // holiday
           var rec=recs[ds];
           var reqMin=(dow===6?REQ_SAT:REQ_WD)*60;
+          var inMonth=ds.slice(0,7)===TODAY.slice(0,7);
           if(ds===TODAY){
             if(rec){ a.in=minToClock(rec.first_in_min); a.hrs=minToHrs(rec.worked_min); a.brk=minToHrs(rec.break_min);
               a.status=(rec.first_in_min==null)?"off":(rec.first_in_min>GRACE_MIN?"late":"working");
@@ -11558,10 +11562,10 @@ Current date: ${today}`;
             else { a.in="—"; a.hrs="—"; a.brk="—"; a.status="off"; LIVEDAYS[nm][ds]={status:"absent",in:"—",hrs:"—",brk:"—"}; }
             return;
           }
-          if(!rec || rec.first_in_min==null){ abs++; LIVEDAYS[nm][ds]={status:"absent",in:"—",hrs:"—",brk:"—"}; return; }
+          if(!rec || rec.first_in_min==null){ if(inMonth)abs++; LIVEDAYS[nm][ds]={status:"absent",in:"—",hrs:"—",brk:"—"}; return; }
           var lateDay=rec.first_in_min>GRACE_MIN, shortDay=rec.worked_min<reqMin;
-          if(shortDay){ abs++; LIVEDAYS[nm][ds]={status:"absent",in:minToClock(rec.first_in_min),hrs:minToHrs(rec.worked_min),brk:minToHrs(rec.break_min)}; return; }
-          pres++; if(lateDay) late++;
+          if(shortDay){ if(inMonth)abs++; LIVEDAYS[nm][ds]={status:"absent",in:minToClock(rec.first_in_min),hrs:minToHrs(rec.worked_min),brk:minToHrs(rec.break_min)}; return; }
+          if(inMonth){ pres++; if(lateDay) late++; }
           LIVEDAYS[nm][ds]={status:(lateDay?"late":"present"),in:minToClock(rec.first_in_min),hrs:minToHrs(rec.worked_min),brk:minToHrs(rec.break_min)};
         });
         a.monthPresent=pres; a.monthLate=late; a.monthAbsent=abs; a._live=true;
@@ -11578,8 +11582,21 @@ Current date: ${today}`;
         .catch(function(){});
     };
     window.attResync=function(){ var el=document.getElementById("sync-from"); window.attRefreshLive(el&&el.value?el.value:null); };
+    // Read persisted history written by the daily Firebase sync
+    function readFirebaseHistory(){
+      whenFirebaseReady(function(){
+        firebase.database().ref("loona_attendance").on("value",function(snap){
+          var v=snap.val()||{}; var dates=Object.keys(v).sort(); if(!dates.length) return;
+          var records=[];
+          dates.forEach(function(date){ var day=v[date]||{}; Object.keys(day).forEach(function(emp){ var r=day[emp]||{};
+            records.push({emp_id:emp,name:r.n,date:date,first_in_min:(r.i==null?null:r.i),worked_min:r.w||0,break_min:r.b||0}); }); });
+          applyLiveRecords(records, dates[0]);
+        });
+      });
+    }
 
     initHolidays();
+    readFirebaseHistory();
     window.attRefreshLive();
   })();
   </script>

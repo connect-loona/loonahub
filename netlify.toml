@@ -8,8 +8,15 @@
 [functions]
   node_bundler = "esbuild"
 
-# The hub calls the function at:  /.netlify/functions/petpooja-attendance
+# Live read endpoint (hub calls this): /.netlify/functions/petpooja-attendance
+#
+# Daily scheduled sync into Firebase (persists history for everyone).
+# 14:30 UTC = 20:00 IST — after the workday. Adjust the cron as you like.
+[functions."petpooja-sync"]
+  schedule = "30 14 * * *"
+
 # Set these in Netlify → Site settings → Environment variables (NOT in code):
 #   PETPOOJA_CLIENT_ID
 #   PETPOOJA_CLIENT_SECRET
 #   PETPOOJA_BASE_URL
+#   FIREBASE_DB_URL   (optional; defaults to the loona-hub RTDB)
