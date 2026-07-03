@@ -11849,13 +11849,13 @@ Current date: ${today}`;
       '<p>Gokul\'s profile &amp; admin tools are locked.</p>'+
       '<input id="gk-pin" type="password" maxlength="4" inputmode="numeric" placeholder="&middot;&middot;&middot;&middot;">'+
       '<button class="go" id="gk-go">Unlock</button>'+
-      '<div class="hint">Demo PIN 2026 &middot; change in code</div></div></div>');
+      '</div></div>');
     var unlocked=false;
     var modal=document.getElementById("gokul-pin");
     function openPin(cb){
       modal.style.display="flex";
       var i=document.getElementById("gk-pin"); i.value=""; setTimeout(function(){i.focus();},50);
-      function submit(){ if(i.value==="2026"){ unlocked=true; modal.style.display="none"; cb(); } else { i.classList.add("err"); setTimeout(function(){i.classList.remove("err");},350); } }
+      function submit(){ if(i.value==="3107"){ unlocked=true; modal.style.display="none"; cb(); } else { i.classList.add("err"); setTimeout(function(){i.classList.remove("err");},350); } }
       document.getElementById("gk-go").onclick=submit;
       i.onkeydown=function(e){ if(e.key==="Enter") submit(); };
     }
