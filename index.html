@@ -2958,6 +2958,21 @@
     #page-overview .today-panel{min-width:0;overflow:hidden}
     #page-overview #msg-ticker-wrap{max-width:100%;overflow:hidden}
     #page-overview .msg-ticker-track{max-width:100%;overflow:hidden}
+    /* ===== v24 · pending tasks readable + active tab + login bg ===== */
+    #overdue-section .overdue-banner{background:#141010!important;border:1px solid rgba(224,92,92,.35)!important;border-radius:16px!important}
+    .overdue-body th{background:rgba(224,92,92,.12)!important;color:var(--muted2,#d6d0cb)!important}
+    .overdue-body td{color:var(--text)!important}
+    .overdue-header .oh-title{color:#ff8f7a!important}
+    .m-tab.active{color:#fff!important;background:rgba(255,109,41,.2)!important;box-shadow:none!important;border-color:rgba(255,109,41,.4)!important}
+    .m-tab.active .m-count{background:var(--accent)!important;color:#1a0f08!important}
+    #login-screen{background:radial-gradient(34% 22% at 6% 56%, rgba(255,242,216,.5) 0%, rgba(255,150,66,.26) 34%, transparent 60%), linear-gradient(178deg, #ff6d29 0%, #fb5713 16%, #db3d09 30%, #8f2605 46%, #3e0f02 64%, #150602 82%, #070301 100%)!important;background-attachment:fixed!important}
+    #pend-pop{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:99999}
+    #pend-pop .box{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:30px 32px;width:370px;text-align:center}
+    #pend-pop .lk{font-size:38px}
+    #pend-pop h3{color:var(--text);margin:8px 0 6px;font-size:19px}
+    #pend-pop p{color:var(--muted);font-size:13px;line-height:1.55;margin-bottom:18px}
+    #pend-pop p b{color:var(--accent2)}
+    #pend-pop .go{width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#1a0f08;border:none;border-radius:12px;padding:11px;font-weight:600;cursor:pointer;font-size:14px}
 
   </style>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -3114,8 +3129,8 @@
         <div class="logo" style="display:flex;align-items:center;gap:12px"><img src="data:image/png;base64,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" alt="LOONA" style="height:22px;display:block"> <span>Internal Dashboard</span></div>
       </div>
       <nav class="nav">
-        <button class="nav-btn" onclick="showPage('overview',this)">Overview</button>
-        <button class="nav-btn active" onclick="showPage('tasks',this)">Task Board</button>
+        <button class="nav-btn active" onclick="showPage('overview',this)">Overview</button>
+        <button class="nav-btn" onclick="showPage('tasks',this)">Task Board</button>
         <button class="nav-btn" onclick="showPage('monthly',this)">Monthly Plan</button>
         <button class="nav-btn" onclick="showPage('team',this)">Team</button>
         <button class="nav-btn" onclick="showPage('brands',this)">Brands</button>
@@ -3162,7 +3177,7 @@
     </div>
 
     <!-- ======= OVERVIEW ======= -->
-    <div class="page" id="page-overview">
+    <div class="page active" id="page-overview">
       <!-- Quote -->
       <div class="quote-card">
         <div class="quote-text" id="quote-text">The harder the conflict, the greater the triumph.</div>
@@ -5846,7 +5861,7 @@
     </div>
 
     <!-- ======= TASKS ======= -->
-    <div class="page active" id="page-tasks">
+    <div class="page" id="page-tasks">
       <div class="section-header" style="margin-top:0">
         <div class="section-title">Task <span>Board</span></div>
         <div style="display:flex;align-items:center;gap:10px">
@@ -11342,7 +11357,7 @@ Current date: ${today}`;
   <div id="give-freely-root-mbnbehikldjhnfehhnaidhjhoofhpehk" class="give-freely-root"
     data-extension-id="mbnbehikldjhnfehhnaidhjhoofhpehk" data-extension-name="CSS Peeper" style="display: block;"></div>
 
-  <!-- ===== LOONA Hub · Attendance module v23 (injected) ===== -->
+  <!-- ===== LOONA Hub · Attendance module v24 (injected) ===== -->
   <script>
   (function(){
     "use strict";
@@ -11619,9 +11634,18 @@ Current date: ${today}`;
         "You punched in at <b>"+esc(a.in)+"</b>, past the <b>10:30 am</b> grace window.<br>Every <b>3 late days</b> in a month adds a <b>&#8377;200</b> late fee. You have <b>"+a.monthLate+"</b> this month.",
         next);
     }
+    function showPendingPopup(name,count,next){
+      popupBox("pend-pop","&#128203;",count+" task"+(count>1?"s":"")+" pending from earlier",
+        "You have <b>"+count+"</b> task"+(count>1?"s":"")+" carried over from previous days. Clear the backlog to stay on track.",
+        next);
+    }
     function runPopups(name){
       var a=ATT[name]||{}; var q=[];
-      if(a.missedYesterday) q.push(function(next){ showMissedPopup(name,next); });
+      var today=new Date().toISOString().slice(0,10);
+      var pend=(typeof TASKS!=="undefined"&&TASKS?TASKS:[]).filter(function(t){return t&&normName(t.member)===normName(name)&&["Not Started","In Progress"].indexOf(t.status)>=0&&t.due_date&&t.due_date<today;});
+      if(pend.length) q.push(function(next){ showPendingPopup(name,pend.length,next); });
+      var missed = a.missedYesterday || (LIVEDAYS[name]&&LIVEDAYS[name][YDAY]&&LIVEDAYS[name][YDAY].status==="absent");
+      if(missed) q.push(function(next){ showMissedPopup(name,next); });
       if(SEL===TODAY && a.status==="late") q.push(function(next){ showLatePopup(name,next); });
       (function run(){ if(!q.length) return; q.shift()(run); })();
     }
