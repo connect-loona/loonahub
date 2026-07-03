@@ -2948,6 +2948,9 @@
     .wip-card .wip-row .wv{font-size:14px;font-weight:500;margin-top:3px;color:var(--text)}
     .wip-card .wip-row .wv.o{color:var(--accent2)}
     .wip-card .wip-empty{font-size:13px;color:var(--muted)}
+    .wip-card .wip-row{transition:opacity .18s ease,transform .18s ease}
+    .wip-card.wip-flip .wip-row{opacity:0;transform:translateY(6px)}
+    .wip-card .wip-count{margin-top:12px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
     /* ===== v23b · live-status ticker: fixed compact height + orange headline ===== */
     #page-overview #msg-ticker-wrap{border-radius:16px!important;border:1px solid var(--border)!important;background:#0e0d0c!important;margin:18px 0 0!important}
     #page-overview .msg-ticker-header{background:linear-gradient(90deg,rgba(255,109,41,.22),rgba(255,109,41,.04))!important;border-bottom:1px solid var(--border)!important;padding:7px 16px!important}
@@ -8607,6 +8610,11 @@
       currentUser = name;
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('app').style.display = 'block';
+      // Always land on Overview (saved HTML may have another page marked active)
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      const ovPage = document.getElementById('page-overview'); if (ovPage) ovPage.classList.add('active');
+      const ovBtn = document.querySelector('.nav-btn[onclick*="overview"]'); if (ovBtn) ovBtn.classList.add('active');
       document.getElementById('topbar-name').textContent = name;
       updateTopbarAvatar();
       init();
@@ -8617,6 +8625,10 @@
       document.getElementById('app').style.display = 'none';
       document.getElementById('login-screen').style.display = 'flex';
       if (boardTimer) clearInterval(boardTimer);
+      if (window._wipTimer) clearInterval(window._wipTimer);
+      if (window._missTimer) clearTimeout(window._missTimer);
+      (window._taskRemindTimers || []).forEach(clearTimeout); window._taskRemindTimers = [];
+      window._attPopupShown = false;
     }
 
     // ═══ INIT ═══
@@ -11623,10 +11635,32 @@ Current date: ${today}`;
       var el=document.getElementById(id);
       el.querySelector(".go").onclick=function(){ el.remove(); if(onClose) onClose(); };
     }
+    var MISSED_MSGS=[
+      {icon:"&#128683;",title:"Missed hours yesterday",txt:function(){return "You didn’t complete your required <b>"+reqFor(YDAY)+" hours</b> yesterday ("+fmtDate(YDAY)+") — you punched out early. Please note <b>yesterday has been marked as Absent</b>.";}},
+      {icon:"&#9888;&#65039;",title:"Reminder — complete your hours today",txt:function(){return "You didn’t complete your required work hours yesterday. <b>Make sure you complete your full "+reqFor(TODAY)+" hours today</b> so today isn’t marked Absent as well.";}},
+      {icon:"&#9888;&#65039;",title:"Final reminder — full hours today",txt:function(){return "Last nudge: yesterday fell short and was marked <b>Absent</b>. Plan your day so you finish <b>"+reqFor(TODAY)+"h (excl. breaks)</b> before you punch out today.";}}
+    ];
+    function missedKey(name){ return "loona_missed_"+name+"_"+TODAY; }
+    function missedState(name){ try{ var v=JSON.parse(localStorage.getItem(missedKey(name))||"null"); if(v&&typeof v.n==="number") return v; }catch(e){} return {n:0,at:0}; }
+    function markMissedShown(name,n){ try{ localStorage.setItem(missedKey(name),JSON.stringify({n:n,at:Date.now()})); }catch(e){} }
     function showMissedPopup(name,next){
-      popupBox("miss-pop","&#128683;","Missed hours yesterday",
-        "You didn’t complete your required <b>"+reqFor(YDAY)+" hours</b> yesterday ("+fmtDate(YDAY)+") — you punched out early. Please note <b>yesterday has been marked as Absent</b>.",
-        next);
+      var st=missedState(name);
+      if(st.n>=MISSED_MSGS.length){ if(next) next(); return; }
+      var m=MISSED_MSGS[st.n];
+      popupBox("miss-pop",m.icon,m.title,m.txt(),next);
+      markMissedShown(name,st.n+1);
+      scheduleMissedFollowups(name);
+    }
+    // Re-show the warning up to 2 more times, spaced ~1 hour apart
+    function scheduleMissedFollowups(name){
+      if(window._missTimer) clearTimeout(window._missTimer);
+      var st=missedState(name);
+      if(st.n<=0||st.n>=MISSED_MSGS.length) return;
+      var delay=Math.max(5000, 60*60*1000-(Date.now()-st.at));
+      window._missTimer=setTimeout(function(){
+        if(!currentUser||currentUser!==name) return;
+        showMissedPopup(name,null);
+      },delay);
     }
     function showLatePopup(name,next){
       var a=ATT[name]||DEFAULT;
@@ -11639,13 +11673,49 @@ Current date: ${today}`;
         "You have <b>"+count+"</b> task"+(count>1?"s":"")+" carried over from previous days. Clear the backlog to stay on track.",
         next);
     }
+    // ===== Daily task-count reminders (3 slots/day) =====
+    var TASK_REMIND_TIMES=[[11,30],[13,30],[16,30],[17,0]]; // 11:30 am, 1:30 pm, 4:30 pm, 5:00 pm
+    function tasksLeftToday(name){
+      var today=new Date().toISOString().slice(0,10);
+      return (typeof TASKS!=="undefined"&&TASKS?TASKS:[]).filter(function(t){
+        return t&&normName(t.member)===normName(name)&&t.status!=="Completed"&&t.status!=="Deferred"&&t.due_date&&t.due_date<=today;
+      }).length;
+    }
+    function taskRemindKey(name,slot){ return "loona_taskremind_"+name+"_"+TODAY+"_"+slot; }
+    function showTaskCountPopup(name,slot){
+      try{ if(localStorage.getItem(taskRemindKey(name,slot))) return; localStorage.setItem(taskRemindKey(name,slot),"1"); }catch(e){}
+      var left=tasksLeftToday(name);
+      if(left<=0) return; // nothing pending — no nag needed
+      popupBox("pend-pop","&#128203;",left+" more task"+(left>1?"s":"")+" to finish today",
+        "Quick check-in: you still have <b>"+left+"</b> task"+(left>1?"s":"")+" to wrap up today. Knock the next one out — small progress every hour adds up.",null);
+    }
+    function scheduleTaskReminders(name){
+      (window._taskRemindTimers||[]).forEach(clearTimeout); window._taskRemindTimers=[];
+      var now=new Date(), lastPassed=-1;
+      TASK_REMIND_TIMES.forEach(function(tm,i){
+        var t=new Date(now.getFullYear(),now.getMonth(),now.getDate(),tm[0],tm[1],0,0);
+        var delay=t-now;
+        if(delay<0){ lastPassed=i; return; }
+        window._taskRemindTimers.push(setTimeout(function(){ if(currentUser===name) showTaskCountPopup(name,i); },delay));
+      });
+      // Logged in after a slot passed and it wasn't shown yet? Catch up once, gently delayed.
+      if(lastPassed>=0){
+        try{ if(!localStorage.getItem(taskRemindKey(name,lastPassed))){
+          window._taskRemindTimers.push(setTimeout(function(){ if(currentUser===name) showTaskCountPopup(name,lastPassed); },60*1000));
+        } }catch(e){}
+      }
+    }
     function runPopups(name){
       var a=ATT[name]||{}; var q=[];
       var today=new Date().toISOString().slice(0,10);
       var pend=(typeof TASKS!=="undefined"&&TASKS?TASKS:[]).filter(function(t){return t&&normName(t.member)===normName(name)&&["Not Started","In Progress"].indexOf(t.status)>=0&&t.due_date&&t.due_date<today;});
       if(pend.length) q.push(function(next){ showPendingPopup(name,pend.length,next); });
       var missed = a.missedYesterday || (LIVEDAYS[name]&&LIVEDAYS[name][YDAY]&&LIVEDAYS[name][YDAY].status==="absent");
-      if(missed) q.push(function(next){ showMissedPopup(name,next); });
+      if(missed){
+        var mst=missedState(name);
+        if(mst.n===0) q.push(function(next){ showMissedPopup(name,next); });
+        else scheduleMissedFollowups(name); // already shown today — keep the 1-hour cadence going
+      }
       if(SEL===TODAY && a.status==="late") q.push(function(next){ showLatePopup(name,next); });
       (function run(){ if(!q.length) return; q.shift()(run); })();
     }
@@ -11667,9 +11737,10 @@ Current date: ${today}`;
       if(_tp&&_tk&&_tk.parentNode!==_tp) _tp.appendChild(_tk);
       if(name==="Gokul"){ el.innerHTML=founderBoard(); return; }
       el.innerHTML=personalCard(name);
+      startWipRotation();
       var di=document.getElementById("att-date");
       if(di) di.onchange=function(){ SEL=this.value||TODAY; window.renderAttendanceOverview(); };
-      if(!window._attPopupShown){ window._attPopupShown=true; setTimeout(function(){ runPopups(name); },450); }
+      if(!window._attPopupShown){ window._attPopupShown=true; setTimeout(function(){ runPopups(name); },450); scheduleTaskReminders(name); }
     };
 
     if(typeof showPage==="function"){ var _sp=showPage; showPage=function(id,btn){ _sp(id,btn); if(id==="overview") window.renderAttendanceOverview(); }; }
@@ -11712,6 +11783,19 @@ Current date: ${today}`;
     function daysBetween(startISO,endISO){ var out=[],d=new Date(startISO+"T00:00:00"),e=new Date(endISO+"T00:00:00"),g=0; while(d<=e&&g<400){out.push(fmtISO(d));d.setDate(d.getDate()+1);g++;} return out; }
     // Punch-driven: working day with NO punch = Absent; under required hours = Absent;
     // else Present (Late if first punch > 10:30). Sundays & holidays are excluded.
+    // Last punch resolver: prefer last_out_min; else the last raw punch of the day;
+    // else keep any previously-known value (Firebase history rows don't carry punch-outs from older syncs)
+    function lastPunchClock(rec, prev){
+      if(rec && rec.last_out_min!=null) return minToClock(rec.last_out_min);
+      if(rec && rec.punches && rec.punches.length){
+        var lp=rec.punches[rec.punches.length-1];
+        var tp=(String(lp.t).split(" ")[1]||"").split(":");
+        var m=(parseInt(tp[0],10)||0)*60+(parseInt(tp[1],10)||0);
+        if(m) return minToClock(m);
+      }
+      if(prev && prev.out && prev.out!=="—") return prev.out;
+      return "—";
+    }
     function applyLiveRecords(records, startISO){
       var byName={};
       records.forEach(function(rec){ var nm=LIVE.empMap[rec.emp_id]; if(!nm||!ATT[nm])return; (byName[nm]=byName[nm]||{})[rec.date]=rec; });
@@ -11744,16 +11828,16 @@ Current date: ${today}`;
               }
               a.in=minToClock(rec.first_in_min); a.hrs=minToHrs(wk); a.brk=minToHrs(rec.break_min);
               a.status=(rec.first_in_min==null)?"off":(rec.first_in_min>GRACE_MIN?"late":"working");
-              LIVEDAYS[nm][ds]={status:(a.status==="working"?"present":a.status),in:a.in,hrs:a.hrs,brk:a.brk,im:rec.first_in_min,out:(rec.last_out_min==null?"—":minToClock(rec.last_out_min))};
+              LIVEDAYS[nm][ds]={status:(a.status==="working"?"present":a.status),in:a.in,hrs:a.hrs,brk:a.brk,im:rec.first_in_min,out:lastPunchClock(rec,LIVEDAYS[nm][ds])};
             }
             else { a.in="—"; a.hrs="—"; a.brk="—"; a.status="off"; LIVEDAYS[nm][ds]={status:"absent",in:"—",hrs:"—",brk:"—",im:null,out:"—"}; }
             return;
           }
           if(!rec || rec.first_in_min==null){ if(inMonth)abs++; LIVEDAYS[nm][ds]={status:"absent",in:"—",hrs:"—",brk:"—",im:null,out:"—"}; return; }
           var lateDay=rec.first_in_min>GRACE_MIN, shortDay=rec.worked_min<reqMin;
-          if(shortDay){ if(inMonth)abs++; LIVEDAYS[nm][ds]={status:"absent",in:minToClock(rec.first_in_min),hrs:minToHrs(rec.worked_min),brk:minToHrs(rec.break_min),im:rec.first_in_min,out:(rec.last_out_min==null?"—":minToClock(rec.last_out_min))}; return; }
+          if(shortDay){ if(inMonth)abs++; LIVEDAYS[nm][ds]={status:"absent",in:minToClock(rec.first_in_min),hrs:minToHrs(rec.worked_min),brk:minToHrs(rec.break_min),im:rec.first_in_min,out:lastPunchClock(rec,LIVEDAYS[nm][ds])}; return; }
           if(inMonth){ pres++; if(lateDay) late++; }
-          LIVEDAYS[nm][ds]={status:(lateDay?"late":"present"),in:minToClock(rec.first_in_min),hrs:minToHrs(rec.worked_min),brk:minToHrs(rec.break_min),im:rec.first_in_min,out:(rec.last_out_min==null?"—":minToClock(rec.last_out_min))};
+          LIVEDAYS[nm][ds]={status:(lateDay?"late":"present"),in:minToClock(rec.first_in_min),hrs:minToHrs(rec.worked_min),brk:minToHrs(rec.break_min),im:rec.first_in_min,out:lastPunchClock(rec,LIVEDAYS[nm][ds])};
         });
         a.monthPresent=pres; a.monthLate=late; a.monthAbsent=abs; a._live=true;
       });
@@ -11776,7 +11860,7 @@ Current date: ${today}`;
           var v=snap.val()||{}; var dates=Object.keys(v).sort(); if(!dates.length) return;
           var records=[];
           dates.forEach(function(date){ var day=v[date]||{}; Object.keys(day).forEach(function(emp){ var r=day[emp]||{};
-            records.push({emp_id:emp,name:r.n,date:date,first_in_min:(r.i==null?null:r.i),worked_min:r.w||0,break_min:r.b||0}); }); });
+            records.push({emp_id:emp,name:r.n,date:date,first_in_min:(r.i==null?null:r.i),last_out_min:(r.o==null?null:r.o),worked_min:r.w||0,break_min:r.b||0}); }); });
           applyLiveRecords(records, dates[0]);
         });
       });
@@ -11966,17 +12050,48 @@ Current date: ${today}`;
       if(panel.parentNode!==row) row.appendChild(panel);
       if(quote.parentNode!==row) row.appendChild(quote);
     }
-    function wipCard(){
+    function wipList(){
       var list=(typeof TASKS!=="undefined"&&TASKS?TASKS:[]).filter(function(t){return t&&t.status==="In Progress";});
-      var body;
-      if(list.length){ var t=list[0];
-        body='<div class="wip-row">'+
-          '<div><div class="wk">Member</div><div class="wv o">'+esc(t.member||"—")+'</div></div>'+
-          '<div><div class="wk">Brand</div><div class="wv">'+esc(t.brand||"—")+'</div></div>'+
-          '<div><div class="wk">Task</div><div class="wv">'+esc(t.task||"—")+'</div></div>'+
-          '<div><div class="wk">Priority</div><div class="wv o">'+esc(t.priority||"—")+'</div></div></div>';
+      // Round-robin by member so consecutive entries show different people
+      var byM={},order=[];
+      list.forEach(function(t){var m=t.member||"—"; if(!byM[m]){byM[m]=[];order.push(m);} byM[m].push(t);});
+      var out=[],added=true,i=0;
+      while(added){ added=false; order.forEach(function(m){ if(byM[m][i]){out.push(byM[m][i]);added=true;} }); i++; }
+      return out;
+    }
+    function wipEntryHTML(t){
+      return '<div class="wip-row">'+
+        '<div><div class="wk">Member</div><div class="wv o wv-member">'+esc(t.member||"—")+'</div></div>'+
+        '<div><div class="wk">Brand</div><div class="wv wv-brand">'+esc(t.brand||"—")+'</div></div>'+
+        '<div><div class="wk">Task</div><div class="wv wv-task">'+esc(t.task||"—")+'</div></div>'+
+        '<div><div class="wk">Priority</div><div class="wv o wv-priority">'+esc(t.priority||"—")+'</div></div></div>';
+    }
+    function wipCard(){
+      var list=wipList();
+      var body,count='';
+      if(list.length){
+        window._wipIdx=(window._wipIdx||0)%list.length;
+        body=wipEntryHTML(list[window._wipIdx]);
+        count='<div class="wip-count">'+(window._wipIdx+1)+' of '+list.length+' active task'+(list.length>1?"s":"")+'</div>';
       } else { body='<div class="wip-empty">No active work in progress right now.</div>'; }
-      return '<div class="pf-card wip-card"><div class="wip-tag"><span class="wdot"></span>Live — Work in Progress</div>'+body+'</div>';
+      return '<div class="pf-card wip-card"><div class="wip-tag"><span class="wdot"></span>Live — Work in Progress</div>'+body+count+'</div>';
+    }
+    function startWipRotation(){
+      if(window._wipTimer) clearInterval(window._wipTimer);
+      window._wipTimer=setInterval(function(){
+        var card=document.querySelector(".wip-card"); if(!card) return;
+        var list=wipList(); if(!list.length) return;
+        window._wipIdx=((window._wipIdx||0)+1)%list.length;
+        var t=list[window._wipIdx];
+        card.classList.add("wip-flip");
+        setTimeout(function(){
+          var set=function(sel,val){var el=card.querySelector(sel); if(el) el.textContent=val;};
+          set(".wv-member",t.member||"—"); set(".wv-brand",t.brand||"—");
+          set(".wv-task",t.task||"—"); set(".wv-priority",t.priority||"—");
+          var c=card.querySelector(".wip-count"); if(c) c.textContent=(window._wipIdx+1)+" of "+list.length+" active task"+(list.length>1?"s":"");
+          card.classList.remove("wip-flip");
+        },180);
+      },6000);
     }
     initHolidays();
     initLeaves();
