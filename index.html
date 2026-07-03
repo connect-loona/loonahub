@@ -3138,6 +3138,7 @@
         <button class="nav-btn" onclick="showPage('team',this)">Team</button>
         <button class="nav-btn" onclick="showPage('brands',this)">Brands</button>
         <button class="nav-btn" onclick="showPage('chat',this)">AI Chat</button>
+        <button class="nav-btn" onclick="showPage('loonaverse',this)">Loonaverse</button>
       </nav>
       <div style="display:flex;align-items:center;gap:12px">
         <button id="save-btn" onclick="saveToFile()" title="Save all changes to file"
@@ -6076,8 +6077,10 @@
               <th>Brand</th>
               <th>Task</th>
               <th>Assigned By</th>
+              <th>Assigned On</th>
               <th>Priority</th>
               <th>Status</th>
+              <th>Time</th>
               <th>Due Date</th>
               <th></th>
             </tr>
@@ -7998,6 +8001,9 @@
       </div>
     </div>
 
+    <div class="page" id="page-loonaverse">
+      <div class="loonaverse-hero"><div class="lv-soon">Coming soon</div></div>
+    </div>
   </div><!-- /app -->
 
   <script>
@@ -8399,10 +8405,12 @@
       return (name || '').replace(/[.#$\/\[\]\s]/g, '_');
     }
 
+    function fmtStamp(d){ d=d||new Date(); var dd=String(d.getDate()).padStart(2,'0'),mm=String(d.getMonth()+1).padStart(2,'0'),yy=String(d.getFullYear()).slice(-2),h=d.getHours(),ap=h>=12?'pm':'am',h12=((h+11)%12)+1,mi=String(d.getMinutes()).padStart(2,'0'); return dd+'-'+mm+'-'+yy+' '+h12+':'+mi+' '+ap; }
     function fbAddTask(task) {
       const clean = {
         ...task,
-        created_at: task.created_at || new Date().toISOString()
+        created_at: task.created_at || new Date().toISOString(),
+        assigned_on: task.assigned_on || fmtStamp(new Date())
       };
       delete clean._key;
 
@@ -8432,6 +8440,7 @@
     function fbUpdateTask(idx, updates) {
       const t = TASKS[idx];
       if (!t) return;
+      if (updates && updates.status) { updates.status_at = fmtStamp(new Date()); }
       if (_db && t._key) {
         _db.ref('tasks/' + t._key).update(updates);
       } else {
@@ -9249,6 +9258,7 @@
           <td><span style="font-size:11px;padding:2px 8px;background:${isPersonal ? 'rgba(91,156,246,.15)' : 'rgba(200,169,110,.1)'};color:${isPersonal ? 'var(--blue)' : 'var(--accent)'};border-radius:4px">${t.brand || '—'}</span></td>
           <td style="max-width:260px"><div class="task-cell">${t.task.length > 55 ? t.task.slice(0, 55) + '…' : t.task}${t.is_auto ? ' <span class="auto-task-badge">🤖 AUTO</span>' : ''}<div class="task-tip">${t.task}</div></div></td>
           <td style="color:var(--muted);font-size:12px">${t.assigned_by || '—'}</td>
+          <td style=\"color:var(--muted);font-size:12px;white-space:nowrap\">${t.assigned_on || (t.created_at?fmtStamp(new Date(t.created_at)):'—')}</td>
           <td style="${t.status === 'Completed' ? 'opacity:0.35;pointer-events:none' : ''}">${pBadge(t.priority)}</td>
           <td>
             ${(() => {
@@ -9263,11 +9273,12 @@
               return `<select onchange="updateStatus(${gi},this.value)" style="background:${sb};border:1px solid ${sborder};color:${sc};padding:4px 8px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600">${statuses.map(s => `<option value="${s}"${t.status === s ? ' selected' : ''}>${s}</option>`).join('')}</select>`;
             })()}
           </td>
+          <td style=\"color:var(--muted);font-size:12px;white-space:nowrap\">${t.status_at || (t.completed_at?fmtStamp(new Date(t.completed_at)):'—')}</td>
           <td style="white-space:nowrap;color:var(--muted)">${fmtDate(t.due_date)}</td>
           <td>${(normName(currentUser) === normName(t.assigned_by) || normName(currentUser) === normName(t.member) || normName(currentUser) === 'gokul') ? `<button onclick="fbDeleteTaskByKey('${t._key || ''}',${gi})" style="background:none;border:none;color:#555;cursor:pointer;font-size:16px;padding:0 4px" title="Remove task">×</button>` : ''}</td>
         </tr>`;
         }).join('')
-        : '<tr><td colspan="7"><div class="empty">No tasks found</div></td></tr>';
+        : '<tr><td colspan="9"><div class="empty">No tasks found</div></td></tr>';
 
       const pages = Math.ceil(filtered.length / PAGE_SIZE);
       const pg = document.getElementById('pagination');
@@ -11369,6 +11380,56 @@ Current date: ${today}`;
   <div id="give-freely-root-mbnbehikldjhnfehhnaidhjhoofhpehk" class="give-freely-root"
     data-extension-id="mbnbehikldjhnfehhnaidhjhoofhpehk" data-extension-name="CSS Peeper" style="display: block;"></div>
 
+  <style id="cal-opt-b">
+.att-cal td{height:52px;border-radius:11px;background:var(--surface2);vertical-align:top;padding:6px 9px}
+.att-cal td.cell{border:1px solid transparent}
+.att-cal td .num{font-weight:500;color:#cabfb4}
+.att-cal td .clt{position:absolute;bottom:6px;left:9px;font-size:9px;font-weight:500;letter-spacing:.02em}
+.att-cal td.cell-present{background:rgba(43,189,122,.15);border-color:rgba(43,189,122,.4)}
+.att-cal td.cell-present .num{color:#68e6a6}
+.att-cal td.cell-late{background:rgba(240,176,63,.15);border-color:rgba(240,176,63,.42)}
+.att-cal td.cell-late .num,.att-cal td.cell-late .clt{color:#f4c877}
+.att-cal td.cell-absent{background:rgba(239,107,107,.15);border-color:rgba(239,107,107,.42)}
+.att-cal td.cell-absent .num{color:#f39a9a}
+.att-cal td.cell-holiday{background:rgba(164,139,245,.15);border-color:rgba(164,139,245,.42)}
+.att-cal td.cell-holiday .num{color:#c3b1f7}
+.att-cal td.cell-remote{background:rgba(90,155,240,.15);border-color:rgba(90,155,240,.42)}
+.att-cal td.cell-remote .num{color:#a6c8f7}
+.att-cal td.cell-leave{background:rgba(120,180,255,.13);border-color:rgba(120,180,255,.38)}
+.att-cal td.cell-leave .num{color:#9fc0f0}
+.att-cal td.cell-half{background:rgba(240,176,63,.10);border-color:rgba(240,176,63,.3)}
+.att-cal td.cell-half .num{color:#e6c489}
+.att-cal td.cell-weekoff{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.06)}
+.att-cal td.cell-weekoff .num{color:#6f665d}
+.att-cal td.cell-future{background:rgba(255,255,255,.015);border-color:rgba(255,255,255,.05)}
+.att-cal td.cell-future .num{color:#544e46}
+.att-cal td.today{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent!important}
+.att-legend .dt{width:11px;height:11px;border-radius:4px}
+.att-legend .dt.present{background:#2bbd7a}
+.att-legend .dt.late{background:#f0b03f}
+.att-legend .dt.absent{background:#ef6b6b}
+.att-legend .dt.holiday{background:#a48bf5}
+.att-legend .dt.remote{background:#5a9bf0}
+.att-legend .dt.weekoff{background:rgba(255,255,255,.18)}
+.att-legend .dt.leave{background:#78b4ff}
+.att-legend .dt.half{background:rgba(240,176,63,.55)}
+.att-legend .dt.today{background:transparent;border:2px solid var(--accent)}
+</style>
+  <style id="team-lb-css">
+.team-lb{margin-top:0;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:14px;padding:11px 12px}
+.team-lb .tl-head{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--accent2);font-weight:500;margin-bottom:9px}
+.tl-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.tl-item{display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 2px;border-radius:9px;background:rgba(255,255,255,.02);border:1px solid var(--border)}
+.tl-item.me{border-color:var(--accent);background:rgba(255,109,41,.09)}
+.tl-gauge{width:48px;height:31px;display:block}
+.tl-name{font-size:9.5px;color:var(--text);font-weight:500;text-align:center;line-height:1;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tl-pct{font-size:9px;font-weight:600;line-height:1}
+</style>
+  <style id="loonaverse-css">
+#page-loonaverse{padding:0}
+.loonaverse-hero{min-height:72vh;border-radius:18px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:radial-gradient(34% 22% at 6% 56%, rgba(255,242,216,.5) 0%, rgba(255,150,66,.26) 34%, transparent 60%), linear-gradient(178deg, #ff6d29 0%, #fb5713 16%, #db3d09 30%, #8f2605 46%, #3e0f02 64%, #150602 82%, #070301 100%)}
+.loonaverse-hero .lv-soon{font-size:36px;font-weight:500;letter-spacing:.02em;color:#fff;text-shadow:0 2px 24px rgba(0,0,0,.45)}
+</style>
   <!-- ===== LOONA Hub · Attendance module v24 (injected) ===== -->
   <script>
   (function(){
@@ -11383,19 +11444,19 @@ Current date: ${today}`;
 
     // Placeholder data keyed by hub names. code = Petpooja employee code (some real, rest to confirm from Petpooja).
     var ATT={
-      "Gokul":   {code:"—",       desg:"Founder & CEO",              in:"—",        hrs:"—",       brk:"—",       status:"working", monthPresent:0, monthLate:0, monthAbsent:0, dept:"Founder's Office", joinDate:"2022-06-01", leavesTaken:0, founderExempt:true},
-      "Chinmay": {code:"LSPL004", desg:"Editor – Video Vertical",    in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Video Production",  joinDate:"2025-03-26", leavesTaken:0},
-      "Nishant": {code:"LSPL005", desg:"Designer – Website/Graphic", in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Graphic Design",    joinDate:"2025-06-02", leavesTaken:0},
-      "Muskan":  {code:"LSPL006", desg:"Designer",                   in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Graphic Design",    joinDate:"2025-07-01", leavesTaken:0},
-      "Anam":    {code:"LSPL007", desg:"Sr. Manager – Strategy/OPS", in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Strategy & Ops",    joinDate:"2025-12-01", leavesTaken:0},
-      "Anurag":  {code:"LSPL008", desg:"Sr. Videographer/Editor",    in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Video Production",  joinDate:"2025-12-15", leavesTaken:0},
-      "Majid":   {code:"LSPL010", desg:"Junior Video Editor",        in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Video Production",  joinDate:"2026-01-19", leavesTaken:0},
-      "Ricky":   {code:"LSPL003", desg:"Head – Design",              in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Graphic Design",    joinDate:"2025-09-01", leavesTaken:0},
-      "Vivaan":  {code:"LSPL011", desg:"Intern – Social & Strategy", in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Strategy & Ops",    joinDate:"2026-04-16", leavesTaken:0},
-      "Diya":    {code:"LSPL012", desg:"Sr. Manager – Strategy/OPS", in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Strategy & Ops",    joinDate:"2026-04-20", leavesTaken:0},
+      "Gokul":   {code:"—",       desg:"Founder & CEO",              in:"—",        hrs:"—",       brk:"—",       status:"working", monthPresent:0, monthLate:0, monthAbsent:0, dept:"Founder's Office", joinDate:"2024-07-31", leavesTaken:0, founderExempt:true},
+      "Chinmay": {code:"LSPL004", desg:"Editor – Video Vertical",    in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Video and content Production",  joinDate:"2025-03-26", leavesTaken:0},
+      "Nishant": {code:"LSPL005", desg:"Junior Designer – Website/Graphic", in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Graphic Design",    joinDate:"2025-06-02", leavesTaken:0},
+      "Muskan":  {code:"LSPL006", desg:"Junior Designer",                   in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Graphic Design",    joinDate:"2025-07-01", leavesTaken:0},
+      "Anam":    {code:"LSPL007", desg:"Sr. Manager – Strategy/OPS", in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Marketing and Social Media",    joinDate:"2025-12-01", leavesTaken:0},
+      "Anurag":  {code:"LSPL008", desg:"Sr. Videographer/Editor",    in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Video and content Production",  joinDate:"2025-12-15", leavesTaken:0},
+      "Majid":   {code:"LSPL010", desg:"Junior Video Editor",        in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Video and content Production",  joinDate:"2026-01-19", leavesTaken:0},
+      "Ricky":   {code:"LSPL003", desg:"Head – Design",              in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Graphic Design",    joinDate:"2024-09-01", leavesTaken:0},
+      "Vivaan":  {code:"LSPL011", desg:"Intern – Social & Strategy", in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Marketing and Social Media",    joinDate:"2026-04-16", leavesTaken:0},
+      "Diya":    {code:"LSPL012", desg:"Sr. Manager – Strategy/OPS", in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Marketing and Social Media",    joinDate:"2026-04-20", leavesTaken:0},
       "Ananya":  {code:"LSPL013", desg:"Intern – Design",            in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Graphic Design",    joinDate:"2026-06-04", leavesTaken:0},
       "Karnik":  {code:"—",       desg:"Senior Designer",            in:"—",        hrs:"—",       brk:"—",       status:"remote",  monthPresent:0, monthLate:0, monthAbsent:0, dept:"Graphic Design",    joinDate:"2026-03-24", leavesTaken:0, remote:true},
-      "Ankita":  {code:"—",       desg:"Operations",                 in:"—",        hrs:"—",       brk:"—",       status:"remote",  monthPresent:0, monthLate:0, monthAbsent:0, dept:"Accounts & Ops",    joinDate:"2024-11-01", leavesTaken:0, remote:true},
+      "Ankita":  {code:"—",       desg:"Senior Manager – Strategy/OPS",                 in:"—",        hrs:"—",       brk:"—",       status:"remote",  monthPresent:0, monthLate:0, monthAbsent:0, dept:"Marketing and Social Media",    joinDate:"2026-04-01", leavesTaken:0, remote:true},
       "Archisha":{code:"—",       desg:"Writer",                     in:"—",        hrs:"—",       brk:"—",       status:"remote",  monthPresent:0, monthLate:0, monthAbsent:0, dept:"Content",           joinDate:"2026-04-01", leavesTaken:0, remote:true}
     };
     var DEFAULT={code:"—",desg:"—",in:"—",hrs:"—",brk:"—",status:"off",monthPresent:0,monthLate:0,monthAbsent:0,dept:"—",joinDate:null,leavesTaken:0};
@@ -11521,6 +11582,7 @@ Current date: ${today}`;
         '</div>'+
         '<div class="att-rightcol">'+
           perfCardHTML(name)+
+          teamLeaderboard(name)+
           lateFeeBar(name)+
           wipCard()+
         '</div>'+
@@ -11528,16 +11590,36 @@ Current date: ${today}`;
       calendar(name);
     }
 
+    function miniGauge(score){
+      var r=20,cx=26,cy=29,len=Math.PI*r,frac=Math.max(0,Math.min(100,score))/100,fill=(frac*len).toFixed(1);
+      var d="M "+(cx-r)+" "+cy+" A "+r+" "+r+" 0 0 1 "+(cx+r)+" "+cy;
+      return '<svg class="tl-gauge" viewBox="0 0 52 34">'+
+        '<defs><linearGradient id="tlg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ff6d29"/><stop offset="1" stop-color="#ff9457"/></linearGradient></defs>'+
+        '<path d="'+d+'" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="5" stroke-linecap="round"/>'+
+        '<path d="'+d+'" fill="none" stroke="url(#tlg)" stroke-width="5" stroke-linecap="round" stroke-dasharray="'+fill+' '+len.toFixed(1)+'"/>'+
+        '<text x="26" y="27" text-anchor="middle" font-size="13" font-weight="600" fill="#fff">'+score+'<tspan font-size="8">%</tspan></text>'+
+      '</svg>';
+    }
+    function teamLeaderboard(me){
+      var names=Object.keys(ATT).filter(function(n){return n!=="Gokul";});
+      var scored=names.map(function(n){return {n:n,p:perfCompute(n)};}).sort(function(a,b){return b.p.score-a.p.score;});
+      var items=scored.map(function(o){
+        var fn=String(o.n).split(" ")[0];
+        return '<div class="tl-item'+(o.n===me?" me":"")+'">'+miniGauge(o.p.score)+'<div class="tl-name">'+esc(fn)+'</div></div>';
+      }).join("");
+      return '<div class="team-lb"><div class="tl-head">&#127942; Team Leaderboard</div><div class="tl-grid">'+items+'</div></div>';
+    }
     function calDots(name,ds,day,isTodayCell){
       var r=dayRecord(name,ds);
-      if(r.status==="future") return {cls:"",dots:[],green:false};
-      if(r.status==="holiday") return {cls:isTodayCell?"today":"",dots:[],green:false,holiday:true};
-      if(r.status==="weekoff") return {cls:"weekoff",dots:["weekoff"],green:false};
-      if(r.status==="remote") return {cls:isTodayCell?"today":"",dots:["remote"],green:false};
-      var dots=[r.status]; var jul=/^2026-07-/.test(ds);
-      if(jul&&day===1){ if(ATT[name]&&ATT[name].missedYesterday){ dots=["absent"]; } else { dots=["present","late"]; } }
-      if(jul&&day===2&&(name==="Anurag"||name==="Chinmay")) dots=["late","error"];
-      return {cls:isTodayCell?"today":"",dots:dots,green:(r.status==="present"||dots.indexOf("present")>=0)};
+      var td=isTodayCell?"today":"";
+      if(r.status==="future") return {cls:td,key:"future"};
+      if(r.status==="holiday") return {cls:td,key:"holiday",holName:r.holiday||"Holiday"};
+      if(r.status==="weekoff") return {cls:td,key:"weekoff"};
+      if(r.status==="remote") return {cls:td,key:"remote"};
+      var key=r.status; var jul=/^2026-07-/.test(ds);
+      if(jul&&day===1){ key=(ATT[name]&&ATT[name].missedYesterday)?"absent":"late"; }
+      else if(jul&&day===2&&(name==="Anurag"||name==="Chinmay")){ key="late"; }
+      return {cls:td,key:key};
     }
     function calendar(name){
       var sd=new Date(SEL+"T00:00:00"); var yr=sd.getFullYear(), mo=sd.getMonth();
@@ -11548,15 +11630,15 @@ Current date: ${today}`;
       for(var day=1;day<=daysIn;day++){
         var ds=yr+"-"+pad(mo+1)+"-"+pad(day); var isTd=ds===TODAY;
         var info=calDots(name,ds,day,isTd);
-        var body = info.holiday
-          ? '<span class="num hol">'+day+'</span><div class="hol-lbl">Holiday</div>'
-          : '<span class="num '+(info.green?"pr":"")+'">'+day+'</span><div class="dots">'+info.dots.map(function(x){return '<span class="dt '+x+'"></span>';}).join("")+'</div>';
-        cells+='<td class="'+info.cls+'">'+body+'</td>';
+        var lblMap={present:"Present",late:"Late",absent:"Absent",weekoff:"Week off",holiday:(info.holName||"Holiday"),remote:"Remote",leave:"On leave",half:"Half day",future:""};
+        var tip=lblMap[info.key]||"";
+        var body='<span class="num">'+day+'</span>'+(info.key==="late"?'<span class="clt">Late</span>':'');
+        cells+='<td class="cell cell-'+info.key+(info.cls?' '+info.cls:'')+'"'+(tip?' title="'+tip+'"':'')+'>'+body+'</td>';
       }
       var tmp=document.createElement("tbody"); tmp.innerHTML="<tr>"+cells+"</tr>";
       var tds=[].slice.call(tmp.querySelectorAll("td")); var bodyRows="";
       for(var k=0;k<tds.length;k+=7){ bodyRows+="<tr>"+tds.slice(k,k+7).map(function(t){return t.outerHTML;}).join("")+"</tr>"; }
-      var legend=[["today","Today"],["present","Present"],["absent","Absent"],["leave","On leave"],["half","Half Day"],["weekoff","Week Off"],["holiday","Holiday"],["late","Late"],["error","Punch Error"],["remote","Remote"]];
+      var legend=[["today","Today"],["present","Present"],["late","Late"],["absent","Absent"],["holiday","Holiday"],["remote","Remote"],["weekoff","Week Off"],["leave","On leave"],["half","Half Day"]];
       var hadError=/^2026-07-/.test(SEL)&&(name==="Anurag"||name==="Chinmay");
       var reg=hadError
         ? '<div class="rt">&#128197; Pending Regularization</div><div>1 punch error on 02 Jul 2026 — missing punch-out. <a href="#" onclick="return false">Regularize &rsaquo;</a></div>'
@@ -12091,7 +12173,7 @@ Current date: ${today}`;
           var c=card.querySelector(".wip-count"); if(c) c.textContent=(window._wipIdx+1)+" of "+list.length+" active task"+(list.length>1?"s":"");
           card.classList.remove("wip-flip");
         },180);
-      },6000);
+      },3000);
     }
     initHolidays();
     initLeaves();
