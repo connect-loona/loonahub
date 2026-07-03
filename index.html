@@ -11840,7 +11840,7 @@ Current date: ${today}`;
       if(!window._attPopupShown){ window._attPopupShown=true; setTimeout(function(){ runPopups(name); },450); scheduleTaskReminders(name); }
     };
 
-    if(typeof showPage==="function"){ var _sp=showPage; showPage=function(id,btn){ _sp(id,btn); if(id==="overview") window.renderAttendanceOverview(); }; }
+    if(typeof showPage==="function"){ var _sp=showPage; showPage=function(id,btn){ if(id==="overview") SEL=TODAY; _sp(id,btn); if(id==="overview") window.renderAttendanceOverview(); }; }
     if(typeof renderOverview==="function"){ var _ro=renderOverview; renderOverview=function(){ _ro.apply(this,arguments); window.renderAttendanceOverview(); }; }
 
     // ===== Founder PIN gate for Gokul =====
@@ -11860,7 +11860,7 @@ Current date: ${today}`;
       i.onkeydown=function(e){ if(e.key==="Enter") submit(); };
     }
     modal.addEventListener("click",function(e){ if(e.target===modal) modal.style.display="none"; });
-    if(typeof login==="function"){ var _lg=login; login=function(name){ if(name==="Gokul"&&!unlocked){ openPin(function(){ _lg("Gokul"); }); return; } _lg(name); }; }
+    if(typeof login==="function"){ var _lg=login; login=function(name){ SEL=TODAY; if(name==="Gokul"&&!unlocked){ openPin(function(){ _lg("Gokul"); }); return; } _lg(name); }; }
 
     // ===== LIVE DATA (Petpooja) — punch-driven attendance =====
     var LIVE = {
@@ -11893,50 +11893,60 @@ Current date: ${today}`;
       if(prev && prev.out && prev.out!=="—") return prev.out;
       return "—";
     }
-    function applyLiveRecords(records, startISO){
+    function applyLiveRecords(records, startISO, source){
+      source = source || "live";
       var byName={};
       records.forEach(function(rec){ var nm=LIVE.empMap[rec.emp_id]; if(!nm||!ATT[nm])return; (byName[nm]=byName[nm]||{})[rec.date]=rec; });
       var from = startISO || (TODAY.slice(0,8)+"01");
       var days = daysBetween(from, TODAY);
       Object.keys(LIVE.empMap).forEach(function(code){
         var nm=LIVE.empMap[code]; var a=ATT[nm]; if(!a) return;
-        var recs=byName[nm]||{}; var pres=0,late=0,abs=0;
+        var recs=byName[nm]||{};
         LIVEDAYS[nm]=LIVEDAYS[nm]||{};
         days.forEach(function(ds){
           if(a.joinDate && ds < a.joinDate) return;          // before they joined
           var dow=new Date(ds+"T00:00:00").getDay();
           if(dow===0) return;                                 // Sunday
           if(isHoliday(ds)) return;                           // holiday
+          var prev=LIVEDAYS[nm][ds];
+          // Never let a stale daily-sync snapshot overwrite a day already resolved from live punches
+          if(source==="history" && prev && prev._src==="live") return;
           var rec=recs[ds];
           var reqMin=(dow===6?REQ_SAT:REQ_WD)*60;
-          var inMonth=ds.slice(0,7)===TODAY.slice(0,7);
-          if(ds===TODAY){
-            if(rec){
-              var wk=rec.worked_min;
-              // add the current in-progress session (still punched in, no punch-out yet)
-              if(rec.open && rec.punches && rec.punches.length){
-                var lastp=rec.punches[rec.punches.length-1];
-                if((lastp.op||"").toLowerCase()==="in"){
-                  var tp=(String(lastp.t).split(" ")[1]||"").split(":");
-                  var lastInMin=(parseInt(tp[0],10)||0)*60+(parseInt(tp[1],10)||0);
-                  var _n=new Date(), nowMin=_n.getHours()*60+_n.getMinutes();
-                  if(nowMin>lastInMin) wk+=(nowMin-lastInMin);
-                }
+          var entry;
+          if(ds===TODAY && rec){
+            var wk=rec.worked_min;
+            // add the current in-progress session (still punched in, no punch-out yet)
+            if(rec.open && rec.punches && rec.punches.length){
+              var lastp=rec.punches[rec.punches.length-1];
+              if((lastp.op||"").toLowerCase()==="in"){
+                var tp=(String(lastp.t).split(" ")[1]||"").split(":");
+                var lastInMin=(parseInt(tp[0],10)||0)*60+(parseInt(tp[1],10)||0);
+                var _n=new Date(), nowMin=_n.getHours()*60+_n.getMinutes();
+                if(nowMin>lastInMin) wk+=(nowMin-lastInMin);
               }
-              a.in=minToClock(rec.first_in_min); a.hrs=minToHrs(wk); a.brk=minToHrs(rec.break_min);
-              a.status=(rec.first_in_min==null)?"off":(rec.first_in_min>GRACE_MIN?"late":"working");
-              LIVEDAYS[nm][ds]={status:(a.status==="working"?"present":a.status),in:a.in,hrs:a.hrs,brk:a.brk,im:rec.first_in_min,out:lastPunchClock(rec,LIVEDAYS[nm][ds])};
             }
-            else { a.in="—"; a.hrs="—"; a.brk="—"; a.status="off"; LIVEDAYS[nm][ds]={status:"absent",in:"—",hrs:"—",brk:"—",im:null,out:"—"}; }
-            return;
+            var stTod=(rec.first_in_min==null)?"absent":(rec.first_in_min>GRACE_MIN?"late":"present");
+            entry={status:stTod,in:minToClock(rec.first_in_min),hrs:minToHrs(wk),brk:minToHrs(rec.break_min),im:rec.first_in_min,out:lastPunchClock(rec,prev),_src:source};
+          } else if(!rec || rec.first_in_min==null){
+            entry={status:"absent",in:"—",hrs:"—",brk:"—",im:null,out:"—",_src:source};
+          } else {
+            var lateDay=rec.first_in_min>GRACE_MIN, shortDay=rec.worked_min<reqMin;
+            entry={status:(shortDay?"absent":(lateDay?"late":"present")),in:minToClock(rec.first_in_min),hrs:minToHrs(rec.worked_min),brk:minToHrs(rec.break_min),im:rec.first_in_min,out:lastPunchClock(rec,prev),_src:source};
           }
-          if(!rec || rec.first_in_min==null){ if(inMonth)abs++; LIVEDAYS[nm][ds]={status:"absent",in:"—",hrs:"—",brk:"—",im:null,out:"—"}; return; }
-          var lateDay=rec.first_in_min>GRACE_MIN, shortDay=rec.worked_min<reqMin;
-          if(shortDay){ if(inMonth)abs++; LIVEDAYS[nm][ds]={status:"absent",in:minToClock(rec.first_in_min),hrs:minToHrs(rec.worked_min),brk:minToHrs(rec.break_min),im:rec.first_in_min,out:lastPunchClock(rec,LIVEDAYS[nm][ds])}; return; }
-          if(inMonth){ pres++; if(lateDay) late++; }
-          LIVEDAYS[nm][ds]={status:(lateDay?"late":"present"),in:minToClock(rec.first_in_min),hrs:minToHrs(rec.worked_min),brk:minToHrs(rec.break_min),im:rec.first_in_min,out:lastPunchClock(rec,LIVEDAYS[nm][ds])};
+          LIVEDAYS[nm][ds]=entry;
+        });
+        // Derive this-month counts + today's snapshot from the merged LIVEDAYS (live data preferred over history)
+        var mo=TODAY.slice(0,7), pres=0,late=0,abs=0;
+        Object.keys(LIVEDAYS[nm]).forEach(function(ds){
+          if(ds.slice(0,7)!==mo || ds===TODAY) return;
+          var st=LIVEDAYS[nm][ds].status;
+          if(st==="late"){ pres++; late++; } else if(st==="present"){ pres++; } else if(st==="absent"){ abs++; }
         });
         a.monthPresent=pres; a.monthLate=late; a.monthAbsent=abs; a._live=true;
+        var td=LIVEDAYS[nm][TODAY];
+        if(td && td.im!=null){ a.in=td.in; a.hrs=td.hrs; a.brk=td.brk; a.status=(td.status==="present"?"working":td.status); }
+        else { a.in="—"; a.hrs="—"; a.brk="—"; a.status="off"; }
       });
       LIVE_SYNCED=new Date();
       if(window.renderAttendanceOverview) window.renderAttendanceOverview();
@@ -11946,7 +11956,7 @@ Current date: ${today}`;
       LIVE_FROM = startISO || (TODAY.slice(0,8)+"01");
       fetch(LIVE.url+"?start_date="+LIVE_FROM+"&end_date="+TODAY)
         .then(function(r){return r.json();})
-        .then(function(j){ if(j && j.success && j.records) applyLiveRecords(j.records, LIVE_FROM); })
+        .then(function(j){ if(j && j.success && j.records) applyLiveRecords(j.records, LIVE_FROM, "live"); })
         .catch(function(){});
     };
     window.attResync=function(){ var el=document.getElementById("sync-from"); window.attRefreshLive(el&&el.value?el.value:null); };
@@ -11958,7 +11968,7 @@ Current date: ${today}`;
           var records=[];
           dates.forEach(function(date){ var day=v[date]||{}; Object.keys(day).forEach(function(emp){ var r=day[emp]||{};
             records.push({emp_id:emp,name:r.n,date:date,first_in_min:(r.i==null?null:r.i),last_out_min:(r.o==null?null:r.o),worked_min:r.w||0,break_min:r.b||0}); }); });
-          applyLiveRecords(records, dates[0]);
+          applyLiveRecords(records, dates[0], "history");
         });
       });
     }
