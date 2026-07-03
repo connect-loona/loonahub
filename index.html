@@ -2912,7 +2912,7 @@
     .nav-btn.active{background:var(--accent);color:#1a0f08;font-weight:500;box-shadow:none}
     /* hero: greeting card + quote card, side by side, clean & rounded */
     .ov-toprow{display:flex;gap:16px;align-items:stretch;margin-bottom:16px}
-    .ov-toprow .today-panel{flex:1;margin:0}
+    .ov-toprow .today-panel{flex:1;margin:0;min-width:0;overflow:hidden}
     .ov-toprow .quote-card{width:360px;flex:0 0 360px;margin:0}
     @media(max-width:960px){.ov-toprow{flex-direction:column}.ov-toprow .quote-card{width:auto;flex:auto}}
     .today-panel{background:linear-gradient(160deg,#1c1714,#100d0e);border:1px solid var(--border);border-radius:26px;padding:26px 28px;flex-direction:column;align-items:stretch;gap:0}
@@ -2939,6 +2939,25 @@
     .airport-header{background:rgba(255,255,255,.02)!important;border-bottom:1px solid var(--border)!important}
     .airport-board{background:rgba(255,255,255,.02)!important;border:1px solid var(--border)!important;border-radius:16px}
     .airport-header span{color:var(--accent2)}
+    /* ===== v23 · native WIP card + hide old airport board ===== */
+    #page-overview .airport-board{display:none!important}
+    .wip-card .wip-tag{display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent2);font-weight:500;margin-bottom:14px}
+    .wip-card .wip-tag .wdot{width:7px;height:7px;border-radius:50%;background:var(--accent)}
+    .wip-card .wip-row{display:flex;gap:24px;flex-wrap:wrap}
+    .wip-card .wip-row .wk{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+    .wip-card .wip-row .wv{font-size:14px;font-weight:500;margin-top:3px;color:var(--text)}
+    .wip-card .wip-row .wv.o{color:var(--accent2)}
+    .wip-card .wip-empty{font-size:13px;color:var(--muted)}
+    /* ===== v23b · live-status ticker: fixed compact height + orange headline ===== */
+    #page-overview #msg-ticker-wrap{border-radius:16px!important;border:1px solid var(--border)!important;background:#0e0d0c!important;margin:18px 0 0!important}
+    #page-overview .msg-ticker-header{background:linear-gradient(90deg,rgba(255,109,41,.22),rgba(255,109,41,.04))!important;border-bottom:1px solid var(--border)!important;padding:7px 16px!important}
+    #page-overview .msg-ticker-header span{color:var(--accent2)!important;font-weight:500!important}
+    #page-overview .msg-ticker-header .dot{background:var(--accent)!important}
+    #page-overview .msg-ticker-track{height:40px!important}
+    /* ===== v23c · stop the scrolling ticker from blowing out the greeting column ===== */
+    #page-overview .today-panel{min-width:0;overflow:hidden}
+    #page-overview #msg-ticker-wrap{max-width:100%;overflow:hidden}
+    #page-overview .msg-ticker-track{max-width:100%;overflow:hidden}
 
   </style>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -11323,7 +11342,7 @@ Current date: ${today}`;
   <div id="give-freely-root-mbnbehikldjhnfehhnaidhjhoofhpehk" class="give-freely-root"
     data-extension-id="mbnbehikldjhnfehhnaidhjhoofhpehk" data-extension-name="CSS Peeper" style="display: block;"></div>
 
-  <!-- ===== LOONA Hub · Attendance module v22 (injected) ===== -->
+  <!-- ===== LOONA Hub · Attendance module v23 (injected) ===== -->
   <script>
   (function(){
     "use strict";
@@ -11476,6 +11495,7 @@ Current date: ${today}`;
         '<div class="att-rightcol">'+
           perfCardHTML(name)+
           lateFeeBar(name)+
+          wipCard()+
         '</div>'+
       '</div>'+
       calendar(name);
@@ -11618,12 +11638,11 @@ Current date: ${today}`;
       if(!name){ el.innerHTML=""; return; }
       renderLoonaticHeader(name);
       polishOverview(name);
-      if(name==="Gokul"){ el.innerHTML=founderBoard(); var _tp=document.querySelector(".today-panel"), _tk=document.getElementById("msg-ticker-wrap"); if(_tp&&_tk&&_tk.parentNode!==_tp) _tp.appendChild(_tk); return; }
-      el.innerHTML=personalCard(name);
+      reorderOverviewTop();
       var _tp=document.querySelector(".today-panel"), _tk=document.getElementById("msg-ticker-wrap");
-      var _ab=document.querySelector(".airport-board"), _rc=el.querySelector(".att-rightcol");
       if(_tp&&_tk&&_tk.parentNode!==_tp) _tp.appendChild(_tk);
-      if(_rc&&_ab) _rc.appendChild(_ab);
+      if(name==="Gokul"){ el.innerHTML=founderBoard(); return; }
+      el.innerHTML=personalCard(name);
       var di=document.getElementById("att-date");
       if(di) di.onchange=function(){ SEL=this.value||TODAY; window.renderAttendanceOverview(); };
       if(!window._attPopupShown){ window._attPopupShown=true; setTimeout(function(){ runPopups(name); },450); }
@@ -11916,11 +11935,24 @@ Current date: ${today}`;
       for(var i=0;i<vals.length;i++){ if((vals[i].textContent||"").trim()==="—") vals[i].textContent="0"; }
     }
     function reorderOverviewTop(){
-      if(document.querySelector(".ov-toprow")) return;
-      var quote=document.querySelector("#page-overview .quote-card"), panel=document.querySelector("#page-overview .today-panel");
-      if(!quote||!panel||!panel.parentNode) return;
-      var wrap=document.createElement("div"); wrap.className="ov-toprow";
-      panel.parentNode.insertBefore(wrap, panel); wrap.appendChild(panel); wrap.appendChild(quote);
+      var panel=document.querySelector("#page-overview .today-panel"), quote=document.querySelector("#page-overview .quote-card");
+      if(!panel||!quote||!panel.parentNode) return;
+      var row=document.querySelector(".ov-toprow");
+      if(!row){ row=document.createElement("div"); row.className="ov-toprow"; panel.parentNode.insertBefore(row, panel); }
+      if(panel.parentNode!==row) row.appendChild(panel);
+      if(quote.parentNode!==row) row.appendChild(quote);
+    }
+    function wipCard(){
+      var list=(typeof TASKS!=="undefined"&&TASKS?TASKS:[]).filter(function(t){return t&&t.status==="In Progress";});
+      var body;
+      if(list.length){ var t=list[0];
+        body='<div class="wip-row">'+
+          '<div><div class="wk">Member</div><div class="wv o">'+esc(t.member||"—")+'</div></div>'+
+          '<div><div class="wk">Brand</div><div class="wv">'+esc(t.brand||"—")+'</div></div>'+
+          '<div><div class="wk">Task</div><div class="wv">'+esc(t.task||"—")+'</div></div>'+
+          '<div><div class="wk">Priority</div><div class="wv o">'+esc(t.priority||"—")+'</div></div></div>';
+      } else { body='<div class="wip-empty">No active work in progress right now.</div>'; }
+      return '<div class="pf-card wip-card"><div class="wip-tag"><span class="wdot"></span>Live — Work in Progress</div>'+body+'</div>';
     }
     initHolidays();
     initLeaves();
