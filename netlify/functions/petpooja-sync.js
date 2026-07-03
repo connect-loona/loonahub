@@ -58,14 +58,14 @@ function parseStamp(s) {
 }
 function summarize(emp) {
   const pd = (emp.punch_detail || []).slice().sort((a, b) => (a.log_date_time < b.log_date_time ? -1 : 1));
-  let worked = 0, brk = 0, firstIn = null, openIn = null, lastOutEpoch = null;
+  let worked = 0, brk = 0, firstIn = null, openIn = null, lastOutEpoch = null, lastOut = null;
   pd.forEach((p, i) => {
     const { epoch, min } = parseStamp(p.log_date_time);
     let op = (p.op || "").toLowerCase(); if (op !== "in" && op !== "out") op = (i % 2 === 0) ? "in" : "out";
     if (op === "in") { if (firstIn === null) firstIn = min; if (lastOutEpoch !== null) brk += Math.max(0, (epoch - lastOutEpoch) / 60000); openIn = epoch; }
-    else { if (openIn !== null) { worked += Math.max(0, (epoch - openIn) / 60000); openIn = null; } lastOutEpoch = epoch; }
+    else { if (openIn !== null) { worked += Math.max(0, (epoch - openIn) / 60000); openIn = null; } lastOutEpoch = epoch; lastOut = min; }
   });
-  return { n: emp.name, i: firstIn, w: Math.round(worked), b: Math.round(brk) };
+  return { n: emp.name, i: firstIn, o: lastOut, w: Math.round(worked), b: Math.round(brk) };
 }
 
 async function fetchDay(day) {
