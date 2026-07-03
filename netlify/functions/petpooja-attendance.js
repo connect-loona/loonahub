@@ -80,28 +80,44 @@ function punchCount(body) {
   return (body && body.data && Array.isArray(body.data.punch_data)) ? body.data.punch_data.length : 0;
 }
 
-async function getPunches(start, end, attempts) {
+function fmtDate(d) {
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+// Petpooja requires start_date == end_date, so we enumerate each day in the range.
+function eachDate(start, end) {
+  const out = [];
+  let d = new Date(start + "T00:00:00");
+  const e = new Date(end + "T00:00:00");
+  let guard = 0;
+  while (d <= e && guard < 62) { out.push(fmtDate(d)); d.setDate(d.getDate() + 1); guard++; }
+  return out.length ? out : [start];
+}
+
+// Fetch one day (GET with JSON body, start==end). Retries once on 401.
+async function fetchDay(day) {
   const token = await getAccessToken();
-  const auth = { "Authorization": "Bearer " + token };
-  const range = { start_date: start, end_date: end };
-  const qs = "?start_date=" + encodeURIComponent(start) + "&end_date=" + encodeURIComponent(end);
-
-  const strategies = [
-    { name: "GET+body", run: () => req("GET", BASE + "/attendance/punches", auth, range) },
-    { name: "POST+body", run: () => req("POST", BASE + "/attendance/punches", auth, range) },
-    { name: "GET+query", run: () => req("GET", BASE + "/attendance/punches" + qs, auth, null) },
-  ];
-
-  let last = null;
-  for (const s of strategies) {
-    let r = await s.run();
-    if (r.status === 401) { await issueToken(); r = await s.run(); } // token refresh + retry
-    const cnt = punchCount(r.body);
-    attempts.push({ method: s.name, status: r.status, count: cnt, message: r.body && r.body.message });
-    last = r;
-    if (cnt > 0) return r.body;        // first strategy that returns data wins
+  const body = { start_date: day, end_date: day };
+  let r = await req("GET", BASE + "/attendance/punches", { "Authorization": "Bearer " + token }, body);
+  if (r.status === 401) {
+    await issueToken();
+    r = await req("GET", BASE + "/attendance/punches", { "Authorization": "Bearer " + _access }, body);
   }
-  return last ? last.body : { success: false, message: "No response" };
+  return r;
+}
+
+async function getPunches(start, end, attempts) {
+  await getAccessToken();                       // warm the token once before fanning out
+  const days = eachDate(start, end);
+  const results = await Promise.all(days.map(fetchDay));
+  const all = [];
+  results.forEach((r, i) => {
+    const cnt = punchCount(r.body);
+    if (attempts && (attempts.length < 10)) attempts.push({ date: days[i], status: r.status, count: cnt, message: r.body && r.body.message });
+    if (r.body && r.body.data && Array.isArray(r.body.data.punch_data)) {
+      r.body.data.punch_data.forEach((e) => all.push(e));
+    }
+  });
+  return { success: true, data: { punch_data: all } };
 }
 
 function parseStamp(s) {
