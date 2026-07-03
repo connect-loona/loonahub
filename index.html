@@ -2804,6 +2804,19 @@
     #miss-pop p b{color:var(--red)}
     #miss-pop .go{width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0d0d0d;border:none;border-radius:12px;padding:11px;font-weight:700;cursor:pointer;font-size:14px}
 
+    /* ===== v8 additions ===== */
+    .att-pill.remote{background:#122031;color:var(--blue)}
+    .dt.remote{background:var(--blue)}
+    .att-remote-note{font-size:11px;color:var(--blue);margin-top:4px}
+
+    /* ===== v9 additions ===== */
+    .att-sync{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:-2px 0 14px;font-size:12px;color:var(--muted)}
+    .att-sync .lp{display:flex;align-items:center;gap:6px}
+    .att-sync input[type=date]{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 9px;font-size:12px;color-scheme:dark;font-family:inherit}
+    .att-sync button{background:var(--surface2);border:1px solid var(--border);color:var(--accent2);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer}
+    .att-sync button:hover{border-color:var(--accent)}
+    .att-sync .dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;margin-right:5px}
+
   </style>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -11187,11 +11200,12 @@ Current date: ${today}`;
   <div id="give-freely-root-mbnbehikldjhnfehhnaidhjhoofhpehk" class="give-freely-root"
     data-extension-id="mbnbehikldjhnfehhnaidhjhoofhpehk" data-extension-name="CSS Peeper" style="display: block;"></div>
 
-  <!-- ===== LOONA Hub · Attendance module v7 (injected) ===== -->
+  <!-- ===== LOONA Hub · Attendance module v9 (injected) ===== -->
   <script>
   (function(){
     "use strict";
-    var TODAY="2026-07-02", YDAY="2026-07-01";
+    var _t=new Date(); var TODAY=_t.getFullYear()+"-"+pad(_t.getMonth()+1)+"-"+pad(_t.getDate());
+    var _y=new Date(_t.getTime()-86400000); var YDAY=_y.getFullYear()+"-"+pad(_y.getMonth()+1)+"-"+pad(_y.getDate());
     var GRACE_MIN=10*60+30;
     var SHIFT_WD="10:00 am – 05:30 pm", SHIFT_SAT="10:00 am – 03:30 pm";
     var REQ_WD=7, REQ_SAT=5;
@@ -11200,19 +11214,20 @@ Current date: ${today}`;
 
     // Placeholder data keyed by hub names. code = Petpooja employee code (some real, rest to confirm from Petpooja).
     var ATT={
-      "Gokul":   {code:"LSPL001", desg:"Founder & CEO",             in:"09:40 am", hrs:"03h 36m", brk:"00h 00m", status:"working", monthPresent:20, monthLate:0, monthAbsent:0, dept:"Founder's Office", joinDate:"2022-06-01", leavesTaken:0, founderExempt:true},
+      "Gokul":   {code:"—",       desg:"Founder & CEO",             in:"—",        hrs:"—",       brk:"—",       status:"working", monthPresent:0,  monthLate:0, monthAbsent:0, dept:"Founder's Office", joinDate:"2022-06-01", leavesTaken:0, founderExempt:true},
       "Chinmay": {code:"LSPL004", desg:"Editor – Video Vertical",   in:"10:36 am", hrs:"02h 39m", brk:"00h 00m", status:"late",    monthPresent:18, monthLate:3, monthAbsent:1, dept:"Video Production",  joinDate:"2025-11-15", leavesTaken:4},
-      "Majid":   {code:"LSPL010", desg:"Junior Video Editor",       in:"10:15 am", hrs:"02h 48m", brk:"00h 00m", status:"working", monthPresent:19, monthLate:1, monthAbsent:0, dept:"Video Production",  joinDate:"2026-01-10", leavesTaken:3},
       "Nishant": {code:"LSPL005", desg:"Designer – Website/Graphic",in:"10:02 am", hrs:"03h 01m", brk:"00h 00m", status:"working", monthPresent:20, monthLate:0, monthAbsent:0, dept:"Graphic Design",    joinDate:"2025-09-01", leavesTaken:2},
-      "Muskan":  {code:"LSPL006", desg:"Content Strategist",        in:"10:20 am", hrs:"02h 44m", brk:"00h 00m", status:"working", monthPresent:18, monthLate:2, monthAbsent:1, dept:"Marketing & Social",joinDate:"2026-02-01", leavesTaken:5, missedYesterday:true},
-      "Anurag":  {code:"LSPL008", desg:"Sr. Videographer/Editor",   in:"11:59 am", hrs:"01h 04m", brk:"00h 00m", status:"late",    monthPresent:15, monthLate:6, monthAbsent:2, dept:"Video Production",  joinDate:"2025-12-05", leavesTaken:6, missedYesterday:true},
-      "Karnik":  {code:"LSPL003", desg:"Senior Designer",           in:"10:08 am", hrs:"02h 55m", brk:"00h 00m", status:"working", monthPresent:19, monthLate:1, monthAbsent:0, dept:"Graphic Design",    joinDate:"2026-03-24", leavesTaken:3},
-      "Anam":    {code:"LSPL002", desg:"Manager",                   in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:18, monthLate:1, monthAbsent:1, dept:"Marketing & Social",joinDate:"2024-07-15", leavesTaken:7},
-      "Arya":    {code:"LSPL007", desg:"Designer",                  in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:17, monthLate:2, monthAbsent:0, dept:"Graphic Design",    joinDate:"2025-05-20", leavesTaken:5},
-      "Navya":   {code:"LSPL009", desg:"Social Strategist",         in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:16, monthLate:1, monthAbsent:1, dept:"Marketing & Social",joinDate:"2025-08-10", leavesTaken:9},
-      "Ankita":  {code:"LSPL011", desg:"Operations",                in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:19, monthLate:0, monthAbsent:0, dept:"Accounts & Ops",    joinDate:"2024-11-01", leavesTaken:4},
-      "Archisha":{code:"LSPL013", desg:"Writer",                    in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:18, monthLate:1, monthAbsent:0, dept:"Content",           joinDate:"2026-04-01", leavesTaken:6},
-      "Ricky":   {code:"LSPL014", desg:"Videographer",              in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:20, monthLate:1, monthAbsent:0, dept:"Video Production",  joinDate:"2025-10-12", leavesTaken:3}
+      "Muskan":  {code:"LSPL006", desg:"Content Strategist",        in:"10:20 am", hrs:"02h 44m", brk:"00h 00m", status:"working", monthPresent:18, monthLate:2, monthAbsent:1, dept:"Marketing & Social",joinDate:"2026-02-01", leavesTaken:5},
+      "Anam":    {code:"LSPL007", desg:"Manager",                   in:"10:10 am", hrs:"02h 30m", brk:"00h 00m", status:"working", monthPresent:18, monthLate:1, monthAbsent:1, dept:"Marketing & Social",joinDate:"2024-07-15", leavesTaken:7},
+      "Anurag":  {code:"LSPL008", desg:"Sr. Videographer/Editor",   in:"11:59 am", hrs:"01h 04m", brk:"00h 00m", status:"late",    monthPresent:15, monthLate:6, monthAbsent:2, dept:"Video Production",  joinDate:"2025-12-05", leavesTaken:6},
+      "Majid":   {code:"LSPL010", desg:"Junior Video Editor",       in:"10:15 am", hrs:"02h 48m", brk:"00h 00m", status:"working", monthPresent:19, monthLate:1, monthAbsent:0, dept:"Video Production",  joinDate:"2026-01-10", leavesTaken:3},
+      "Ricky":   {code:"LSPL003", desg:"Videographer",              in:"10:03 am", hrs:"02h 57m", brk:"00h 00m", status:"working", monthPresent:20, monthLate:1, monthAbsent:0, dept:"Video Production",  joinDate:"2025-10-12", leavesTaken:3},
+      "Vivaan":  {code:"LSPL011", desg:"Team Member",               in:"10:27 am", hrs:"02h 33m", brk:"00h 00m", status:"working", monthPresent:17, monthLate:2, monthAbsent:0, dept:"Video Production",  joinDate:"2026-05-01", leavesTaken:1},
+      "Diya":    {code:"LSPL012", desg:"Sr. Manager – Strategy/OPS",in:"10:32 am", hrs:"02h 28m", brk:"00h 00m", status:"late",    monthPresent:18, monthLate:2, monthAbsent:0, dept:"Marketing & Social",joinDate:"2025-07-01", leavesTaken:4},
+      "Ananya":  {code:"LSPL013", desg:"Team Member",               in:"11:58 am", hrs:"00h 30m", brk:"00h 00m", status:"late",    monthPresent:16, monthLate:3, monthAbsent:1, dept:"Content",           joinDate:"2026-06-01", leavesTaken:1},
+      "Karnik":  {code:"Remote",  desg:"Senior Designer",           in:"—",        hrs:"—",       brk:"—",       status:"remote",  monthPresent:0,  monthLate:0, monthAbsent:0, dept:"Graphic Design",    joinDate:"2026-03-24", leavesTaken:3, remote:true},
+      "Ankita":  {code:"Remote",  desg:"Operations",                in:"—",        hrs:"—",       brk:"—",       status:"remote",  monthPresent:0,  monthLate:0, monthAbsent:0, dept:"Accounts & Ops",    joinDate:"2024-11-01", leavesTaken:4, remote:true},
+      "Archisha":{code:"Remote",  desg:"Writer",                    in:"—",        hrs:"—",       brk:"—",       status:"remote",  monthPresent:0,  monthLate:0, monthAbsent:0, dept:"Content",           joinDate:"2026-04-01", leavesTaken:6, remote:true}
     };
     var DEFAULT={code:"—",desg:"—",in:"—",hrs:"—",brk:"—",status:"off",monthPresent:0,monthLate:0,monthAbsent:0,dept:"—",joinDate:null,leavesTaken:0};
     var APPROVALS=[
@@ -11265,7 +11280,7 @@ Current date: ${today}`;
     function isSat(ds){ return new Date(ds+"T00:00:00").getDay()===6; }
     function shiftFor(ds){ return isSat(ds)?SHIFT_SAT:SHIFT_WD; }
     function reqFor(ds){ return isSat(ds)?REQ_SAT:REQ_WD; }
-    function statusLabel(s){ return {working:"Working",present:"Present",late:"Late",off:"Time Off",weekoff:"Week Off",leave:"On Leave",absent:"Absent",holiday:"Holiday",future:"—"}[s]||s; }
+    function statusLabel(s){ return {working:"Working",present:"Present",late:"Late",off:"Time Off",weekoff:"Week Off",leave:"On Leave",absent:"Absent",holiday:"Holiday",future:"—",remote:"Remote"}[s]||s; }
     function pill(s){ return '<span class="att-pill '+s+'">'+statusLabel(s)+'</span>'; }
 
     function dayRecord(name,ds){
@@ -11274,6 +11289,8 @@ Current date: ${today}`;
       if(ds>TODAY) return {status:"future",in:"—",hrs:"—",brk:"—"};
       var hol=isHoliday(ds); if(hol) return {status:"holiday",in:"—",hrs:"—",brk:"—",holiday:hol};
       if(dow===0) return {status:"weekoff",in:"—",hrs:"—",brk:"—"};
+      if(LIVEDAYS[name] && LIVEDAYS[name][ds]) return LIVEDAYS[name][ds];
+      if(a.remote) return {status:"remote",in:"—",hrs:"—",brk:"—"};
       if(ds===YDAY && a.missedYesterday) return {status:"absent",in:"10:20 am",hrs:isSat(ds)?"03h 40m":"04h 50m",brk:"00h 20m"};
       if(ds===TODAY){
         var st=a.status==="off"?"absent":(isLate(a.in)?"late":"present");
@@ -11342,6 +11359,7 @@ Current date: ${today}`;
       if(r.status==="future") return {cls:"",dots:[],green:false};
       if(r.status==="holiday") return {cls:isTodayCell?"today":"",dots:[],green:false,holiday:true};
       if(r.status==="weekoff") return {cls:"weekoff",dots:["weekoff"],green:false};
+      if(r.status==="remote") return {cls:isTodayCell?"today":"",dots:["remote"],green:false};
       var dots=[r.status]; var jul=/^2026-07-/.test(ds);
       if(jul&&day===1){ if(ATT[name]&&ATT[name].missedYesterday){ dots=["absent"]; } else { dots=["present","late"]; } }
       if(jul&&day===2&&(name==="Anurag"||name==="Chinmay")) dots=["late","error"];
@@ -11364,7 +11382,7 @@ Current date: ${today}`;
       var tmp=document.createElement("tbody"); tmp.innerHTML="<tr>"+cells+"</tr>";
       var tds=[].slice.call(tmp.querySelectorAll("td")); var bodyRows="";
       for(var k=0;k<tds.length;k+=7){ bodyRows+="<tr>"+tds.slice(k,k+7).map(function(t){return t.outerHTML;}).join("")+"</tr>"; }
-      var legend=[["today","Today"],["present","Present"],["absent","Absent"],["leave","On leave"],["half","Half Day"],["weekoff","Week Off"],["holiday","Holiday"],["late","Late"],["error","Punch Error"]];
+      var legend=[["today","Today"],["present","Present"],["absent","Absent"],["leave","On leave"],["half","Half Day"],["weekoff","Week Off"],["holiday","Holiday"],["late","Late"],["error","Punch Error"],["remote","Remote"]];
       var hadError=/^2026-07-/.test(SEL)&&(name==="Anurag"||name==="Chinmay");
       var reg=hadError
         ? '<div class="rt">&#128197; Pending Regularization</div><div>1 punch error on 02 Jul 2026 — missing punch-out. <a href="#" onclick="return false">Regularize &rsaquo;</a></div>'
@@ -11395,7 +11413,7 @@ Current date: ${today}`;
 
     function founderBoard(){
       var names=Object.keys(ATT);
-      var working=names.filter(function(n){return ATT[n].status!=="off";});
+      var working=names.filter(function(n){return ["working","late","present"].indexOf(ATT[n].status)>=0;});
       var late=names.filter(function(n){return ATT[n].status==="late";});
       var stats=[["Total",names.length,""],["Working",working.length,"hi"],["On Break",0,""],["Time Off",names.length-working.length,""],["Late Today",late.length,""]];
       var rows=names.filter(function(n){return n!=="Gokul";}).map(function(n){
@@ -11424,7 +11442,7 @@ Current date: ${today}`;
       return ''+
       '<div class="att-founder-badge"><span class="em">&#129409;</span> <b>Gokul</b> <span style="color:var(--accent2)">('+esc(ATT.Gokul.code)+')</span> &middot; '+daysAt(ATT.Gokul.joinDate)+' days building Loona &middot; since '+fmtDate(ATT.Gokul.joinDate)+'</div>'+
       '<div class="att-board">'+
-        '<div class="bh">&#128101; Team Attendance Board <span class="tag">Founder only</span></div>'+
+        '<div class="bh">&#128101; Team Attendance Board <span class="tag">Founder only</span></div>'+'<div class="att-sync"><span><span class="dot"></span>'+(LIVE.url?("Live from Petpooja"+(LIVE_SYNCED?(" · synced "+LIVE_SYNCED.toLocaleTimeString("en-IN")):"")):"Placeholder data")+'</span>'+'<span class="lp">Re-pull from <input type="date" id="sync-from" value="'+(LIVE_FROM||(TODAY.slice(0,8)+"01"))+'" max="'+TODAY+'"></span>'+'<button onclick="window.attResync()">&#128260; Re-sync from Petpooja</button></div>'+
         '<div class="att-stats">'+stats.map(function(s){return '<div class="att-stat"><div class="n '+s[2]+'">'+s[1]+'</div><div class="l">'+s[0]+'</div></div>';}).join("")+'</div>'+
         '<div class="scroll"><table class="att-tbl wide"><thead><tr>'+
           '<th>Employee</th><th>Joining Date</th><th>Days at Loona</th><th>Department</th><th>First Punch</th><th>Working Hrs</th><th>Status</th><th>Absent (mo)</th><th>Late Fee (mo)</th><th>Leaves Taken</th><th>Leaves Left</th>'+
@@ -11499,51 +11517,67 @@ Current date: ${today}`;
     modal.addEventListener("click",function(e){ if(e.target===modal) modal.style.display="none"; });
     if(typeof login==="function"){ var _lg=login; login=function(name){ if(name==="Gokul"&&!unlocked){ openPin(function(){ _lg("Gokul"); }); return; } _lg(name); }; }
 
-    // ===== LIVE DATA (Petpooja) — set url + empMap to go live; empty = placeholders =====
+    // ===== LIVE DATA (Petpooja) — punch-driven attendance =====
     var LIVE = {
-      url: "",   // e.g. "/.netlify/functions/petpooja-attendance"  (leave "" to stay on placeholder data)
+      url: "/.netlify/functions/petpooja-attendance",
       empMap: {
-        // "petpooja_emp_id": "Hub Name"  — fill from test-petpooja.js output
-        "LSPL001":"Gokul", "LSPL004":"Chinmay", "LSPL005":"Nishant",
-        "LSPL006":"Muskan", "LSPL008":"Anurag", "LSPL010":"Majid"
+        "LSPL003":"Ricky", "LSPL004":"Chinmay", "LSPL005":"Nishant",
+        "LSPL006":"Muskan", "LSPL007":"Anam",   "LSPL008":"Anurag",
+        "LSPL010":"Majid",  "LSPL011":"Vivaan", "LSPL012":"Diya",
+        "LSPL013":"Ananya"
       }
     };
+    var LIVEDAYS = {};            // LIVEDAYS[hubName][date] = {status,in,hrs,brk}
+    var LIVE_FROM = null, LIVE_SYNCED = null;
+    function fmtISO(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
     function minToClock(min){ if(min==null)return "—"; var h=Math.floor(min/60),m=min%60,ap=h>=12?"pm":"am",h12=((h+11)%12)+1; return h12+":"+pad(m)+" "+ap; }
     function minToHrs(min){ if(min==null)return "—"; var h=Math.floor(min/60),m=min%60; return pad(h)+"h "+pad(m)+"m"; }
-    function applyLiveRecords(records){
+    function daysBetween(startISO,endISO){ var out=[],d=new Date(startISO+"T00:00:00"),e=new Date(endISO+"T00:00:00"),g=0; while(d<=e&&g<400){out.push(fmtISO(d));d.setDate(d.getDate()+1);g++;} return out; }
+    // Punch-driven: working day with NO punch = Absent; under required hours = Absent;
+    // else Present (Late if first punch > 10:30). Sundays & holidays are excluded.
+    function applyLiveRecords(records, startISO){
       var byName={};
-      records.forEach(function(rec){
-        var nm=LIVE.empMap[rec.emp_id]; if(!nm||!ATT[nm]) return;
-        (byName[nm]=byName[nm]||[]).push(rec);
-      });
-      Object.keys(byName).forEach(function(nm){
-        var a=ATT[nm]; var days=byName[nm].slice().sort(function(x,y){return x.date<y.date?-1:1;});
-        var pres=0,late=0,abs=0;
-        days.forEach(function(rec){
-          var ds=rec.date; if(isHoliday(ds)) return;
-          var dow=new Date(ds+"T00:00:00").getDay(); if(dow===0) return;   // Sunday off
+      records.forEach(function(rec){ var nm=LIVE.empMap[rec.emp_id]; if(!nm||!ATT[nm])return; (byName[nm]=byName[nm]||{})[rec.date]=rec; });
+      var from = startISO || (TODAY.slice(0,8)+"01");
+      var days = daysBetween(from, TODAY);
+      Object.keys(LIVE.empMap).forEach(function(code){
+        var nm=LIVE.empMap[code]; var a=ATT[nm]; if(!a) return;
+        var recs=byName[nm]||{}; var pres=0,late=0,abs=0;
+        LIVEDAYS[nm]=LIVEDAYS[nm]||{};
+        days.forEach(function(ds){
+          if(a.joinDate && ds < a.joinDate) return;          // before they joined
+          var dow=new Date(ds+"T00:00:00").getDay();
+          if(dow===0) return;                                 // Sunday
+          if(isHoliday(ds)) return;                           // holiday
+          var rec=recs[ds];
           var reqMin=(dow===6?REQ_SAT:REQ_WD)*60;
-          var lateDay=(rec.first_in_min!=null && rec.first_in_min>GRACE_MIN);
-          if(ds===TODAY){                                // today is in progress — never mark absent yet
-            a.in=minToClock(rec.first_in_min); a.hrs=minToHrs(rec.worked_min); a.brk=minToHrs(rec.break_min);
-            a.status=(rec.first_in_min==null)?"off":(lateDay?"late":"working");
+          if(ds===TODAY){
+            if(rec){ a.in=minToClock(rec.first_in_min); a.hrs=minToHrs(rec.worked_min); a.brk=minToHrs(rec.break_min);
+              a.status=(rec.first_in_min==null)?"off":(rec.first_in_min>GRACE_MIN?"late":"working");
+              LIVEDAYS[nm][ds]={status:(a.status==="working"?"present":a.status),in:a.in,hrs:a.hrs,brk:a.brk}; }
+            else { a.in="—"; a.hrs="—"; a.brk="—"; a.status="off"; LIVEDAYS[nm][ds]={status:"absent",in:"—",hrs:"—",brk:"—"}; }
             return;
           }
-          var absentDay=(rec.worked_min<reqMin);
-          if(absentDay){ abs++; } else { pres++; if(lateDay) late++; }
+          if(!rec || rec.first_in_min==null){ abs++; LIVEDAYS[nm][ds]={status:"absent",in:"—",hrs:"—",brk:"—"}; return; }
+          var lateDay=rec.first_in_min>GRACE_MIN, shortDay=rec.worked_min<reqMin;
+          if(shortDay){ abs++; LIVEDAYS[nm][ds]={status:"absent",in:minToClock(rec.first_in_min),hrs:minToHrs(rec.worked_min),brk:minToHrs(rec.break_min)}; return; }
+          pres++; if(lateDay) late++;
+          LIVEDAYS[nm][ds]={status:(lateDay?"late":"present"),in:minToClock(rec.first_in_min),hrs:minToHrs(rec.worked_min),brk:minToHrs(rec.break_min)};
         });
         a.monthPresent=pres; a.monthLate=late; a.monthAbsent=abs; a._live=true;
       });
+      LIVE_SYNCED=new Date();
       if(window.renderAttendanceOverview) window.renderAttendanceOverview();
     }
-    window.attRefreshLive=function(){
-      if(!LIVE.url) return;                              // stays on placeholders until configured
-      var monthStart=TODAY.slice(0,8)+"01";
-      fetch(LIVE.url+"?start_date="+monthStart+"&end_date="+TODAY)
+    window.attRefreshLive=function(startISO){
+      if(!LIVE.url) return;
+      LIVE_FROM = startISO || (TODAY.slice(0,8)+"01");
+      fetch(LIVE.url+"?start_date="+LIVE_FROM+"&end_date="+TODAY)
         .then(function(r){return r.json();})
-        .then(function(j){ if(j && j.success && j.records) applyLiveRecords(j.records); })
-        .catch(function(){ /* keep placeholders on any failure */ });
+        .then(function(j){ if(j && j.success && j.records) applyLiveRecords(j.records, LIVE_FROM); })
+        .catch(function(){});
     };
+    window.attResync=function(){ var el=document.getElementById("sync-from"); window.attRefreshLive(el&&el.value?el.value:null); };
 
     initHolidays();
     window.attRefreshLive();
