@@ -11212,7 +11212,7 @@ Current date: ${today}`;
   <div id="give-freely-root-mbnbehikldjhnfehhnaidhjhoofhpehk" class="give-freely-root"
     data-extension-id="mbnbehikldjhnfehhnaidhjhoofhpehk" data-extension-name="CSS Peeper" style="display: block;"></div>
 
-  <!-- ===== LOONA Hub · Attendance module v13 (injected) ===== -->
+  <!-- ===== LOONA Hub · Attendance module v14 (injected) ===== -->
   <script>
   (function(){
     "use strict";
@@ -11442,9 +11442,9 @@ Current date: ${today}`;
           '<td>'+esc(a.in)+'</td>'+
           '<td>'+esc(a.hrs)+'</td>'+
           '<td>'+pill(a.status)+'</td>'+
-          '<td>'+(a.monthAbsent>0?'<span class="pend att-clickable" onclick="window.attShowAbsent(&quot;'+nm+'&quot;)">'+a.monthAbsent+'</span>':'0')+'</td>'+'<td>'+(a.monthLate>0?'<span class="att-clickable" style="color:var(--yellow);font-weight:700" onclick="window.attShowLate(&quot;'+nm+'&quot;)">'+a.monthLate+'</span>':'0')+'</td>'+
+          '<td>'+(a.monthAbsent>0?'<span class="pend att-clickable" onclick="window.attShowAbsent(&quot;'+n+'&quot;)">'+a.monthAbsent+'</span>':'0')+'</td>'+'<td>'+(a.monthLate>0?'<span class="att-clickable" style="color:var(--yellow);font-weight:700" onclick="window.attShowLate(&quot;'+n+'&quot;)">'+a.monthLate+'</span>':'0')+'</td>'+
           '<td>'+(fine>0?'<span class="fine">&#8377;'+fine+'</span>':'—')+'</td>'+
-          '<td><input type="number" class="att-leave-input" min="0" value="'+taken+'" onchange="window.attSetLeave(&quot;'+nm+'&quot;,this.value)"> <span class="sub">/ '+TOTAL_LEAVE+'</span></td>'+
+          '<td><input type="number" class="att-leave-input" min="0" value="'+taken+'" onchange="window.attSetLeave(&quot;'+n+'&quot;,this.value)"> <span class="sub">/ '+TOTAL_LEAVE+'</span></td>'+
           '<td><span class="left'+(left<=3?" low":"")+'">'+left+'</span> <span class="sub">left</span></td>'+
         '</tr>';
       }).join("");
