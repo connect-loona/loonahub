@@ -2827,8 +2827,6 @@
     /* ===== v13 additions ===== */
     .att-clickable{cursor:pointer;border-bottom:1px dashed var(--border)}
     .att-clickable:hover{color:var(--accent2);border-bottom-color:var(--accent)}
-    .att-leave-input{width:50px;background:var(--surface2);border:1px solid var(--border);color:var(--accent2);border-radius:6px;padding:4px 6px;font-size:13px;font-weight:700;text-align:center;font-family:inherit}
-    .att-leave-input:focus{outline:none;border-color:var(--accent)}
     #info-pop{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:99999}
     #info-pop .box{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:26px 28px;width:400px;max-height:72vh;overflow:auto;text-align:left}
     #info-pop .lk{font-size:30px;text-align:center}
@@ -11865,22 +11863,22 @@ Current date: ${today}`;
 
     // Placeholder data keyed by hub names. code = Petpooja employee code (some real, rest to confirm from Petpooja).
     var ATT={
-      "Gokul":   {code:"—",       desg:"Founder & CEO",              in:"—",        hrs:"—",       brk:"—",       status:"working", monthPresent:0, monthLate:0, monthAbsent:0, dept:"Founder's Office", joinDate:"2024-07-31", leavesTaken:0, founderExempt:true},
-      "Chinmay": {code:"LSPL004", desg:"Editor – Video Vertical",    in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Video and content Production",  joinDate:"2025-03-26", leavesTaken:0},
-      "Nishant": {code:"LSPL005", desg:"Junior Designer – Website/Graphic", in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Graphic Design",    joinDate:"2025-06-02", leavesTaken:0},
-      "Muskan":  {code:"LSPL006", desg:"Junior Designer",                   in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Graphic Design",    joinDate:"2025-07-01", leavesTaken:0},
-      "Anam":    {code:"LSPL007", desg:"Sr. Manager – Strategy/OPS", in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Marketing and Social Media",    joinDate:"2025-12-01", leavesTaken:0},
-      "Anurag":  {code:"LSPL008", desg:"Sr. Videographer/Editor",    in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Video and content Production",  joinDate:"2025-12-15", leavesTaken:0},
-      "Majid":   {code:"LSPL010", desg:"Junior Video Editor",        in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Video and content Production",  joinDate:"2026-01-19", leavesTaken:0},
-      "Ricky":   {code:"LSPL003", desg:"Head – Design",              in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Graphic Design",    joinDate:"2024-09-01", leavesTaken:0},
-      "Vivaan":  {code:"LSPL011", desg:"Intern – Social & Strategy", in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Marketing and Social Media",    joinDate:"2026-04-16", leavesTaken:0},
-      "Diya":    {code:"LSPL012", desg:"Sr. Manager – Strategy/OPS", in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Marketing and Social Media",    joinDate:"2026-04-20", leavesTaken:0},
-      "Ananya":  {code:"LSPL013", desg:"Intern – Design",            in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Graphic Design",    joinDate:"2026-06-04", leavesTaken:0},
-      "Karnik":  {code:"—",       desg:"Senior Designer",            in:"—",        hrs:"—",       brk:"—",       status:"remote",  monthPresent:0, monthLate:0, monthAbsent:0, dept:"Graphic Design",    joinDate:"2026-03-24", leavesTaken:0, remote:true},
-      "Ankita":  {code:"—",       desg:"Senior Manager – Strategy/OPS",                 in:"—",        hrs:"—",       brk:"—",       status:"remote",  monthPresent:0, monthLate:0, monthAbsent:0, dept:"Marketing and Social Media",    joinDate:"2026-04-01", leavesTaken:0, remote:true},
-      "Archisha":{code:"—",       desg:"Writer",                     in:"—",        hrs:"—",       brk:"—",       status:"remote",  monthPresent:0, monthLate:0, monthAbsent:0, dept:"Content",           joinDate:"2026-04-01", leavesTaken:0, remote:true}
+      "Gokul":   {code:"—",       desg:"Founder & CEO",              in:"—",        hrs:"—",       brk:"—",       status:"working", monthPresent:0, monthLate:0, monthAbsent:0, dept:"Founder's Office", joinDate:"2024-07-31", founderExempt:true},
+      "Chinmay": {code:"LSPL004", desg:"Editor – Video Vertical",    in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Video and content Production",  joinDate:"2025-03-26"},
+      "Nishant": {code:"LSPL005", desg:"Junior Designer – Website/Graphic", in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Graphic Design",    joinDate:"2025-06-02"},
+      "Muskan":  {code:"LSPL006", desg:"Junior Designer",                   in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Graphic Design",    joinDate:"2025-07-01"},
+      "Anam":    {code:"LSPL007", desg:"Sr. Manager – Strategy/OPS", in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Marketing and Social Media",    joinDate:"2025-12-01"},
+      "Anurag":  {code:"LSPL008", desg:"Sr. Videographer/Editor",    in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Video and content Production",  joinDate:"2025-12-15"},
+      "Majid":   {code:"LSPL010", desg:"Junior Video Editor",        in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Video and content Production",  joinDate:"2026-01-19"},
+      "Ricky":   {code:"LSPL003", desg:"Head – Design",              in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Graphic Design",    joinDate:"2024-09-01"},
+      "Vivaan":  {code:"LSPL011", desg:"Intern – Social & Strategy", in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Marketing and Social Media",    joinDate:"2026-04-16"},
+      "Diya":    {code:"LSPL012", desg:"Sr. Manager – Strategy/OPS", in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Marketing and Social Media",    joinDate:"2026-04-20"},
+      "Ananya":  {code:"LSPL013", desg:"Intern – Design",            in:"—",        hrs:"—",       brk:"—",       status:"off",     monthPresent:0, monthLate:0, monthAbsent:0, dept:"Graphic Design",    joinDate:"2026-06-04"},
+      "Karnik":  {code:"—",       desg:"Senior Designer",            in:"—",        hrs:"—",       brk:"—",       status:"remote",  monthPresent:0, monthLate:0, monthAbsent:0, dept:"Graphic Design",    joinDate:"2026-03-24", remote:true},
+      "Ankita":  {code:"—",       desg:"Senior Manager – Strategy/OPS",                 in:"—",        hrs:"—",       brk:"—",       status:"remote",  monthPresent:0, monthLate:0, monthAbsent:0, dept:"Marketing and Social Media",    joinDate:"2026-04-01", remote:true},
+      "Archisha":{code:"—",       desg:"Writer",                     in:"—",        hrs:"—",       brk:"—",       status:"remote",  monthPresent:0, monthLate:0, monthAbsent:0, dept:"Content",           joinDate:"2026-04-01", remote:true}
     };
-    var DEFAULT={code:"—",desg:"—",in:"—",hrs:"—",brk:"—",status:"off",monthPresent:0,monthLate:0,monthAbsent:0,dept:"—",joinDate:null,leavesTaken:0};
+    var DEFAULT={code:"—",desg:"—",in:"—",hrs:"—",brk:"—",status:"off",monthPresent:0,monthLate:0,monthAbsent:0,dept:"—",joinDate:null};
     var APPROVALS=[
       {who:"Chinmay", kind:"Leave", det:"Paid Leave · 30 Jun 2026 · Sick Leave"},
       {who:"Chinmay", kind:"Leave", det:"Paid Leave · 24 Jun 2026 · Family Wedding"},
@@ -12161,7 +12159,7 @@ Current date: ${today}`;
       var rows=names.filter(function(n){return n!=="Gokul";}).map(function(n){
         var a=ATT[n];
         var fLate=lateFine(effLate(n)), fHalf=halfDayFine(n), fShort=shortAbsentFine(n), fine=fLate+fHalf+fShort;
-        var appr=approvedLeaves(n), manual=a.leavesTaken||0, taken=manual+appr, earned=earnedLeave(n), left=earned-taken;
+        var appr=approvedLeaves(n), earned=earnedLeave(n), left=earned-appr;
         return '<tr>'+
           '<td><strong>'+esc(n)+'</strong><div class="sub"><span class="code">'+esc(a.code)+'</span> · '+esc(a.desg)+'</div></td>'+
           '<td>'+fmtDate(a.joinDate)+'</td>'+
@@ -12173,7 +12171,7 @@ Current date: ${today}`;
           '<td class="att-chipcell" title="Full days worked: '+(a.monthPresent||0)+' &middot; Half days: '+(a.monthHalf||0)+' (click H to review/forgive)"><span class="ac-p">'+(a.monthPresent||0)+'P</span> <span class="ac-h att-clickable" onclick="window.attShowHalf(&quot;'+n+'&quot;)">'+(a.monthHalf||0)+'H</span></td>'+
           '<td>'+(function(){var na=Math.max(0,a.monthAbsent-approvedLeavesMo(n));return '<span class="pend att-clickable" style="'+(na>0?'':'color:var(--muted)')+'" onclick="window.attShowAbsent(&quot;'+n+'&quot;)">'+na+'</span>';})()+'</td>'+'<td>'+(function(){var el=effLate(n);return '<span class="att-clickable" style="'+(el>0?'color:var(--yellow);font-weight:700':'color:var(--muted)')+'" onclick="window.attShowLate(&quot;'+n+'&quot;)">'+el+'</span>';})()+'</td>'+
           '<td title="Late: &#8377;'+fLate+' &middot; Half Day: &#8377;'+fHalf+' &middot; Absent (short hours): &#8377;'+fShort+'">'+(fine>0?'<span class="fine">&#8377;'+fine+'</span>':'—')+'</td>'+
-          '<td><input type="number" class="att-leave-input" min="0" value="'+manual+'" onchange="window.attSetLeave(&quot;'+n+'&quot;,this.value)"> <span class="sub">+ '+appr+' leave / '+earned+' earned</span></td>'+
+          '<td><b>'+appr+'</b> <span class="sub">leave / '+earned+' earned</span></td>'+
           '<td><span class="left'+(left<=3?" low":"")+'">'+left+'</span> <span class="sub">left</span></td>'+
         '</tr>';
       }).join("");
@@ -12191,7 +12189,7 @@ Current date: ${today}`;
         '<div class="scroll"><table class="att-tbl wide"><thead><tr>'+
           '<th>Employee</th><th>Joining Date</th><th>Days at Loona</th><th>Department</th><th>First Punch</th><th>Working Hrs</th><th>Status</th><th>Attendance (mo)</th><th>Absent (mo)</th><th>Late (mo)</th><th>Fines (mo)</th><th>Leave Taken</th><th>Leave Left</th>'+
         '</tr></thead><tbody>'+rows+'</tbody></table></div>'+
-        '<div class="note">Attendance = full (P) &amp; half (H) days worked this month, click H to review/forgive &middot; Absent = unresolved (no punch = approvable as Official Leave; short hours = fined, click to review) &middot; Late = click to forgive &middot; Fines combine late, Half Day and short-hours-absence at &#8377;'+LATE_FEE+' per '+LATE_BLOCK+' each &middot; Leave Taken/Left is manual + approved no-punch leave against the '+TOTAL_LEAVE+'-day yearly balance, accrued pro-rata (1.25/month) since April or join date.</div>'+
+        '<div class="note">Attendance = full (P) &amp; half (H) days worked this month, click H to review/forgive &middot; Absent = unresolved (no punch = approvable as Official Leave; short hours = fined, click to review) &middot; Late = click to forgive &middot; Fines combine late, Half Day and short-hours-absence at &#8377;'+LATE_FEE+' per '+LATE_BLOCK+' each &middot; Leave Taken is the count of approved no-punch absences (click Absent above to approve) against the '+TOTAL_LEAVE+'-day yearly balance, accrued pro-rata (1.25/month) since April or join date.</div>'+
         '<div class="att-approvals"><div class="bh" style="margin-top:6px">&#9989; Pending Approvals</div>'+appr+'</div>'+
       '</div>'+
       perfBoardHTML()+
@@ -12469,22 +12467,6 @@ Current date: ${today}`;
       });
     }
 
-    // ===== Leaves (Gokul-editable, Firebase-synced; everyone starts at 0) =====
-    var LEAVES={}, _leaveRef=null;
-    function applyLeaves(){ Object.keys(ATT).forEach(function(n){ ATT[n].leavesTaken=(LEAVES[n]!=null?LEAVES[n]:0); }); }
-    function initLeaves(){
-      try{ var s=localStorage.getItem("loona_leaves"); if(s) LEAVES=JSON.parse(s);}catch(e){}
-      applyLeaves();
-      whenFirebaseReady(function(){
-        _leaveRef=firebase.database().ref("loona_leaves");
-        _leaveRef.on("value",function(snap){ LEAVES=snap.val()||{}; try{localStorage.setItem("loona_leaves",JSON.stringify(LEAVES));}catch(e){} applyLeaves(); if(window.renderAttendanceOverview) window.renderAttendanceOverview(); });
-      });
-    }
-    window.attSetLeave=function(name,val){
-      var v=Math.max(0,parseInt(val,10)||0); LEAVES[name]=v; if(ATT[name]) ATT[name].leavesTaken=v;
-      if(_leaveRef){ _leaveRef.child(name).set(v); } else { try{localStorage.setItem("loona_leaves",JSON.stringify(LEAVES));}catch(e){} }
-      window.renderAttendanceOverview();
-    };
     // ===== Absent / Late detail popups (click the number on the board) =====
     window.attShowAbsent=function(name){
       var d=LIVEDAYS[name]||{}, mo=TODAY.slice(0,7);
@@ -12747,7 +12729,6 @@ Current date: ${today}`;
       },3000);
     }
     initHolidays();
-    initLeaves();
     initPerf();
     readFirebaseHistory();
     window.attRefreshLive();
