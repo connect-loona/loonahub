@@ -11877,6 +11877,8 @@ Current date: ${today}`;
     var SEL=TODAY;
     var FOUNDER_MO=TODAY.slice(0,7); // month shown in the founder board's Monthly Overview table
     window.attSetFounderMonth=function(val){ if(val) FOUNDER_MO=val; if(window.renderAttendanceOverview) window.renderAttendanceOverview(); };
+    var DAILY_SEL=TODAY; // date shown on the founder board's Daily Overview cards
+    window.attSetDailyDate=function(val){ if(val) DAILY_SEL=val; if(window.renderAttendanceOverview) window.renderAttendanceOverview(); };
 
     // Placeholder data keyed by hub names. code = Petpooja employee code (some real, rest to confirm from Petpooja).
     var ATT={
@@ -12186,14 +12188,14 @@ Current date: ${today}`;
       var stats=[["Total",names.length,""],["Working",working.length,"hi"],["On Break",0,""],["Time Off",names.length-working.length,""],["Late Today",late.length,""]];
       var teamNames=names.filter(function(n){return n!=="Gokul";});
       var dailyCards=teamNames.map(function(n){
-        var a=ATT[n], p=perfCompute(n);
+        var a=ATT[n], p=perfCompute(n), rec=dayRecord(n,DAILY_SEL);
         return '<div class="att-daily-card">'+
-          '<div class="adc-head"><div><strong>'+esc(n)+'</strong><span class="sub">'+esc(a.code)+' · '+esc(a.desg)+'</span></div>'+pill(a.status)+'</div>'+
+          '<div class="adc-head"><div><strong>'+esc(n)+'</strong><span class="sub">'+esc(a.code)+' · '+esc(a.desg)+'</span></div>'+pill(rec.status)+'</div>'+
           '<div class="adc-meta">Joined '+fmtDate(a.joinDate)+' &middot; '+daysAt(a.joinDate)+' days &middot; '+esc(a.dept)+'</div>'+
           '<div class="adc-rows">'+
-            '<div class="adc-row"><span>First Punch</span><span class="v">'+esc(a.in)+'</span></div>'+
-            '<div class="adc-row"><span>Working Hrs</span><span class="v">'+esc(a.hrs)+'</span></div>'+
-            '<div class="adc-row"><span>Break Time</span><span class="v">'+esc(a.brk)+'</span></div>'+
+            '<div class="adc-row"><span>First Punch</span><span class="v">'+esc(rec.in)+'</span></div>'+
+            '<div class="adc-row"><span>Working Hrs</span><span class="v">'+esc(rec.hrs)+'</span></div>'+
+            '<div class="adc-row"><span>Break Time</span><span class="v">'+esc(rec.brk)+'</span></div>'+
           '</div>'+
           '<div class="adc-perf">'+miniGauge(p.score)+'<div class="adc-band" style="color:'+p.band.c+'">'+p.band.l+'</div></div>'+
         '</div>';
@@ -12215,7 +12217,8 @@ Current date: ${today}`;
       return ''+
       '<div class="att-founder-badge"><span class="em">&#129409;</span> <b>Gokul</b> <span style="color:var(--accent2)">('+esc(ATT.Gokul.code)+')</span> &middot; '+daysAt(ATT.Gokul.joinDate)+' days building Loona &middot; since '+fmtDate(ATT.Gokul.joinDate)+'</div>'+
       '<div class="att-board">'+
-        '<div class="bh">&#128197; Daily Overview <span class="tag">Founder only</span></div>'+'<div class="att-sync"><span><span class="dot" style="'+(LIVE_ERROR?"background:var(--red)":"")+'"></span>'+(LIVE_ERROR?('<span style="color:var(--red)">Sync error: '+esc(LIVE_ERROR)+'</span>'):(LIVE.url?("Live from Petpooja"+(LIVE_SYNCED?(" · synced "+LIVE_SYNCED.toLocaleTimeString("en-IN")):"")):"Placeholder data"))+'</span>'+'<span class="lp">Re-pull from <input type="date" id="sync-from" value="'+(LIVE_FROM||(TODAY.slice(0,8)+"01"))+'" max="'+TODAY+'"></span>'+'<button onclick="window.attResync()">&#128260; Re-sync from Petpooja</button></div>'+
+        '<div class="bh">&#128197; Daily Overview <span class="tag">Founder only</span></div>'+'<div class="att-sync"><span><span class="dot" style="'+(LIVE_ERROR?"background:var(--red)":"")+'"></span>'+(LIVE_ERROR?('<span style="color:var(--red)">Sync error: '+esc(LIVE_ERROR)+'</span>'):(LIVE.url?("Live from Petpooja"+(LIVE_SYNCED?(" · synced "+LIVE_SYNCED.toLocaleTimeString("en-IN")):"")):"Placeholder data"))+'</span>'+'<span class="lp">Re-sync range starts <input type="date" id="sync-from" value="'+(LIVE_FROM||(TODAY.slice(0,8)+"01"))+'" max="'+TODAY+'"></span>'+'<button onclick="window.attResync()">&#128260; Re-sync from Petpooja</button></div>'+
+        '<div class="att-sync"><span>Viewing <input type="date" id="daily-sel" value="'+DAILY_SEL+'" max="'+TODAY+'" onchange="window.attSetDailyDate(this.value)"></span>'+(DAILY_SEL!==TODAY?'<button onclick="window.attSetDailyDate(&quot;'+TODAY+'&quot;)">Jump to today</button>':'')+'</div>'+
         '<div class="att-stats">'+stats.map(function(s){return '<div class="att-stat"><div class="n '+s[2]+'">'+s[1]+'</div><div class="l">'+s[0]+'</div></div>';}).join("")+'</div>'+
         '<div class="att-daily-grid">'+dailyCards+'</div>'+
       '</div>'+
