@@ -11994,11 +11994,9 @@ Current date: ${today}`;
       if(rec.status==="absent" && rec.im==null && PERF_EXC[name] && PERF_EXC[name][ds]){
         rec=Object.assign({},rec,{status:"leave"});
       }
-      // A forgiven Late/Half Day/short-hours-absence no longer shows as penalized on the calendar —
-      // forgiveness already clears the fine/score hit, so the calendar shouldn't keep flagging it.
-      else if(rec.status==="late" && LATE_FGV[name] && LATE_FGV[name][ds]){
-        rec=Object.assign({},rec,{status:"present"});
-      }
+      // Late stays Late on the calendar regardless of forgiveness — forgiving only affects the fee/score,
+      // not the historical record of what happened that day. Half Day/short-hours-absence still clear to
+      // Present when forgiven, since those are corrections to an ambiguous status rather than a fact like lateness.
       else if(rec.status==="half" && HALF_FGV[name] && HALF_FGV[name][ds]){
         rec=Object.assign({},rec,{status:"present"});
       }
@@ -12210,7 +12208,7 @@ Current date: ${today}`;
         return '<tr>'+
           '<td><strong>'+esc(n)+'</strong><div class="sub"><span class="code">'+esc(a.code)+'</span> · '+esc(a.desg)+'</div></td>'+
           '<td class="att-chipcell" title="Full days worked: '+mc.present+' &middot; Half days: '+mc.half+' (click H to review/forgive)"><span class="ac-p">'+mc.present+'P</span> <span class="ac-h att-clickable" onclick="window.attShowHalf(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)">'+mc.half+'H</span></td>'+
-          '<td>'+(function(){var na=Math.max(0,mc.absent-approvedLeavesMo(n,mo));return '<span class="pend att-clickable" style="'+(na>0?'':'color:var(--muted)')+'" onclick="window.attShowAbsent(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)">'+na+'</span>';})()+'</td>'+'<td title="'+mc.late+' late this month'+(function(){var fg=forgivenLateMo(n,mo);return fg?(' &middot; '+fg+' forgiven'):'';})()+'">'+(function(){var el=effLate(n,mo);return '<span class="att-clickable" style="'+(el>0?'color:var(--yellow);font-weight:700':'color:var(--muted)')+'" onclick="window.attShowLate(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)">'+el+'</span>';})()+'</td>'+
+          '<td>'+(function(){var na=Math.max(0,mc.absent-approvedLeavesMo(n,mo));return '<span class="pend att-clickable" style="'+(na>0?'':'color:var(--muted)')+'" onclick="window.attShowAbsent(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)">'+na+'</span>';})()+'</td>'+'<td>'+(function(){var fg=forgivenLateMo(n,mo);return '<span class="att-clickable" style="'+(mc.late>0?'color:var(--yellow);font-weight:700':'color:var(--muted)')+'" onclick="window.attShowLate(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)">'+mc.late+'</span>'+(fg?(' <span class="sub">('+fg+' forgiven)</span>'):'');})()+'</td>'+
           '<td title="Late: &#8377;'+fLate+' &middot; Half Day: &#8377;'+fHalf+' &middot; Absent (short hours): &#8377;'+fShort+'">'+(fine>0?'<span class="fine">&#8377;'+fine+'</span>':'—')+'</td>'+
           '<td><b>'+appr+'</b> <span class="sub">leave / '+earned+' earned</span></td>'+
           '<td><span class="left'+(left<=3?" low":"")+'">'+left+'</span> <span class="sub">left</span></td>'+
@@ -12229,7 +12227,7 @@ Current date: ${today}`;
         '<div class="scroll"><table class="att-tbl wide"><thead><tr>'+
           '<th>Employee</th><th>Attendance (mo)</th><th>Absent (mo)</th><th>Late (mo)</th><th>Fines (mo)</th><th>Leave Taken</th><th>Leave Left</th>'+
         '</tr></thead><tbody>'+rows+'</tbody></table></div>'+
-        '<div class="note">Attendance = full (P) &amp; half (H) days worked in the selected month, click H to review/forgive &middot; Absent = unresolved (no punch = approvable as Official Leave; short hours = fined, click to review) &middot; Late = shown net of forgiven days (hover for the breakdown), click to review/forgive — the calendar still shows every late day regardless of forgiveness &middot; Fines combine late, Half Day and short-hours-absence at &#8377;'+LATE_FEE+' per '+LATE_BLOCK+' each, for the selected month &middot; Leave Taken/Left is a running total (not month-specific) — the count of approved no-punch absences against the '+TOTAL_LEAVE+'-day yearly balance, accrued pro-rata (1.25/month) since April or join date.</div>'+
+        '<div class="note">Attendance = full (P) &amp; half (H) days worked in the selected month, click H to review/forgive &middot; Absent = unresolved (no punch = approvable as Official Leave; short hours = fined, click to review) &middot; Late = total days late (forgiven count shown alongside), click to review/forgive — forgiving removes it from fees/score but the calendar still shows it as Late &middot; Fines combine late, Half Day and short-hours-absence at &#8377;'+LATE_FEE+' per '+LATE_BLOCK+' each, for the selected month &middot; Leave Taken/Left is a running total (not month-specific) — the count of approved no-punch absences against the '+TOTAL_LEAVE+'-day yearly balance, accrued pro-rata (1.25/month) since April or join date.</div>'+
       '</div>'+
       perfBoardHTML()+
       holidayManager();
