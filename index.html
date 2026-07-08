@@ -11924,7 +11924,7 @@ Current date: ${today}`;
     function statusLabel(s){ return {working:"Working",present:"Present",late:"Late",off:"Time Off",weekoff:"Week Off",leave:"On Leave",absent:"Absent",holiday:"Holiday",future:"—",remote:"Hub-only"}[s]||s; }
     function pill(s){ return '<span class="att-pill '+s+'">'+statusLabel(s)+'</span>'; }
 
-    function dayRecord(name,ds){
+    function dayRecordRaw(name,ds){
       var a=ATT[name]||DEFAULT;
       var d=new Date(ds+"T00:00:00"); var dow=d.getDay();
       var hol=isHoliday(ds); if(hol) return {status:"holiday",in:"—",hrs:"—",brk:"—",holiday:hol};
@@ -11938,6 +11938,15 @@ Current date: ${today}`;
         return {status:st,in:a.in,hrs:a.hrs,brk:a.brk,im:parseMin(a.in)};
       }
       return {status:"present",in:"10:12 am",hrs:isSat(ds)?"05h 10m":"07h 30m",brk:"00h 30m"};
+    }
+    // Founder's per-date "Approve leave" (PERF_EXC / loona_excused) turns an absent day into an official leave
+    // on the employee's own calendar, not just in the performance-score math.
+    function dayRecord(name,ds){
+      var rec=dayRecordRaw(name,ds);
+      if(rec.status==="absent" && PERF_EXC[name] && PERF_EXC[name][ds]){
+        rec=Object.assign({},rec,{status:"leave"});
+      }
+      return rec;
     }
 
     function loonaticBadge(name){
