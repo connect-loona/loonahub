@@ -2663,7 +2663,7 @@
     .att-chips{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
     .att-chip{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:9px 13px;font-size:12px;color:var(--muted);flex:1;min-width:88px}
     .att-chip b{color:var(--accent2);font-size:17px;display:block;margin-bottom:2px}
-    .att-chip.g b{color:var(--green)}.att-chip.y b{color:var(--yellow)}.att-chip.o b{color:#e6c489}
+    .att-chip.g b{color:var(--green)}.att-chip.y b{color:var(--yellow)}.att-chip.o b{color:#e6c489}.att-chip.b b{color:var(--purple)}
     .att-chipcell{white-space:nowrap;font-size:12px;font-weight:700}
     .att-chipcell .ac-p{color:var(--green)}.att-chipcell .ac-h{color:#e6c489}
     .att-note{font-size:11px;color:#555;margin-top:12px;display:flex;align-items:center;gap:6px}
@@ -12049,7 +12049,8 @@ Current date: ${today}`;
             '<div class="att-chip g"><b>'+a.monthPresent+'</b>Present</div>'+
             '<div class="att-chip y"><b>'+a.monthLate+'</b>Late</div>'+
             '<div class="att-chip o"><b>'+(a.monthHalf||0)+'</b>Half Day</div>'+
-            '<div class="att-chip r"><b>'+a.monthAbsent+'</b>Absent</div>'+
+            '<div class="att-chip b"><b>'+approvedLeavesMo(name)+'</b>Leave</div>'+
+            '<div class="att-chip r"><b>'+Math.max(0,a.monthAbsent-approvedLeavesMo(name))+'</b>Absent</div>'+
           '</div>'+
           '<div class="att-rulenote">&#9203; Complete '+req+'h (excl. breaks) for Present. At least half ('+(req/2)+'h) marks <b>Half Day</b>; under that marks <b>Absent</b>. Weekdays 7h (3.5h half), Saturdays min 5h (2.5h half), 10:00–3:30.</div>'+
           '<div class="att-siderows">'+
