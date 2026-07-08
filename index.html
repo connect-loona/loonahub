@@ -12099,7 +12099,7 @@ Current date: ${today}`;
       var stats=[["Total",names.length,""],["Working",working.length,"hi"],["On Break",0,""],["Time Off",names.length-working.length,""],["Late Today",late.length,""]];
       var rows=names.filter(function(n){return n!=="Gokul";}).map(function(n){
         var a=ATT[n], fine=lateFine(a.monthLate);
-        var appr=approvedLeaves(n), manual=a.leavesTaken||0, taken=manual+appr, left=TOTAL_LEAVE-taken;
+        var appr=approvedLeaves(n), halfLv=halfDayLeaves(n), manual=a.leavesTaken||0, taken=manual+appr+halfLv, left=TOTAL_LEAVE-taken;
         return '<tr>'+
           '<td><strong>'+esc(n)+'</strong><div class="sub"><span class="code">'+esc(a.code)+'</span> · '+esc(a.desg)+'</div></td>'+
           '<td>'+fmtDate(a.joinDate)+'</td>'+
@@ -12110,7 +12110,7 @@ Current date: ${today}`;
           '<td>'+pill(a.status)+'</td>'+
           '<td>'+(function(){var na=Math.max(0,a.monthAbsent-approvedLeavesMo(n));return '<span class="pend att-clickable" style="'+(na>0?'':'color:var(--muted)')+'" onclick="window.attShowAbsent(&quot;'+n+'&quot;)">'+na+'</span>';})()+'</td>'+'<td>'+(function(){var el=effLate(n);return '<span class="att-clickable" style="'+(el>0?'color:var(--yellow);font-weight:700':'color:var(--muted)')+'" onclick="window.attShowLate(&quot;'+n+'&quot;)">'+el+'</span>';})()+'</td>'+
           '<td>'+(fine>0?'<span class="fine">&#8377;'+fine+'</span>':'—')+'</td>'+
-          '<td><input type="number" class="att-leave-input" min="0" value="'+manual+'" onchange="window.attSetLeave(&quot;'+n+'&quot;,this.value)"> <span class="sub">+ '+appr+' leave / '+TOTAL_LEAVE+'</span></td>'+
+          '<td><input type="number" class="att-leave-input" min="0" value="'+manual+'" onchange="window.attSetLeave(&quot;'+n+'&quot;,this.value)"> <span class="sub">+ '+(appr+halfLv)+' leave'+(halfLv?(' ('+halfLv+' from '+(halfLv*2)+' half-days)'):'')+' / '+TOTAL_LEAVE+'</span></td>'+
           '<td><span class="left'+(left<=3?" low":"")+'">'+left+'</span> <span class="sub">left</span></td>'+
         '</tr>';
       }).join("");
@@ -12551,6 +12551,9 @@ Current date: ${today}`;
     // Only no-punch days count as leave taken (short-hours approvals are forgiven, not leave).
     function isNoPunchDay(name,ds){ var r=LIVEDAYS[name]&&LIVEDAYS[name][ds]; return !!r && r.im==null; }
     function approvedLeaves(name){ var e=PERF_EXC[name]||{}; return Object.keys(e).filter(function(d){return e[d]&&isNoPunchDay(name,d);}).length; }
+    // Every 2 Half Days consume 1 day of leave.
+    function halfDayCount(name){ var ld=LIVEDAYS[name]||{}; return Object.keys(ld).filter(function(ds){return ld[ds].status==="half";}).length; }
+    function halfDayLeaves(name){ return Math.floor(halfDayCount(name)/2); }
     function approvedLeavesMo(name){ var e=PERF_EXC[name]||{}, mo=curMonth(); return Object.keys(e).filter(function(d){return e[d]&&d.slice(0,7)===mo;}).length; }
     window.perfExcuse=function(name,date){
       PERF_EXC[name]=PERF_EXC[name]||{}; PERF_EXC[name][date]=!PERF_EXC[name][date]; cachePerf();
