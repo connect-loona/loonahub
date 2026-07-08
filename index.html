@@ -11939,12 +11939,13 @@ Current date: ${today}`;
       }
       return {status:"present",in:"10:12 am",hrs:isSat(ds)?"05h 10m":"07h 30m",brk:"00h 30m"};
     }
-    // Founder's per-date "Approve leave" (PERF_EXC / loona_excused) turns an absent day into an official leave
-    // on the employee's own calendar, not just in the performance-score math.
+    // Founder's per-date approval (PERF_EXC / loona_excused) reflects on the employee's own calendar:
+    // punched in but under required hours -> forgiven, shows Present (no leave deducted).
+    // no punch at all -> official leave, shows On leave (deducted from leave balance).
     function dayRecord(name,ds){
       var rec=dayRecordRaw(name,ds);
       if(rec.status==="absent" && PERF_EXC[name] && PERF_EXC[name][ds]){
-        rec=Object.assign({},rec,{status:"leave"});
+        rec=Object.assign({},rec,{status: rec.im==null ? "leave" : "present"});
       }
       return rec;
     }
@@ -12542,7 +12543,9 @@ Current date: ${today}`;
       if(_perfReady){ try{ firebase.database().ref("loona_perf_adjust/"+mo+"/"+name).set(cur); }catch(e){} }
       perfRerender();
     };
-    function approvedLeaves(name){ var e=PERF_EXC[name]||{}; return Object.keys(e).filter(function(d){return e[d];}).length; }
+    // Only no-punch days count as leave taken (short-hours approvals are forgiven, not leave).
+    function isNoPunchDay(name,ds){ var r=LIVEDAYS[name]&&LIVEDAYS[name][ds]; return !!r && r.im==null; }
+    function approvedLeaves(name){ var e=PERF_EXC[name]||{}; return Object.keys(e).filter(function(d){return e[d]&&isNoPunchDay(name,d);}).length; }
     function approvedLeavesMo(name){ var e=PERF_EXC[name]||{}, mo=curMonth(); return Object.keys(e).filter(function(d){return e[d]&&d.slice(0,7)===mo;}).length; }
     window.perfExcuse=function(name,date){
       PERF_EXC[name]=PERF_EXC[name]||{}; PERF_EXC[name][date]=!PERF_EXC[name][date]; cachePerf();
@@ -12565,9 +12568,9 @@ Current date: ${today}`;
     window.attShowAbsent=function(name){
       var d=LIVEDAYS[name]||{}, mo=curMonth();
       var rows=Object.keys(d).filter(function(ds){return ds.slice(0,7)===mo && d[ds].status==="absent";}).sort();
-      var html=rows.length? ('<div style="font-size:11px;color:#8a8178;margin-bottom:10px;line-height:1.5">Approve an <b style="color:#68e6a6">official leave</b> (excused &amp; counted as leave taken), or leave it <b style="color:#f39a9a">unapproved</b> (stays absent — late arrival / short hours).</div>'+rows.map(function(ds){ var ex=(PERF_EXC[name]||{})[ds];
-        return '<div class="pf-absrow"><span>&bull; '+fmtDate(ds)+(d[ds].im!=null?(" · in "+minToClock(d[ds].im)):" · no punch")+'</span>'+
-          '<button class="pf-exc'+(ex?" on":"")+'" onclick="window.perfExcuse(&quot;'+name+'&quot;,&quot;'+ds+'&quot;)">'+(ex?"Official leave ✓":"Approve leave")+'</button></div>'; }).join(""))
+      var html=rows.length? ('<div style="font-size:11px;color:#8a8178;margin-bottom:10px;line-height:1.5">Approve a day <b style="color:#68e6a6">with a punch</b> (short hours) to clear it as Present — no leave deducted. Approve a day <b style="color:#9fc0f0">with no punch</b> to mark it Official Leave — deducted from the leave balance. Leave it unapproved and it stays Absent.</div>'+rows.map(function(ds){ var ex=(PERF_EXC[name]||{})[ds], noPunch=d[ds].im==null;
+        return '<div class="pf-absrow"><span>&bull; '+fmtDate(ds)+(noPunch?" · no punch":(" · in "+minToClock(d[ds].im)))+'</span>'+
+          '<button class="pf-exc'+(ex?" on":"")+'" onclick="window.perfExcuse(&quot;'+name+'&quot;,&quot;'+ds+'&quot;)">'+(ex?(noPunch?"Official leave ✓":"Present ✓"):(noPunch?"Approve leave":"Approve as Present"))+'</button></div>'; }).join(""))
         : "No absences this month. &#127881;";
       popupBox("info-pop","&#128197;",esc(name)+" · Absence review ("+rows.length+")",html,null);
     };
