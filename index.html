@@ -8238,6 +8238,17 @@
             const existingKeys = new Set(TASKS.map(t => t._key));
             fresh.filter(t => !existingKeys.has(t._key)).forEach(t => showSyncNotif(t));
           }
+          if (_tasksInitialized) {
+            const _oldStat = {}; TASKS.forEach(t => { if (t && t._key) _oldStat[t._key] = t.status; });
+            const chg = fresh.find(t => t && t._key && _oldStat[t._key] && _oldStat[t._key] !== t.status && normName(t.member) === normName(currentUser) && (t.status === 'Changes Required' || t.status === 'Approval Declined'));
+            if (chg) {
+              const emoji = chg.status === 'Changes Required' ? '✏️' : '✕';
+              const msg = chg.status === 'Changes Required' ? 'Changes requested on your task' : 'Your completion was declined';
+              const sub = (chg.assigned_by || 'The assigner') + ' · ' + (chg.task ? (chg.task.length > 40 ? chg.task.slice(0, 40) + '…' : chg.task) : '');
+              const te = document.getElementById('toast-emoji'), tm = document.getElementById('toast-msg'), tsub = document.getElementById('toast-sub'), toast = document.getElementById('completion-toast');
+              if (toast) { te.textContent = emoji; tm.textContent = msg; tsub.textContent = sub; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 4500); }
+            }
+          }
           TASKS = fresh;
           _tasksInitialized = true;
           _renderAll();
