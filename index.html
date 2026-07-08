@@ -8759,14 +8759,9 @@
       } catch (e) { }
     }
 
-    function postEveningUpdateIfNeeded() {
-      if (!currentUser) return;
-      const today = new Date().toISOString().slice(0, 10);
-      if (hasSentEveningUpdate(today)) return;
-
+    function announceEveningUpdate() {
       const text = buildEveningUpdateText();
       if (!text) return;
-
       fbAddAnnouncement({
         id: Date.now(),
         text,
@@ -8774,7 +8769,6 @@
         timestamp: new Date().toISOString(),
         emoji: '📢'
       });
-      markEveningUpdateSent(today);
       renderReminders();
       const toast = document.getElementById('completion-toast');
       if (toast) {
@@ -8784,6 +8778,25 @@
         toast.classList.add('show');
         setTimeout(() => toast.classList.remove('show'), 3000);
       }
+    }
+
+    // Every open browser (one per employee) independently hits 7pm and would each post their own
+    // copy — localStorage only dedupes within one browser. Claim the day via a Firebase transaction
+    // so whichever client gets there first is the only one that posts.
+    function postEveningUpdateIfNeeded() {
+      if (!currentUser) return;
+      const today = new Date().toISOString().slice(0, 10);
+      if (hasSentEveningUpdate(today)) return;
+
+      if (!_db) { announceEveningUpdate(); markEveningUpdateSent(today); return; }
+
+      _db.ref('loona_evening_sent/' + today).transaction(
+        (current) => (current ? undefined : true),
+        (error, committed) => {
+          markEveningUpdateSent(today); // either we posted, or someone else already did — don't re-check today
+          if (!error && committed) announceEveningUpdate();
+        }
+      );
     }
 
     function scheduleEveningUpdate() {
