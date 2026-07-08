@@ -12146,6 +12146,13 @@ Current date: ${today}`;
     function reqFor(ds){ return isSat(ds)?REQ_SAT:REQ_WD; }
     function statusLabel(s){ return {working:"Working",present:"Present",late:"Late",off:"Time Off",weekoff:"Week Off",leave:"On Leave",absent:"Absent",holiday:"Holiday",future:"—",remote:"Hub-only",half:"Half Day"}[s]||s; }
     function pill(s){ return '<span class="att-pill '+s+'">'+statusLabel(s)+'</span>'; }
+    function memberAvatarHTML(n,size){
+      size=size||36;
+      var info=(typeof MEMBER_INFO!=="undefined"&&MEMBER_INFO[n])||{};
+      var color=info.color||"#c8a96e";
+      var inner=info.avatar?('<img src="'+info.avatar+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'):(info.emoji||"&#128100;");
+      return '<div style="width:'+size+'px;height:'+size+'px;border-radius:50%;background:'+color+'20;color:'+color+';display:flex;align-items:center;justify-content:center;font-size:'+Math.round(size*0.5)+'px;overflow:hidden;flex-shrink:0">'+inner+'</div>';
+    }
 
     function dayRecordRaw(name,ds){
       var a=ATT[name]||DEFAULT;
@@ -12365,7 +12372,7 @@ Current date: ${today}`;
       var dailyCards=teamNames.map(function(n){
         var a=ATT[n], p=perfCompute(n), rec=dayRecord(n,DAILY_SEL);
         return '<div class="att-daily-card">'+
-          '<div class="adc-head"><div><strong>'+esc(n)+'</strong><span class="sub">'+esc(a.code)+' · '+esc(a.desg)+'</span></div>'+pill(rec.status)+'</div>'+
+          '<div class="adc-head"><div style="display:flex;gap:8px;align-items:center">'+memberAvatarHTML(n)+'<div><strong>'+esc(n)+'</strong><span class="sub">'+esc(a.code)+' · '+esc(a.desg)+'</span></div></div>'+pill(rec.status)+'</div>'+
           '<div class="adc-meta">Joined '+fmtDate(a.joinDate)+' &middot; '+daysAt(a.joinDate)+' days &middot; '+esc(a.dept)+'</div>'+
           '<div class="adc-rows">'+
             '<div class="adc-row"><span>First Punch</span><span class="v">'+esc(rec.in)+'</span></div>'+
