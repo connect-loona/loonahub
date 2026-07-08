@@ -2827,6 +2827,20 @@
     /* ===== v13 additions ===== */
     .att-clickable{cursor:pointer;border-bottom:1px dashed var(--border)}
     .att-clickable:hover{color:var(--accent2);border-bottom-color:var(--accent)}
+    /* Daily overview flash cards */
+    .att-daily-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px}
+    @media(max-width:1100px){.att-daily-grid{grid-template-columns:repeat(3,1fr)}}
+    @media(max-width:820px){.att-daily-grid{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:520px){.att-daily-grid{grid-template-columns:1fr}}
+    .att-daily-card{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:14px}
+    .adc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+    .adc-head strong{font-size:14px}
+    .adc-head .sub{font-size:11px;color:var(--muted);display:block;margin-top:2px}
+    .adc-rows{margin:10px 0;font-size:12px}
+    .adc-row{display:flex;justify-content:space-between;padding:3px 0;color:var(--muted)}
+    .adc-row .v{color:var(--text);font-weight:600}
+    .adc-perf{display:flex;align-items:center;gap:8px;margin-top:8px;border-top:1px solid var(--border);padding-top:8px}
+    .adc-band{font-size:12px;font-weight:700}
     #info-pop{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:99999}
     #info-pop .box{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:26px 28px;width:400px;max-height:72vh;overflow:auto;text-align:left}
     #info-pop .lk{font-size:30px;text-align:center}
@@ -12156,7 +12170,19 @@ Current date: ${today}`;
       var working=names.filter(function(n){return ["working","late","present"].indexOf(ATT[n].status)>=0;});
       var late=names.filter(function(n){return ATT[n].status==="late";});
       var stats=[["Total",names.length,""],["Working",working.length,"hi"],["On Break",0,""],["Time Off",names.length-working.length,""],["Late Today",late.length,""]];
-      var rows=names.filter(function(n){return n!=="Gokul";}).map(function(n){
+      var teamNames=names.filter(function(n){return n!=="Gokul";});
+      var dailyCards=teamNames.map(function(n){
+        var a=ATT[n], p=perfCompute(n);
+        return '<div class="att-daily-card">'+
+          '<div class="adc-head"><div><strong>'+esc(n)+'</strong><span class="sub">'+esc(a.code)+' · '+esc(a.desg)+'</span></div>'+pill(a.status)+'</div>'+
+          '<div class="adc-rows">'+
+            '<div class="adc-row"><span>First Punch</span><span class="v">'+esc(a.in)+'</span></div>'+
+            '<div class="adc-row"><span>Hours Today</span><span class="v">'+esc(a.hrs)+'</span></div>'+
+          '</div>'+
+          '<div class="adc-perf">'+miniGauge(p.score)+'<div class="adc-band" style="color:'+p.band.c+'">'+p.band.l+'</div></div>'+
+        '</div>';
+      }).join("");
+      var rows=teamNames.map(function(n){
         var a=ATT[n];
         var fLate=lateFine(effLate(n)), fHalf=halfDayFine(n), fShort=shortAbsentFine(n), fine=fLate+fHalf+fShort;
         var appr=approvedLeaves(n), earned=earnedLeave(n), left=earned-appr;
@@ -12165,9 +12191,6 @@ Current date: ${today}`;
           '<td>'+fmtDate(a.joinDate)+'</td>'+
           '<td><span class="days">'+daysAt(a.joinDate)+'</span> <span class="sub">days</span></td>'+
           '<td>'+esc(a.dept)+'</td>'+
-          '<td>'+esc(a.in)+'</td>'+
-          '<td>'+esc(a.hrs)+'</td>'+
-          '<td>'+pill(a.status)+'</td>'+
           '<td class="att-chipcell" title="Full days worked: '+(a.monthPresent||0)+' &middot; Half days: '+(a.monthHalf||0)+' (click H to review/forgive)"><span class="ac-p">'+(a.monthPresent||0)+'P</span> <span class="ac-h att-clickable" onclick="window.attShowHalf(&quot;'+n+'&quot;)">'+(a.monthHalf||0)+'H</span></td>'+
           '<td>'+(function(){var na=Math.max(0,a.monthAbsent-approvedLeavesMo(n));return '<span class="pend att-clickable" style="'+(na>0?'':'color:var(--muted)')+'" onclick="window.attShowAbsent(&quot;'+n+'&quot;)">'+na+'</span>';})()+'</td>'+'<td>'+(function(){var el=effLate(n);return '<span class="att-clickable" style="'+(el>0?'color:var(--yellow);font-weight:700':'color:var(--muted)')+'" onclick="window.attShowLate(&quot;'+n+'&quot;)">'+el+'</span>';})()+'</td>'+
           '<td title="Late: &#8377;'+fLate+' &middot; Half Day: &#8377;'+fHalf+' &middot; Absent (short hours): &#8377;'+fShort+'">'+(fine>0?'<span class="fine">&#8377;'+fine+'</span>':'—')+'</td>'+
@@ -12184,13 +12207,17 @@ Current date: ${today}`;
       return ''+
       '<div class="att-founder-badge"><span class="em">&#129409;</span> <b>Gokul</b> <span style="color:var(--accent2)">('+esc(ATT.Gokul.code)+')</span> &middot; '+daysAt(ATT.Gokul.joinDate)+' days building Loona &middot; since '+fmtDate(ATT.Gokul.joinDate)+'</div>'+
       '<div class="att-board">'+
-        '<div class="bh">&#128101; Team Attendance Board <span class="tag">Founder only</span></div>'+'<div class="att-sync"><span><span class="dot"></span>'+(LIVE.url?("Live from Petpooja"+(LIVE_SYNCED?(" · synced "+LIVE_SYNCED.toLocaleTimeString("en-IN")):"")):"Placeholder data")+'</span>'+'<span class="lp">Re-pull from <input type="date" id="sync-from" value="'+(LIVE_FROM||(TODAY.slice(0,8)+"01"))+'" max="'+TODAY+'"></span>'+'<button onclick="window.attResync()">&#128260; Re-sync from Petpooja</button></div>'+
+        '<div class="bh">&#128197; Daily Overview <span class="tag">Founder only</span></div>'+'<div class="att-sync"><span><span class="dot"></span>'+(LIVE.url?("Live from Petpooja"+(LIVE_SYNCED?(" · synced "+LIVE_SYNCED.toLocaleTimeString("en-IN")):"")):"Placeholder data")+'</span>'+'<span class="lp">Re-pull from <input type="date" id="sync-from" value="'+(LIVE_FROM||(TODAY.slice(0,8)+"01"))+'" max="'+TODAY+'"></span>'+'<button onclick="window.attResync()">&#128260; Re-sync from Petpooja</button></div>'+
         '<div class="att-stats">'+stats.map(function(s){return '<div class="att-stat"><div class="n '+s[2]+'">'+s[1]+'</div><div class="l">'+s[0]+'</div></div>';}).join("")+'</div>'+
+        '<div class="att-daily-grid">'+dailyCards+'</div>'+
+        '<div class="att-approvals"><div class="bh" style="margin-top:14px">&#9989; Pending Approvals</div>'+appr+'</div>'+
+      '</div>'+
+      '<div class="att-board">'+
+        '<div class="bh">&#128202; Monthly Overview <span class="tag">Founder only &middot; '+curMonth()+'</span></div>'+
         '<div class="scroll"><table class="att-tbl wide"><thead><tr>'+
-          '<th>Employee</th><th>Joining Date</th><th>Days at Loona</th><th>Department</th><th>First Punch</th><th>Working Hrs</th><th>Status</th><th>Attendance (mo)</th><th>Absent (mo)</th><th>Late (mo)</th><th>Fines (mo)</th><th>Leave Taken</th><th>Leave Left</th>'+
+          '<th>Employee</th><th>Joining Date</th><th>Days at Loona</th><th>Department</th><th>Attendance (mo)</th><th>Absent (mo)</th><th>Late (mo)</th><th>Fines (mo)</th><th>Leave Taken</th><th>Leave Left</th>'+
         '</tr></thead><tbody>'+rows+'</tbody></table></div>'+
         '<div class="note">Attendance = full (P) &amp; half (H) days worked this month, click H to review/forgive &middot; Absent = unresolved (no punch = approvable as Official Leave; short hours = fined, click to review) &middot; Late = click to forgive &middot; Fines combine late, Half Day and short-hours-absence at &#8377;'+LATE_FEE+' per '+LATE_BLOCK+' each &middot; Leave Taken is the count of approved no-punch absences (click Absent above to approve) against the '+TOTAL_LEAVE+'-day yearly balance, accrued pro-rata (1.25/month) since April or join date.</div>'+
-        '<div class="att-approvals"><div class="bh" style="margin-top:6px">&#9989; Pending Approvals</div>'+appr+'</div>'+
       '</div>'+
       perfBoardHTML()+
       holidayManager();
