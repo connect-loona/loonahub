@@ -11876,6 +11876,26 @@ Current date: ${today}`;
       {who:"Anam",    kind:"Leave", det:"Half-day request · 03 Jul 2026"}
     ];
 
+    // ===== Official Loona holiday calendar (2026-27) — applies to everyone, on top of founder-added ones =====
+    var OFFICIAL_HOLIDAYS=[
+      {date:"2026-03-19",name:"Gudi Padwa"},
+      {date:"2026-03-21",name:"Ramzan Eid*"},
+      {date:"2026-04-03",name:"Good Friday"},
+      {date:"2026-05-01",name:"Maharashtra Day"},
+      {date:"2026-08-15",name:"Independence Day"},
+      {date:"2026-08-28",name:"Raksha Bandhan"},
+      {date:"2026-09-14",name:"Ganesh Chaturthi"},
+      {date:"2026-10-20",name:"Dussehra"},
+      {date:"2026-11-08",name:"Diwali (Laxmi Pujan)"},
+      {date:"2026-11-09",name:"Diwali Day 2"},
+      {date:"2026-11-11",name:"Bhai Dooj"},
+      {date:"2026-12-25",name:"Christmas Day"},
+      {date:"2027-01-01",name:"New Year's Day"},
+      {date:"2027-01-26",name:"Republic Day"},
+      {date:"2027-03-24",name:"Holi (2nd Day Rangpanchami)"},
+      {date:"2027-04-08",name:"Gudhi Padwa"},
+      {date:"2027-04-09",name:"Ramzan Eid*"}
+    ];
     // ===== Holidays (Gokul-managed; synced via Firebase, localStorage fallback) =====
     var HOLIDAYS=[]; var _holRef=null;
     function cacheHol(){ try{localStorage.setItem("loona_holidays",JSON.stringify(HOLIDAYS));}catch(e){} }
@@ -11897,7 +11917,11 @@ Current date: ${today}`;
         });
       });
     }
-    function isHoliday(ds){ for(var i=0;i<HOLIDAYS.length;i++) if(HOLIDAYS[i].date===ds) return HOLIDAYS[i].name||"Holiday"; return null; }
+    function isHoliday(ds){
+      for(var i=0;i<OFFICIAL_HOLIDAYS.length;i++) if(OFFICIAL_HOLIDAYS[i].date===ds) return OFFICIAL_HOLIDAYS[i].name;
+      for(var i=0;i<HOLIDAYS.length;i++) if(HOLIDAYS[i].date===ds) return HOLIDAYS[i].name||"Holiday";
+      return null;
+    }
     window.attAddHoliday=function(){
       var d=document.getElementById("hol-date"), n=document.getElementById("hol-name");
       if(!d||!d.value) return;
@@ -12077,18 +12101,25 @@ Current date: ${today}`;
     }
 
     function holidayManager(){
+      var official = OFFICIAL_HOLIDAYS.slice().sort(function(a,b){return a.date<b.date?-1:1;}).map(function(h){
+        return '<div class="hol-item"><span class="hd">'+fmtDate(h.date)+'</span><span class="hn">'+esc(h.name)+'</span>'+
+          '<span class="sub">Official</span></div>';
+      }).join("");
       var list = HOLIDAYS.slice().sort(function(a,b){return a.date<b.date?-1:1;}).map(function(h){
         var idx=HOLIDAYS.indexOf(h);
         return '<div class="hol-item"><span class="hd">'+fmtDate(h.date)+'</span><span class="hn">'+esc(h.name||"Holiday")+'</span>'+
           '<button onclick="window.attRemoveHoliday('+idx+')">Remove</button></div>';
       }).join("");
-      if(!list) list='<div class="hol-empty">No holidays added yet.</div>';
+      if(!list) list='<div class="hol-empty">No extra holidays added yet.</div>';
       return '<div class="att-holidays">'+
         '<div class="bh">&#127881; Holiday Manager <span class="tag">Founder only</span></div>'+
         '<div class="hol-form"><input type="date" id="hol-date"><input type="text" id="hol-name" placeholder="Holiday name (e.g. Diwali)">'+
           '<button onclick="window.attAddHoliday()">Add Holiday</button></div>'+
+        '<div class="t" style="margin-top:10px">Official Loona holidays (2026&ndash;27)</div>'+
+        '<div class="hol-list">'+official+'</div>'+
+        '<div class="t" style="margin-top:10px">Extra holidays added by founder</div>'+
         '<div class="hol-list">'+list+'</div>'+
-        '<div class="note">&#127760; Added holidays appear on everyone\'s calendar (purple) and are excluded from attendance analysis'+(_holRef?" &middot; synced to all via Firebase":" &middot; local until Firebase sync")+'.</div>'+
+        '<div class="note">&#127760; Holidays appear on everyone\'s calendar (purple) and are excluded from attendance analysis'+(_holRef?" &middot; extra ones synced to all via Firebase":" &middot; extra ones local until Firebase sync")+'.</div>'+
       '</div>';
     }
 
