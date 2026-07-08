@@ -8355,6 +8355,10 @@
             if (!existingKeys.has(key)) {
               const info = MEMBER_INFO[name] || {};
               updates[key] = { name, color: info.color || '#888', emoji: info.emoji || '👤', role: info.role || 'Team Member' };
+              if (info.department) updates[key].department = info.department;
+              if (info.joinDate) updates[key].joinDate = info.joinDate;
+              if (info.employeeId) updates[key].employeeId = info.employeeId;
+              if (info.birthdate) updates[key].birthdate = info.birthdate;
             }
           });
           if (Object.keys(updates).length > 0) _db.ref('members').update(updates);
@@ -8371,7 +8375,7 @@
             const newAvatar = m.avatar || existing.avatar || null;
             const avatarChanged = newAvatar !== existing.avatar;
             // Firebase is source of truth — prefer Firebase avatar over local
-            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: newAvatar };
+            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: newAvatar, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null };
             if (avatarChanged) { pickerNeedsRebuild = true; teamNeedsRender = true; }
           });
           if (!pickerNeedsRebuild) return; // nothing changed, skip all re-renders
@@ -8386,6 +8390,13 @@
             ALL_MEMBERS.forEach(n => { if (MEMBER_INFO[n] && MEMBER_INFO[n].avatar) avatarCache[n] = MEMBER_INFO[n].avatar; });
             localStorage.setItem('loona_avatars', JSON.stringify(avatarCache));
           } catch(e) {}
+        });
+
+        // Department/role category sync (for Add Team Member dropdowns)
+        _db.ref('categories').on('value', snap => {
+          const data = snap.val() || {};
+          CUSTOM_CATEGORIES = { dept: data.dept || [], role: data.role || [] };
+          cacheCustomCategories();
         });
 
         // Inactive members sync
@@ -8705,6 +8716,7 @@
 
       renderQuote();
       checkAndCreateAutoTasks();
+      checkAndCreateBrandOfDayTask();
       populateFilters();
       buildMemberTabs(currentUser); // Pre-select logged-in user's tab before rendering tasks
       renderOverview();
@@ -9588,6 +9600,26 @@
       const mColor = m => (MEMBER_INFO[m] || {}).color || '#888';
       const mEmoji = m => (MEMBER_INFO[m] || {}).emoji || '👤';
       const mAvatar = m => { const info = (MEMBER_INFO[m] || {}); return info.avatar ? `<img src="${info.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : mEmoji(m); };
+      const mAtt = m => (window.ATT || {})[m] || null;
+      const mPerf = m => { try { return window.perfCompute ? window.perfCompute(m) : null; } catch (e) { return null; } };
+      const perfRowHTML = m => {
+        const p = mPerf(m);
+        if (!p) return '';
+        return `<div class="member-stat-row"><span class="k">Performance (this month)</span><span style="color:${p.band.c};font-weight:700">${p.score}% · ${p.band.l}</span></div>`;
+      };
+      const tenureRowHTML = m => {
+        const a = mAtt(m);
+        const joinDate = (a && a.joinDate) || (MEMBER_INFO[m] || {}).joinDate;
+        if (!joinDate) return '';
+        const days = window.daysAt ? window.daysAt(joinDate) : '';
+        return `<div class="member-stat-row"><span class="k">Loonatic since</span><span>${fmtDate(joinDate)}${days !== '' ? ` · ${days}d` : ''}</span></div>`;
+      };
+      const deptRowHTML = m => {
+        const a = mAtt(m);
+        const dept = (a && a.dept) || (MEMBER_INFO[m] || {}).department;
+        if (!dept) return '';
+        return `<div class="member-stat-row"><span class="k">Department</span><span style="color:var(--muted)">${dept}</span></div>`;
+      };
 
       // Active members
       const activeMembers = Object.values(tMap).filter(m => !INACTIVE_MEMBERS.has(m.member)).sort((a, b) => b.total - a.total);
@@ -9599,6 +9631,9 @@
         <div class="avatar" style="background:${mColor(m.member)}20;color:${mColor(m.member)};${(MEMBER_INFO[m.member] || {}).avatar ? 'padding:0;' : ''}overflow:hidden">${mAvatar(m.member)}</div>
         <div><div class="member-name">${m.member}</div><div class="member-role">${m.asylum || (MEMBER_INFO[m.member] || {}).role || 'Team'} · ${m.brands.size} brands</div></div>
       </div>
+      ${perfRowHTML(m.member)}
+      ${deptRowHTML(m.member)}
+      ${tenureRowHTML(m.member)}
       <div class="member-stat-row"><span class="k">Total Tasks</span><span>${m.total}</span></div>
       <div class="member-stat-row"><span class="k">Completed</span><span style="color:var(--green)">${m.done}</span></div>
       <div class="member-stat-row"><span class="k">In Progress</span><span style="color:var(--blue)">${m.ip}</span></div>
@@ -9787,6 +9822,58 @@
       });
     }
 
+    // ═══ BRAND OF THE DAY (daily rotating task + personal Loona Board notice) ═══
+    function todayISO() {
+      const d = new Date();
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+    function brandOfDayRoster() {
+      return ALL_MEMBERS.filter(n => n !== 'Gokul' && !INACTIVE_MEMBERS.has(n)).sort();
+    }
+    function brandOfDayPerson(dateStr) {
+      const roster = brandOfDayRoster();
+      if (!roster.length) return null;
+      const epoch = new Date('2026-01-01T00:00:00');
+      const d = new Date((dateStr || todayISO()) + 'T00:00:00');
+      const daysSince = Math.round((d - epoch) / 86400000);
+      const idx = ((daysSince % roster.length) + roster.length) % roster.length;
+      return roster[idx];
+    }
+    function isBrandOfDayOff(dateStr) {
+      const d = new Date((dateStr || todayISO()) + 'T00:00:00');
+      if (d.getDay() === 0) return true; // Sunday — week off
+      return (window.OFFICIAL_HOLIDAYS || []).some(h => h.date === (dateStr || todayISO()));
+    }
+    function checkAndCreateBrandOfDayTask() {
+      const date = todayISO();
+      if (isBrandOfDayOff(date)) return;
+      const person = brandOfDayPerson(date);
+      if (!person) return;
+      const BOTD_TASK = 'Introduce brand of the day';
+      if (TASKS.some(t => t && t.is_botd && t.due_date === date)) return; // already created for today
+      const createIt = () => {
+        fbAddTask({
+          member: person,
+          brand: '',
+          task: BOTD_TASK,
+          assigned_by: 'Gokul',
+          priority: 'Medium',
+          status: 'Not Started',
+          due_date: date,
+          asylum: (MEMBER_INFO[person] || {}).role || '',
+          is_botd: true
+        });
+      };
+      if (_db) {
+        // Firebase transaction claim so only one open session creates today's task
+        _db.ref('loona_botd_created/' + date).transaction(cur => cur ? undefined : true, (err, committed) => {
+          if (!err && committed) createIt();
+        });
+      } else {
+        createIt();
+      }
+    }
+
     // ═══ PROFILE MANAGEMENT ═══
     let profilePanelOpen = false;
     function toggleProfile() {
@@ -9916,14 +10003,56 @@
     }
 
     // ═══ ADD MEMBER ═══
+    // ═══ DEPARTMENT / ROLE CATEGORIES (Firebase-synced, with localStorage fallback) ═══
+    let CUSTOM_CATEGORIES = { dept: [], role: [] };
+    function loadCustomCategoriesCache() {
+      try { const s = localStorage.getItem('loona_custom_categories'); if (s) CUSTOM_CATEGORIES = JSON.parse(s); } catch (e) {}
+    }
+    function cacheCustomCategories() {
+      try { localStorage.setItem('loona_custom_categories', JSON.stringify(CUSTOM_CATEGORIES)); } catch (e) {}
+    }
+    loadCustomCategoriesCache();
+    function categoryList(kind) {
+      const set = new Set();
+      if (kind === 'dept') {
+        Object.values(window.ATT || {}).forEach(a => { if (a && a.dept && a.dept !== '—') set.add(a.dept); });
+        Object.values(MEMBER_INFO || {}).forEach(info => { if (info && info.department) set.add(info.department); });
+      } else {
+        Object.values(MEMBER_INFO || {}).forEach(info => { if (info && info.role) set.add(info.role); });
+      }
+      (CUSTOM_CATEGORIES[kind] || []).forEach(c => set.add(c));
+      return Array.from(set).sort();
+    }
+    function populateAmpSelect(kind, selectValue) {
+      const sel = document.getElementById(kind === 'dept' ? 'amp-dept' : 'amp-role');
+      const list = categoryList(kind);
+      sel.innerHTML = list.map(v => `<option value="${v.replace(/"/g, '&quot;')}">${v}</option>`).join('');
+      if (selectValue && !list.includes(selectValue)) sel.innerHTML += `<option value="${selectValue.replace(/"/g, '&quot;')}">${selectValue}</option>`;
+      if (selectValue) sel.value = selectValue;
+      else if (list.length) sel.selectedIndex = 0;
+    }
+    function addAmpCategory(kind) {
+      const label = kind === 'dept' ? 'department' : 'role';
+      const val = prompt(`New ${label}:`);
+      if (!val || !val.trim()) return;
+      const v = val.trim();
+      CUSTOM_CATEGORIES[kind] = CUSTOM_CATEGORIES[kind] || [];
+      if (!CUSTOM_CATEGORIES[kind].includes(v)) CUSTOM_CATEGORIES[kind].push(v);
+      cacheCustomCategories();
+      if (_db) _db.ref('categories/' + kind).set(CUSTOM_CATEGORIES[kind]);
+      populateAmpSelect(kind, v);
+    }
     function openAddMember() {
       const emojis = ['🚀', '💼', '👩', '📊', '⭐', '✍️', '🎯', '✨', '🎨', '📐', '✂️', '🎞️', '🎬', '🦁', '💪', '🔥', '🌟', '⚡', '😎', '🎉'];
       document.getElementById('amp-emoji-row').innerHTML = emojis.map(e =>
         `<span class="amp-emoji-opt" onclick="selectAmpEmoji(this,'${e}')">${e}</span>`
       ).join('');
       document.getElementById('amp-name').value = '';
-      document.getElementById('amp-dept').value = '';
-      document.getElementById('amp-role').value = '';
+      document.getElementById('amp-empid').value = '';
+      populateAmpSelect('dept');
+      populateAmpSelect('role');
+      document.getElementById('amp-joindate').value = '';
+      document.getElementById('amp-birthdate').value = '';
       document.getElementById('amp-color').value = '#c8a96e';
       document.getElementById('amp-emoji').value = '👤';
       document.getElementById('add-member-modal').classList.remove('hidden');
@@ -9939,12 +10068,15 @@
       if (!name) { document.getElementById('amp-name').style.borderColor = 'var(--red)'; return; }
       const dept = document.getElementById('amp-dept').value.trim();
       const role = document.getElementById('amp-role').value.trim();
+      const employeeId = document.getElementById('amp-empid').value.trim();
+      const joinDate = document.getElementById('amp-joindate').value;
+      const birthdate = document.getElementById('amp-birthdate').value;
       const color = document.getElementById('amp-color').value;
       const emoji = document.getElementById('amp-emoji').value;
 
       const memberRole = role || dept || 'Team Member';
       if (!ALL_MEMBERS.includes(name)) ALL_MEMBERS.push(name);
-      MEMBER_INFO[name] = { color, emoji, role: memberRole };
+      MEMBER_INFO[name] = { color, emoji, role: memberRole, department: dept || null, joinDate: joinDate || null, employeeId: employeeId || null, birthdate: birthdate || null };
 
       // Update UI instantly — don't wait for Firebase round-trip
       buildMemberTabs(currentUser);
@@ -9957,7 +10089,7 @@
       }
 
       // Persist to Firebase in the background
-      if (_db) _db.ref('members/' + fbMemberKey(name)).set({ name, color, emoji, role: memberRole });
+      if (_db) _db.ref('members/' + fbMemberKey(name)).set({ name, color, emoji, role: memberRole, department: dept || null, joinDate: joinDate || null, employeeId: employeeId || null, birthdate: birthdate || null });
 
       closeAddMember();
       document.getElementById('toast-emoji').textContent = '🎉';
@@ -10230,6 +10362,11 @@
       }
       if (Math.abs(dayOfMonth - 27) <= 1 && isRelevant(strategy)) {
         reminders.push({ icon: '📅', title: 'Day 27', msg: 'Schedule those posts! Get everything lined up for next month.' });
+      }
+
+      // Brand of the Day — personal notice for whoever's turn it is today
+      if (!isBrandOfDayOff(todayISO()) && brandOfDayPerson(todayISO()) === currentUser) {
+        reminders.push({ icon: '🎤', title: 'Brand of the Day', msg: "Today is your turn to introduce a new brand to the team!" });
       }
 
       // Heads-up for everyone ~7 days before an official holiday, so the week's work can be planned around it
@@ -11464,15 +11601,37 @@ Current date: ${today}`;
           <input class="form-control" id="amp-name" placeholder="e.g. Priya">
         </div>
         <div class="form-group">
-          <label>Department</label>
-          <input class="form-control" id="amp-dept" placeholder="e.g. Designer">
+          <label>Employee ID</label>
+          <input class="form-control" id="amp-empid" placeholder="e.g. LSPL014">
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Role / Title</label>
-          <input class="form-control" id="amp-role" placeholder="e.g. Sr. Designer">
+          <label>Department</label>
+          <div style="display:flex;gap:6px">
+            <select class="form-control" id="amp-dept" style="flex:1"></select>
+            <button type="button" class="btn btn-ghost" style="padding:0 12px" onclick="addAmpCategory('dept')" title="Add new department">+</button>
+          </div>
         </div>
+        <div class="form-group">
+          <label>Role / Title</label>
+          <div style="display:flex;gap:6px">
+            <select class="form-control" id="amp-role" style="flex:1"></select>
+            <button type="button" class="btn btn-ghost" style="padding:0 12px" onclick="addAmpCategory('role')" title="Add new role">+</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Joining Date</label>
+          <input class="form-control" type="date" id="amp-joindate">
+        </div>
+        <div class="form-group">
+          <label>Birthdate</label>
+          <input class="form-control" type="date" id="amp-birthdate">
+        </div>
+      </div>
+      <div class="form-row">
         <div class="form-group">
           <label>Colour</label>
           <input class="form-control" type="color" id="amp-color" value="#c8a96e">
@@ -11932,6 +12091,9 @@ Current date: ${today}`;
       {date:"2027-04-09",name:"Ramzan Eid*"}
     ];
     window.OFFICIAL_HOLIDAYS = OFFICIAL_HOLIDAYS; // exposed for renderReminders() in the earlier script block
+    window.ATT = ATT; // exposed for renderTeam() in the earlier script block
+    window.daysAt = daysAt; // exposed for renderTeam() (days since joining)
+    window.perfCompute = perfCompute; // exposed for renderTeam() (performance score of the month)
     // ===== Holidays (Gokul-managed; synced via Firebase, localStorage fallback) =====
     var HOLIDAYS=[]; var _holRef=null;
     function cacheHol(){ try{localStorage.setItem("loona_holidays",JSON.stringify(HOLIDAYS));}catch(e){} }
