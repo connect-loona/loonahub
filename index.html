@@ -2663,7 +2663,7 @@
     .att-chips{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
     .att-chip{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:9px 13px;font-size:12px;color:var(--muted);flex:1;min-width:88px}
     .att-chip b{color:var(--accent2);font-size:17px;display:block;margin-bottom:2px}
-    .att-chip.g b{color:var(--green)}.att-chip.y b{color:var(--yellow)}
+    .att-chip.g b{color:var(--green)}.att-chip.y b{color:var(--yellow)}.att-chip.o b{color:#e6c489}
     .att-note{font-size:11px;color:#555;margin-top:12px;display:flex;align-items:center;gap:6px}
     .att-pill{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.04em}
     .att-pill.working,.att-pill.present{background:#173021;color:var(--green)}
@@ -2671,6 +2671,7 @@
     .att-pill.off,.att-pill.weekoff,.att-pill.future{background:#242424;color:var(--muted)}
     .att-pill.leave{background:#241a33;color:var(--purple)}
     .att-pill.absent{background:#2a1414;color:var(--red)}
+    .att-pill.half{background:#332813;color:#e6c489}
     .att-pill.holiday{background:#12262a;color:#3aa0b0}
     /* policy strip */
     .att-policy{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
@@ -11921,7 +11922,7 @@ Current date: ${today}`;
     function isSat(ds){ return new Date(ds+"T00:00:00").getDay()===6; }
     function shiftFor(ds){ return isSat(ds)?SHIFT_SAT:SHIFT_WD; }
     function reqFor(ds){ return isSat(ds)?REQ_SAT:REQ_WD; }
-    function statusLabel(s){ return {working:"Working",present:"Present",late:"Late",off:"Time Off",weekoff:"Week Off",leave:"On Leave",absent:"Absent",holiday:"Holiday",future:"—",remote:"Hub-only"}[s]||s; }
+    function statusLabel(s){ return {working:"Working",present:"Present",late:"Late",off:"Time Off",weekoff:"Week Off",leave:"On Leave",absent:"Absent",holiday:"Holiday",future:"—",remote:"Hub-only",half:"Half Day"}[s]||s; }
     function pill(s){ return '<span class="att-pill '+s+'">'+statusLabel(s)+'</span>'; }
 
     function dayRecordRaw(name,ds){
@@ -11994,9 +11995,10 @@ Current date: ${today}`;
           '<div class="att-chips">'+
             '<div class="att-chip g"><b>'+a.monthPresent+'</b>Present</div>'+
             '<div class="att-chip y"><b>'+a.monthLate+'</b>Late</div>'+
+            '<div class="att-chip o"><b>'+(a.monthHalf||0)+'</b>Half Day</div>'+
             '<div class="att-chip r"><b>'+a.monthAbsent+'</b>Absent</div>'+
           '</div>'+
-          '<div class="att-rulenote">&#9203; Complete '+req+'h (excl. breaks) or the day is marked <b>Absent</b>. Weekdays 7h, Saturdays min 5h (10:00–3:30).</div>'+
+          '<div class="att-rulenote">&#9203; Complete '+req+'h (excl. breaks) for Present. At least half ('+(req/2)+'h) marks <b>Half Day</b>; under that marks <b>Absent</b>. Weekdays 7h (3.5h half), Saturdays min 5h (2.5h half), 10:00–3:30.</div>'+
           '<div class="att-siderows">'+
             '<div class="r"><span class="ic">&#128336;</span> Shift Timing <span class="v">'+shiftFor(SEL)+'</span></div>'+
             '<div class="r"><span class="ic">&#9203;</span> Required <span class="v">'+req+'h <span class="req">excl. breaks</span></span></div>'+
@@ -12358,19 +12360,22 @@ Current date: ${today}`;
           } else if(!rec || rec.first_in_min==null){
             entry={status:"absent",in:"—",hrs:"—",brk:"—",im:null,out:"—",_src:source};
           } else {
-            var lateDay=rec.first_in_min>GRACE_MIN, shortDay=rec.worked_min<reqMin;
-            entry={status:(shortDay?"absent":(lateDay?"late":"present")),in:minToClock(rec.first_in_min),hrs:minToHrs(rec.worked_min),brk:minToHrs(rec.break_min),im:rec.first_in_min,out:lastPunchClock(rec,prev),_src:source};
+            // Under half the required hours -> Absent. At least half but short of full -> Half Day.
+            // Half the requirement scales with the day (3.5h weekday / 2.5h Saturday) since reqMin already does.
+            var lateDay=rec.first_in_min>GRACE_MIN, halfMin=reqMin/2;
+            var st = rec.worked_min<halfMin ? "absent" : (rec.worked_min<reqMin ? "half" : (lateDay?"late":"present"));
+            entry={status:st,in:minToClock(rec.first_in_min),hrs:minToHrs(rec.worked_min),brk:minToHrs(rec.break_min),im:rec.first_in_min,out:lastPunchClock(rec,prev),_src:source};
           }
           LIVEDAYS[nm][ds]=entry;
         });
         // Derive this-month counts + today's snapshot from the merged LIVEDAYS (live data preferred over history)
-        var mo=TODAY.slice(0,7), pres=0,late=0,abs=0;
+        var mo=TODAY.slice(0,7), pres=0,late=0,abs=0,half=0;
         Object.keys(LIVEDAYS[nm]).forEach(function(ds){
           if(ds.slice(0,7)!==mo || ds===TODAY) return;
           var st=LIVEDAYS[nm][ds].status;
-          if(st==="late"){ pres++; late++; } else if(st==="present"){ pres++; } else if(st==="absent"){ abs++; }
+          if(st==="late"){ pres++; late++; } else if(st==="present"){ pres++; } else if(st==="absent"){ abs++; } else if(st==="half"){ half++; }
         });
-        a.monthPresent=pres; a.monthLate=late; a.monthAbsent=abs; a._live=true;
+        a.monthPresent=pres; a.monthLate=late; a.monthAbsent=abs; a.monthHalf=half; a._live=true;
         var td=LIVEDAYS[nm][TODAY];
         if(td && td.im!=null){ a.in=td.in; a.hrs=td.hrs; a.brk=td.brk; a.status=(td.status==="present"?"working":td.status); }
         else { a.in="—"; a.hrs="—"; a.brk="—"; a.status="off"; }
