@@ -7,6 +7,10 @@
 // (brandOfDayRoster/brandOfDayPerson/isBrandOfDayOff) so both agree on
 // whose turn it is.
 //
+// Rotation is a Firebase-persisted pointer (loona_botd_state: {date, person}),
+// not a fixed date formula — adding/removing a team member only shifts the
+// NEXT turn, it never needs recalibrating.
+//
 // Manual run (for testing): GET /.netlify/functions/brand-of-day
 // ============================================================================
 
@@ -39,9 +43,9 @@ const OFFICIAL_HOLIDAYS = [
   { date: "2027-04-09", name: "Ramzan Eid*" }
 ];
 
-// Anchor so that 2026-07-09 (the first day this rotation went live) lands on Chinmay.
-// Recalibrate this whenever the active roster's size changes — keep in sync with index.html.
-const EPOCH = new Date("2026-01-09T00:00:00Z");
+// Bootstrap value only — used until Firebase has real loona_botd_state.
+// Rotation went live on 2026-07-09, landing on Chinmay.
+const BOTD_SEED = { date: "2026-07-09", person: "Chinmay" };
 
 function req(method, urlStr, headers, bodyObj) {
   return new Promise((resolve) => {
@@ -72,6 +76,7 @@ function dayOfWeekIST(dateStr) {
   // Sunday check only needs the calendar date, safe in any timezone at noon
   return new Date(dateStr + "T12:00:00Z").getUTCDay();
 }
+function daysBetween(a, b) { return Math.round((new Date(b + "T00:00:00Z") - new Date(a + "T00:00:00Z")) / 86400000); }
 
 async function buildRoster() {
   const [membersRes, inactiveRes] = await Promise.all([fbGet("/members"), fbGet("/inactive_members")]);
@@ -82,10 +87,8 @@ async function buildRoster() {
   return Array.from(members).filter((n) => n !== "Gokul" && !inactive.has(n)).sort();
 }
 
-const BOTD_START_DATE = "2026-07-09"; // Anam already covered 2026-07-08 manually — automation starts the next day
-
 async function isOff(dateStr) {
-  if (dateStr < BOTD_START_DATE) return true;
+  if (dateStr < BOTD_SEED.date) return true; // Anam covered 07-08 manually — automation starts 07-09
   if (dayOfWeekIST(dateStr) === 0) return true;
   if (OFFICIAL_HOLIDAYS.some((h) => h.date === dateStr)) return true;
   const holRes = await fbGet("/loona_holidays");
@@ -93,11 +96,12 @@ async function isOff(dateStr) {
   return Object.values(hol).some((h) => h && h.date === dateStr);
 }
 
-function personFor(dateStr, roster) {
+function personFor(dateStr, roster, state) {
   if (!roster.length) return null;
-  const d = new Date(dateStr + "T00:00:00Z");
-  const daysSince = Math.round((d - EPOCH) / 86400000);
-  const idx = ((daysSince % roster.length) + roster.length) % roster.length;
+  const steps = daysBetween(state.date, dateStr);
+  if (steps <= 0) return state.person;
+  const lastIdx = roster.indexOf(state.person);
+  const idx = (((lastIdx + steps) % roster.length) + roster.length) % roster.length;
   return roster[idx];
 }
 
@@ -108,13 +112,15 @@ exports.handler = async () => {
     const off = await isOff(date);
     if (off) return { statusCode: 200, body: JSON.stringify({ success: true, skipped: "day off", date }) };
 
-    const person = personFor(date, roster);
-    if (!person) return { statusCode: 200, body: JSON.stringify({ success: true, skipped: "empty roster", date }) };
-
-    // Claim the day so a re-run (manual test, retry) doesn't create a duplicate.
+    // Already created for today? (also protects against a duplicate manual re-run)
     const claim = await fbGet("/loona_botd_created/" + date);
-    if (claim.body) return { statusCode: 200, body: JSON.stringify({ success: true, skipped: "already created", date, person }) };
+    if (claim.body) return { statusCode: 200, body: JSON.stringify({ success: true, skipped: "already created", date }) };
     await fbPut("/loona_botd_created/" + date, true);
+
+    const stateRes = await fbGet("/loona_botd_state");
+    const state = (stateRes.body && stateRes.body.date && stateRes.body.person) ? stateRes.body : BOTD_SEED;
+    const person = personFor(date, roster, state);
+    if (!person) return { statusCode: 200, body: JSON.stringify({ success: true, skipped: "empty roster", date }) };
 
     const task = {
       member: person,
@@ -129,7 +135,10 @@ exports.handler = async () => {
       created_at: new Date().toISOString(),
       assigned_on: date
     };
-    await fbPost("/tasks", task);
+    await Promise.all([
+      fbPost("/tasks", task),
+      fbPut("/loona_botd_state", { date, person })
+    ]);
 
     return { statusCode: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ success: true, date, person }) };
   } catch (err) {

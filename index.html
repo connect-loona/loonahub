@@ -8399,6 +8399,12 @@
           cacheCustomCategories();
         });
 
+        // Brand of the Day rotation pointer sync
+        _db.ref('loona_botd_state').on('value', snap => {
+          const v = snap.val();
+          if (v && v.date && v.person) BOTD_STATE = v;
+        });
+
         // Inactive members sync
         _db.ref('inactive_members').once('value', snap => {
           if (!snap.val() && INACTIVE_MEMBERS.size > 0) {
@@ -9823,6 +9829,9 @@
     }
 
     // ═══ BRAND OF THE DAY (daily rotating task + personal Loona Board notice) ═══
+    // Rotation is a Firebase-persisted pointer (loona_botd_state: {date, person}), not a fixed
+    // date formula — so adding/removing a team member only shifts the NEXT turn, never needs
+    // recalibrating. BOTD_SEED is just the bootstrap value until Firebase has real state.
     function todayISO() {
       const d = new Date();
       return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -9830,21 +9839,22 @@
     function brandOfDayRoster() {
       return ALL_MEMBERS.filter(n => n !== 'Gokul' && !INACTIVE_MEMBERS.has(n)).sort();
     }
+    const BOTD_SEED = { date: '2026-07-09', person: 'Chinmay' }; // rotation went live on 07-09, landing on Chinmay
+    let BOTD_STATE = BOTD_SEED;
+    function daysBetween(a, b) { return Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000); }
     function brandOfDayPerson(dateStr) {
       const roster = brandOfDayRoster();
       if (!roster.length) return null;
-      // Anchored so 2026-07-09 (the day this rotation went live) lands on Chinmay — keep in sync with netlify/functions/brand-of-day.js
-      // (Recalibrate this whenever the active roster's size changes — Navya's removal already shifted it once.)
-      const epoch = new Date('2026-01-09T00:00:00');
-      const d = new Date((dateStr || todayISO()) + 'T00:00:00');
-      const daysSince = Math.round((d - epoch) / 86400000);
-      const idx = ((daysSince % roster.length) + roster.length) % roster.length;
+      const target = dateStr || todayISO();
+      const steps = daysBetween(BOTD_STATE.date, target);
+      if (steps <= 0) return BOTD_STATE.person;
+      const lastIdx = roster.indexOf(BOTD_STATE.person);
+      const idx = (((lastIdx + steps) % roster.length) + roster.length) % roster.length;
       return roster[idx];
     }
-    const BOTD_START_DATE = '2026-07-09'; // Anam already covered 2026-07-08 manually — automation starts the next day
     function isBrandOfDayOff(dateStr) {
       const ds = dateStr || todayISO();
-      if (ds < BOTD_START_DATE) return true;
+      if (ds < BOTD_SEED.date) return true; // Anam covered 07-08 manually — automation starts 07-09
       const d = new Date(ds + 'T00:00:00');
       if (d.getDay() === 0) return true; // Sunday — week off
       return (window.OFFICIAL_HOLIDAYS || []).some(h => h.date === ds);
@@ -9868,6 +9878,8 @@
           asylum: (MEMBER_INFO[person] || {}).role || '',
           is_botd: true
         });
+        BOTD_STATE = { date, person };
+        if (_db) _db.ref('loona_botd_state').set(BOTD_STATE);
       };
       if (_db) {
         // Firebase transaction claim so only one open session creates today's task
