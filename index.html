@@ -12494,7 +12494,11 @@ Current date: ${today}`;
       if(!LIVE.url) return;
       LIVE_FROM = startISO || (TODAY.slice(0,8)+"01");
       fetch(LIVE.url+"?start_date="+LIVE_FROM+"&end_date="+TODAY)
-        .then(function(r){return r.json();})
+        .then(function(r){
+          // Surface the actual HTTP status (fetch only rejects on network errors, not on 404/500 etc.)
+          if(!r.ok) throw new Error("Petpooja endpoint returned HTTP "+r.status+" at "+LIVE.url+" — the function may not be deployed/reachable on this domain.");
+          return r.json();
+        })
         .then(function(j){
           if(j && j.success && j.records){
             if(!j.records.length){ LIVE_ERROR="Connected to Petpooja, but 0 punch records came back for "+LIVE_FROM+" to "+TODAY+"."; if(window.renderAttendanceOverview) window.renderAttendanceOverview(); }
@@ -12502,7 +12506,7 @@ Current date: ${today}`;
           }
           else { LIVE_ERROR=(j&&j.message)||"Petpooja sync failed"; if(window.renderAttendanceOverview) window.renderAttendanceOverview(); }
         })
-        .catch(function(){ LIVE_ERROR="Couldn't reach the Petpooja sync endpoint"; if(window.renderAttendanceOverview) window.renderAttendanceOverview(); });
+        .catch(function(e){ LIVE_ERROR=(e&&e.message)||"Couldn't reach the Petpooja sync endpoint"; if(window.renderAttendanceOverview) window.renderAttendanceOverview(); });
     };
     window.attResync=function(){ var el=document.getElementById("sync-from"); window.attRefreshLive(el&&el.value?el.value:null); };
     // Today's punch data was only ever fetched once on page load — a tab left open all day never
