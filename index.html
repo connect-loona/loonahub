@@ -12209,7 +12209,7 @@ Current date: ${today}`;
       return ''+
       '<div class="att-founder-badge"><span class="em">&#129409;</span> <b>Gokul</b> <span style="color:var(--accent2)">('+esc(ATT.Gokul.code)+')</span> &middot; '+daysAt(ATT.Gokul.joinDate)+' days building Loona &middot; since '+fmtDate(ATT.Gokul.joinDate)+'</div>'+
       '<div class="att-board">'+
-        '<div class="bh">&#128197; Daily Overview <span class="tag">Founder only</span></div>'+'<div class="att-sync"><span><span class="dot"></span>'+(LIVE.url?("Live from Petpooja"+(LIVE_SYNCED?(" · synced "+LIVE_SYNCED.toLocaleTimeString("en-IN")):"")):"Placeholder data")+'</span>'+'<span class="lp">Re-pull from <input type="date" id="sync-from" value="'+(LIVE_FROM||(TODAY.slice(0,8)+"01"))+'" max="'+TODAY+'"></span>'+'<button onclick="window.attResync()">&#128260; Re-sync from Petpooja</button></div>'+
+        '<div class="bh">&#128197; Daily Overview <span class="tag">Founder only</span></div>'+'<div class="att-sync"><span><span class="dot" style="'+(LIVE_ERROR?"background:var(--red)":"")+'"></span>'+(LIVE_ERROR?('<span style="color:var(--red)">Sync error: '+esc(LIVE_ERROR)+'</span>'):(LIVE.url?("Live from Petpooja"+(LIVE_SYNCED?(" · synced "+LIVE_SYNCED.toLocaleTimeString("en-IN")):"")):"Placeholder data"))+'</span>'+'<span class="lp">Re-pull from <input type="date" id="sync-from" value="'+(LIVE_FROM||(TODAY.slice(0,8)+"01"))+'" max="'+TODAY+'"></span>'+'<button onclick="window.attResync()">&#128260; Re-sync from Petpooja</button></div>'+
         '<div class="att-stats">'+stats.map(function(s){return '<div class="att-stat"><div class="n '+s[2]+'">'+s[1]+'</div><div class="l">'+s[0]+'</div></div>';}).join("")+'</div>'+
         '<div class="att-daily-grid">'+dailyCards+'</div>'+
       '</div>'+
@@ -12474,15 +12474,22 @@ Current date: ${today}`;
       LIVE_SYNCED=new Date();
       if(window.renderAttendanceOverview) window.renderAttendanceOverview();
     }
+    var LIVE_ERROR=null;
     window.attRefreshLive=function(startISO){
       if(!LIVE.url) return;
       LIVE_FROM = startISO || (TODAY.slice(0,8)+"01");
       fetch(LIVE.url+"?start_date="+LIVE_FROM+"&end_date="+TODAY)
         .then(function(r){return r.json();})
-        .then(function(j){ if(j && j.success && j.records) applyLiveRecords(j.records, LIVE_FROM, "live"); })
-        .catch(function(){});
+        .then(function(j){
+          if(j && j.success && j.records){ LIVE_ERROR=null; applyLiveRecords(j.records, LIVE_FROM, "live"); }
+          else { LIVE_ERROR=(j&&j.message)||"Petpooja sync failed"; if(window.renderAttendanceOverview) window.renderAttendanceOverview(); }
+        })
+        .catch(function(){ LIVE_ERROR="Couldn't reach the Petpooja sync endpoint"; if(window.renderAttendanceOverview) window.renderAttendanceOverview(); });
     };
     window.attResync=function(){ var el=document.getElementById("sync-from"); window.attRefreshLive(el&&el.value?el.value:null); };
+    // Today's punch data was only ever fetched once on page load — a tab left open all day never
+    // saw new punches. Re-pull every 5 minutes so First Punch/Hours/Break stay live without a manual reload.
+    setInterval(function(){ window.attRefreshLive(LIVE_FROM); }, 5*60*1000);
     // Read persisted history written by the daily Firebase sync
     function readFirebaseHistory(){
       whenFirebaseReady(function(){
@@ -12559,6 +12566,12 @@ Current date: ${today}`;
       var lateN=effLate(name);
       if(lateN>0){ punct+=lateN*3; lines.push(["Late punch-in ×"+lateN, -lateN*3]); }
       if(lateN>3){ punct+=5; lines.push(["Late >3× this month (pattern)", -5]); }
+      // Half Day / short-hours-absence counts are already forgiveness-adjusted (same as lateN above),
+      // so approving/forgiving one on the founder board immediately updates the score here too.
+      var halfN=effHalf(name);
+      if(halfN>0){ punct+=halfN*3; lines.push(["Half Day ×"+halfN, -halfN*3]); }
+      var shortN=effShortAbsent(name);
+      if(shortN>0){ punct+=shortN*5; lines.push(["Absent, short hours ×"+shortN, -shortN*5]); }
       var today=new Date().toISOString().slice(0,10);
       var mine=(typeof TASKS!=="undefined"&&TASKS?TASKS:[]).filter(function(t){return t&&normName(t.member)===normName(name);});
       var overdue=mine.filter(function(t){return ["Not Started","In Progress"].indexOf(t.status)>=0 && t.due_date && t.due_date<today;});
