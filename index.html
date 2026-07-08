@@ -11990,10 +11990,20 @@ Current date: ${today}`;
     // no punch at all -> official leave, shows On leave (deducted from leave balance).
     function dayRecord(name,ds){
       var rec=dayRecordRaw(name,ds);
-      // Only a no-punch absence can become an approved Official Leave. A punched-but-short-hours
-      // absence stays Absent on the calendar — it's handled by the fine/forgive system, not approval.
+      // A no-punch absence approved by the founder becomes an Official Leave on the calendar.
       if(rec.status==="absent" && rec.im==null && PERF_EXC[name] && PERF_EXC[name][ds]){
         rec=Object.assign({},rec,{status:"leave"});
+      }
+      // A forgiven Late/Half Day/short-hours-absence no longer shows as penalized on the calendar —
+      // forgiveness already clears the fine/score hit, so the calendar shouldn't keep flagging it.
+      else if(rec.status==="late" && LATE_FGV[name] && LATE_FGV[name][ds]){
+        rec=Object.assign({},rec,{status:"present"});
+      }
+      else if(rec.status==="half" && HALF_FGV[name] && HALF_FGV[name][ds]){
+        rec=Object.assign({},rec,{status:"present"});
+      }
+      else if(rec.status==="absent" && rec.im!=null && SHORT_FGV[name] && SHORT_FGV[name][ds]){
+        rec=Object.assign({},rec,{status:"present"});
       }
       return rec;
     }
@@ -12415,8 +12425,15 @@ Current date: ${today}`;
     }
     function applyLiveRecords(records, startISO, source){
       source = source || "live";
-      var byName={};
-      records.forEach(function(rec){ var nm=LIVE.empMap[rec.emp_id]; if(!nm||!ATT[nm])return; (byName[nm]=byName[nm]||{})[rec.date]=rec; });
+      var byName={}, unmapped=0;
+      records.forEach(function(rec){ var nm=LIVE.empMap[rec.emp_id]; if(!nm||!ATT[nm]){ unmapped++; return; } (byName[nm]=byName[nm]||{})[rec.date]=rec; });
+      if(source==="live"){
+        if(records.length && !Object.keys(byName).length){
+          LIVE_ERROR="Petpooja returned "+records.length+" record(s) but none matched a mapped employee — check LIVE.empMap's emp_id values against Petpooja's actual employee IDs (try &debug=1 on the sync endpoint to see raw emp_ids).";
+        } else if(unmapped>0){
+          LIVE_ERROR=unmapped+" of "+records.length+" record(s) didn't match a mapped employee — some people may be missing live data. Check LIVE.empMap.";
+        } else { LIVE_ERROR=null; }
+      }
       var from = startISO || (TODAY.slice(0,8)+"01");
       var days = daysBetween(from, TODAY);
       Object.keys(LIVE.empMap).forEach(function(code){
@@ -12481,7 +12498,10 @@ Current date: ${today}`;
       fetch(LIVE.url+"?start_date="+LIVE_FROM+"&end_date="+TODAY)
         .then(function(r){return r.json();})
         .then(function(j){
-          if(j && j.success && j.records){ LIVE_ERROR=null; applyLiveRecords(j.records, LIVE_FROM, "live"); }
+          if(j && j.success && j.records){
+            if(!j.records.length){ LIVE_ERROR="Connected to Petpooja, but 0 punch records came back for "+LIVE_FROM+" to "+TODAY+"."; if(window.renderAttendanceOverview) window.renderAttendanceOverview(); }
+            else applyLiveRecords(j.records, LIVE_FROM, "live"); // may itself set LIVE_ERROR if none of the records map to a known employee
+          }
           else { LIVE_ERROR=(j&&j.message)||"Petpooja sync failed"; if(window.renderAttendanceOverview) window.renderAttendanceOverview(); }
         })
         .catch(function(){ LIVE_ERROR="Couldn't reach the Petpooja sync endpoint"; if(window.renderAttendanceOverview) window.renderAttendanceOverview(); });
