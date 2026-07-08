@@ -2836,6 +2836,7 @@
     .adc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
     .adc-head strong{font-size:14px}
     .adc-head .sub{font-size:11px;color:var(--muted);display:block;margin-top:2px}
+    .adc-meta{font-size:10.5px;color:var(--muted);margin:8px 0 2px;line-height:1.4}
     .adc-rows{margin:10px 0;font-size:12px}
     .adc-row{display:flex;justify-content:space-between;padding:3px 0;color:var(--muted)}
     .adc-row .v{color:var(--text);font-weight:600}
@@ -11874,6 +11875,8 @@ Current date: ${today}`;
     var REQ_WD=7, REQ_SAT=5;
     var LATE_FEE=200, LATE_BLOCK=3, TOTAL_LEAVE=15;
     var SEL=TODAY;
+    var FOUNDER_MO=TODAY.slice(0,7); // month shown in the founder board's Monthly Overview table
+    window.attSetFounderMonth=function(val){ if(val) FOUNDER_MO=val; if(window.renderAttendanceOverview) window.renderAttendanceOverview(); };
 
     // Placeholder data keyed by hub names. code = Petpooja employee code (some real, rest to confirm from Petpooja).
     var ATT={
@@ -11893,13 +11896,6 @@ Current date: ${today}`;
       "Archisha":{code:"—",       desg:"Writer",                     in:"—",        hrs:"—",       brk:"—",       status:"remote",  monthPresent:0, monthLate:0, monthAbsent:0, dept:"Content",           joinDate:"2026-04-01", remote:true}
     };
     var DEFAULT={code:"—",desg:"—",in:"—",hrs:"—",brk:"—",status:"off",monthPresent:0,monthLate:0,monthAbsent:0,dept:"—",joinDate:null};
-    var APPROVALS=[
-      {who:"Chinmay", kind:"Leave", det:"Paid Leave · 30 Jun 2026 · Sick Leave"},
-      {who:"Chinmay", kind:"Leave", det:"Paid Leave · 24 Jun 2026 · Family Wedding"},
-      {who:"Anurag",  kind:"Regularization", det:"Punch-error · 02 Jul · missing punch-out"},
-      {who:"Anam",    kind:"Leave", det:"Half-day request · 03 Jul 2026"}
-    ];
-
     // ===== Official Loona holiday calendar (2026-27) — applies to everyone, on top of founder-added ones =====
     var OFFICIAL_HOLIDAYS=[
       {date:"2026-03-19",name:"Gudi Padwa"},
@@ -12010,20 +12006,32 @@ Current date: ${today}`;
     }
 
     var LATE_FGV={}, HALF_FGV={}, SHORT_FGV={};
-    function forgivenLateMo(name){ var e=LATE_FGV[name]||{}, mo=TODAY.slice(0,7); return Object.keys(e).filter(function(d){return e[d]&&d.slice(0,7)===mo;}).length; }
-    function effLate(name){ var a=ATT[name]||{}; return Math.max(0,(a.monthLate||0)-forgivenLateMo(name)); }
+    // Tally Present/Late/Absent/Half for any month from LIVEDAYS (mirrors applyLiveRecords' aggregation,
+    // including excluding TODAY since it isn't a closed day yet) — lets the founder board look at past months.
+    function monthStatusCounts(name,mo){
+      mo=mo||curMonth();
+      var ld=LIVEDAYS[name]||{}, pres=0,late=0,abs=0,half=0;
+      Object.keys(ld).forEach(function(ds){
+        if(ds.slice(0,7)!==mo || ds===TODAY) return;
+        var st=ld[ds].status;
+        if(st==="late"){ pres++; late++; } else if(st==="present"){ pres++; } else if(st==="absent"){ abs++; } else if(st==="half"){ half++; }
+      });
+      return {present:pres, late:late, absent:abs, half:half};
+    }
+    function forgivenLateMo(name,mo){ mo=mo||curMonth(); var e=LATE_FGV[name]||{}; return Object.keys(e).filter(function(d){return e[d]&&d.slice(0,7)===mo;}).length; }
+    function effLate(name,mo){ mo=mo||curMonth(); return Math.max(0, monthStatusCounts(name,mo).late-forgivenLateMo(name,mo)); }
     // Half Days and hours-shortfall absences (punched in but under half the required hours) are
     // fined like late arrivals instead of touching the leave balance — same ₹/block rule, own Forgive toggle.
     function isShortAbsentDay(name,ds){ var r=LIVEDAYS[name]&&LIVEDAYS[name][ds]; return !!r && r.status==="absent" && r.im!=null; }
-    function forgivenHalfMo(name){ var e=HALF_FGV[name]||{}, mo=TODAY.slice(0,7); return Object.keys(e).filter(function(d){return e[d]&&d.slice(0,7)===mo;}).length; }
-    function monthHalfDates(name){ var ld=LIVEDAYS[name]||{}, mo=TODAY.slice(0,7); return Object.keys(ld).filter(function(ds){return ds.slice(0,7)===mo && ld[ds].status==="half";}); }
-    function effHalf(name){ return Math.max(0, monthHalfDates(name).length - forgivenHalfMo(name)); }
-    function halfDayFine(name){ return lateFine(effHalf(name)); }
-    function forgivenShortMo(name){ var e=SHORT_FGV[name]||{}, mo=TODAY.slice(0,7); return Object.keys(e).filter(function(d){return e[d]&&d.slice(0,7)===mo;}).length; }
-    function monthShortAbsentDates(name){ var ld=LIVEDAYS[name]||{}, mo=TODAY.slice(0,7); return Object.keys(ld).filter(function(ds){return ds.slice(0,7)===mo && isShortAbsentDay(name,ds);}); }
-    function effShortAbsent(name){ return Math.max(0, monthShortAbsentDates(name).length - forgivenShortMo(name)); }
-    function shortAbsentFine(name){ return lateFine(effShortAbsent(name)); }
-    function totalFine(name){ return lateFine(effLate(name)) + halfDayFine(name) + shortAbsentFine(name); }
+    function forgivenHalfMo(name,mo){ mo=mo||curMonth(); var e=HALF_FGV[name]||{}; return Object.keys(e).filter(function(d){return e[d]&&d.slice(0,7)===mo;}).length; }
+    function monthHalfDates(name,mo){ mo=mo||curMonth(); var ld=LIVEDAYS[name]||{}; return Object.keys(ld).filter(function(ds){return ds.slice(0,7)===mo && ld[ds].status==="half";}); }
+    function effHalf(name,mo){ mo=mo||curMonth(); return Math.max(0, monthHalfDates(name,mo).length - forgivenHalfMo(name,mo)); }
+    function halfDayFine(name,mo){ return lateFine(effHalf(name,mo)); }
+    function forgivenShortMo(name,mo){ mo=mo||curMonth(); var e=SHORT_FGV[name]||{}; return Object.keys(e).filter(function(d){return e[d]&&d.slice(0,7)===mo;}).length; }
+    function monthShortAbsentDates(name,mo){ mo=mo||curMonth(); var ld=LIVEDAYS[name]||{}; return Object.keys(ld).filter(function(ds){return ds.slice(0,7)===mo && isShortAbsentDay(name,ds);}); }
+    function effShortAbsent(name,mo){ mo=mo||curMonth(); return Math.max(0, monthShortAbsentDates(name,mo).length - forgivenShortMo(name,mo)); }
+    function shortAbsentFine(name,mo){ return lateFine(effShortAbsent(name,mo)); }
+    function totalFine(name,mo){ return lateFine(effLate(name,mo)) + halfDayFine(name,mo) + shortAbsentFine(name,mo); }
     function lateFeeBar(name){
       var a=ATT[name]||DEFAULT;
       var nLate=effLate(name), nHalf=effHalf(name), nShort=effShortAbsent(name);
@@ -12175,34 +12183,28 @@ Current date: ${today}`;
         var a=ATT[n], p=perfCompute(n);
         return '<div class="att-daily-card">'+
           '<div class="adc-head"><div><strong>'+esc(n)+'</strong><span class="sub">'+esc(a.code)+' · '+esc(a.desg)+'</span></div>'+pill(a.status)+'</div>'+
+          '<div class="adc-meta">Joined '+fmtDate(a.joinDate)+' &middot; '+daysAt(a.joinDate)+' days &middot; '+esc(a.dept)+'</div>'+
           '<div class="adc-rows">'+
             '<div class="adc-row"><span>First Punch</span><span class="v">'+esc(a.in)+'</span></div>'+
-            '<div class="adc-row"><span>Hours Today</span><span class="v">'+esc(a.hrs)+'</span></div>'+
+            '<div class="adc-row"><span>Working Hrs</span><span class="v">'+esc(a.hrs)+'</span></div>'+
+            '<div class="adc-row"><span>Break Time</span><span class="v">'+esc(a.brk)+'</span></div>'+
           '</div>'+
           '<div class="adc-perf">'+miniGauge(p.score)+'<div class="adc-band" style="color:'+p.band.c+'">'+p.band.l+'</div></div>'+
         '</div>';
       }).join("");
+      var mo=FOUNDER_MO;
       var rows=teamNames.map(function(n){
-        var a=ATT[n];
-        var fLate=lateFine(effLate(n)), fHalf=halfDayFine(n), fShort=shortAbsentFine(n), fine=fLate+fHalf+fShort;
+        var a=ATT[n], mc=monthStatusCounts(n,mo);
+        var fLate=lateFine(effLate(n,mo)), fHalf=halfDayFine(n,mo), fShort=shortAbsentFine(n,mo), fine=fLate+fHalf+fShort;
         var appr=approvedLeaves(n), earned=earnedLeave(n), left=earned-appr;
         return '<tr>'+
           '<td><strong>'+esc(n)+'</strong><div class="sub"><span class="code">'+esc(a.code)+'</span> · '+esc(a.desg)+'</div></td>'+
-          '<td>'+fmtDate(a.joinDate)+'</td>'+
-          '<td><span class="days">'+daysAt(a.joinDate)+'</span> <span class="sub">days</span></td>'+
-          '<td>'+esc(a.dept)+'</td>'+
-          '<td class="att-chipcell" title="Full days worked: '+(a.monthPresent||0)+' &middot; Half days: '+(a.monthHalf||0)+' (click H to review/forgive)"><span class="ac-p">'+(a.monthPresent||0)+'P</span> <span class="ac-h att-clickable" onclick="window.attShowHalf(&quot;'+n+'&quot;)">'+(a.monthHalf||0)+'H</span></td>'+
-          '<td>'+(function(){var na=Math.max(0,a.monthAbsent-approvedLeavesMo(n));return '<span class="pend att-clickable" style="'+(na>0?'':'color:var(--muted)')+'" onclick="window.attShowAbsent(&quot;'+n+'&quot;)">'+na+'</span>';})()+'</td>'+'<td>'+(function(){var el=effLate(n);return '<span class="att-clickable" style="'+(el>0?'color:var(--yellow);font-weight:700':'color:var(--muted)')+'" onclick="window.attShowLate(&quot;'+n+'&quot;)">'+el+'</span>';})()+'</td>'+
+          '<td class="att-chipcell" title="Full days worked: '+mc.present+' &middot; Half days: '+mc.half+' (click H to review/forgive)"><span class="ac-p">'+mc.present+'P</span> <span class="ac-h att-clickable" onclick="window.attShowHalf(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)">'+mc.half+'H</span></td>'+
+          '<td>'+(function(){var na=Math.max(0,mc.absent-approvedLeavesMo(n,mo));return '<span class="pend att-clickable" style="'+(na>0?'':'color:var(--muted)')+'" onclick="window.attShowAbsent(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)">'+na+'</span>';})()+'</td>'+'<td>'+(function(){var el=effLate(n,mo);return '<span class="att-clickable" style="'+(el>0?'color:var(--yellow);font-weight:700':'color:var(--muted)')+'" onclick="window.attShowLate(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)">'+el+'</span>';})()+'</td>'+
           '<td title="Late: &#8377;'+fLate+' &middot; Half Day: &#8377;'+fHalf+' &middot; Absent (short hours): &#8377;'+fShort+'">'+(fine>0?'<span class="fine">&#8377;'+fine+'</span>':'—')+'</td>'+
           '<td><b>'+appr+'</b> <span class="sub">leave / '+earned+' earned</span></td>'+
           '<td><span class="left'+(left<=3?" low":"")+'">'+left+'</span> <span class="sub">left</span></td>'+
         '</tr>';
-      }).join("");
-      var appr=APPROVALS.map(function(x){
-        return '<div class="att-appr"><div><span class="kind">'+esc(x.kind)+'</span> <strong>'+esc(x.who)+'</strong>'+
-          '<div class="det">'+esc(x.det)+'</div></div>'+
-          '<div class="acts"><button class="ok" onclick="this.closest(&quot;.att-appr&quot;).remove()">Approve</button>'+
-          '<button class="no" onclick="this.closest(&quot;.att-appr&quot;).remove()">Reject</button></div></div>';
       }).join("");
       return ''+
       '<div class="att-founder-badge"><span class="em">&#129409;</span> <b>Gokul</b> <span style="color:var(--accent2)">('+esc(ATT.Gokul.code)+')</span> &middot; '+daysAt(ATT.Gokul.joinDate)+' days building Loona &middot; since '+fmtDate(ATT.Gokul.joinDate)+'</div>'+
@@ -12210,14 +12212,14 @@ Current date: ${today}`;
         '<div class="bh">&#128197; Daily Overview <span class="tag">Founder only</span></div>'+'<div class="att-sync"><span><span class="dot"></span>'+(LIVE.url?("Live from Petpooja"+(LIVE_SYNCED?(" · synced "+LIVE_SYNCED.toLocaleTimeString("en-IN")):"")):"Placeholder data")+'</span>'+'<span class="lp">Re-pull from <input type="date" id="sync-from" value="'+(LIVE_FROM||(TODAY.slice(0,8)+"01"))+'" max="'+TODAY+'"></span>'+'<button onclick="window.attResync()">&#128260; Re-sync from Petpooja</button></div>'+
         '<div class="att-stats">'+stats.map(function(s){return '<div class="att-stat"><div class="n '+s[2]+'">'+s[1]+'</div><div class="l">'+s[0]+'</div></div>';}).join("")+'</div>'+
         '<div class="att-daily-grid">'+dailyCards+'</div>'+
-        '<div class="att-approvals"><div class="bh" style="margin-top:14px">&#9989; Pending Approvals</div>'+appr+'</div>'+
       '</div>'+
       '<div class="att-board">'+
-        '<div class="bh">&#128202; Monthly Overview <span class="tag">Founder only &middot; '+curMonth()+'</span></div>'+
+        '<div class="bh">&#128202; Monthly Overview <span class="tag">Founder only</span></div>'+
+        '<div class="att-sync"><span>Month <input type="month" id="founder-mo" value="'+mo+'" max="'+curMonth()+'" onchange="window.attSetFounderMonth(this.value)"></span></div>'+
         '<div class="scroll"><table class="att-tbl wide"><thead><tr>'+
-          '<th>Employee</th><th>Joining Date</th><th>Days at Loona</th><th>Department</th><th>Attendance (mo)</th><th>Absent (mo)</th><th>Late (mo)</th><th>Fines (mo)</th><th>Leave Taken</th><th>Leave Left</th>'+
+          '<th>Employee</th><th>Attendance (mo)</th><th>Absent (mo)</th><th>Late (mo)</th><th>Fines (mo)</th><th>Leave Taken</th><th>Leave Left</th>'+
         '</tr></thead><tbody>'+rows+'</tbody></table></div>'+
-        '<div class="note">Attendance = full (P) &amp; half (H) days worked this month, click H to review/forgive &middot; Absent = unresolved (no punch = approvable as Official Leave; short hours = fined, click to review) &middot; Late = click to forgive &middot; Fines combine late, Half Day and short-hours-absence at &#8377;'+LATE_FEE+' per '+LATE_BLOCK+' each &middot; Leave Taken is the count of approved no-punch absences (click Absent above to approve) against the '+TOTAL_LEAVE+'-day yearly balance, accrued pro-rata (1.25/month) since April or join date.</div>'+
+        '<div class="note">Attendance = full (P) &amp; half (H) days worked in the selected month, click H to review/forgive &middot; Absent = unresolved (no punch = approvable as Official Leave; short hours = fined, click to review) &middot; Late = click to forgive &middot; Fines combine late, Half Day and short-hours-absence at &#8377;'+LATE_FEE+' per '+LATE_BLOCK+' each, for the selected month &middot; Leave Taken/Left is a running total (not month-specific) — the count of approved no-punch absences against the '+TOTAL_LEAVE+'-day yearly balance, accrued pro-rata (1.25/month) since April or join date.</div>'+
       '</div>'+
       perfBoardHTML()+
       holidayManager();
@@ -12501,19 +12503,21 @@ Current date: ${today}`;
       var html=rows.length? rows.map(function(ds){return "&bull; "+fmtDate(ds)+(d[ds].im!=null?(" — in "+minToClock(d[ds].im)+", under required hours"):" — no punch"); }).join("<br>") : "No absences this month. &#127881;";
       popupBox("info-pop","&#128197;",esc(name)+" · Absent days this month ("+rows.length+")",html,null);
     };
-    window.attShowLate=function(name){
-      var d=LIVEDAYS[name]||{}, mo=TODAY.slice(0,7);
+    window.attShowLate=function(name,mo){
+      mo=mo||curMonth();
+      var d=LIVEDAYS[name]||{};
       var rows=Object.keys(d).filter(function(ds){return ds.slice(0,7)===mo && d[ds].status==="late";}).sort();
       var html=rows.length? ('<div style="font-size:11px;color:#8a8178;margin-bottom:10px;line-height:1.5">Late days are counted automatically. <b style="color:#68e6a6">Forgive</b> one to nullify it from the late count &amp; fee.</div>'+rows.map(function(ds){var by=(d[ds].im!=null?Math.max(0,d[ds].im-GRACE_MIN):0); var fg=(LATE_FGV[name]||{})[ds];
-        return '<div class="pf-absrow"><span>&bull; '+fmtDate(ds)+' — in '+minToClock(d[ds].im)+' (<b style="color:var(--yellow)">'+by+' min late</b>)</span><button class="pf-exc'+(fg?" on":"")+'" onclick="window.attForgiveLate(&quot;'+name+'&quot;,&quot;'+ds+'&quot;)">'+(fg?"Forgiven ✓":"Forgive")+'</button></div>'; }).join(''))
+        return '<div class="pf-absrow"><span>&bull; '+fmtDate(ds)+' — in '+minToClock(d[ds].im)+' (<b style="color:var(--yellow)">'+by+' min late</b>)</span><button class="pf-exc'+(fg?" on":"")+'" onclick="window.attForgiveLate(&quot;'+name+'&quot;,&quot;'+ds+'&quot;,&quot;'+mo+'&quot;)">'+(fg?"Forgiven ✓":"Forgive")+'</button></div>'; }).join(''))
         : "No late days this month. &#127881;";
       popupBox("info-pop","&#9200;",esc(name)+" · Late review ("+rows.length+")",html,null);
     };
-    window.attShowHalf=function(name){
-      var d=LIVEDAYS[name]||{}, mo=TODAY.slice(0,7);
+    window.attShowHalf=function(name,mo){
+      mo=mo||curMonth();
+      var d=LIVEDAYS[name]||{};
       var rows=Object.keys(d).filter(function(ds){return ds.slice(0,7)===mo && d[ds].status==="half";}).sort();
       var html=rows.length? ('<div style="font-size:11px;color:#8a8178;margin-bottom:10px;line-height:1.5">Half Days are counted automatically ('+LATE_FEE+' per '+LATE_BLOCK+', same as late fee). <b style="color:#68e6a6">Forgive</b> one for a genuine reason to drop it from the fine.</div>'+rows.map(function(ds){ var fg=(HALF_FGV[name]||{})[ds];
-        return '<div class="pf-absrow"><span>&bull; '+fmtDate(ds)+' — in '+minToClock(d[ds].im)+', '+esc(d[ds].hrs)+' worked</span><button class="pf-exc'+(fg?" on":"")+'" onclick="window.attForgiveHalf(&quot;'+name+'&quot;,&quot;'+ds+'&quot;)">'+(fg?"Forgiven ✓":"Forgive")+'</button></div>'; }).join(''))
+        return '<div class="pf-absrow"><span>&bull; '+fmtDate(ds)+' — in '+minToClock(d[ds].im)+', '+esc(d[ds].hrs)+' worked</span><button class="pf-exc'+(fg?" on":"")+'" onclick="window.attForgiveHalf(&quot;'+name+'&quot;,&quot;'+ds+'&quot;,&quot;'+mo+'&quot;)">'+(fg?"Forgiven ✓":"Forgive")+'</button></div>'; }).join(''))
         : "No Half Days this month. &#127881;";
       popupBox("info-pop","&#128197;",esc(name)+" · Half Day review ("+rows.length+")",html,null);
     };
@@ -12634,7 +12638,7 @@ Current date: ${today}`;
     // Only no-punch days count as leave taken (short-hours/half-days are fined, not leave — see totalFine()).
     function isNoPunchDay(name,ds){ var r=LIVEDAYS[name]&&LIVEDAYS[name][ds]; return !!r && r.im==null; }
     function approvedLeaves(name){ var e=PERF_EXC[name]||{}; return Object.keys(e).filter(function(d){return e[d]&&isNoPunchDay(name,d);}).length; }
-    function approvedLeavesMo(name){ var e=PERF_EXC[name]||{}, mo=curMonth(); return Object.keys(e).filter(function(d){return e[d]&&d.slice(0,7)===mo;}).length; }
+    function approvedLeavesMo(name,mo){ mo=mo||curMonth(); var e=PERF_EXC[name]||{}; return Object.keys(e).filter(function(d){return e[d]&&d.slice(0,7)===mo;}).length; }
     // TOTAL_LEAVE (15) accrues pro-rata across the financial year (Apr-Mar) — 1.25 days per completed
     // month since the later of the FY start or the employee's join date, capped at TOTAL_LEAVE.
     function fyStartDate(){ var d=new Date(TODAY+"T00:00:00"), y=d.getFullYear(); return new Date(d.getMonth()>=3?y:y-1, 3, 1); }
@@ -12645,25 +12649,25 @@ Current date: ${today}`;
       if(now<=effStart) return 0;
       return Math.min(TOTAL_LEAVE, Math.round(fullMonthsElapsed(effStart,now)*(TOTAL_LEAVE/12)*100)/100);
     }
-    window.perfExcuse=function(name,date){
+    window.perfExcuse=function(name,date,mo){
       PERF_EXC[name]=PERF_EXC[name]||{}; PERF_EXC[name][date]=!PERF_EXC[name][date]; cachePerf();
       if(_perfReady){ try{ firebase.database().ref("loona_excused/"+name+"/"+date).set(PERF_EXC[name][date]); }catch(e){} }
-      perfRerender(); if(document.getElementById("info-pop")) window.attShowAbsent(name);
+      perfRerender(); if(document.getElementById("info-pop")) window.attShowAbsent(name,mo);
     };
-    window.attForgiveLate=function(name,date){
+    window.attForgiveLate=function(name,date,mo){
       LATE_FGV[name]=LATE_FGV[name]||{}; LATE_FGV[name][date]=!LATE_FGV[name][date]; cachePerf();
       if(_perfReady){ try{ firebase.database().ref("loona_late_forgiven/"+name+"/"+date).set(LATE_FGV[name][date]); }catch(e){} }
-      perfRerender(); if(document.getElementById("info-pop")) window.attShowLate(name);
+      perfRerender(); if(document.getElementById("info-pop")) window.attShowLate(name,mo);
     };
-    window.attForgiveHalf=function(name,date){
+    window.attForgiveHalf=function(name,date,mo){
       HALF_FGV[name]=HALF_FGV[name]||{}; HALF_FGV[name][date]=!HALF_FGV[name][date]; cachePerf();
       if(_perfReady){ try{ firebase.database().ref("loona_half_forgiven/"+name+"/"+date).set(HALF_FGV[name][date]); }catch(e){} }
-      perfRerender(); if(document.getElementById("info-pop")) window.attShowHalf(name);
+      perfRerender(); if(document.getElementById("info-pop")) window.attShowHalf(name,mo);
     };
-    window.attForgiveShort=function(name,date){
+    window.attForgiveShort=function(name,date,mo){
       SHORT_FGV[name]=SHORT_FGV[name]||{}; SHORT_FGV[name][date]=!SHORT_FGV[name][date]; cachePerf();
       if(_perfReady){ try{ firebase.database().ref("loona_short_forgiven/"+name+"/"+date).set(SHORT_FGV[name][date]); }catch(e){} }
-      perfRerender(); if(document.getElementById("info-pop")) window.attShowAbsent(name);
+      perfRerender(); if(document.getElementById("info-pop")) window.attShowAbsent(name,mo);
     };
     window.perfSnapshot=function(){
       var key=curMonth(), snap={};
@@ -12673,17 +12677,18 @@ Current date: ${today}`;
       perfRerender();
     };
     // Absent popup with per-date Excuse toggle (founder)
-    window.attShowAbsent=function(name){
-      var d=LIVEDAYS[name]||{}, mo=curMonth();
+    window.attShowAbsent=function(name,mo){
+      mo=mo||curMonth();
+      var d=LIVEDAYS[name]||{};
       var rows=Object.keys(d).filter(function(ds){return ds.slice(0,7)===mo && d[ds].status==="absent";}).sort();
       var html=rows.length? ('<div style="font-size:11px;color:#8a8178;margin-bottom:10px;line-height:1.5">A day <b style="color:#9fc0f0">with no punch</b> can be approved as Official Leave — deducted from the leave balance. A day <b style="color:#68e6a6">with a punch</b> (very short hours) is fined instead ('+LATE_FEE+' per '+LATE_BLOCK+') — Forgive it for a genuine reason.</div>'+rows.map(function(ds){ var noPunch=d[ds].im==null;
         if(noPunch){ var ex=(PERF_EXC[name]||{})[ds];
           return '<div class="pf-absrow"><span>&bull; '+fmtDate(ds)+' · no punch</span>'+
-            '<button class="pf-exc'+(ex?" on":"")+'" onclick="window.perfExcuse(&quot;'+name+'&quot;,&quot;'+ds+'&quot;)">'+(ex?"Official leave ✓":"Approve leave")+'</button></div>';
+            '<button class="pf-exc'+(ex?" on":"")+'" onclick="window.perfExcuse(&quot;'+name+'&quot;,&quot;'+ds+'&quot;,&quot;'+mo+'&quot;)">'+(ex?"Official leave ✓":"Approve leave")+'</button></div>';
         }
         var fg=(SHORT_FGV[name]||{})[ds];
         return '<div class="pf-absrow"><span>&bull; '+fmtDate(ds)+' · in '+minToClock(d[ds].im)+', '+esc(d[ds].hrs)+' worked</span>'+
-          '<button class="pf-exc'+(fg?" on":"")+'" onclick="window.attForgiveShort(&quot;'+name+'&quot;,&quot;'+ds+'&quot;)">'+(fg?"Forgiven ✓":"Forgive")+'</button></div>';
+          '<button class="pf-exc'+(fg?" on":"")+'" onclick="window.attForgiveShort(&quot;'+name+'&quot;,&quot;'+ds+'&quot;,&quot;'+mo+'&quot;)">'+(fg?"Forgiven ✓":"Forgive")+'</button></div>';
       }).join(""))
         : "No absences this month. &#127881;";
       popupBox("info-pop","&#128197;",esc(name)+" · Absence review ("+rows.length+")",html,null);
