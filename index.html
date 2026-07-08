@@ -8955,9 +8955,9 @@
       const myToday = myTasks.filter(t => t.due_date === today);
       const myTodayDone = myToday.filter(t => t.status === 'Completed').length;
 
-      // Pending carry-over (past due, not completed, not deferred — for current user)
+      // Pending carry-over (past due, still actionable by this member — matches runPopups' definition)
       const myPending = myTasks.filter(t => {
-        if (t.status === 'Completed' || t.status === 'Deferred') return false;
+        if (t.status !== 'Not Started' && t.status !== 'In Progress') return false;
         return t.due_date && t.due_date < today;
       });
       const allTodayDone = myToday.length > 0 && myTodayDone === myToday.length;
