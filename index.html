@@ -10204,6 +10204,16 @@
         reminders.push({ icon: '📅', title: 'Day 27', msg: 'Schedule those posts! Get everything lined up for next month.' });
       }
 
+      // Heads-up for everyone ~7 days before an official holiday, so the week's work can be planned around it
+      (window.OFFICIAL_HOLIDAYS || []).forEach(h => {
+        const daysAway = Math.round((new Date(h.date + 'T00:00:00') - new Date(today.toISOString().slice(0, 10) + 'T00:00:00')) / 86400000);
+        if (Math.abs(daysAway - 7) <= 1) {
+          const hd = new Date(h.date + 'T00:00:00');
+          const when = hd.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' });
+          reminders.push({ icon: '📅', title: 'Holiday coming up', msg: `${h.name} is on ${when} — plan this week's deadlines and deliverables around it.` });
+        }
+      });
+
       // Always show/hide broadcast bar for Gokul regardless of reminder content
       const broadcastBar = document.getElementById('gokul-broadcast-bar');
       if (broadcastBar) broadcastBar.style.display = currentUser === 'Gokul' ? 'block' : 'none';
@@ -11896,6 +11906,7 @@ Current date: ${today}`;
       {date:"2027-04-08",name:"Gudhi Padwa"},
       {date:"2027-04-09",name:"Ramzan Eid*"}
     ];
+    window.OFFICIAL_HOLIDAYS = OFFICIAL_HOLIDAYS; // exposed for renderReminders() in the earlier script block
     // ===== Holidays (Gokul-managed; synced via Firebase, localStorage fallback) =====
     var HOLIDAYS=[]; var _holRef=null;
     function cacheHol(){ try{localStorage.setItem("loona_holidays",JSON.stringify(HOLIDAYS));}catch(e){} }
