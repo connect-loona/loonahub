@@ -9833,16 +9833,20 @@
     function brandOfDayPerson(dateStr) {
       const roster = brandOfDayRoster();
       if (!roster.length) return null;
-      const epoch = new Date('2026-01-01T00:00:00');
+      // Anchored so 2026-07-09 (the day this rotation went live) lands on Chinmay — keep in sync with netlify/functions/brand-of-day.js
+      const epoch = new Date('2026-01-05T00:00:00');
       const d = new Date((dateStr || todayISO()) + 'T00:00:00');
       const daysSince = Math.round((d - epoch) / 86400000);
       const idx = ((daysSince % roster.length) + roster.length) % roster.length;
       return roster[idx];
     }
+    const BOTD_START_DATE = '2026-07-09'; // Anam already covered 2026-07-08 manually — automation starts the next day
     function isBrandOfDayOff(dateStr) {
-      const d = new Date((dateStr || todayISO()) + 'T00:00:00');
+      const ds = dateStr || todayISO();
+      if (ds < BOTD_START_DATE) return true;
+      const d = new Date(ds + 'T00:00:00');
       if (d.getDay() === 0) return true; // Sunday — week off
-      return (window.OFFICIAL_HOLIDAYS || []).some(h => h.date === (dateStr || todayISO()));
+      return (window.OFFICIAL_HOLIDAYS || []).some(h => h.date === ds);
     }
     function checkAndCreateBrandOfDayTask() {
       const date = todayISO();

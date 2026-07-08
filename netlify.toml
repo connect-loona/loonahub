@@ -15,6 +15,11 @@
 [functions."petpooja-sync"]
   schedule = "30 14 * * *"
 
+# Auto-creates the day's rotating "Introduce brand of the day" task.
+# 18:30 UTC = 00:00 IST — right at the start of the new day.
+[functions."brand-of-day"]
+  schedule = "30 18 * * *"
+
 # Set these in Netlify → Site settings → Environment variables (NOT in code):
 #   PETPOOJA_CLIENT_ID
 #   PETPOOJA_CLIENT_SECRET
