@@ -16,7 +16,7 @@ const { URL } = require("url");
 const FB = (process.env.FIREBASE_DB_URL || "https://loona-hub-c85d7-default-rtdb.firebaseio.com").replace(/\/+$/, "");
 
 // Keep this list in sync with ALL_MEMBERS in index.html.
-const BASE_MEMBERS = ["Gokul", "Anam", "Arya", "Navya", "Ankita", "Archisha", "Ricky", "Muskan", "Nishant", "Karnik", "Chinmay", "Majid", "Anurag"];
+const BASE_MEMBERS = ["Gokul", "Anam", "Arya", "Ankita", "Archisha", "Ricky", "Muskan", "Nishant", "Karnik", "Chinmay", "Majid", "Anurag"];
 
 // Keep in sync with OFFICIAL_HOLIDAYS in index.html.
 const OFFICIAL_HOLIDAYS = [
@@ -40,7 +40,8 @@ const OFFICIAL_HOLIDAYS = [
 ];
 
 // Anchor so that 2026-07-09 (the first day this rotation went live) lands on Chinmay.
-const EPOCH = new Date("2026-01-05T00:00:00Z");
+// Recalibrate this whenever the active roster's size changes — keep in sync with index.html.
+const EPOCH = new Date("2026-01-09T00:00:00Z");
 
 function req(method, urlStr, headers, bodyObj) {
   return new Promise((resolve) => {
