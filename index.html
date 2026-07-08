@@ -12251,6 +12251,16 @@ Current date: ${today}`;
     function missedKey(name){ return "loona_missed_"+name+"_"+TODAY; }
     function missedState(name){ try{ var v=JSON.parse(localStorage.getItem(missedKey(name))||"null"); if(v&&typeof v.n==="number") return v; }catch(e){} return {n:0,at:0}; }
     function markMissedShown(name,n){ try{ localStorage.setItem(missedKey(name),JSON.stringify({n:n,at:Date.now()})); }catch(e){} }
+    // One-time nudge (per date, not per day-shown) when a past day was left "open" — punched in, never punched out.
+    function noPunchOutKey(name,date){ return "loona_nopo_"+name+"_"+date; }
+    function noPunchOutShown(name,date){ try{ return localStorage.getItem(noPunchOutKey(name,date))==="1"; }catch(e){ return false; } }
+    function markNoPunchOutShown(name,date){ try{ localStorage.setItem(noPunchOutKey(name,date),"1"); }catch(e){} }
+    function showNoPunchOutPopup(name,date,next){
+      popupBox("nopo-pop","&#128274;","Forgot to punch out?",
+        "Petpooja shows you punched in on <b>"+fmtDate(date)+"</b> but never punched out, so that day is showing as Absent. Please get your punch-out corrected in Petpooja (or let your manager know) so it reflects properly.",
+        next);
+      markNoPunchOutShown(name,date);
+    }
     function showMissedPopup(name,next){
       var st=missedState(name);
       if(st.n>=MISSED_MSGS.length){ if(next) next(); return; }
@@ -12344,6 +12354,10 @@ Current date: ${today}`;
         else scheduleMissedFollowups(name); // already shown today — keep the 1-hour cadence going
       }
       if(SEL===TODAY && a.status==="late") q.push(function(next){ showLatePopup(name,next); });
+      var ydayRec=LIVEDAYS[name]&&LIVEDAYS[name][YDAY];
+      if(ydayRec && ydayRec.noCheckout && !noPunchOutShown(name,YDAY)){
+        q.push(function(next){ showNoPunchOutPopup(name,YDAY,next); });
+      }
       (function run(){ if(!q.length) return; q.shift()(run); })();
     }
 
@@ -12473,7 +12487,9 @@ Current date: ${today}`;
             // Half the requirement scales with the day (3.5h weekday / 2.5h Saturday) since reqMin already does.
             var lateDay=rec.first_in_min>GRACE_MIN, halfMin=reqMin/2;
             var st = rec.worked_min<halfMin ? "absent" : (lateDay ? "late" : (rec.worked_min<reqMin ? "half" : "present"));
-            entry={status:st,in:minToClock(rec.first_in_min),hrs:minToHrs(rec.worked_min),brk:minToHrs(rec.break_min),im:rec.first_in_min,out:lastPunchClock(rec,prev),_src:source};
+            // Punched in but never punched out (a past day left "open") is why this can compute as
+            // Absent/short hours even though they clearly showed up — flag it so we can nudge them separately.
+            entry={status:st,in:minToClock(rec.first_in_min),hrs:minToHrs(rec.worked_min),brk:minToHrs(rec.break_min),im:rec.first_in_min,out:lastPunchClock(rec,prev),_src:source,noCheckout:rec.last_out_min==null};
           }
           LIVEDAYS[nm][ds]=entry;
         });
