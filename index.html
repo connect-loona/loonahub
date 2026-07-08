@@ -2664,6 +2664,8 @@
     .att-chip{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:9px 13px;font-size:12px;color:var(--muted);flex:1;min-width:88px}
     .att-chip b{color:var(--accent2);font-size:17px;display:block;margin-bottom:2px}
     .att-chip.g b{color:var(--green)}.att-chip.y b{color:var(--yellow)}.att-chip.o b{color:#e6c489}
+    .att-chipcell{white-space:nowrap;font-size:12px;font-weight:700}
+    .att-chipcell .ac-p{color:var(--green)}.att-chipcell .ac-h{color:#e6c489}
     .att-note{font-size:11px;color:#555;margin-top:12px;display:flex;align-items:center;gap:6px}
     .att-pill{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.04em}
     .att-pill.working,.att-pill.present{background:#173021;color:var(--green)}
@@ -12150,6 +12152,7 @@ Current date: ${today}`;
           '<td>'+esc(a.in)+'</td>'+
           '<td>'+esc(a.hrs)+'</td>'+
           '<td>'+pill(a.status)+'</td>'+
+          '<td class="att-chipcell" title="Full days worked: '+(a.monthPresent||0)+' &middot; Half days: '+(a.monthHalf||0)+'"><span class="ac-p">'+(a.monthPresent||0)+'P</span> <span class="ac-h">'+(a.monthHalf||0)+'H</span></td>'+
           '<td>'+(function(){var na=Math.max(0,a.monthAbsent-approvedLeavesMo(n));return '<span class="pend att-clickable" style="'+(na>0?'':'color:var(--muted)')+'" onclick="window.attShowAbsent(&quot;'+n+'&quot;)">'+na+'</span>';})()+'</td>'+'<td>'+(function(){var el=effLate(n);return '<span class="att-clickable" style="'+(el>0?'color:var(--yellow);font-weight:700':'color:var(--muted)')+'" onclick="window.attShowLate(&quot;'+n+'&quot;)">'+el+'</span>';})()+'</td>'+
           '<td>'+(fine>0?'<span class="fine">&#8377;'+fine+'</span>':'—')+'</td>'+
           '<td><input type="number" class="att-leave-input" min="0" value="'+manual+'" onchange="window.attSetLeave(&quot;'+n+'&quot;,this.value)"> <span class="sub">+ '+(appr+halfLv)+' leave'+(halfLv?(' ('+halfLv+' from '+(halfLv*2)+' half-days)'):'')+' / '+TOTAL_LEAVE+'</span></td>'+
@@ -12168,8 +12171,9 @@ Current date: ${today}`;
         '<div class="bh">&#128101; Team Attendance Board <span class="tag">Founder only</span></div>'+'<div class="att-sync"><span><span class="dot"></span>'+(LIVE.url?("Live from Petpooja"+(LIVE_SYNCED?(" · synced "+LIVE_SYNCED.toLocaleTimeString("en-IN")):"")):"Placeholder data")+'</span>'+'<span class="lp">Re-pull from <input type="date" id="sync-from" value="'+(LIVE_FROM||(TODAY.slice(0,8)+"01"))+'" max="'+TODAY+'"></span>'+'<button onclick="window.attResync()">&#128260; Re-sync from Petpooja</button></div>'+
         '<div class="att-stats">'+stats.map(function(s){return '<div class="att-stat"><div class="n '+s[2]+'">'+s[1]+'</div><div class="l">'+s[0]+'</div></div>';}).join("")+'</div>'+
         '<div class="scroll"><table class="att-tbl wide"><thead><tr>'+
-          '<th>Employee</th><th>Joining Date</th><th>Days at Loona</th><th>Department</th><th>First Punch</th><th>Working Hrs</th><th>Status</th><th>Absent (mo)</th><th>Late Days (mo)</th><th>Late Fee (mo)</th><th>Leaves Taken</th><th>Leaves Left</th>'+
+          '<th>Employee</th><th>Joining Date</th><th>Days at Loona</th><th>Department</th><th>First Punch</th><th>Working Hrs</th><th>Status</th><th>Attendance (mo)</th><th>Absent (mo)</th><th>Late (mo)</th><th>Late Fee (mo)</th><th>Leave Taken</th><th>Leave Left</th>'+
         '</tr></thead><tbody>'+rows+'</tbody></table></div>'+
+        '<div class="note">Attendance = full days (P) &amp; half days (H) worked this month &middot; Absent = unresolved, click to review/approve &middot; Late = click to forgive &middot; Leave Taken is what\'s actually deducted from the '+TOTAL_LEAVE+'-day balance (manual + approved absences + every 2 half-days).</div>'+
         '<div class="att-approvals"><div class="bh" style="margin-top:6px">&#9989; Pending Approvals</div>'+appr+'</div>'+
       '</div>'+
       perfBoardHTML()+
