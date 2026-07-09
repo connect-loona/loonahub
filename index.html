@@ -2822,6 +2822,27 @@
     .lc-org-node span{color:var(--muted);font-size:10.5px;line-height:1.3}
     .lc-org-node em{color:var(--accent2);font-size:9.5px;font-style:normal;font-weight:700;margin-top:2px;text-transform:uppercase;letter-spacing:.03em}
     .lc-org-label{border:1px dashed var(--border);border-radius:10px;padding:6px 10px;font-size:10.5px;color:#8a8178;font-style:italic;width:130px;text-align:center}
+    @media(max-width:820px){
+      #lc-org-chart{padding:8px!important}
+      .lc-org-tree{padding:10px 4px}
+      .lc-org-children{gap:6px}
+      .lc-org-child{padding-top:10px}
+      .lc-org-child::before{height:10px}
+      .lc-org-stem{height:10px}
+      .lc-org-node{width:56px;padding:4px 3px;gap:1px;border-radius:8px}
+      .lc-org-avatar{width:24px;height:24px;font-size:12px}
+      .lc-org-node b{font-size:8px;margin-top:2px;line-height:1.15}
+      .lc-org-node span{font-size:6.5px;line-height:1.2}
+      .lc-org-node em{font-size:5.5px;margin-top:1px}
+      .lc-org-label{width:56px;font-size:6.5px;padding:3px 4px;line-height:1.2}
+      /* Nested branches (a person's own direct reports) stack vertically instead of
+         side-by-side on narrow screens — otherwise a 3-person team triples that
+         branch's width and the whole chart can't fit without shrinking text to
+         the point of being unreadable. */
+      .lc-org-child .lc-org-children{flex-direction:column;gap:8px}
+      .lc-org-child .lc-org-children .lc-org-child{padding-top:8px}
+      .lc-org-child .lc-org-children .lc-org-hline{display:none}
+    }
     .lc-closing{background:linear-gradient(135deg,rgba(255,109,41,.12),rgba(255,109,41,.03));border:1px solid rgba(255,109,41,.35);border-radius:16px;padding:22px 24px;margin-top:20px;text-align:center}
     .lc-closing p{font-size:13px;color:var(--text);line-height:1.7;margin:0 0 10px}
     .lc-closing p:last-of-type{margin-bottom:0}
@@ -5374,7 +5395,7 @@
               <li>All claims must be submitted by the 5th of the following month.</li>
               <li>Approved reimbursements will be processed along with the monthly salary.</li>
               <li>Bills/receipts are mandatory for all claims — attach one against each item below.</li>
-              <li>For conveyance, employees are expected to use the most economical mode of transport available. Any single conveyance entry over ₹600 will ask you to confirm you chose the cheapest mode, with a reason if not.</li>
+              <li>For conveyance, employees are expected to use the most economical mode of transport available. Any single conveyance entry over ₹300 will ask you to confirm you chose the cheapest mode, with a reason if not.</li>
               <li>Food expenses are capped at <b>₹300 per person (excluding taxes)</b> per bill — amounts beyond this need additional approval before payment.</li>
               <li>Local purchases above <b>₹1,000</b> need written email confirmation from your reporting manager.</li>
               <li>Please ensure the format and guidelines are followed strictly.</li>
@@ -7192,7 +7213,7 @@
           '<div class="box" style="background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:26px;width:380px;max-width:100%;text-align:center;position:relative">'+
             '<button class="pop-x" aria-label="Close">&times;</button>'+
             '<div style="font-size:28px">🚕</div>'+
-            '<h3 style="margin:10px 0 6px;color:var(--text);font-size:16px">This conveyance entry is over ₹600</h3>'+
+            '<h3 style="margin:10px 0 6px;color:var(--text);font-size:16px">This conveyance entry is over ₹300</h3>'+
             '<p style="color:var(--muted);font-size:12.5px;margin-bottom:18px">Are you sure you chose the cheapest travel mode available?</p>'+
             '<div style="display:flex;gap:8px">'+
               '<button id="cheapest-no" style="flex:1;background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);color:#e05c5c;padding:10px;border-radius:10px;font-weight:700;cursor:pointer;font-family:var(--font)">No</button>'+
@@ -7216,7 +7237,7 @@
     function onConveyanceAmountBlur(input){
       var row=input.closest("tr");
       var amt=parseFloat(input.value)||0;
-      if(amt>600 && !row.dataset.cheapest) showCheapestModePopup(row);
+      if(amt>300 && !row.dataset.cheapest) showCheapestModePopup(row);
     }
     window.onConveyanceAmountBlur=onConveyanceAmountBlur;
     function reimbDelRow(btn){
@@ -7272,7 +7293,7 @@
         var c=tr.querySelectorAll("input");
         var amount=parseFloat(c[6].value)||0;
         var r={date:c[0].value,from:c[1].value,to:c[2].value,reason:c[3].value,kms:c[4].value,mode:c[5].value,amount:amount,receipt:rowReceiptSrc(tr)};
-        if(amount>600){
+        if(amount>300){
           if(!tr.dataset.cheapest){
             convBlocked=true;
           } else if(tr.dataset.cheapest==="yes"){
@@ -7287,7 +7308,7 @@
         if(r.from||r.to||r.reason||r.amount) conv.push(r);
       });
       if(convBlocked){
-        alert("Please confirm the cheapest travel mode for conveyance entries above ₹600 (and give a reason if not) before submitting.");
+        alert("Please confirm the cheapest travel mode for conveyance entries above ₹300 (and give a reason if not) before submitting.");
         return;
       }
       var purch=[]; document.querySelectorAll("#reimb-purch-body tr").forEach(function(tr){
@@ -7350,10 +7371,10 @@
     window.submitReimbursement=submitReimbursement;
     var ORG_CHART_TREE={ name:"Gokul", reports:[
       { name:"Karnik" },
-      { name:"Ricky", reports:[ {name:"Muskan"}, {name:"Ananya"}, {name:"Nishant"} ] },
+      { name:"Ricky", dropExtra:18, reports:[ {name:"Muskan"}, {name:"Ananya"}, {name:"Nishant"} ] },
       { name:"Anam", reports:[
           {name:"Diya"},
-          {label:"Video team — no dedicated lead, reports directly to Anam", reports:[ {name:"Anurag"}, {name:"Chinmay"}, {name:"Majid"} ]}
+          {label:"Video team — no dedicated lead, reports directly to Anam", dropExtra:34, reports:[ {name:"Anurag"}, {name:"Chinmay"}, {name:"Majid"} ]}
       ]},
       { name:"Vivaan" },
       { name:"Ankita" },
@@ -7378,7 +7399,8 @@
       var content=orgNodeContentHTML(node,depth===1);
       if(!node.reports||!node.reports.length) return '<div class="lc-org-child">'+content+'</div>';
       var childrenHTML=node.reports.map(function(r){ return orgTreeHTML(r,depth+1); }).join("");
-      return '<div class="lc-org-child">'+content+'<div class="lc-org-stem"></div><div class="lc-org-children">'+childrenHTML+'</div></div>';
+      var stemStyle=node.dropExtra?(' style="height:'+(16+node.dropExtra)+'px"'):"";
+      return '<div class="lc-org-child">'+content+'<div class="lc-org-stem"'+stemStyle+'></div><div class="lc-org-children">'+childrenHTML+'</div></div>';
     }
     function positionOrgConnectors(root){
       var containers=root.querySelectorAll(".lc-org-children");
