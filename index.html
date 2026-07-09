@@ -2222,6 +2222,9 @@
       max-width: 120px;
     }
 
+    /* Mobile-only condensed "Pending from previous days" flash cards; desktop keeps the wide inline cards above */
+    .ov-flash-grid { display: none; }
+
     /* ── PHASE HEARTBEAT ── */
     @keyframes phaseHeartbeat {
 
@@ -2279,7 +2282,7 @@
     .rb-title {
       font-size: 12px;
       font-weight: 700;
-      color: var(--accent);
+      color: var(--text);
       letter-spacing: 1px;
       text-transform: uppercase;
       margin-bottom: 12px;
@@ -3534,7 +3537,7 @@
             </div>
           </div>
         </div>
-        <div>
+        <div id="team-overview-block">
           <div class="section-header">
             <div class="section-title">Team <span>Overview</span></div>
           </div>
@@ -7841,10 +7844,12 @@
       const el = document.getElementById('overview-overdue-section');
       if (!overdue.length) { el.innerHTML = ''; return; }
 
-      // Group by member
+      // Group by member (skip anyone removed from the current roster)
       const byMember = {};
       overdue.forEach(t => {
         const m = t.member || 'Unassigned';
+        if (typeof ALL_MEMBERS !== 'undefined' && m !== 'Unassigned' && ALL_MEMBERS.indexOf(m) < 0) return;
+        if (typeof INACTIVE_MEMBERS !== 'undefined' && INACTIVE_MEMBERS.has(m)) return;
         if (!byMember[m]) byMember[m] = [];
         byMember[m].push(t);
       });
@@ -7895,6 +7900,12 @@
         <span>▼ See ${moreCount} more</span>
       </button>` : '';
 
+        // All-time total/done for this member (folds "Team Overview" info into the flash card popup on mobile)
+        let allTotal = 0, allDone = 0;
+        TASKS.forEach(t => { if (t.member === member) { allTotal++; if (t.status === 'Completed') allDone++; } });
+        window._ovDetail = window._ovDetail || {};
+        window._ovDetail[member] = { tasks, color, memberIcon, allTotal, allDone };
+
         return `<div style="background:rgba(224,92,92,.04);border:1px solid rgba(224,92,92,.18);border-radius:10px;padding:14px 16px;flex:1;min-width:240px;max-width:420px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
         ${memberIcon}
@@ -7903,6 +7914,19 @@
       </div>
       <div id="rows_${uid}">${taskRows}</div>
       ${seeMoreBtn}
+    </div>`;
+      }).join('');
+
+      const flashCards = Object.entries(byMember).sort((a, b) => b[1].length - a[1].length).map(([member, tasks]) => {
+        const color = mColor(member);
+        const mInfo = MEMBER_INFO[member] || {};
+        const memberIcon = mInfo.avatar
+          ? `<img src="${mInfo.avatar}" style="width:30px;height:30px;border-radius:50%;object-fit:cover">`
+          : `<span style="font-size:22px">${mInfo.emoji || '👤'}</span>`;
+        return `<div class="ov-flashcard" onclick="window.showOverdueDetail(&quot;${member.replace(/"/g, '&quot;')}&quot;)">
+      <div class="ofc-avatar">${memberIcon}</div>
+      <div class="ofc-name" style="color:${color}">${member}</div>
+      <div class="ofc-count">${tasks.length}</div>
     </div>`;
       }).join('');
 
@@ -7915,7 +7939,8 @@
         </div>
         <span style="font-size:12px;background:rgba(224,92,92,.15);color:#e05c5c;padding:3px 12px;border-radius:12px;font-weight:600">${overdue.length} task${overdue.length !== 1 ? 's' : ''} overdue</span>
       </div>
-      <div style="display:flex;gap:14px;flex-wrap:wrap">${memberBlocks}</div>
+      <div class="ov-desktop-blocks" style="display:flex;gap:14px;flex-wrap:wrap">${memberBlocks}</div>
+      <div class="ov-flash-grid">${flashCards}</div>
     </div>`;
     }
 
@@ -8996,6 +9021,28 @@ Current date: ${today}`;
     .stat-grid,#today-stats{margin-bottom:14px!important}
     .att-wrap{margin:10px 0 4px!important}
     .att-board,.att-holidays{margin-top:12px!important}
+    /* ---- Team Overview: folded into the pending flash cards below instead ---- */
+    #team-overview-block{display:none!important}
+    /* ---- Pending from Previous Days: title on one line, smaller "Previous Days" ---- */
+    #overview-overdue-section .section-title{white-space:nowrap!important;overflow:hidden!important;font-size:14px!important;gap:4px!important}
+    #overview-overdue-section .section-title span{font-size:12px!important}
+    #overview-overdue-section .section-header{flex-wrap:nowrap!important;gap:8px!important}
+    #overview-overdue-section .section-header>span{font-size:9.5px!important;padding:3px 8px!important;white-space:nowrap!important;flex-shrink:0!important}
+    /* ---- Pending from Previous Days: 5 condensed flash cards per row, tap for full detail ---- */
+    .ov-desktop-blocks{display:none!important}
+    .ov-flash-grid{display:grid!important;grid-template-columns:repeat(5,1fr);gap:6px}
+    .ov-flashcard{background:rgba(224,92,92,.06);border:1px solid rgba(224,92,92,.2);border-radius:10px;padding:8px 4px;text-align:center;cursor:pointer;position:relative}
+    .ov-flashcard .ofc-avatar{display:flex;align-items:center;justify-content:center;margin-bottom:4px}
+    .ov-flashcard .ofc-avatar img{width:26px!important;height:26px!important}
+    .ov-flashcard .ofc-name{font-size:8.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ov-flashcard .ofc-count{position:absolute;top:4px;right:4px;font-size:8.5px;font-weight:700;background:rgba(224,92,92,.9);color:#fff;border-radius:8px;min-width:14px;padding:1px 4px;line-height:1.3}
+    /* ---- Final Approved Creatives: 10 folders per row ---- */
+    #final-creatives-grid{grid-template-columns:repeat(10,minmax(0,1fr))!important;gap:3px!important}
+    #final-creatives-grid .link-card{flex-direction:column!important;padding:4px 1px!important;gap:1px!important;text-align:center!important;border-radius:7px!important}
+    #final-creatives-grid .link-card>div:first-child{font-size:13px!important}
+    #final-creatives-grid .lname{font-size:6px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:100%!important;line-height:1.1!important}
+    #final-creatives-grid .ltype{display:none!important}
+    #final-creatives-grid button[title="Edit link"]{display:none!important}
     /* ---- Overview: quote as a running banner below Live Status ---- */
     .quote-card.quote-banner{
       position:relative!important;overflow:hidden!important;height:34px!important;min-height:34px!important;
@@ -9020,8 +9067,9 @@ Current date: ${today}`;
     .att-leftcol .al-daterow{display:flex;justify-content:flex-end;margin-bottom:10px}
     .att-leftcol .al-top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:nowrap}
     .att-leftcol .al-top .al-clockblock{flex:1 1 auto;min-width:0}
-    .att-leftcol .al-top .al-clockblock .lab{white-space:normal}
-    .att-leftcol .al-top .al-clockblock .sub{white-space:normal}
+    .att-leftcol .al-top .al-clockblock .lab{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px}
+    .att-leftcol .al-top .al-clockblock .sub{white-space:normal;margin-bottom:0}
+    .att-leftcol .al-top .al-clockblock .sub2{font-size:11px;color:var(--muted);margin-top:1px}
     .att-leftcol .al-punches{display:flex;flex-direction:column;gap:0;flex:0 0 auto;min-width:0}
     .att-leftcol .al-punches .r{display:flex;align-items:center;gap:6px;padding:4px 0;font-size:11px;color:var(--text);white-space:nowrap}
     .att-leftcol .al-punches .r .ic{width:18px;height:18px;border-radius:5px;background:#26241d;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0}
@@ -9030,10 +9078,11 @@ Current date: ${today}`;
     .att-leftcol .att-chips{display:flex;gap:6px;flex-wrap:nowrap}
     .att-leftcol .att-chips .att-chip{padding:6px 4px;font-size:9.5px;min-width:0;text-align:center}
     .att-leftcol .att-chips .att-chip b{display:block;font-size:14px}
-    .att-leftcol .att-siderows{border-top:1px solid var(--border);margin-top:14px;padding-top:8px;display:flex;gap:20px}
-    .att-leftcol .att-siderows .r{display:flex;align-items:center;gap:6px;padding:0;font-size:12px;color:var(--text)}
-    .att-leftcol .att-siderows .r .ic{width:22px;height:22px;border-radius:6px;background:#26241d;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
-    .att-leftcol .att-siderows .r .v{font-weight:700;color:var(--accent2);font-size:12px}
+    .att-leftcol .att-siderows{border-top:1px solid var(--border);margin-top:14px;padding-top:8px;display:flex;gap:10px;flex-wrap:nowrap}
+    .att-leftcol .att-siderows .r{display:flex;align-items:center;gap:4px;padding:0;font-size:9.5px;color:var(--text);white-space:nowrap;min-width:0}
+    .att-leftcol .att-siderows .r .ic{width:18px;height:18px;border-radius:5px;background:#26241d;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0}
+    .att-leftcol .att-siderows .r .v{font-weight:700;color:var(--accent2);font-size:9.5px;white-space:nowrap}
+    .att-leftcol .att-siderows .r .req{font-size:8px!important}
     .att-leftcol .att-policy{margin-top:8px!important}
     .att-leftcol .att-pol{padding:8px 10px!important;font-size:11px!important}
     .att-leftcol .att-pol .txt b{font-size:11px!important}
@@ -9422,7 +9471,10 @@ Current date: ${today}`;
       var dateSel='<div class="att-datesel"><label>Date</label><input type="date" id="att-date" value="'+SEL+'" max="'+TODAY+'"></div>';
       var clockBlock='<div class="al-clockblock"><div class="lab">Working Hours &middot; '+(isToday?"Today":new Date(SEL+"T00:00:00").toLocaleDateString("en-IN",{weekday:"short",day:"numeric",month:"short"}))+(isSat(SEL)?" &middot; Sat":"")+'</div>'+
               '<div class="clock">'+clockOf(rec.hrs)+'</div>'+
-              '<div class="sub">&#8599; '+(isToday?"Hours worked today":"Hours worked")+' &middot; '+esc(a.desg)+'</div></div>';
+              (mobile?
+                '<div class="sub">&#8599; '+(isToday?"Hours worked today":"Hours worked")+'</div><div class="sub2">'+esc(a.desg)+'</div>'
+                :'<div class="sub">&#8599; '+(isToday?"Hours worked today":"Hours worked")+' &middot; '+esc(a.desg)+'</div>')+
+              '</div>';
       var punchRows='<div class="r"><span class="ic">&#128276;</span> First Punch <span class="v">'+esc(rec.in)+lateNote+'</span></div>'+
               '<div class="r"><span class="ic">&#128235;</span> Last Punch <span class="v">'+esc(rec.out||"—")+'</span></div>'+
               '<div class="r"><span class="ic">&#9749;</span> '+(mobile?"Break":"Total Break Time")+' <span class="v">'+esc(rec.brk)+'</span></div>';
@@ -9937,6 +9989,32 @@ Current date: ${today}`;
         '<div class="pf-absrow"><span>Performance ('+curMonth()+')</span><span style="color:'+p.band.c+';font-weight:700">'+p.score+'% &middot; '+p.band.l+'</span></div>'+
       '</div>';
       popupBox("info-pop","&#128100;",esc(name)+' · '+esc(a.code)+' &middot; '+esc(a.desg),html,null);
+    };
+
+    // ===== Pending-from-previous-days flash card detail (mobile) =====
+    window.showOverdueDetail=function(member){
+      var d=(window._ovDetail||{})[member];
+      if(!d) return;
+      var today=new Date().toISOString().slice(0,10);
+      var rows=d.tasks.map(function(t){
+        var daysLabel;
+        if(!t.due_date){ daysLabel=t.status||"Pending"; }
+        else {
+          var daysAgo=Math.round((new Date(today)-new Date(t.due_date))/86400000);
+          daysLabel = daysAgo===0?"today":daysAgo===1?"yesterday":daysAgo>0?(daysAgo+"d overdue"):("due "+Math.abs(daysAgo)+"d");
+        }
+        return '<div class="ov-row">'+
+          '<div class="ov-row-top">'+
+            '<span class="ov-tag" style="background:rgba(224,92,92,.12);color:#e05c5c">'+esc(daysLabel)+'</span>'+
+            '<span class="ov-brand" style="background:rgba(200,169,110,.08);color:var(--accent)">'+esc(t.brand||"—")+'</span>'+
+          '</div>'+
+          '<div class="ov-task task-cell">'+esc(t.task)+'</div>'+
+        '</div>';
+      }).join('');
+      var html='<div style="font-size:12px;color:var(--muted);margin-bottom:10px">'+
+        '<b style="color:var(--text)">'+d.allDone+'/'+d.allTotal+'</b> tasks completed all-time &middot; <b style="color:#e05c5c">'+d.tasks.length+'</b> pending from previous days'+
+      '</div>'+rows;
+      popupBox("info-pop","&#9203;",esc(member)+" · Pending tasks",html,null);
     };
 
     // ===== Absent / Late detail popups (click the number on the board) =====
