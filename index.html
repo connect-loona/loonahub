@@ -9956,7 +9956,7 @@ Current date: ${today}`;
         var fLate=lateFine(effLate(n,mo)), fHalf=halfDayFine(n,mo), fShort=shortAbsentFine(n,mo), fine=fLate+fHalf+fShort;
         var appr=approvedLeaves(n), earned=earnedLeave(n), left=earned-appr;
         return '<tr>'+
-          '<td data-label="Employee"><strong>'+esc(n)+'</strong><div class="sub"><span class="code">'+esc(a.code)+'</span> · '+esc(a.desg)+'</div></td>'+
+          '<td data-label="Employee" class="att-clickable" style="cursor:pointer" onclick="window.attShowMonthlyDetail(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)" title="Tap for the full daily breakdown"><strong>'+esc(n)+'</strong><div class="sub"><span class="code">'+esc(a.code)+'</span> · '+esc(a.desg)+'</div></td>'+
           '<td data-label="Attendance" class="att-chipcell" title="Full days worked: '+mc.present+' &middot; Half days: '+mc.half+' (click H to review/forgive)"><span class="ac-p">'+mc.present+'P</span> <span class="ac-h att-clickable" onclick="window.attShowHalf(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)">'+mc.half+'H</span></td>'+
           '<td data-label="Absent">'+(function(){var na=Math.max(0,mc.absent-approvedLeavesMo(n,mo));return '<span class="pend att-clickable" style="'+(na>0?'':'color:var(--muted)')+'" onclick="window.attShowAbsent(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)">'+na+'</span>';})()+'</td>'+'<td data-label="Late">'+(function(){var fg=forgivenLateMo(n,mo);return '<span class="att-clickable" style="'+(mc.late>0?'color:var(--yellow);font-weight:700':'color:var(--muted)')+'" onclick="window.attShowLate(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)">'+mc.late+'</span>'+(fg?(' <span class="sub">('+fg+' forgiven)</span>'):'');})()+'</td>'+
           '<td data-label="Fines" title="Late: &#8377;'+fLate+' &middot; Half Day: &#8377;'+fHalf+' &middot; Absent (short hours): &#8377;'+fShort+'">'+(fine>0?'<span class="fine">&#8377;'+fine+'</span>':'—')+'</td>'+
@@ -10441,6 +10441,43 @@ Current date: ${today}`;
         return '<div class="pf-absrow"><span>&bull; '+fmtDate(ds)+' — in '+minToClock(d[ds].im)+', '+esc(d[ds].hrs)+' worked</span><button class="pf-exc'+(fg?" on":"")+'" onclick="window.attForgiveHalf(&quot;'+name+'&quot;,&quot;'+ds+'&quot;,&quot;'+mo+'&quot;)">'+(fg?"Forgiven ✓":"Forgive")+'</button></div>'; }).join(''))
         : "No Half Days this month. &#127881;";
       popupBox("info-pop","&#128197;",esc(name)+" · Half Day review ("+rows.length+")",html,null);
+    };
+    // ===== Full daily breakdown for a month (tap an employee's name on the Monthly Overview board) =====
+    window.attShowMonthlyDetail=function(name,mo){
+      mo=mo||curMonth();
+      var year=+mo.slice(0,4), month=+mo.slice(5,7);
+      var daysInMonth=new Date(year,month,0).getDate();
+      var rows='';
+      for(var day=1; day<=daysInMonth; day++){
+        var ds=mo+'-'+String(day).padStart(2,'0');
+        var rec=dayRecord(name,ds);
+        var statusText, statusColor;
+        if(rec.status==='late'){
+          var by=rec.im!=null?Math.max(0,rec.im-GRACE_MIN):0;
+          statusText=by+' min late'; statusColor='var(--yellow)';
+        } else if(rec.status==='present'){ statusText='On time'; statusColor='var(--green)'; }
+        else if(rec.status==='half'){ statusText='Half Day'; statusColor='var(--yellow)'; }
+        else if(rec.status==='absent'){ statusText='Absent'; statusColor='var(--red)'; }
+        else if(rec.status==='leave'){ statusText='On Leave'; statusColor='var(--blue)'; }
+        else if(rec.status==='holiday'){ statusText='Holiday'+(rec.holiday&&rec.holiday.name?(' · '+esc(rec.holiday.name)):''); statusColor='var(--purple)'; }
+        else if(rec.status==='weekoff'){ statusText='Week Off'; statusColor='var(--muted)'; }
+        else if(rec.status==='remote'){ statusText='Hub-only'; statusColor='var(--blue)'; }
+        else if(rec.status==='future'){ statusText='Upcoming'; statusColor='var(--muted)'; }
+        else { statusText='—'; statusColor='var(--muted)'; }
+        var taskCount=(typeof TASKS!=='undefined'?TASKS:[]).filter(function(t){
+          return t && t.member===name && t.status==='Completed' && t.completed_at && t.completed_at.slice(0,10)===ds;
+        }).length;
+        var dowLabel=new Date(ds+'T00:00:00').toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'});
+        rows+='<div class="pf-absrow" style="flex-direction:column;align-items:stretch;gap:3px;padding:7px 0">'+
+          '<div style="display:flex;justify-content:space-between;align-items:center"><b>'+dowLabel+'</b><span style="color:'+statusColor+';font-weight:700;font-size:12px">'+statusText+'</span></div>'+
+          '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)">'+
+            '<span>In: '+esc(rec.in||'—')+'</span>'+
+            '<span>'+esc(rec.hrs||'—')+' worked</span>'+
+            '<span>'+taskCount+' task'+(taskCount!==1?'s':'')+' done</span>'+
+          '</div>'+
+        '</div>';
+      }
+      popupBox("info-pop","&#128197;",esc(name)+" · Daily breakdown ("+mo+")",rows,null);
     };
     // ===== Move Work Deck Links below the Reminders board (Overview) =====
     function moveDeckLinks(){
