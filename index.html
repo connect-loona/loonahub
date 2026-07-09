@@ -6425,7 +6425,7 @@
               const sb = isDone ? 'rgba(76,175,125,.18)' : isClient ? 'rgba(91,156,246,.18)' : isChanges ? 'rgba(224,165,58,.18)' : isAwait ? 'rgba(237,137,54,.18)' : isDeclined ? 'rgba(224,92,92,.18)' : isDeferred ? 'rgba(159,122,234,.18)' : 'var(--surface2)';
               const sborder = isDone ? 'rgba(76,175,125,.4)' : isClient ? 'rgba(91,156,246,.4)' : isChanges ? 'rgba(224,165,58,.4)' : isAwait ? 'rgba(237,137,54,.4)' : isDeclined ? 'rgba(224,92,92,.4)' : isDeferred ? 'rgba(159,122,234,.4)' : 'var(--border)';
               const statuses = ['Not Started', 'In Progress', 'Changes Required', 'Client Approval', 'Completed', 'Deferred', 'Awaiting Approval', 'Awaiting Deferral', 'Approval Declined'];
-              return `<select onchange="updateStatus(${gi},this.value)" style="background:${sb};border:1px solid ${sborder};color:${sc};padding:4px 8px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;--dot-color:${sc}">${statuses.map(s => `<option value="${s}"${t.status === s ? ' selected' : ''}>${s}</option>`).join('')}</select>`;
+              return `<select onchange="updateStatus(${gi},this.value)" style="background:${sb};border:1px solid ${sborder};color:${sc};padding:4px 8px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600">${statuses.map(s => `<option value="${s}"${t.status === s ? ' selected' : ''}>${s}</option>`).join('')}</select>`;
             })()}
           </td>
           <td data-label="Time" style="color:var(--muted);font-size:12px;white-space:nowrap">${t.status_at || (t.completed_at?fmtStamp(new Date(t.completed_at)):'—')}</td>
@@ -8164,7 +8164,7 @@
       <td style="color:var(--muted);font-size:12px">${t.assigned_by || '—'}</td>
       <td>${pBadge(t.priority)}</td>
       <td>
-        <select onchange="updateStatus(${taskIdx},this.value);renderOverdue();renderTasks();" style="background:var(--surface2);border:1px solid rgba(224,92,92,.3);color:var(--text);padding:4px 8px;border-radius:6px;font-size:12px;cursor:pointer;--dot-color:${t.status === 'Completed' ? 'var(--green)' : t.status === 'In Progress' ? 'var(--blue)' : t.status === 'Deferred' ? 'var(--purple)' : 'var(--muted)'}">
+        <select onchange="updateStatus(${taskIdx},this.value);renderOverdue();renderTasks();" style="background:var(--surface2);border:1px solid rgba(224,92,92,.3);color:var(--text);padding:4px 8px;border-radius:6px;font-size:12px;cursor:pointer">
           ${['Not Started', 'In Progress', 'Completed', 'Deferred'].map(s => `<option${t.status === s ? ' selected' : ''}>${s}</option>`).join('')}
         </select>
       </td>
@@ -9179,10 +9179,8 @@ Current date: ${today}`;
     /* Any other .task-cell (e.g. Brand) stays single-line with ellipsis + tap-to-reveal */
     #page-tasks table td .task-cell,#overdue-body table td .task-cell,.ao-table td .task-cell{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
     /* Main tasks table: Member/Brand/Task/Assigned By/Assigned On/Priority/Status/Time/Due/Actions */
-    /* Assigned On (5), Priority (6) and Time (8) are hidden on mobile - Priority now shows as a color strip
-       next to the task text instead (see .prio-heat below); freed width goes to Task/Status */
+    /* Assigned On (5) and Time (8) are hidden on mobile; Priority (6) is hidden everywhere (see global prio-dot-css) */
     #page-tasks .table-wrap table th:nth-child(5),#page-tasks .table-wrap table td:nth-child(5){display:none!important}
-    #page-tasks .table-wrap table th:nth-child(6),#page-tasks .table-wrap table td:nth-child(6){display:none!important}
     #page-tasks .table-wrap table th:nth-child(8),#page-tasks .table-wrap table td:nth-child(8){display:none!important}
     #page-tasks .table-wrap table th:nth-child(1),#page-tasks .table-wrap table td:nth-child(1){width:13%}
     #page-tasks .table-wrap table th:nth-child(2),#page-tasks .table-wrap table td:nth-child(2){width:10%}
@@ -9196,13 +9194,8 @@ Current date: ${today}`;
     #overdue-body table th:nth-child(2),#overdue-body table td:nth-child(2){width:10%}
     #overdue-body table th:nth-child(3),#overdue-body table td:nth-child(3){width:26%}
     #overdue-body table th:nth-child(4),#overdue-body table td:nth-child(4){width:12%}
-    #overdue-body table th:nth-child(5),#overdue-body table td:nth-child(5){display:none!important}
     #overdue-body table th:nth-child(6),#overdue-body table td:nth-child(6){width:19%}
     #overdue-body table th:nth-child(7),#overdue-body table td:nth-child(7){width:20%}
-    /* Priority as a heat-strip: red/yellow/blue bar next to the task text instead of a separate column, pulsing to draw the eye */
-    .prio-dot-row{display:flex!important;align-items:center!important;gap:5px!important}
-    .prio-dot{position:relative;width:7px;height:7px;min-width:7px;border-radius:50%;background:var(--prio-color,transparent);flex-shrink:0}
-    .prio-dot::after{content:'';position:absolute;inset:-4px;border-radius:50%;background:var(--prio-color,transparent);opacity:.5;animation:ping 1.4s ease-out infinite}
     /* Task/Brand cells open the full task-detail popup on tap */
     #page-tasks .table-wrap table td[onclick],#overdue-body table td[onclick],.ao-table td[onclick]{cursor:pointer!important}
     /* "Tasks I Assigned to Others": same real-table treatment as My Tasks. Assigned On (5) and Time (6) hidden */
@@ -9271,33 +9264,13 @@ Current date: ${today}`;
     .att-leftcol .clock{font-size:34px!important}
   }
   </style>
-  <style id="desktop-status-dot-css">
-  /* Desktop: Task Status shown as a small blinking heat-map dot (same idea as Priority / Loona Board flash badge) */
-  @media (min-width:821px){
-    #page-tasks .table-wrap table td select,#overdue-body table td select{
-      -webkit-appearance:none!important;appearance:none!important;
-      width:14px!important;height:14px!important;min-width:14px!important;
-      border-radius:50%!important;padding:0!important;display:inline-block!important;
-      font-size:0!important;color:transparent!important;text-indent:-999px!important;overflow:hidden!important;
-      background:var(--dot-color,var(--muted))!important;border-color:var(--dot-color,var(--muted))!important;
-      animation:statusDotPulse 1.4s ease-in-out infinite;
-    }
-    .ao-table td .badge{
-      width:14px!important;height:14px!important;min-width:14px!important;
-      border-radius:50%!important;padding:0!important;display:inline-block!important;
-      font-size:0!important;color:transparent!important;overflow:hidden!important;
-      animation:statusDotPulse 1.4s ease-in-out infinite;
-    }
-    .ao-table td .badge.completed{background:var(--green)!important}
-    .ao-table td .badge.in-progress{background:var(--blue)!important}
-    .ao-table td .badge.not-started{background:var(--muted)!important}
-    .ao-table td .badge.deferred{background:var(--purple)!important}
-    .ao-table td .badge.awaiting-approval{background:var(--yellow)!important}
-    .ao-table td .badge.approval-declined{background:var(--red)!important}
-    .ao-table td .badge.changes-required{background:#e0a53a!important}
-    .ao-table td .badge.client-approval{background:#5b9cf6!important}
-    @keyframes statusDotPulse{0%,100%{opacity:1}50%{opacity:.35}}
-  }
+  <style id="prio-dot-css">
+  /* Priority shown as a small pinging dot (red/yellow/blue) next to the task text instead of a column — mobile and desktop */
+  #page-tasks .table-wrap table th:nth-child(6),#page-tasks .table-wrap table td:nth-child(6){display:none!important}
+  #overdue-body table th:nth-child(5),#overdue-body table td:nth-child(5){display:none!important}
+  .prio-dot-row{display:flex!important;align-items:center!important;gap:5px!important}
+  .prio-dot{position:relative;width:7px;height:7px;min-width:7px;border-radius:50%;background:var(--prio-color,transparent);flex-shrink:0}
+  .prio-dot::after{content:'';position:absolute;inset:-4px;border-radius:50%;background:var(--prio-color,transparent);opacity:.5;animation:ping 1.4s ease-out infinite}
   </style>
   <style id="approval-extra-css">
   .btn-changes{background:rgba(224,165,58,.15);color:#e0a53a;border:1px solid rgba(224,165,58,.4);border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
