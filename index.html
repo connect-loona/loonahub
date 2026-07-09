@@ -2734,6 +2734,21 @@
     .att-pol .amt{margin-left:auto;font-size:18px;font-weight:800;color:var(--accent2);white-space:nowrap}
     .att-pol.danger .amt{color:var(--red)}
     .att-pol.ok .amt{color:var(--green)}
+    /* Loona Code (policy) page */
+    .lc-intro{background:linear-gradient(135deg,rgba(130,90,220,.12),rgba(130,90,220,.03));border:1px solid rgba(130,90,220,.3);border-radius:16px;padding:20px 22px;margin-bottom:16px}
+    .lc-intro p{font-size:13px;color:var(--text);line-height:1.65;margin:0 0 12px}
+    .lc-intro p:last-of-type{margin-bottom:0}
+    .lc-intro .lc-sign{margin-top:6px;font-weight:700;color:var(--purple,#a78bfa);font-style:italic}
+    .lc-banner{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 18px;font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:20px}
+    .lc-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    @media(max-width:820px){.lc-grid{grid-template-columns:1fr}}
+    .lc-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 20px}
+    .lc-card-h{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+    .lc-card-h h3{font-size:15px;margin:0;color:var(--text)}
+    .lc-ic{width:30px;height:30px;border-radius:9px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+    .lc-card p{font-size:12.5px;color:var(--muted);line-height:1.6;margin:0 0 10px}
+    .lc-card p:last-child{margin-bottom:0}
+    .lc-card p b{color:var(--text)}
     /* calendar */
     .att-cal{margin-top:18px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 20px}
     .att-cal .ch{display:flex;align-items:center;justify-content:center;gap:20px;margin-bottom:14px}
@@ -3141,6 +3156,7 @@
         <button class="nav-btn" onclick="showPage('brands',this)">Brands</button>
         <button class="nav-btn" onclick="showPage('chat',this)">AI Chat</button>
         <button class="nav-btn" onclick="showPage('loonaverse',this)">Loonaverse</button>
+        <button class="nav-btn" onclick="showPage('loonacode',this)">Loona Code</button>
       </nav>
       <div style="display:flex;align-items:center;gap:12px">
         <div class="user-chip" onclick="toggleProfile()">
@@ -5062,6 +5078,66 @@
 
     <div class="page" id="page-loonaverse">
       <div class="loonaverse-hero"><div class="lv-soon">Coming soon</div></div>
+    </div>
+
+    <!-- ======= LOONA CODE ======= -->
+    <div class="page" id="page-loonacode">
+      <div class="section-header" style="margin-top:0">
+        <div class="section-title">Loona <span>Code</span></div>
+      </div>
+      <div class="lc-intro">
+        <p>Hi Guys,</p>
+        <p><b>Loona is still young</b> — but we've already done things that teams twice our size struggle to pull off. I'm <b>proud</b> of that. And I hope you've had fun while doing it, too.</p>
+        <p>I'm all for the fun, the jokes, and the freedom — but only when the work is done, and done right. <b>That's the deal.</b></p>
+        <p>As we grow, each of us has a chance to shape not just Loona but our own professional journeys. That means thinking beyond tasks — and asking: How can I contribute to where we're going next?</p>
+        <p>These rules aren't meant to limit anyone — they're here to give us structure, so we can scale without losing our edge. So take them seriously. Make them yours.</p>
+        <p>We're building something <b>real</b> here.</p>
+        <p>So, let's keep building something we're all proud of!!!!!</p>
+        <p class="lc-sign">— Gokul</p>
+      </div>
+
+      <div class="lc-banner">These policies are the framework this studio operates within — not guidelines. Full compliance is expected from everyone, without exception. If anything here is unclear, raise it with management directly — not with each other.</div>
+
+      <div class="lc-grid">
+        <div class="lc-card">
+          <div class="lc-card-h"><span class="lc-ic">🗓️</span><h3>Leave Policy</h3></div>
+          <p>Every employee gets <b id="lc-total-leave">15</b> days of paid leave a year (over and above public holidays), accrued pro-rata at 1.25 days/month from the start of the financial year (April) or your joining date, whichever is later.</p>
+          <p>Sick leave is not tracked as a separate category — it's merged into this same annual entitlement, same as most organisations.</p>
+          <p>A medical certificate is mandatory for any sick leave, especially when taken on a Saturday, Monday, or around a bank holiday. Sick leave on these days without a valid certificate will be automatically adjusted against paid or unpaid leave, and repeated misuse will result in disciplinary action.</p>
+          <p>An unapproved absence (no punch, not pre-approved) is deducted from your leave balance as Official Leave. If you did punch in but worked unusually short hours, it's fined instead — see Attendance &amp; Fines.</p>
+        </div>
+
+        <div class="lc-card">
+          <div class="lc-card-h"><span class="lc-ic">⏰</span><h3>Attendance &amp; Fines</h3></div>
+          <p>Working days are Monday–Saturday. Business hours are 10:00 am–5:30 pm (10:00 am–3:30 pm on Saturdays), with one designated weekly off. You may occasionally be asked to work on holidays based on project deadlines or business needs, at management's discretion.</p>
+          <p>Late arrivals, half days, and short-hours absences are fined at ₹<b id="lc-late-fee">200</b> for every <b id="lc-late-block">3</b> occurrences.</p>
+          <p>A formal warning on late arrivals has already been issued to the team — this is the final notice. Attendance is being monitored closely, and continued violations will be escalated.</p>
+        </div>
+
+        <div class="lc-card">
+          <div class="lc-card-h"><span class="lc-ic">🏠</span><h3>Work From Home</h3></div>
+          <p>WFH is not, and has never been, a standard policy at Loona. No WFH request will be entertained unless there is a genuine emergency, and even then it must be approved in advance by your Reporting Manager. Same-day requests will not be considered.</p>
+        </div>
+
+        <div class="lc-card">
+          <div class="lc-card-h"><span class="lc-ic">📝</span><h3>Notice Period &amp; Resignation</h3></div>
+          <p><b>During probation:</b> you may resign by giving one (1) month's notice, or salary/wages in lieu. The Company may terminate your employment during probation without any notice or compensation in cases of misconduct, breach of policy, negligence, or failure to perform assigned duties.</p>
+          <p><b>After confirmation:</b> you may resign by giving two (2) months' notice, or surrendering salary/wages in lieu. The Company may terminate by giving one (1) month's notice, or salary/wages in lieu thereof. The Company reserves the right to terminate without any notice, indemnity, or compensation in cases of misconduct, breach of policy, negligence, or failure to perform assigned duties.</p>
+        </div>
+
+        <div class="lc-card" style="grid-column:1/-1">
+          <div class="lc-card-h"><span class="lc-ic">🔒</span><h3>Confidentiality, IP &amp; Conduct</h3></div>
+          <p>All raw footage, edited content, concepts, decks, shoot materials, and client data created during your employment are "work made for hire" and remain the sole property of Loona and/or its clients — you retain no ownership, usage, or distribution rights, and may not publish, share, or present any of it as personal work (portfolio, résumé, social media, or any third-party platform), during or after your employment.</p>
+          <p>Confidentiality and non-disclosure obligations remain in effect indefinitely, even after you leave. For twelve (12) months after leaving, you may not engage — directly or indirectly, paid or unpaid — with any Loona client or partner you worked with, nor solicit Loona employees, freelancers, or clients, without prior written consent from management.</p>
+          <p>Timely presence, adherence to schedules, and meeting delivery deadlines are essential to every role — repeated delays or absenteeism may be treated as misconduct. Professionalism is expected at all shoots, events, and client interactions at all times; misconduct or inappropriate behaviour with clients or teammates can result in immediate termination.</p>
+        </div>
+
+        <div class="lc-card">
+          <div class="lc-card-h"><span class="lc-ic">🧾</span><h3>Reimbursement Form</h3></div>
+          <p>Use the official form to submit any expense reimbursement claims.</p>
+          <button class="btn btn-primary" onclick="openReimbursementForm()" style="margin-top:4px">Open Reimbursement Form</button>
+        </div>
+      </div>
     </div>
   </div><!-- /app -->
 
@@ -9494,6 +9570,21 @@ Current date: ${today}`;
     var SHIFT_WD="10:00 am – 05:30 pm", SHIFT_SAT="10:00 am – 03:30 pm";
     var REQ_WD=7, REQ_SAT=5;
     var LATE_FEE=200, LATE_BLOCK=3, TOTAL_LEAVE=15;
+    var REIMBURSEMENT_FORM_URL="";
+    (function(){
+      var lf=document.getElementById("lc-late-fee"), lb=document.getElementById("lc-late-block"), tl=document.getElementById("lc-total-leave");
+      if(lf) lf.textContent=LATE_FEE; if(lb) lb.textContent=LATE_BLOCK; if(tl) tl.textContent=TOTAL_LEAVE;
+    })();
+    function openReimbursementForm(){
+      if(!REIMBURSEMENT_FORM_URL){
+        document.getElementById("toast-emoji").textContent="🧾";
+        document.getElementById("toast-msg").textContent="Form link coming soon";
+        document.getElementById("toast-sub").textContent="Check back shortly";
+        var toast=document.getElementById("completion-toast"); toast.classList.add("show"); setTimeout(function(){toast.classList.remove("show");},2600);
+        return;
+      }
+      window.open(REIMBURSEMENT_FORM_URL,"_blank");
+    }
     var SEL=TODAY;
     var FOUNDER_MO=TODAY.slice(0,7); // month shown in the founder board's Monthly Overview table
     window.attSetFounderMonth=function(val){ if(val) FOUNDER_MO=val; if(window.renderAttendanceOverview) window.renderAttendanceOverview(); };
