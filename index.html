@@ -5230,9 +5230,11 @@
           <div class="ln-rec-panel">
             <div class="ln-timer" id="ln-rec-status">00:00</div>
             <button class="ln-rec-btn" id="ln-rec-btn" onclick="lnToggleRecording()"><span class="ln-rec-dot"></span><span id="ln-rec-btn-label">Start Recording</span></button>
+            <div class="ln-rec-status-line" id="ln-rec-status-line" style="display:none"></div>
             <div class="ln-transcript-box" id="ln-live-transcript"></div>
             <textarea class="ln-manual-transcript" id="ln-manual-transcript" style="display:none" placeholder="Paste or type the meeting transcript / notes here…"></textarea>
-            <div class="ln-sr-note" id="ln-sr-unsupported-note" style="display:none">Live in-browser transcription needs Chrome or Edge. Paste your notes or transcript above instead, then generate notes.</div>
+            <div class="ln-sr-note" id="ln-sr-unsupported-note" style="display:none">Live in-browser transcription needs Chrome or Edge. Type or paste your notes above instead, then generate notes.</div>
+            <button class="ln-manual-toggle" id="ln-manual-toggle" onclick="lnToggleManualEntry()" style="display:none">✎ Type transcript manually instead</button>
           </div>
           <div class="ln-actions-row">
             <button class="btn btn-ghost" onclick="lnCancelRecording()">Cancel</button>
@@ -9561,17 +9563,29 @@
     let lnInterimTranscript = '';
     let lnRecordStartTime = null;
     let lnTimerInterval = null;
+    let lnConsecutiveErrors = 0;
+    let lnGotAnyResult = false;
+
+    function lnSetStatusLine(msg) {
+      const el = document.getElementById('ln-rec-status-line');
+      if (!msg) { el.style.display = 'none'; el.textContent = ''; return; }
+      el.style.display = 'block';
+      el.textContent = msg;
+    }
 
     function lnStartNew() {
       lnShowView('record');
       document.getElementById('ln-meeting-title').value = '';
       lnFinalTranscript = '';
       lnInterimTranscript = '';
+      lnConsecutiveErrors = 0;
+      lnGotAnyResult = false;
       document.getElementById('ln-live-transcript').innerHTML = '';
       document.getElementById('ln-manual-transcript').value = '';
       document.getElementById('ln-rec-status').textContent = '00:00';
       document.getElementById('ln-rec-btn-label').textContent = 'Start Recording';
       document.getElementById('ln-rec-btn').classList.remove('recording');
+      lnSetStatusLine('');
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
       const supported = !!SR;
       document.getElementById('ln-live-transcript').style.display = supported ? 'block' : 'none';
@@ -9579,6 +9593,21 @@
       document.getElementById('ln-rec-btn').style.display = supported ? 'flex' : 'none';
       document.getElementById('ln-sr-unsupported-note').style.display = supported ? 'none' : 'block';
       document.getElementById('ln-rec-status').style.display = supported ? 'block' : 'none';
+      document.getElementById('ln-manual-toggle').style.display = supported ? 'block' : 'none';
+      document.getElementById('ln-manual-toggle').textContent = '✎ Type transcript manually instead';
+    }
+
+    function lnToggleManualEntry() {
+      const box = document.getElementById('ln-manual-transcript');
+      const showing = box.style.display !== 'none';
+      if (showing) {
+        box.style.display = 'none';
+        document.getElementById('ln-manual-toggle').textContent = '✎ Type transcript manually instead';
+      } else {
+        box.style.display = 'block';
+        document.getElementById('ln-manual-toggle').textContent = '✎ Hide manual entry';
+        box.focus();
+      }
     }
 
     function lnToggleRecording() {
@@ -9588,11 +9617,16 @@
     function lnBeginRecording() {
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SR) return;
+      lnSetStatusLine('');
+      lnConsecutiveErrors = 0;
+      lnGotAnyResult = false;
       lnRecognition = new SR();
       lnRecognition.continuous = true;
       lnRecognition.interimResults = true;
-      lnRecognition.lang = 'en-IN';
+      lnRecognition.lang = 'en-US';
       lnRecognition.onresult = (e) => {
+        lnGotAnyResult = true;
+        lnConsecutiveErrors = 0;
         let interim = '', final = '';
         for (let i = e.resultIndex; i < e.results.length; i++) {
           const piece = e.results[i][0].transcript;
@@ -9606,14 +9640,29 @@
       lnRecognition.onerror = (e) => {
         if (e.error === 'no-speech' || e.error === 'aborted') return;
         if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-          alert('Microphone access was blocked. Please allow microphone access to record.');
+          lnSetStatusLine('⚠️ Microphone access was blocked. Allow microphone access in your browser, or type the transcript manually below.');
+          lnStopRecording();
+          return;
+        }
+        lnConsecutiveErrors++;
+        const reasons = {
+          'network': 'a network issue reaching the speech recognition service',
+          'audio-capture': 'no microphone could be found',
+          'language-not-supported': 'this browser’s speech engine doesn’t support the selected language'
+        };
+        const why = reasons[e.error] || `an error (${e.error})`;
+        if (lnConsecutiveErrors >= 3) {
+          lnSetStatusLine(`⚠️ Live transcription isn't working (${why}). Type or paste the transcript manually below instead.`);
           lnStopRecording();
         }
       };
       lnRecognition.onend = () => {
         if (lnRecording) { try { lnRecognition.start(); } catch (e) {} }
       };
-      try { lnRecognition.start(); } catch (e) { return; }
+      try { lnRecognition.start(); } catch (e) {
+        lnSetStatusLine('⚠️ Couldn’t start live transcription. Type or paste the transcript manually below instead.');
+        return;
+      }
       lnRecording = true;
       lnRecordStartTime = Date.now();
       document.getElementById('ln-rec-btn-label').textContent = 'Stop Recording';
@@ -9649,9 +9698,11 @@
 
     async function lnGenerateNotes() {
       if (lnRecording) lnStopRecording();
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const transcript = (SR ? lnFinalTranscript : document.getElementById('ln-manual-transcript').value).trim();
-      if (!transcript) { alert('No transcript captured yet. Record some audio or paste a transcript first.'); return; }
+      const manualBox = document.getElementById('ln-manual-transcript');
+      const manualText = manualBox.value.trim();
+      const liveText = lnFinalTranscript.trim();
+      const transcript = manualText || liveText;
+      if (!transcript) { alert('No transcript captured yet. Record some audio or type/paste a transcript first.'); return; }
       const title = document.getElementById('ln-meeting-title').value.trim() || `Meeting — ${lnFmtDate(new Date().toISOString())}`;
       lnShowView('result');
       document.getElementById('ln-result-loading').style.display = 'flex';
@@ -10322,6 +10373,8 @@ Current date: ${today}`;
 .ln-transcript-box:empty::before{content:"Transcript will appear here as you speak…";color:var(--muted)}
 .ln-manual-transcript{width:100%;min-height:160px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;font-size:13px;line-height:1.6;color:var(--text);font-family:var(--font);resize:vertical}
 .ln-sr-note{font-size:11.5px;color:var(--yellow);background:rgba(245,200,66,.1);border:1px solid rgba(245,200,66,.3);border-radius:8px;padding:10px 12px;line-height:1.5}
+.ln-rec-status-line{font-size:11.5px;color:var(--red);background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);border-radius:8px;padding:9px 12px;line-height:1.5;width:100%}
+.ln-manual-toggle{background:none;border:none;color:var(--accent2);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font);padding:2px;text-decoration:underline}
 .ln-actions-row{display:flex;gap:10px;margin-top:6px;flex-wrap:wrap;justify-content:center}
 .ln-result-loading{display:flex;flex-direction:column;align-items:center;gap:12px;padding:50px 20px;color:var(--muted);font-size:13px}
 .ln-spinner{width:26px;height:26px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:lnSpin .8s linear infinite}
