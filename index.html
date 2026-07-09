@@ -6408,7 +6408,7 @@
           return `<tr id="trow-${gi}">
           <td data-label="Member">${memberAvatarHtml}${t.member || '—'}${isPersonal ? ' <span title="Personal To-Do" style="font-size:11px">📌</span>' : ''}</td>
           <td data-label="Brand" onclick="window.showTaskDetail(${gi})"><div class="task-cell"><span style="font-size:11px;padding:2px 8px;background:${isPersonal ? 'rgba(91,156,246,.15)' : 'rgba(200,169,110,.1)'};color:${isPersonal ? 'var(--blue)' : 'var(--accent)'};border-radius:4px">${t.brand || '—'}</span></div></td>
-          <td data-label="Task" style="max-width:260px" onclick="window.showTaskDetail(${gi})"><div class="task-cell prio-heat" style="--prio-color:${priorityHeatColor(t.priority)}">${t.task.length > 55 ? t.task.slice(0, 55) + '…' : t.task}${t.is_auto ? ' <span class="auto-task-badge">🤖 AUTO</span>' : ''}</div></td>
+          <td data-label="Task" style="max-width:260px" onclick="window.showTaskDetail(${gi})"><div class="prio-dot-row"><span class="prio-dot" style="--prio-color:${priorityHeatColor(t.priority)}"></span><div class="task-cell">${t.task.length > 55 ? t.task.slice(0, 55) + '…' : t.task}${t.is_auto ? ' <span class="auto-task-badge">🤖 AUTO</span>' : ''}</div></div></td>
           <td data-label="Assigned by" style="color:var(--muted);font-size:12px">${t.assigned_by || '—'}</td>
           <td data-label="Assigned on" style="color:var(--muted);font-size:12px;white-space:nowrap">${t.assigned_on || (t.created_at?fmtStamp(new Date(t.created_at)):'—')}</td>
           <td data-label="Priority" style="${t.status === 'Completed' ? 'opacity:0.35;pointer-events:none' : ''}">${pBadge(t.priority)}</td>
@@ -8153,7 +8153,7 @@
         return `<tr>
       <td><span style="color:${mColor(t.member)}">●</span> <strong>${t.member || '—'}</strong></td>
       <td onclick="window.showTaskDetail(${taskIdx})"><div class="task-cell"><span style="font-size:11px;padding:2px 8px;background:rgba(224,92,92,.1);color:#e05c5c;border-radius:4px">${t.brand || '—'}</span></div></td>
-      <td style="max-width:280px" onclick="window.showTaskDetail(${taskIdx})"><div class="task-cell prio-heat" style="--prio-color:${priorityHeatColor(t.priority)}">${t.task}</div></td>
+      <td style="max-width:280px" onclick="window.showTaskDetail(${taskIdx})"><div class="prio-dot-row"><span class="prio-dot" style="--prio-color:${priorityHeatColor(t.priority)}"></span><div class="task-cell">${t.task}</div></div></td>
       <td style="color:var(--muted);font-size:12px">${t.assigned_by || '—'}</td>
       <td>${pBadge(t.priority)}</td>
       <td>
@@ -9193,8 +9193,9 @@ Current date: ${today}`;
     #overdue-body table th:nth-child(6),#overdue-body table td:nth-child(6){width:19%}
     #overdue-body table th:nth-child(7),#overdue-body table td:nth-child(7){width:20%}
     /* Priority as a heat-strip: red/yellow/blue bar next to the task text instead of a separate column, pulsing to draw the eye */
-    .prio-heat{border-left:3px solid var(--prio-color,transparent)!important;padding-left:6px!important;margin-left:-1px!important;animation:prioHeatPulse 1.4s ease-in-out infinite}
-    @keyframes prioHeatPulse{0%,100%{border-left-color:var(--prio-color,transparent)}50%{border-left-color:transparent}}
+    .prio-dot-row{display:flex!important;align-items:center!important;gap:5px!important}
+    .prio-dot{position:relative;width:7px;height:7px;min-width:7px;border-radius:50%;background:var(--prio-color,transparent);flex-shrink:0}
+    .prio-dot::after{content:'';position:absolute;inset:-4px;border-radius:50%;background:var(--prio-color,transparent);opacity:.5;animation:ping 1.4s ease-out infinite}
     /* Task/Brand cells open the full task-detail popup on tap */
     #page-tasks .table-wrap table td[onclick],#overdue-body table td[onclick],.ao-table td[onclick]{cursor:pointer!important}
     /* "Tasks I Assigned to Others": same real-table treatment as My Tasks. Assigned On (5) and Time (6) hidden */
