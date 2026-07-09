@@ -2668,7 +2668,7 @@
   
     /* ===== ATTENDANCE (injected v2) ===== */
     .att-wrap{margin:22px 0 8px}
-    .att-head{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.04em;color:var(--accent);text-transform:uppercase;margin-bottom:14px;flex-wrap:wrap}
+    .att-head{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.04em;color:var(--text);text-transform:uppercase;margin-bottom:14px;flex-wrap:wrap}
     .att-datesel{margin-left:auto;display:flex;align-items:center;gap:7px;text-transform:none;letter-spacing:0}
     .att-datesel label{font-size:11px;color:var(--muted);font-weight:500}
     .att-datesel input[type=date]{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:6px 10px;font-size:12px;color-scheme:dark;font-family:inherit}
@@ -8991,6 +8991,11 @@ Current date: ${today}`;
     /* ---- Stat cards: 2 per row ---- */
     #today-stats,.stats-grid,.stat-grid{grid-template-columns:repeat(2,1fr)!important}
     .stat-card{padding:12px 14px!important}
+    /* ---- Tighter vertical gaps between sections ---- */
+    .page{padding:16px!important}
+    .stat-grid,#today-stats{margin-bottom:14px!important}
+    .att-wrap{margin:10px 0 4px!important}
+    .att-board,.att-holidays{margin-top:12px!important}
     /* ---- Overview: quote as a running banner below Live Status ---- */
     .quote-card.quote-banner{
       position:relative!important;overflow:hidden!important;height:34px!important;min-height:34px!important;
@@ -9013,11 +9018,14 @@ Current date: ${today}`;
     .att-leftcol .clock{font-size:40px!important}
     /* ---- My Attendance: compact mobile-only layout (desktop unchanged) ---- */
     .att-leftcol .al-daterow{display:flex;justify-content:flex-end;margin-bottom:10px}
-    .att-leftcol .al-top{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
-    .att-leftcol .al-punches{display:flex;flex-direction:column;gap:0;min-width:150px}
-    .att-leftcol .al-punches .r{display:flex;align-items:center;gap:6px;padding:4px 0;font-size:11px;color:var(--text)}
+    .att-leftcol .al-top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:nowrap}
+    .att-leftcol .al-top .al-clockblock{flex:1 1 auto;min-width:0}
+    .att-leftcol .al-top .al-clockblock .lab{white-space:normal}
+    .att-leftcol .al-top .al-clockblock .sub{white-space:normal}
+    .att-leftcol .al-punches{display:flex;flex-direction:column;gap:0;flex:0 0 auto;min-width:0}
+    .att-leftcol .al-punches .r{display:flex;align-items:center;gap:6px;padding:4px 0;font-size:11px;color:var(--text);white-space:nowrap}
     .att-leftcol .al-punches .r .ic{width:18px;height:18px;border-radius:5px;background:#26241d;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0}
-    .att-leftcol .al-punches .r .v{margin-left:auto;font-weight:700;color:var(--accent2);font-size:11px}
+    .att-leftcol .al-punches .r .v{margin-left:auto;font-weight:700;color:var(--accent2);font-size:11px;padding-left:8px}
     .att-leftcol .al-punches .r .v small{font-size:9px}
     .att-leftcol .att-chips{display:flex;gap:6px;flex-wrap:nowrap}
     .att-leftcol .att-chips .att-chip{padding:6px 4px;font-size:9.5px;min-width:0;text-align:center}
@@ -9030,13 +9038,15 @@ Current date: ${today}`;
     .att-leftcol .att-pol{padding:8px 10px!important;font-size:11px!important}
     .att-leftcol .att-pol .txt b{font-size:11px!important}
     .att-leftcol .att-pol .amt{font-size:14px!important}
-    .pf-combined{display:flex;gap:16px;align-items:stretch}
-    .pf-combined .pf-gaugecard{flex:0 0 200px;text-align:left}
-    .pf-combined .pf-gaugecard .pf-head{justify-content:flex-start}
-    .pf-combined .pf-gaugecard svg{margin:0}
-    .pf-combined .team-lb{flex:1;min-width:0}
-    /* ---- Leaderboard: 4 per row ---- */
-    .tl-grid{grid-template-columns:repeat(4,1fr)!important}
+    .pf-combined{display:flex;gap:10px;align-items:stretch}
+    .pf-combined .pf-gaugecard{flex:0 0 130px;text-align:left;padding:14px 12px}
+    .pf-combined .pf-gaugecard .pf-head{justify-content:flex-start;font-size:10.5px}
+    .pf-combined .pf-gaugecard svg{margin:6px auto -4px}
+    .pf-combined .pf-band{font-size:10px!important;padding:3px 8px!important}
+    .pf-combined .team-lb{flex:1;min-width:0;padding:9px 8px}
+    .pf-combined .tl-grid{grid-template-columns:repeat(5,1fr)!important;gap:4px!important}
+    .pf-combined .tl-gauge{width:100%!important;height:auto!important}
+    .pf-combined .tl-name{font-size:8px!important}
     /* ---- Calendar cells ---- */
     .att-cal{padding:12px!important}
     .att-cal table{border-spacing:2px!important;min-width:0!important}
@@ -9112,9 +9122,6 @@ Current date: ${today}`;
     #today-stats .stat-card .value{font-size:16px!important}
     #today-stats .stat-card .sub{display:none!important}
     .today-title{font-size:20px!important}
-    /* Performance + Team Leaderboard: stack instead of side-by-side, doesn't fit at phone width */
-    .pf-combined{flex-direction:column!important}
-    .pf-combined .pf-gaugecard{flex:0 0 auto!important;width:100%!important;box-sizing:border-box!important}
     /* Founder Daily Overview: 5 flash cards per row, condensed to essentials */
     .att-daily-grid{grid-template-columns:repeat(5,1fr)!important;gap:5px!important}
     .att-daily-card{padding:5px 4px!important;border-radius:9px!important}
@@ -9413,7 +9420,7 @@ Current date: ${today}`;
       var lateNote=rec.status==="late"?' <small>(after 10:30 grace)</small>':(rec.status==="present"&&rec.in!=="—"?' <small>(within grace)</small>':'');
       var mobile=window.innerWidth<=820;
       var dateSel='<div class="att-datesel"><label>Date</label><input type="date" id="att-date" value="'+SEL+'" max="'+TODAY+'"></div>';
-      var clockBlock='<div><div class="lab">Working Hours &middot; '+(isToday?"Today":new Date(SEL+"T00:00:00").toLocaleDateString("en-IN",{weekday:"short",day:"numeric",month:"short"}))+(isSat(SEL)?" &middot; Sat":"")+'</div>'+
+      var clockBlock='<div class="al-clockblock"><div class="lab">Working Hours &middot; '+(isToday?"Today":new Date(SEL+"T00:00:00").toLocaleDateString("en-IN",{weekday:"short",day:"numeric",month:"short"}))+(isSat(SEL)?" &middot; Sat":"")+'</div>'+
               '<div class="clock">'+clockOf(rec.hrs)+'</div>'+
               '<div class="sub">&#8599; '+(isToday?"Hours worked today":"Hours worked")+' &middot; '+esc(a.desg)+'</div></div>';
       var punchRows='<div class="r"><span class="ic">&#128276;</span> First Punch <span class="v">'+esc(rec.in)+lateNote+'</span></div>'+
