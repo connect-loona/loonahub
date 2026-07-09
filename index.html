@@ -7501,6 +7501,7 @@
             ['Strategy', b.strategy || '—'],
             ['Design Lead', b.design_lead || '—'],
             ['Video Lead', b.video_lead || '—'],
+            ['Ads Lead', b.ads_lead || '—'],
             ['Deliverables/mo', b.deliverables || '—'],
             ['Tasks', `${td.done}/${td.total} (${pct}%)`],
             b.insta ? ['Instagram', b.insta] : null,
@@ -7568,7 +7569,7 @@
     }
 
     function openAddBrand() {
-      ['ab-strategy', 'ab-response', 'ab-posting', 'ab-design', 'ab-video'].forEach(id => {
+      ['ab-strategy', 'ab-response', 'ab-posting', 'ab-design', 'ab-video', 'ab-ads'].forEach(id => {
         const sel = document.getElementById(id);
         sel.innerHTML = '<option value="">— Select —</option>' + ALL_MEMBERS.map(m => `<option value="${m}">${m}</option>`).join('');
       });
@@ -7623,7 +7624,7 @@
       if (idx === -1) return;
       const b = BRANDS_ALLOC[idx];
 
-      ['ab-strategy', 'ab-response', 'ab-posting', 'ab-design', 'ab-video'].forEach(id => {
+      ['ab-strategy', 'ab-response', 'ab-posting', 'ab-design', 'ab-video', 'ab-ads'].forEach(id => {
         const sel = document.getElementById(id);
         sel.innerHTML = '<option value="">— Select —</option>' + ALL_MEMBERS.map(m => `<option value="${m}">${m}</option>`).join('');
       });
@@ -7643,6 +7644,7 @@
       setSel('ab-posting', b.posting);
       setSel('ab-design', b.design_lead);
       setSel('ab-video', b.video_lead);
+      setSel('ab-ads', b.ads_lead);
       document.getElementById('ab-deliverables').value = b.deliverables || '';
       document.getElementById('ab-insta').value = b.insta || '';
       document.getElementById('ab-website').value = b.website || '';
@@ -7676,6 +7678,7 @@
         posting: document.getElementById('ab-posting').value.trim(),
         design_lead: document.getElementById('ab-design').value,
         video_lead: document.getElementById('ab-video').value,
+        ads_lead: document.getElementById('ab-ads').value,
         deliverables: document.getElementById('ab-deliverables').value,
         insta: document.getElementById('ab-insta').value,
         website: document.getElementById('ab-website').value,
@@ -8737,6 +8740,12 @@ Current date: ${today}`;
           <label>Video Lead</label>
           <select class="form-control" id="ab-video"></select>
         </div>
+        <div class="form-group">
+          <label>Ads Lead</label>
+          <select class="form-control" id="ab-ads"></select>
+        </div>
+      </div>
+      <div class="form-row">
         <div class="form-group">
           <label>Monthly Deliverables</label>
           <input class="form-control" type="number" id="ab-deliverables" placeholder="e.g. 30">
