@@ -7987,22 +7987,29 @@
     // ═══ DECK LINKS ═══
     function renderFinalCreatives(){
       const grid=document.getElementById('final-creatives-grid'); if(!grid) return;
-      const brands=BRANDS_ALLOC.filter(b=>!b.inactive).map(b=>b.brand).sort((a,b)=>String(a).localeCompare(String(b)));
+      const activeBrandNames=new Set(BRANDS_ALLOC.filter(b=>!b.inactive).map(b=>b.brand));
+      // Folders added via "+ Add Folder" don't have to match a real Brand entry (e.g. a one-off client or
+      // internal folder) — include those stray FINAL_CREATIVES keys too, or the link silently vanishes from
+      // the grid right after saving even though it did save.
+      const strayKeys=Object.keys(FINAL_CREATIVES).filter(k=>!activeBrandNames.has(k));
+      const brands=Array.from(activeBrandNames).concat(strayKeys).sort((a,b)=>String(a).localeCompare(String(b)));
       window._fcBrands=brands;
       grid.innerHTML=brands.map((brand,idx)=>{
         const url=FINAL_CREATIVES[brand]||'';
+        const isStray=strayKeys.includes(brand);
+        const strayTag=isStray?'<span title="Not an active brand" style="color:#e05c5c">⚠ </span>':'';
         if(url){
           return `<div style="position:relative;display:flex">
       <a class="link-card" href="${url.replace(/"/g,'&quot;')}" target="_blank" style="flex:1;padding-right:36px">
         <div style="font-size:20px">📁</div>
-        <div><div class="lname">${brand}</div><div class="ltype">Final creatives</div></div>
+        <div><div class="lname">${strayTag}${brand}</div><div class="ltype">Final creatives</div></div>
       </a>
       <button onclick="editFinalCreative(window._fcBrands[${idx}]);event.stopPropagation()" title="Edit link" style="position:absolute;top:8px;right:8px;background:rgba(200,169,110,.15);border:1px solid rgba(200,169,110,.3);color:var(--accent);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:var(--font)">✎</button>
     </div>`;
         }
         return `<div class="link-card" onclick="editFinalCreative(window._fcBrands[${idx}])" style="border-style:dashed;opacity:.55;cursor:pointer;align-items:center;justify-content:center">
       <div style="font-size:20px;color:var(--accent)">+</div>
-      <div><div class="lname">${brand}</div><div class="ltype">Add folder link</div></div>
+      <div><div class="lname">${strayTag}${brand}</div><div class="ltype">Add folder link</div></div>
     </div>`;
       }).join('') + (`
     <div class="link-card" onclick="addFinalCreative()"
@@ -8046,7 +8053,6 @@
       renderFinalCreatives();
       const grid = document.getElementById('deck-links-grid');
       if (!grid) return;
-      const isGokul = currentUser === 'Gokul';
       const getType = url => {
         if (!url) return { icon: '🔗', label: 'Link' };
         if (url.includes('canva.com')) return { icon: '🎨', label: 'Canva Deck' };
@@ -8083,12 +8089,12 @@
         style="position:absolute;top:8px;right:8px;background:rgba(200,169,110,.15);border:1px solid rgba(200,169,110,.3);
         color:var(--accent);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:var(--font)">✎</button>
     </div>`;
-      }).join('') + (isGokul ? `
+      }).join('') + (`
     <div class="link-card" onclick="addDeckLink()"
       style="border-style:dashed;opacity:0.6;cursor:pointer;align-items:center;justify-content:center">
       <div style="font-size:22px;color:var(--accent)">+</div>
       <div><div class="lname">Add Link</div><div class="ltype">New deck or folder</div></div>
-    </div>` : '');
+    </div>`);
     }
     let _deckEditOrigBrand = null;
     function editDeckLink(brand) {
