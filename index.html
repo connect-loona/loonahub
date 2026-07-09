@@ -2740,32 +2740,42 @@
     .lc-intro p:last-of-type{margin-bottom:0}
     .lc-intro .lc-sign{margin-top:6px;font-weight:700;color:var(--purple,#a78bfa);font-style:italic}
     .lc-banner{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 18px;font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:20px}
-    .lc-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-    @media(max-width:820px){.lc-grid{grid-template-columns:1fr}}
     .lc-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 20px}
-    .lc-card-h{display:flex;align-items:center;gap:9px;margin-bottom:10px}
-    .lc-card-h h3{font-size:15px;margin:0;color:var(--text)}
-    .lc-ic{width:30px;height:30px;border-radius:9px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
-    .lc-card p{font-size:12.5px;color:var(--muted);line-height:1.6;margin:0 0 10px}
-    .lc-card p:last-child{margin-bottom:0}
-    .lc-card p b{color:var(--text)}
-    .lc-card .lc-note{font-size:11.5px;color:#8a8178;font-style:italic;margin:0 0 12px}
-    .lc-card ul{margin:0 0 4px;padding-left:18px;font-size:12.5px;color:var(--muted);line-height:1.7}
-    .lc-card ul:last-child{margin-bottom:0}
-    .lc-card li{margin-bottom:6px}
-    .lc-card li:last-child{margin-bottom:0}
-    .lc-card li b{color:var(--text)}
+    /* accordion */
+    .lc-accordion{border-top:1px solid var(--border);background:var(--surface);border-left:1px solid var(--border);border-right:1px solid var(--border);border-radius:16px;overflow:hidden}
+    .lc-acc-item{border-bottom:1px solid var(--border)}
+    .lc-acc-head{display:flex;align-items:center;gap:12px;width:100%;background:none;border:none;padding:16px 18px;cursor:pointer;text-align:left;font-family:var(--font)}
+    .lc-acc-num{font-size:11px;color:var(--muted);font-weight:700;flex:0 0 auto;width:20px}
+    .lc-acc-ic{font-size:16px;flex:0 0 auto;width:20px;text-align:center}
+    .lc-acc-title{flex:1 1 auto;font-size:14px;font-weight:700;color:var(--text)}
+    .lc-acc-toggle{font-size:19px;line-height:1;color:var(--accent2);flex:0 0 auto;width:18px;text-align:center;font-weight:700}
+    .lc-acc-body{display:none;padding:0 18px 20px 70px}
+    .lc-acc-item.open .lc-acc-body{display:block}
+    @media(max-width:600px){.lc-acc-body{padding-left:52px}}
+    .lc-acc-body p{font-size:12.5px;color:var(--muted);line-height:1.6;margin:0 0 10px}
+    .lc-acc-body p:last-child{margin-bottom:0}
+    .lc-acc-body p b{color:var(--text)}
+    .lc-acc-body .lc-note{font-size:11.5px;color:#8a8178;font-style:italic;margin:0 0 12px}
+    .lc-acc-body ul{margin:0 0 4px;padding-left:18px;font-size:12.5px;color:var(--muted);line-height:1.7}
+    .lc-acc-body ul:last-child{margin-bottom:0}
+    .lc-acc-body li{margin-bottom:6px}
+    .lc-acc-body li:last-child{margin-bottom:0}
+    .lc-acc-body li b{color:var(--text)}
     .lc-yes{color:var(--green,#68e6a6);font-weight:600}
     .lc-no{color:var(--red,#e05c5c);font-weight:600}
     /* org chart */
-    .lc-org{display:flex;flex-direction:column;align-items:center;gap:10px;padding:10px 0}
-    .lc-org-node{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 18px;font-size:12.5px;text-align:center;min-width:140px}
-    .lc-org-node b{display:block;color:var(--text);font-size:13px}
-    .lc-org-node span{color:var(--muted);font-size:11px}
-    .lc-org-row{display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:14px}
-    @media(max-width:820px){.lc-org-row{gap:22px}}
-    .lc-org-branch{display:flex;flex-direction:column;align-items:center;gap:10px}
-    .lc-org-line{width:1px;height:16px;background:var(--border)}
+    .lc-org-tree{display:inline-flex;flex-direction:column;align-items:center;padding:16px 24px}
+    .lc-org-stem{width:1px;height:16px;background:var(--border)}
+    .lc-org-children{display:flex;justify-content:center;gap:22px;position:relative}
+    .lc-org-child{position:relative;padding-top:16px;display:flex;flex-direction:column;align-items:center;flex:0 0 auto}
+    .lc-org-child::before{content:'';position:absolute;top:0;left:50%;width:1px;height:16px;background:var(--border)}
+    .lc-org-hline{position:absolute;top:0;height:1px;background:var(--border)}
+    .lc-org-node{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;font-size:12.5px;text-align:center;width:130px;display:flex;flex-direction:column;align-items:center;gap:2px}
+    .lc-org-avatar{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;overflow:hidden;flex-shrink:0}
+    .lc-org-node b{color:var(--text);font-size:12.5px;margin-top:5px}
+    .lc-org-node span{color:var(--muted);font-size:10.5px;line-height:1.3}
+    .lc-org-node em{color:var(--accent2);font-size:9.5px;font-style:normal;font-weight:700;margin-top:2px;text-transform:uppercase;letter-spacing:.03em}
+    .lc-org-label{border:1px dashed var(--border);border-radius:10px;padding:6px 10px;font-size:10.5px;color:#8a8178;font-style:italic;width:130px;text-align:center}
     .lc-closing{background:linear-gradient(135deg,rgba(255,109,41,.12),rgba(255,109,41,.03));border:1px solid rgba(255,109,41,.35);border-radius:16px;padding:22px 24px;margin-top:20px;text-align:center}
     .lc-closing p{font-size:13px;color:var(--text);line-height:1.7;margin:0 0 10px}
     .lc-closing p:last-of-type{margin-bottom:0}
@@ -5119,127 +5129,132 @@
 
       <div class="lc-banner">These policies are the framework this studio operates within — not guidelines. Full compliance is expected from everyone, without exception. If anything here is unclear, raise it with management directly — not with each other.</div>
 
-      <div class="lc-grid">
-        <div class="lc-card">
-          <div class="lc-card-h"><span class="lc-ic">🗓️</span><h3>Leave Policy</h3></div>
-          <p>Every employee gets <b id="lc-total-leave">15</b> days of paid leave a year (over and above public holidays), accrued pro-rata at 1.25 days/month from the start of the financial year (April) or your joining date, whichever is later.</p>
-          <p>Sick leave is not tracked as a separate category — it's merged into this same annual entitlement, same as most organisations.</p>
-          <p>A medical certificate is mandatory for any sick leave, especially when taken on a Saturday, Monday, or around a bank holiday. Sick leave on these days without a valid certificate will be automatically adjusted against paid or unpaid leave, and repeated misuse will result in disciplinary action.</p>
-          <p>An unapproved absence (no punch, not pre-approved) is deducted from your leave balance as Official Leave. If you did punch in but worked unusually short hours, it's fined instead — see Attendance &amp; Fines.</p>
+      <div class="lc-accordion">
+        <div class="lc-acc-item">
+          <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
+            <span class="lc-acc-num">01</span><span class="lc-acc-ic">🗓️</span><span class="lc-acc-title">Leave Policy</span><span class="lc-acc-toggle">+</span>
+          </button>
+          <div class="lc-acc-body">
+            <p>Every employee gets <b id="lc-total-leave">15</b> days of paid leave a year (over and above public holidays), accrued pro-rata at 1.25 days/month from the start of the financial year (April) or your joining date, whichever is later.</p>
+            <p>Sick leave is not tracked as a separate category — it's merged into this same annual entitlement, same as most organisations.</p>
+            <p>A medical certificate is mandatory for any sick leave, especially when taken on a Saturday, Monday, or around a bank holiday. Sick leave on these days without a valid certificate will be automatically adjusted against paid or unpaid leave, and repeated misuse will result in disciplinary action.</p>
+            <p>An unapproved absence (no punch, not pre-approved) is deducted from your leave balance as Official Leave. If you did punch in but worked unusually short hours, it's fined instead — see Attendance &amp; Fines.</p>
+          </div>
         </div>
 
-        <div class="lc-card">
-          <div class="lc-card-h"><span class="lc-ic">⏰</span><h3>Attendance &amp; Fines</h3></div>
-          <p>Working days are Monday–Saturday. Business hours are 10:00 am–5:30 pm (10:00 am–3:30 pm on Saturdays), with one designated weekly off. You may occasionally be asked to work on holidays based on project deadlines or business needs, at management's discretion.</p>
-          <p>Late arrivals, half days, and short-hours absences are fined at ₹<b id="lc-late-fee">200</b> for every <b id="lc-late-block">3</b> occurrences.</p>
-          <p>A formal warning on late arrivals has already been issued to the team — this is the final notice. Attendance is being monitored closely, and continued violations will be escalated.</p>
+        <div class="lc-acc-item">
+          <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
+            <span class="lc-acc-num">02</span><span class="lc-acc-ic">⏰</span><span class="lc-acc-title">Attendance &amp; Fines</span><span class="lc-acc-toggle">+</span>
+          </button>
+          <div class="lc-acc-body">
+            <p>Working days are Monday–Saturday. Business hours are 10:00 am–5:30 pm (10:00 am–3:30 pm on Saturdays), with one designated weekly off. You may occasionally be asked to work on holidays based on project deadlines or business needs, at management's discretion.</p>
+            <p>Late arrivals, half days, and short-hours absences are fined at ₹<b id="lc-late-fee">200</b> for every <b id="lc-late-block">3</b> occurrences.</p>
+            <p>A formal warning on late arrivals has already been issued to the team — this is the final notice. Attendance is being monitored closely, and continued violations will be escalated.</p>
+          </div>
         </div>
 
-        <div class="lc-card">
-          <div class="lc-card-h"><span class="lc-ic">🏠</span><h3>Work From Home</h3></div>
-          <p>WFH is not, and has never been, a standard policy at Loona. No WFH request will be entertained unless there is a genuine emergency, and even then it must be approved in advance by your Reporting Manager. Same-day requests will not be considered.</p>
+        <div class="lc-acc-item">
+          <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
+            <span class="lc-acc-num">03</span><span class="lc-acc-ic">🏠</span><span class="lc-acc-title">Work From Home</span><span class="lc-acc-toggle">+</span>
+          </button>
+          <div class="lc-acc-body">
+            <p>WFH is not, and has never been, a standard policy at Loona. No WFH request will be entertained unless there is a genuine emergency, and even then it must be approved in advance by your Reporting Manager. Same-day requests will not be considered.</p>
+          </div>
         </div>
 
-        <div class="lc-card">
-          <div class="lc-card-h"><span class="lc-ic">📝</span><h3>Notice Period &amp; Resignation</h3></div>
-          <p><b>During probation:</b> you may resign by giving one (1) month's notice, or salary/wages in lieu. The Company may terminate your employment during probation without any notice or compensation in cases of misconduct, breach of policy, negligence, or failure to perform assigned duties.</p>
-          <p><b>After confirmation:</b> you may resign by giving two (2) months' notice, or surrendering salary/wages in lieu. The Company may terminate by giving one (1) month's notice, or salary/wages in lieu thereof. The Company reserves the right to terminate without any notice, indemnity, or compensation in cases of misconduct, breach of policy, negligence, or failure to perform assigned duties.</p>
+        <div class="lc-acc-item">
+          <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
+            <span class="lc-acc-num">04</span><span class="lc-acc-ic">📝</span><span class="lc-acc-title">Notice Period &amp; Resignation</span><span class="lc-acc-toggle">+</span>
+          </button>
+          <div class="lc-acc-body">
+            <p><b>During probation:</b> you may resign by giving one (1) month's notice, or salary/wages in lieu. The Company may terminate your employment during probation without any notice or compensation in cases of misconduct, breach of policy, negligence, or failure to perform assigned duties.</p>
+            <p><b>After confirmation:</b> you may resign by giving two (2) months' notice, or surrendering salary/wages in lieu. The Company may terminate by giving one (1) month's notice, or salary/wages in lieu thereof. The Company reserves the right to terminate without any notice, indemnity, or compensation in cases of misconduct, breach of policy, negligence, or failure to perform assigned duties.</p>
+          </div>
         </div>
 
-        <div class="lc-card" style="grid-column:1/-1">
-          <div class="lc-card-h"><span class="lc-ic">🔒</span><h3>Confidentiality, IP &amp; Conduct</h3></div>
-          <p>All raw footage, edited content, concepts, decks, shoot materials, and client data created during your employment are "work made for hire" and remain the sole property of Loona and/or its clients — you retain no ownership, usage, or distribution rights, and may not publish, share, or present any of it as personal work (portfolio, résumé, social media, or any third-party platform), during or after your employment.</p>
-          <p>Confidentiality and non-disclosure obligations remain in effect indefinitely, even after you leave. For twelve (12) months after leaving, you may not engage — directly or indirectly, paid or unpaid — with any Loona client or partner you worked with, nor solicit Loona employees, freelancers, or clients, without prior written consent from management.</p>
-          <p>Timely presence, adherence to schedules, and meeting delivery deadlines are essential to every role — repeated delays or absenteeism may be treated as misconduct. Professionalism is expected at all shoots, events, and client interactions at all times; misconduct or inappropriate behaviour with clients or teammates can result in immediate termination.</p>
+        <div class="lc-acc-item">
+          <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
+            <span class="lc-acc-num">05</span><span class="lc-acc-ic">🔒</span><span class="lc-acc-title">Confidentiality, IP &amp; Conduct</span><span class="lc-acc-toggle">+</span>
+          </button>
+          <div class="lc-acc-body">
+            <p>All raw footage, edited content, concepts, decks, shoot materials, and client data created during your employment are "work made for hire" and remain the sole property of Loona and/or its clients — you retain no ownership, usage, or distribution rights, and may not publish, share, or present any of it as personal work (portfolio, résumé, social media, or any third-party platform), during or after your employment.</p>
+            <p>Confidentiality and non-disclosure obligations remain in effect indefinitely, even after you leave. For twelve (12) months after leaving, you may not engage — directly or indirectly, paid or unpaid — with any Loona client or partner you worked with, nor solicit Loona employees, freelancers, or clients, without prior written consent from management.</p>
+            <p>Timely presence, adherence to schedules, and meeting delivery deadlines are essential to every role — repeated delays or absenteeism may be treated as misconduct. Professionalism is expected at all shoots, events, and client interactions at all times; misconduct or inappropriate behaviour with clients or teammates can result in immediate termination.</p>
+          </div>
         </div>
 
-        <div class="lc-card" style="grid-column:1/-1">
-          <div class="lc-card-h"><span class="lc-ic">💬</span><h3>Team Communication Rules</h3></div>
-          <p class="lc-note">Applies to all internal work communication — primarily WhatsApp, plus email and the Hub.</p>
-          <ul>
-            <li>Every work-related message must be <b>replied to properly</b> — no emoji-only responses. <span class="lc-yes">✅ "Working on SC deck, will send by 3 PM."</span> &nbsp; <span class="lc-no">❌ "👌", "Yesss"</span></li>
-            <li>No ghosting, no floating deliverables — every message needs a clear, actionable response.</li>
-            <li>If you have doubts, pick up the phone and call your lead. Don't wait around or delay the task — work cannot be paused just because you're unsure.</li>
-            <li>Ask questions, clarify quickly, and summarise if needed.</li>
-            <li>Acknowledge any new task or feedback within <b>1 working hour</b>.</li>
-          </ul>
+        <div class="lc-acc-item">
+          <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
+            <span class="lc-acc-num">06</span><span class="lc-acc-ic">💬</span><span class="lc-acc-title">Team Communication Rules</span><span class="lc-acc-toggle">+</span>
+          </button>
+          <div class="lc-acc-body">
+            <p class="lc-note">Applies to all internal work communication — primarily WhatsApp, plus email and the Hub.</p>
+            <ul>
+              <li>Every work-related message must be <b>replied to properly</b> — no emoji-only responses. <span class="lc-yes">✅ "Working on SC deck, will send by 3 PM."</span> &nbsp; <span class="lc-no">❌ "👌", "Yesss"</span></li>
+              <li>No ghosting, no floating deliverables — every message needs a clear, actionable response.</li>
+              <li>If you have doubts, pick up the phone and call your lead. Don't wait around or delay the task — work cannot be paused just because you're unsure.</li>
+              <li>Ask questions, clarify quickly, and summarise if needed.</li>
+              <li>Acknowledge any new task or feedback within <b>1 working hour</b>.</li>
+            </ul>
+          </div>
         </div>
 
-        <div class="lc-card">
-          <div class="lc-card-h"><span class="lc-ic">🔁</span><h3>Feedback &amp; Revisions</h3></div>
-          <ul>
-            <li>Feedback loops are a normal part of the process — don't take them personally.</li>
-            <li>Always implement changes after confirming you've understood them. If unclear, ask immediately.</li>
-            <li>Keep it efficient: max <b>2 rounds</b> of internal review before sharing with the client.</li>
-            <li>Revisions are to uphold Loona's quality standards, not to nitpick.</li>
-          </ul>
+        <div class="lc-acc-item">
+          <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
+            <span class="lc-acc-num">07</span><span class="lc-acc-ic">🔁</span><span class="lc-acc-title">Feedback &amp; Revisions</span><span class="lc-acc-toggle">+</span>
+          </button>
+          <div class="lc-acc-body">
+            <ul>
+              <li>Feedback loops are a normal part of the process — don't take them personally.</li>
+              <li>Always implement changes after confirming you've understood them. If unclear, ask immediately.</li>
+              <li>Keep it efficient: max <b>2 rounds</b> of internal review before sharing with the client.</li>
+              <li>Revisions are to uphold Loona's quality standards, not to nitpick.</li>
+            </ul>
+          </div>
         </div>
 
-        <div class="lc-card">
-          <div class="lc-card-h"><span class="lc-ic">🎯</span><h3>Responsibility &amp; Ownership</h3></div>
-          <ul>
-            <li>If you're assigned a task, you own it until it's done, approved, and shared — no hand-offs without context.</li>
-            <li>Don't wait to be reminded. Reminders are not a workflow.</li>
-            <li>If you're blocked or delayed, communicate early — not when the deadline passes.</li>
-          </ul>
+        <div class="lc-acc-item">
+          <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
+            <span class="lc-acc-num">08</span><span class="lc-acc-ic">🎯</span><span class="lc-acc-title">Responsibility &amp; Ownership</span><span class="lc-acc-toggle">+</span>
+          </button>
+          <div class="lc-acc-body">
+            <ul>
+              <li>If you're assigned a task, you own it until it's done, approved, and shared — no hand-offs without context.</li>
+              <li>Don't wait to be reminded. Reminders are not a workflow.</li>
+              <li>If you're blocked or delayed, communicate early — not when the deadline passes.</li>
+            </ul>
+          </div>
         </div>
 
-        <div class="lc-card" style="grid-column:1/-1">
-          <div class="lc-card-h"><span class="lc-ic">📧</span><h3>External Communication Etiquette</h3></div>
-          <ul>
-            <li>Always use a professional tone and structure in all client-facing communication — email, DMs, or WhatsApp.</li>
-            <li>Never share incomplete work without internal approval or context.</li>
-            <li>Decks, visuals, or pitch work should always be shared as PDFs, unless the client asks for editable versions.</li>
-            <li>Every email must include a subject — it reflects clarity, respect, and urgency.</li>
-          </ul>
+        <div class="lc-acc-item">
+          <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
+            <span class="lc-acc-num">09</span><span class="lc-acc-ic">📧</span><span class="lc-acc-title">External Communication Etiquette</span><span class="lc-acc-toggle">+</span>
+          </button>
+          <div class="lc-acc-body">
+            <ul>
+              <li>Always use a professional tone and structure in all client-facing communication — email, DMs, or WhatsApp.</li>
+              <li>Never share incomplete work without internal approval or context.</li>
+              <li>Decks, visuals, or pitch work should always be shared as PDFs, unless the client asks for editable versions.</li>
+              <li>Every email must include a subject — it reflects clarity, respect, and urgency.</li>
+            </ul>
+          </div>
         </div>
 
-        <div class="lc-card">
-          <div class="lc-card-h"><span class="lc-ic">🧾</span><h3>Reimbursement Form</h3></div>
-          <p>Use the official form to submit any expense reimbursement claims.</p>
-          <button class="btn btn-primary" onclick="openReimbursementForm()" style="margin-top:4px">Open Reimbursement Form</button>
+        <div class="lc-acc-item">
+          <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
+            <span class="lc-acc-num">10</span><span class="lc-acc-ic">🧾</span><span class="lc-acc-title">Reimbursement Form</span><span class="lc-acc-toggle">+</span>
+          </button>
+          <div class="lc-acc-body">
+            <p>Use the official form to submit any expense reimbursement claims.</p>
+            <button class="btn btn-primary" onclick="event.stopPropagation();openReimbursementForm()" style="margin-top:4px">Open Reimbursement Form</button>
+          </div>
         </div>
       </div>
 
       <div class="section-header">
         <div class="section-title">Org <span>Chart</span></div>
       </div>
-      <div class="lc-card" id="lc-org-chart" style="overflow-x:auto">
-        <div class="lc-org">
-          <div class="lc-org-node"><b>Gokul</b><span>Founder &amp; CEO</span></div>
-          <div class="lc-org-line"></div>
-          <div class="lc-org-row">
-            <div class="lc-org-branch">
-              <div class="lc-org-node"><b>Anam</b><span>Sr. Manager – Strategy/OPS</span></div>
-              <div class="lc-org-line"></div>
-              <div class="lc-org-row">
-                <div class="lc-org-node"><b>Diya</b><span>Sr. Manager – Strategy/OPS</span></div>
-                <div class="lc-org-branch">
-                  <p class="lc-note" style="margin:0 0 8px">Video team — no dedicated lead currently, reports directly to Anam</p>
-                  <div class="lc-org-row">
-                    <div class="lc-org-node"><b>Anurag</b><span>Sr. Videographer/Editor</span></div>
-                    <div class="lc-org-node"><b>Chinmay</b><span>Editor – Video Vertical</span></div>
-                    <div class="lc-org-node"><b>Majid</b><span>Junior Video Editor</span></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="lc-org-branch">
-              <div class="lc-org-node"><b>Ricky</b><span>Head – Design</span></div>
-              <div class="lc-org-line"></div>
-              <div class="lc-org-row">
-                <div class="lc-org-node"><b>Muskan</b><span>Junior Designer</span></div>
-                <div class="lc-org-node"><b>Ananya</b><span>Intern – Design</span></div>
-                <div class="lc-org-node"><b>Nishant</b><span>Junior Designer</span></div>
-              </div>
-            </div>
-            <div class="lc-org-node"><b>Vivaan</b><span>Intern – Social &amp; Strategy</span></div>
-            <div class="lc-org-node"><b>Ankita</b><span>Senior Manager – Strategy/OPS</span></div>
-            <div class="lc-org-node"><b>Karnik</b><span>Senior Designer</span></div>
-            <div class="lc-org-node"><b>Hetal</b><span>Performance Marketing Lead</span></div>
-          </div>
-        </div>
-      </div>
+      <div class="lc-card" id="lc-org-chart" style="overflow-x:auto;display:flex;justify-content:safe center"></div>
 
       <div class="lc-closing">
         <p>We now have the clarity, the process, and the direction.</p>
@@ -6855,6 +6870,81 @@
     }
 
     // ═══ TEAM ═══
+    // ═══ LOONA CODE: accordion + org chart ═══
+    function toggleLcAccordion(btn){
+      var item=btn.closest(".lc-acc-item");
+      var open=item.classList.toggle("open");
+      btn.querySelector(".lc-acc-toggle").textContent=open?"–":"+";
+    }
+    window.toggleLcAccordion=toggleLcAccordion;
+    var ORG_CHART_TREE={ name:"Gokul", reports:[
+      { name:"Karnik" },
+      { name:"Ricky", reports:[ {name:"Muskan"}, {name:"Ananya"}, {name:"Nishant"} ] },
+      { name:"Anam", reports:[
+          {name:"Diya"},
+          {label:"Video team — no dedicated lead, reports directly to Anam", reports:[ {name:"Anurag"}, {name:"Chinmay"}, {name:"Majid"} ]}
+      ]},
+      { name:"Vivaan" },
+      { name:"Ankita" },
+      { name:"Hetal" }
+    ]};
+    function orgAvatarHTML(name){
+      var info=MEMBER_INFO[name]||{};
+      var color=info.color||"#888";
+      var inner=info.avatar?('<img src="'+info.avatar+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'):(info.emoji||"👤");
+      return '<div class="lc-org-avatar" style="background:'+color+'20;color:'+color+'">'+inner+'</div>';
+    }
+    function orgNodeContentHTML(node,showDept){
+      if(node.label) return '<div class="lc-org-label">'+node.label+'</div>';
+      var name=node.name;
+      var a=(window.ATT||{})[name]||{};
+      var info=MEMBER_INFO[name]||{};
+      var desg=(a.desg&&a.desg!=="—")?a.desg:(info.role||"");
+      var dept=(a.dept&&a.dept!=="—")?a.dept:(info.department||"");
+      return '<div class="lc-org-node">'+orgAvatarHTML(name)+'<b>'+name+'</b>'+(desg?'<span>'+desg+'</span>':'')+((showDept&&dept)?'<em>'+dept+'</em>':'')+'</div>';
+    }
+    function orgTreeHTML(node,depth){
+      var content=orgNodeContentHTML(node,depth===1);
+      if(!node.reports||!node.reports.length) return '<div class="lc-org-child">'+content+'</div>';
+      var childrenHTML=node.reports.map(function(r){ return orgTreeHTML(r,depth+1); }).join("");
+      return '<div class="lc-org-child">'+content+'<div class="lc-org-stem"></div><div class="lc-org-children">'+childrenHTML+'</div></div>';
+    }
+    function positionOrgConnectors(root){
+      var containers=root.querySelectorAll(".lc-org-children");
+      Array.prototype.forEach.call(containers,function(cont){
+        var old=cont.querySelector(".lc-org-hline"); if(old) old.remove();
+        var kids=Array.prototype.filter.call(cont.children,function(c){ return c.classList.contains("lc-org-child"); });
+        if(kids.length<2) return;
+        var contRect=cont.getBoundingClientRect();
+        if(!contRect.width) return;
+        var first=kids[0].getBoundingClientRect(), last=kids[kids.length-1].getBoundingClientRect();
+        var firstCenter=first.left+first.width/2-contRect.left, lastCenter=last.left+last.width/2-contRect.left;
+        var hline=document.createElement("div");
+        hline.className="lc-org-hline";
+        hline.style.left=firstCenter+"px";
+        hline.style.width=(lastCenter-firstCenter)+"px";
+        cont.insertBefore(hline,cont.firstChild);
+      });
+    }
+    function renderOrgChart(){
+      var el=document.getElementById("lc-org-chart");
+      if(!el) return;
+      var root=ORG_CHART_TREE;
+      var rootContent=orgNodeContentHTML(root,false);
+      var childrenHTML=root.reports.map(function(r){ return orgTreeHTML(r,1); }).join("");
+      el.innerHTML='<div class="lc-org-tree">'+rootContent+'<div class="lc-org-stem"></div><div class="lc-org-children">'+childrenHTML+'</div></div>';
+      if(el.offsetParent!==null) refreshOrgLayout(el);
+    }
+    function refreshOrgLayout(el){
+      positionOrgConnectors(el);
+      var overflowing=el.scrollWidth>el.clientWidth;
+      el.style.justifyContent=overflowing?"flex-start":"safe center";
+      if(overflowing) el.scrollLeft=(el.scrollWidth-el.clientWidth)/2;
+    }
+    window.addEventListener("resize",function(){
+      var el=document.getElementById("lc-org-chart");
+      if(el && el.offsetParent!==null) refreshOrgLayout(el);
+    });
     function renderTeam() {
       const tMap = {};
       TASKS.forEach(t => { if (!t.member) return; if (!tMap[t.member]) tMap[t.member] = { member: t.member, asylum: t.asylum, total: 0, done: 0, ip: 0, ns: 0, brands: new Set() }; const m = tMap[t.member]; m.total++; if (t.status === 'Completed') m.done++; else if (t.status === 'In Progress') m.ip++; else m.ns++; if (t.brand) m.brands.add(t.brand); });
@@ -6960,6 +7050,7 @@
     <td>${m.total}</td><td style="color:var(--green)">${m.done}</td>
     <td style="color:var(--blue)">${m.ip}</td><td style="color:var(--yellow)">${m.ns}</td>
     <td style="min-width:140px">${progressBar(m.done, m.total)}</td></tr>`).join('');
+      renderOrgChart();
     }
 
     // ═══ PRODUCTION ═══
@@ -8790,6 +8881,7 @@
         renderOverdue();
         renderTaskPage();
       }
+      if (id === 'loonacode' && typeof renderOrgChart === 'function') renderOrgChart();
     }
 
     // ═══ SAVE TO FILE ═══
@@ -9695,6 +9787,7 @@ Current date: ${today}`;
       }
       window.open(REIMBURSEMENT_FORM_URL,"_blank");
     }
+    window.openReimbursementForm=openReimbursementForm;
     var SEL=TODAY;
     var FOUNDER_MO=TODAY.slice(0,7); // month shown in the founder board's Monthly Overview table
     window.attSetFounderMonth=function(val){ if(val) FOUNDER_MO=val; if(window.renderAttendanceOverview) window.renderAttendanceOverview(); };
