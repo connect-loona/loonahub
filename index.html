@@ -3967,7 +3967,7 @@
         <div style="display:flex;align-items:center;gap:10px">
           <div id="task-count">5 tasks</div>
           <button class="btn" onclick="openBroadcast()" style="padding:7px 16px;font-size:12px">📢 Loona Broadcast</button>
-          <button class="btn btn-primary" onclick="openAddTask(getActiveMember())"
+          <button class="btn btn-primary" id="task-board-addtask-btn" onclick="openAddTask(getActiveMember())"
             style="padding:7px 16px;font-size:12px">+ Add Task</button>
         </div>
       </div>
@@ -6365,7 +6365,7 @@
       const cont=document.getElementById('board-summary'); if(!cont) return;
       let m=(typeof getActiveMember==='function'?getActiveMember():'')||currentUser;
       if(!m){ cont.innerHTML=''; return; }
-      (function(){ const tw=document.querySelector('#page-tasks .table-wrap'); if(!tw) return; let h=document.getElementById('my-tasks-header'); if(!h){ h=document.createElement('div'); h.id='my-tasks-header'; h.className='section-header'; h.style.marginTop='6px'; tw.parentNode.insertBefore(h, tw); } const isMe=normName(m)===normName(currentUser); h.innerHTML='<div class=\"section-title\">'+(isMe?'My':(m+"'s"))+' <span>Tasks</span></div>'; })();
+      (function(){ const tw=document.querySelector('#page-tasks .table-wrap'); if(!tw) return; let h=document.getElementById('my-tasks-header'); if(!h){ h=document.createElement('div'); h.id='my-tasks-header'; h.className='section-header'; h.style.marginTop='6px'; tw.parentNode.insertBefore(h, tw); } const isMe=normName(m)===normName(currentUser); const addBtn=window.innerWidth<=820?'<button class=\"btn btn-primary\" onclick=\"openAddTask(getActiveMember())\" style=\"padding:6px 12px;font-size:11px\">+ Add Task</button>':''; h.innerHTML='<div class=\"section-title\">'+(isMe?'My':(m+"'s"))+' <span>Tasks</span></div>'+addBtn; })();
       const mine=(TASKS||[]).filter(t=>t&&normName(t.member)===normName(m)&&!t.is_personal);
       const today=new Date().toISOString().slice(0,10), mo=today.slice(0,7);
       const openS=['Not Started','In Progress','Changes Required','Client Approval','Awaiting Approval','Approval Declined'];
@@ -6407,7 +6407,7 @@
             : `<span style="color:${mColor(t.member)}">●</span> `;
           return `<tr id="trow-${gi}">
           <td data-label="Member">${memberAvatarHtml}${t.member || '—'}${isPersonal ? ' <span title="Personal To-Do" style="font-size:11px">📌</span>' : ''}</td>
-          <td data-label="Brand"><span style="font-size:11px;padding:2px 8px;background:${isPersonal ? 'rgba(91,156,246,.15)' : 'rgba(200,169,110,.1)'};color:${isPersonal ? 'var(--blue)' : 'var(--accent)'};border-radius:4px">${t.brand || '—'}</span></td>
+          <td data-label="Brand"><div class="task-cell"><span style="font-size:11px;padding:2px 8px;background:${isPersonal ? 'rgba(91,156,246,.15)' : 'rgba(200,169,110,.1)'};color:${isPersonal ? 'var(--blue)' : 'var(--accent)'};border-radius:4px">${t.brand || '—'}</span><div class="task-tip">${t.brand || '—'}</div></div></td>
           <td data-label="Task" style="max-width:260px"><div class="task-cell">${t.task.length > 55 ? t.task.slice(0, 55) + '…' : t.task}${t.is_auto ? ' <span class="auto-task-badge">🤖 AUTO</span>' : ''}<div class="task-tip">${t.task}</div></div></td>
           <td data-label="Assigned by" style="color:var(--muted);font-size:12px">${t.assigned_by || '—'}</td>
           <td data-label="Assigned on" style="color:var(--muted);font-size:12px;white-space:nowrap">${t.assigned_on || (t.created_at?fmtStamp(new Date(t.created_at)):'—')}</td>
@@ -7260,8 +7260,8 @@
       const rows = mine.map(t => `
         <tr>
           <td>${(MEMBER_INFO[t.member] || {}).avatar ? `<img src="${MEMBER_INFO[t.member].avatar}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px">` : ''}${t.member || '—'}</td>
-          <td><span style="font-size:11px;padding:2px 8px;background:rgba(200,169,110,.1);color:var(--accent);border-radius:4px">${t.brand || '—'}</span></td>
-          <td style="max-width:240px">${t.task && t.task.length > 52 ? t.task.slice(0, 52) + '…' : (t.task || '—')}</td>
+          <td><div class="task-cell"><span style="font-size:11px;padding:2px 8px;background:rgba(200,169,110,.1);color:var(--accent);border-radius:4px">${t.brand || '—'}</span><div class="task-tip">${t.brand || '—'}</div></div></td>
+          <td style="max-width:240px"><div class="task-cell">${t.task && t.task.length > 52 ? t.task.slice(0, 52) + '…' : (t.task || '—')}<div class="task-tip">${t.task || '—'}</div></div></td>
           <td>${sBadge(t.status)}</td>
           <td style="color:var(--muted);font-size:12px;white-space:nowrap">${t.assigned_on || (t.created_at ? fmtStamp(new Date(t.created_at)) : '—')}</td>
           <td style="color:var(--muted);font-size:12px;white-space:nowrap">${t.status_at || '—'}</td>
@@ -8152,8 +8152,8 @@
         const daysLabel = daysAgo === 1 ? 'yesterday' : `${daysAgo}d overdue`;
         return `<tr>
       <td><span style="color:${mColor(t.member)}">●</span> <strong>${t.member || '—'}</strong></td>
-      <td><span style="font-size:11px;padding:2px 8px;background:rgba(224,92,92,.1);color:#e05c5c;border-radius:4px">${t.brand || '—'}</span></td>
-      <td style="max-width:280px">${t.task}</td>
+      <td><div class="task-cell"><span style="font-size:11px;padding:2px 8px;background:rgba(224,92,92,.1);color:#e05c5c;border-radius:4px">${t.brand || '—'}</span><div class="task-tip">${t.brand || '—'}</div></div></td>
+      <td style="max-width:280px"><div class="task-cell">${t.task}<div class="task-tip">${t.task}</div></div></td>
       <td style="color:var(--muted);font-size:12px">${t.assigned_by || '—'}</td>
       <td>${pBadge(t.priority)}</td>
       <td>
@@ -9155,36 +9155,54 @@ Current date: ${today}`;
     #task-board-header>div:last-child{gap:5px!important;flex-shrink:1;min-width:0}
     #task-count{display:none!important}
     #task-board-header .btn{padding:6px 8px!important;font-size:9.5px!important;white-space:nowrap!important}
+    /* + Add Task moves down next to "My Tasks", parallel on the right, below the filters */
+    #task-board-addtask-btn{display:none!important}
+    #my-tasks-header{display:flex!important;align-items:center!important;justify-content:space-between!important}
     /* ---- Task Board tables: stay a real table, just narrow enough to fit ---- */
     #page-tasks .table-wrap{overflow-x:auto!important}
-    #page-tasks .table-wrap table,#overdue-body table{min-width:0!important;width:100%!important;table-layout:fixed!important}
-    #page-tasks .table-wrap table th,#overdue-body table th{padding:4px 2px!important;font-size:7px!important;white-space:normal!important;line-height:1.15!important}
-    #page-tasks .table-wrap table td,#overdue-body table td{padding:5px 2px!important;font-size:9px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:none!important}
+    #page-tasks .table-wrap table,#overdue-body table,.ao-table{min-width:0!important;width:100%!important;table-layout:fixed!important}
+    #page-tasks .table-wrap table th,#overdue-body table th,.ao-table th{padding:4px 3px!important;font-size:7px!important;white-space:normal!important;line-height:1.15!important}
+    #page-tasks .table-wrap table td,#overdue-body table td,.ao-table td{padding:6px 4px!important;font-size:9px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:none!important;border-right:1px solid rgba(255,255,255,.06)!important}
+    #page-tasks .table-wrap table td:last-child,#overdue-body table td:last-child,.ao-table td:last-child{border-right:none!important}
+    /* Task column (always 3rd) wraps to 2 lines instead of single-line ellipsis, so more of it is readable at a glance */
+    #page-tasks .table-wrap table td:nth-child(3) .task-cell,#overdue-body table td:nth-child(3) .task-cell,.ao-table td:nth-child(3) .task-cell{display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;white-space:normal!important;overflow:hidden!important}
+    /* Any other .task-cell (e.g. Brand) stays single-line with ellipsis + tap-to-reveal */
+    #page-tasks table td .task-cell,#overdue-body table td .task-cell,.ao-table td .task-cell{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
     /* Main tasks table: Member/Brand/Task/Assigned By/Assigned On/Priority/Status/Time/Due/Actions */
     /* Assigned On (5) and Time (8) are hidden on mobile - low-value for a quick glance, freed width goes to Task/Status */
     #page-tasks .table-wrap table th:nth-child(5),#page-tasks .table-wrap table td:nth-child(5){display:none!important}
     #page-tasks .table-wrap table th:nth-child(8),#page-tasks .table-wrap table td:nth-child(8){display:none!important}
     #page-tasks .table-wrap table th:nth-child(1),#page-tasks .table-wrap table td:nth-child(1){width:13%}
     #page-tasks .table-wrap table th:nth-child(2),#page-tasks .table-wrap table td:nth-child(2){width:10%}
-    #page-tasks .table-wrap table th:nth-child(3),#page-tasks .table-wrap table td:nth-child(3){width:30%}
-    #page-tasks .table-wrap table th:nth-child(4),#page-tasks .table-wrap table td:nth-child(4){width:10%}
-    #page-tasks .table-wrap table th:nth-child(6),#page-tasks .table-wrap table td:nth-child(6){width:8%}
-    #page-tasks .table-wrap table th:nth-child(7),#page-tasks .table-wrap table td:nth-child(7){width:16%}
+    #page-tasks .table-wrap table th:nth-child(3),#page-tasks .table-wrap table td:nth-child(3){width:26%}
+    #page-tasks .table-wrap table th:nth-child(4),#page-tasks .table-wrap table td:nth-child(4){width:11%}
+    #page-tasks .table-wrap table th:nth-child(6),#page-tasks .table-wrap table td:nth-child(6){width:9%}
+    #page-tasks .table-wrap table th:nth-child(7),#page-tasks .table-wrap table td:nth-child(7){width:18%}
     #page-tasks .table-wrap table th:nth-child(9),#page-tasks .table-wrap table td:nth-child(9){width:9%}
     #page-tasks .table-wrap table th:nth-child(10),#page-tasks .table-wrap table td:nth-child(10){width:4%}
     /* Overdue (Pending from Previous Days) table: Member/Brand/Task/Assigned By/Priority/Status/Due */
     #overdue-body table th:nth-child(1),#overdue-body table td:nth-child(1){width:13%}
     #overdue-body table th:nth-child(2),#overdue-body table td:nth-child(2){width:10%}
-    #overdue-body table th:nth-child(3),#overdue-body table td:nth-child(3){width:27%}
+    #overdue-body table th:nth-child(3),#overdue-body table td:nth-child(3){width:24%}
     #overdue-body table th:nth-child(4),#overdue-body table td:nth-child(4){width:10%}
-    #overdue-body table th:nth-child(5),#overdue-body table td:nth-child(5){width:9%}
-    #overdue-body table th:nth-child(6),#overdue-body table td:nth-child(6){width:17%}
+    #overdue-body table th:nth-child(5),#overdue-body table td:nth-child(5){width:10%}
+    #overdue-body table th:nth-child(6),#overdue-body table td:nth-child(6){width:19%}
     #overdue-body table th:nth-child(7),#overdue-body table td:nth-child(7){width:14%}
+    /* "Tasks I Assigned to Others": same real-table treatment as My Tasks. Assigned On (5) and Time (6) hidden */
+    .ao-table th:nth-child(5),.ao-table td:nth-child(5){display:none!important}
+    .ao-table th:nth-child(6),.ao-table td:nth-child(6){display:none!important}
+    .ao-table th:nth-child(1),.ao-table td:nth-child(1){width:15%}
+    .ao-table th:nth-child(2),.ao-table td:nth-child(2){width:12%}
+    .ao-table th:nth-child(3),.ao-table td:nth-child(3){width:34%}
+    .ao-table th:nth-child(4),.ao-table td:nth-child(4){width:18%}
+    .ao-table th:nth-child(7),.ao-table td:nth-child(7){width:16%}
+    .ao-table th:nth-child(8),.ao-table td:nth-child(8){width:5%}
+    .ao-table td img{width:16px!important;height:16px!important;margin-right:3px!important}
+    .ao-table td select,.ao-table td input[type="date"]{font-size:7px!important;padding:2px 3px!important;max-width:100%!important}
     #page-tasks table td img{width:16px!important;height:16px!important;margin-right:3px!important}
     #page-tasks table td .badge{font-size:7px!important;padding:2px 4px!important}
     #page-tasks table td select{font-size:7px!important;padding:2px 3px!important;max-width:100%!important}
     #page-tasks table td input[type="date"]{font-size:7px!important;padding:2px 1px!important;max-width:100%!important}
-    #page-tasks table td .task-cell{max-width:none!important}
     #page-tasks table td button{font-size:13px!important;padding:0!important}
     /* pending approvals rows stack */
     .approval-row{flex-wrap:wrap!important}
@@ -9317,6 +9335,18 @@ Current date: ${today}`;
   .lb-link{display:inline-block;margin-top:6px;font-size:12px;color:#5b9cf6;text-decoration:none}
   .lb-link:hover{text-decoration:underline}
   </style>
+  <style id="tap-reveal-css">
+  .task-cell.tip-open .task-tip{display:block!important}
+  </style>
+  <script>
+  // Tap-to-reveal: any .task-cell (Task/Brand truncated text) shows its full-text tooltip on tap,
+  // not just on hover — hover doesn't exist on touch devices.
+  document.addEventListener('click', function(e){
+    var cell = e.target.closest('.task-cell');
+    document.querySelectorAll('.task-cell.tip-open').forEach(function(c){ if(c!==cell) c.classList.remove('tip-open'); });
+    if(cell){ cell.classList.toggle('tip-open'); e.stopPropagation(); }
+  });
+  </script>
   <!-- ===== LOONA Hub · Attendance module v24 (injected) ===== -->
   <script>
   (function(){
