@@ -7261,7 +7261,7 @@
         <tr>
           <td>${(MEMBER_INFO[t.member] || {}).avatar ? `<img src="${MEMBER_INFO[t.member].avatar}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px">` : ''}${t.member || '—'}</td>
           <td onclick="window.showTaskDetail(${TASKS.indexOf(t)})"><div class="task-cell"><span style="font-size:11px;padding:2px 8px;background:rgba(200,169,110,.1);color:var(--accent);border-radius:4px">${t.brand || '—'}</span></div></td>
-          <td style="max-width:240px" onclick="window.showTaskDetail(${TASKS.indexOf(t)})"><div class="task-cell">${t.task && t.task.length > 52 ? t.task.slice(0, 52) + '…' : (t.task || '—')}</div></td>
+          <td style="max-width:240px" onclick="window.showTaskDetail(${TASKS.indexOf(t)})"><div class="prio-dot-row"><span class="prio-dot" style="--prio-color:${priorityHeatColor(t.priority)}"></span><div class="task-cell">${t.task && t.task.length > 52 ? t.task.slice(0, 52) + '…' : (t.task || '—')}</div></div></td>
           <td>${sBadge(t.status)}</td>
           <td style="color:var(--muted);font-size:12px;white-space:nowrap">${t.assigned_on || (t.created_at ? fmtStamp(new Date(t.created_at)) : '—')}</td>
           <td style="color:var(--muted);font-size:12px;white-space:nowrap">${t.status_at || '—'}</td>
