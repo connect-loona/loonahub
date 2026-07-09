@@ -2738,7 +2738,10 @@
     .lc-intro{background:linear-gradient(135deg,rgba(130,90,220,.12),rgba(130,90,220,.03));border:1px solid rgba(130,90,220,.3);border-radius:16px;padding:20px 22px;margin-bottom:16px}
     .lc-intro p{font-size:13px;color:var(--text);line-height:1.65;margin:0 0 12px}
     .lc-intro p:last-of-type{margin-bottom:0}
-    .lc-intro .lc-sign{margin-top:6px;font-weight:700;color:var(--purple,#a78bfa);font-style:italic}
+    .lc-intro .lc-sign{font-weight:700;color:var(--purple,#a78bfa);font-style:italic;margin:0}
+    .lc-sign-row{display:flex;align-items:center;gap:8px;margin-top:8px}
+    .lc-sign-avatar{width:28px;height:28px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--surface2);font-size:14px;flex-shrink:0}
+    .lc-sign-avatar img{width:100%;height:100%;object-fit:cover;display:block}
     .lc-banner{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 18px;font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:20px}
     .lc-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 20px}
     /* accordion */
@@ -5184,7 +5187,10 @@
         <p>These rules aren't meant to limit anyone — they're here to give us structure, so we can scale without losing our edge. So take them seriously. Make them yours.</p>
         <p>We're building something <b>real</b> here.</p>
         <p>So, let's keep building something we're all proud of!!!!!</p>
-        <p class="lc-sign">— Gokul</p>
+        <div class="lc-sign-row">
+          <span id="lc-sign-avatar" class="lc-sign-avatar"></span>
+          <p class="lc-sign">— Gokul</p>
+        </div>
       </div>
 
       <div class="lc-banner">These policies are the framework this studio operates within — not guidelines. Full compliance is expected from everyone, without exception. If anything here is unclear, raise it with management directly — not with each other.</div>
@@ -5275,7 +5281,18 @@
 
         <div class="lc-acc-item">
           <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
-            <span class="lc-acc-num">05</span><span class="lc-acc-ic">🔒</span><span class="lc-acc-title">Confidentiality and IP</span><span class="lc-acc-toggle">+</span>
+            <span class="lc-acc-num">05</span><span class="lc-acc-ic">📈</span><span class="lc-acc-title">Performance Analysis</span><span class="lc-acc-toggle">+</span>
+          </button>
+          <div class="lc-acc-body">
+            <p>Punctuality — whether it's being present at work or completing tasks on time — is of utmost importance at Loona. We have an internal performance analysis system that monitors your performance with a monthly score based on various factors, all built into the Hub.</p>
+            <p>This performance score will be one of the biggest criteria for your future at Loona, including appraisals and promotions. Please make sure your score doesn't fall below <b>90%</b>.</p>
+            <p>Your score is reviewed on an ongoing basis, and failing to maintain it can lead to disciplinary action, including termination from your position.</p>
+          </div>
+        </div>
+
+        <div class="lc-acc-item">
+          <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
+            <span class="lc-acc-num">06</span><span class="lc-acc-ic">🔒</span><span class="lc-acc-title">Confidentiality and IP</span><span class="lc-acc-toggle">+</span>
           </button>
           <div class="lc-acc-body">
             <p><b>What is confidential information?</b></p>
@@ -5293,7 +5310,7 @@
 
         <div class="lc-acc-item">
           <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
-            <span class="lc-acc-num">06</span><span class="lc-acc-ic">📋</span><span class="lc-acc-title">Employee Obligations</span><span class="lc-acc-toggle">+</span>
+            <span class="lc-acc-num">07</span><span class="lc-acc-ic">📋</span><span class="lc-acc-title">Employee Obligations</span><span class="lc-acc-toggle">+</span>
           </button>
           <div class="lc-acc-body">
             <p>The Employee agrees and understands that:</p>
@@ -5309,7 +5326,7 @@
 
         <div class="lc-acc-item">
           <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
-            <span class="lc-acc-num">07</span><span class="lc-acc-ic">🚫</span><span class="lc-acc-title">Employment Restriction</span><span class="lc-acc-toggle">+</span>
+            <span class="lc-acc-num">08</span><span class="lc-acc-ic">🚫</span><span class="lc-acc-title">Employment Restriction</span><span class="lc-acc-toggle">+</span>
           </button>
           <div class="lc-acc-body">
             <p>You agree that for a period of <b>twelve (12) months</b> following the termination of your employment with Loona, you shall not directly or indirectly engage in any business, project, or freelance work with any client or partner of Loona that you have interacted with, worked on, or had access to during your tenure, without prior written consent from management. This restriction applies to both paid and unpaid engagements and is intended to protect the company's business interests and client relationships.</p>
@@ -5319,7 +5336,7 @@
 
         <div class="lc-acc-item">
           <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
-            <span class="lc-acc-num">08</span><span class="lc-acc-ic">©️</span><span class="lc-acc-title">Intellectual Property Ownership and Duration</span><span class="lc-acc-toggle">+</span>
+            <span class="lc-acc-num">09</span><span class="lc-acc-ic">©️</span><span class="lc-acc-title">Intellectual Property Ownership and Duration</span><span class="lc-acc-toggle">+</span>
           </button>
           <div class="lc-acc-body">
             <p>All content, visuals, designs, videos, photographs, edits, strategies, and concepts created during employment shall be considered <b>"work made for hire"</b> and remain the exclusive intellectual property of Loona and/or its clients. The Employee shall have no ownership, usage, or distribution rights whatsoever.</p>
@@ -5329,7 +5346,7 @@
 
         <div class="lc-acc-item">
           <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
-            <span class="lc-acc-num">09</span><span class="lc-acc-ic">⚖️</span><span class="lc-acc-title">Breach &amp; Remedies</span><span class="lc-acc-toggle">+</span>
+            <span class="lc-acc-num">10</span><span class="lc-acc-ic">⚖️</span><span class="lc-acc-title">Breach &amp; Remedies</span><span class="lc-acc-toggle">+</span>
           </button>
           <div class="lc-acc-body">
             <p>Any breach of this Agreement — including the unauthorised sharing, use, or representation of the Company's work, materials, or contacts — shall constitute serious misconduct and a violation of trust. Such a breach may result in immediate termination of employment, and the Company reserves the right to seek legal remedies, including injunctive relief, recovery of damages, and criminal prosecution under applicable laws of India.</p>
@@ -5338,7 +5355,7 @@
 
         <div class="lc-acc-item">
           <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
-            <span class="lc-acc-num">10</span><span class="lc-acc-ic">🏛️</span><span class="lc-acc-title">Governing Law &amp; Jurisdiction</span><span class="lc-acc-toggle">+</span>
+            <span class="lc-acc-num">11</span><span class="lc-acc-ic">🏛️</span><span class="lc-acc-title">Governing Law &amp; Jurisdiction</span><span class="lc-acc-toggle">+</span>
           </button>
           <div class="lc-acc-body">
             <p>Loonarae Studio Private Limited operates under the <b style="color:var(--yellow)">laws of the State of Maharashtra, India</b>. All employees are expected to comply with the Company's policies relating to confidentiality, intellectual property, client information, company assets, and professional conduct.</p>
@@ -5350,7 +5367,7 @@
 
         <div class="lc-acc-item">
           <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
-            <span class="lc-acc-num">11</span><span class="lc-acc-ic">📝</span><span class="lc-acc-title">Notice Period &amp; Termination/Resignation</span><span class="lc-acc-toggle">+</span>
+            <span class="lc-acc-num">12</span><span class="lc-acc-ic">📝</span><span class="lc-acc-title">Notice Period &amp; Termination/Resignation</span><span class="lc-acc-toggle">+</span>
           </button>
           <div class="lc-acc-body">
             <p><b>During probation:</b> you may resign by giving one (1) month's notice, or salary/wages in lieu. The Company may terminate your employment during probation without any notice or compensation in cases of misconduct, breach of policy, negligence, or failure to perform assigned duties.</p>
@@ -5360,7 +5377,7 @@
 
         <div class="lc-acc-item">
           <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
-            <span class="lc-acc-num">12</span><span class="lc-acc-ic">📜</span><span class="lc-acc-title">General Rules and Regulations</span><span class="lc-acc-toggle">+</span>
+            <span class="lc-acc-num">13</span><span class="lc-acc-ic">📜</span><span class="lc-acc-title">General Rules and Regulations</span><span class="lc-acc-toggle">+</span>
           </button>
           <div class="lc-acc-body">
             <p>Your appointment is subject to your being declared medically fit by a Registered Medical Practitioner.</p>
@@ -5374,7 +5391,7 @@
 
         <div class="lc-acc-item">
           <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
-            <span class="lc-acc-num">13</span><span class="lc-acc-ic">🧾</span><span class="lc-acc-title" style="display:flex;align-items:center;gap:4px;overflow:hidden"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Reimbursement Form</span><span class="lc-reimb-mobile-badge">Desktop only</span></span><span class="lc-acc-toggle">+</span>
+            <span class="lc-acc-num">14</span><span class="lc-acc-ic">🧾</span><span class="lc-acc-title" style="display:flex;align-items:center;gap:4px;overflow:hidden"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Reimbursement Form</span><span class="lc-reimb-mobile-badge">Desktop only</span></span><span class="lc-acc-toggle">+</span>
           </button>
           <div class="lc-acc-body">
             <p>This Employee Reimbursement Form is to be used for all conveyance, local purchase, and food bill claims. Please ensure every claim submitted is genuine and made in good faith, using the most economical resources available to keep costs reasonable.</p>
@@ -7373,6 +7390,15 @@
       { name:"Ankita" },
       { name:"Hetal" }
     ]};
+    function renderLcSignAvatar(){
+      var el=document.getElementById("lc-sign-avatar");
+      if(!el) return;
+      var info=MEMBER_INFO["Gokul"]||{};
+      var color=info.color||"#888";
+      el.style.background=color+"20";
+      el.style.color=color;
+      el.innerHTML=info.avatar?('<img src="'+info.avatar+'">'):(info.emoji||"👤");
+    }
     function orgAvatarHTML(name){
       var info=MEMBER_INFO[name]||{};
       var color=info.color||"#888";
@@ -7537,6 +7563,7 @@
     <td style="color:var(--blue)">${m.ip}</td><td style="color:var(--yellow)">${m.ns}</td>
     <td style="min-width:140px">${progressBar(m.done, m.total)}</td></tr>`).join('');
       renderOrgChart();
+      renderLcSignAvatar();
     }
 
     // ═══ PRODUCTION ═══
