@@ -6424,7 +6424,7 @@
               const sb = isDone ? 'rgba(76,175,125,.18)' : isClient ? 'rgba(91,156,246,.18)' : isChanges ? 'rgba(224,165,58,.18)' : isAwait ? 'rgba(237,137,54,.18)' : isDeclined ? 'rgba(224,92,92,.18)' : isDeferred ? 'rgba(159,122,234,.18)' : 'var(--surface2)';
               const sborder = isDone ? 'rgba(76,175,125,.4)' : isClient ? 'rgba(91,156,246,.4)' : isChanges ? 'rgba(224,165,58,.4)' : isAwait ? 'rgba(237,137,54,.4)' : isDeclined ? 'rgba(224,92,92,.4)' : isDeferred ? 'rgba(159,122,234,.4)' : 'var(--border)';
               const statuses = ['Not Started', 'In Progress', 'Changes Required', 'Client Approval', 'Completed', 'Deferred', 'Awaiting Approval', 'Awaiting Deferral', 'Approval Declined'];
-              return `<select onchange="updateStatus(${gi},this.value)" style="background:${sb};border:1px solid ${sborder};color:${sc};padding:4px 8px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600">${statuses.map(s => `<option value="${s}"${t.status === s ? ' selected' : ''}>${s}</option>`).join('')}</select>`;
+              return `<select onchange="updateStatus(${gi},this.value)" style="background:${sb};border:1px solid ${sborder};color:${sc};padding:4px 8px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;--dot-color:${sc}">${statuses.map(s => `<option value="${s}"${t.status === s ? ' selected' : ''}>${s}</option>`).join('')}</select>`;
             })()}
           </td>
           <td data-label="Time" style="color:var(--muted);font-size:12px;white-space:nowrap">${t.status_at || (t.completed_at?fmtStamp(new Date(t.completed_at)):'—')}</td>
@@ -8157,7 +8157,7 @@
       <td style="color:var(--muted);font-size:12px">${t.assigned_by || '—'}</td>
       <td>${pBadge(t.priority)}</td>
       <td>
-        <select onchange="updateStatus(${taskIdx},this.value);renderOverdue();renderTasks();" style="background:var(--surface2);border:1px solid rgba(224,92,92,.3);color:var(--text);padding:4px 8px;border-radius:6px;font-size:12px;cursor:pointer">
+        <select onchange="updateStatus(${taskIdx},this.value);renderOverdue();renderTasks();" style="background:var(--surface2);border:1px solid rgba(224,92,92,.3);color:var(--text);padding:4px 8px;border-radius:6px;font-size:12px;cursor:pointer;--dot-color:${t.status === 'Completed' ? 'var(--green)' : t.status === 'In Progress' ? 'var(--blue)' : t.status === 'Deferred' ? 'var(--purple)' : 'var(--muted)'}">
           ${['Not Started', 'In Progress', 'Completed', 'Deferred'].map(s => `<option${t.status === s ? ' selected' : ''}>${s}</option>`).join('')}
         </select>
       </td>
@@ -9164,7 +9164,7 @@ Current date: ${today}`;
     /* ---- Task Board tables: stay a real table, just narrow enough to fit ---- */
     #page-tasks .table-wrap{overflow-x:auto!important}
     #page-tasks .table-wrap table,#overdue-body table,.ao-table{min-width:0!important;width:100%!important;table-layout:fixed!important}
-    #page-tasks .table-wrap table th,#overdue-body table th,.ao-table th{padding:4px 3px!important;font-size:7px!important;white-space:normal!important;line-height:1.15!important}
+    #page-tasks .table-wrap table th,#overdue-body table th,.ao-table th{padding:4px 3px!important;font-size:7px!important;white-space:normal!important;line-height:1.15!important;overflow:hidden!important;overflow-wrap:break-word!important;text-align:left!important;letter-spacing:0!important}
     #page-tasks .table-wrap table td,#overdue-body table td,.ao-table td{padding:6px 4px!important;font-size:9px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:none!important;border-right:1px solid rgba(255,255,255,.06)!important}
     #page-tasks .table-wrap table td:last-child,#overdue-body table td:last-child,.ao-table td:last-child{border-right:none!important}
     /* Task column (always 3rd) wraps to 2 lines instead of single-line ellipsis, so more of it is readable at a glance */
@@ -9179,22 +9179,46 @@ Current date: ${today}`;
     #page-tasks .table-wrap table th:nth-child(8),#page-tasks .table-wrap table td:nth-child(8){display:none!important}
     #page-tasks .table-wrap table th:nth-child(1),#page-tasks .table-wrap table td:nth-child(1){width:13%}
     #page-tasks .table-wrap table th:nth-child(2),#page-tasks .table-wrap table td:nth-child(2){width:10%}
-    #page-tasks .table-wrap table th:nth-child(3),#page-tasks .table-wrap table td:nth-child(3){width:22%}
-    #page-tasks .table-wrap table th:nth-child(4),#page-tasks .table-wrap table td:nth-child(4){width:11%}
-    #page-tasks .table-wrap table th:nth-child(7),#page-tasks .table-wrap table td:nth-child(7){width:21%}
-    #page-tasks .table-wrap table th:nth-child(9),#page-tasks .table-wrap table td:nth-child(9){width:18%}
+    #page-tasks .table-wrap table th:nth-child(3),#page-tasks .table-wrap table td:nth-child(3){width:26%}
+    #page-tasks .table-wrap table th:nth-child(4),#page-tasks .table-wrap table td:nth-child(4){width:14%}
+    #page-tasks .table-wrap table th:nth-child(7),#page-tasks .table-wrap table td:nth-child(7){width:10%;text-align:center!important}
+    #page-tasks .table-wrap table th:nth-child(9),#page-tasks .table-wrap table td:nth-child(9){width:22%}
     #page-tasks .table-wrap table th:nth-child(10),#page-tasks .table-wrap table td:nth-child(10){width:5%}
     /* Overdue (Pending from Previous Days) table: Member/Brand/Task/Assigned By/Priority/Status/Due */
     #overdue-body table th:nth-child(1),#overdue-body table td:nth-child(1){width:13%}
     #overdue-body table th:nth-child(2),#overdue-body table td:nth-child(2){width:10%}
-    #overdue-body table th:nth-child(3),#overdue-body table td:nth-child(3){width:28%}
-    #overdue-body table th:nth-child(4),#overdue-body table td:nth-child(4){width:12%}
+    #overdue-body table th:nth-child(3),#overdue-body table td:nth-child(3){width:30%}
+    #overdue-body table th:nth-child(4),#overdue-body table td:nth-child(4){width:16%}
     #overdue-body table th:nth-child(5),#overdue-body table td:nth-child(5){display:none!important}
-    #overdue-body table th:nth-child(6),#overdue-body table td:nth-child(6){width:22%}
-    #overdue-body table th:nth-child(7),#overdue-body table td:nth-child(7){width:15%}
+    #overdue-body table th:nth-child(6),#overdue-body table td:nth-child(6){width:10%;text-align:center!important}
+    #overdue-body table th:nth-child(7),#overdue-body table td:nth-child(7){width:21%}
     /* Priority as a heat-strip: red/yellow/blue bar next to the task text instead of a separate column, pulsing to draw the eye */
     .prio-heat{border-left:3px solid var(--prio-color,transparent)!important;padding-left:6px!important;margin-left:-1px!important;animation:prioHeatPulse 1.4s ease-in-out infinite}
     @keyframes prioHeatPulse{0%,100%{border-left-color:var(--prio-color,transparent)}50%{border-left-color:transparent}}
+    /* Status: a small blinking dot (color = current status) instead of the full dropdown/badge text */
+    #page-tasks .table-wrap table td select,#overdue-body table td select{
+      -webkit-appearance:none!important;appearance:none!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;
+      width:13px!important;height:13px!important;min-width:13px!important;flex:0 0 auto!important;
+      border-radius:50%!important;padding:0!important;margin:0 auto!important;display:block!important;
+      font-size:0!important;color:transparent!important;text-indent:-999px!important;overflow:hidden!important;
+      background:var(--dot-color,var(--muted))!important;border-color:var(--dot-color,var(--muted))!important;
+      animation:statusDotPulse 1.4s ease-in-out infinite;
+    }
+    .ao-table td .badge{
+      width:13px!important;height:13px!important;min-width:13px!important;
+      border-radius:50%!important;padding:0!important;margin:0 auto!important;display:block!important;
+      font-size:0!important;color:transparent!important;overflow:hidden!important;
+      animation:statusDotPulse 1.4s ease-in-out infinite;
+    }
+    .ao-table td .badge.completed{background:var(--green)!important}
+    .ao-table td .badge.in-progress{background:var(--blue)!important}
+    .ao-table td .badge.not-started{background:var(--muted)!important}
+    .ao-table td .badge.deferred{background:var(--purple)!important}
+    .ao-table td .badge.awaiting-approval{background:var(--yellow)!important}
+    .ao-table td .badge.approval-declined{background:var(--red)!important}
+    .ao-table td .badge.changes-required{background:#e0a53a!important}
+    .ao-table td .badge.client-approval{background:#5b9cf6!important}
+    @keyframes statusDotPulse{0%,100%{opacity:1}50%{opacity:.35}}
     /* Task/Brand cells open the full task-detail popup on tap */
     #page-tasks .table-wrap table td[onclick],#overdue-body table td[onclick],.ao-table td[onclick]{cursor:pointer!important}
     /* "Tasks I Assigned to Others": same real-table treatment as My Tasks. Assigned On (5) and Time (6) hidden */
