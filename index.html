@@ -2940,23 +2940,38 @@
     .att-2col{display:grid;grid-template-columns:1.15fr 1fr;gap:16px;align-items:start}
     @media(max-width:900px){.att-2col{grid-template-columns:1fr}}
     .att-leftcol{background:linear-gradient(135deg,#1c1a14,#141414);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:16px;padding:22px 24px}
-    .att-leftcol .al-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+    .att-leftcol .al-daterow{display:flex;justify-content:flex-end;margin-bottom:10px}
+    .att-leftcol .al-top{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
     .att-leftcol .lab{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
     .att-leftcol .clock{font-size:52px;font-weight:800;color:var(--text);line-height:1.05;margin:4px 0}
     .att-leftcol .clock small{font-size:20px;color:var(--accent);font-weight:600}
     .att-leftcol .sub{font-size:12px;color:var(--accent2);margin-bottom:6px}
-    .att-leftcol .rows{border-top:1px solid var(--border);padding-top:10px;margin-top:12px}
-    .att-leftcol .r{display:flex;align-items:center;gap:10px;padding:8px 0;font-size:13px;color:var(--text)}
-    .att-leftcol .r+.r{border-top:1px solid #201f1c}
-    .att-leftcol .r .ic{width:26px;height:26px;border-radius:7px;background:#26241d;display:flex;align-items:center;justify-content:center;font-size:13px}
-    .att-leftcol .r .v{margin-left:auto;font-weight:700;color:var(--accent2)}
+    .att-leftcol .al-punches{display:flex;flex-direction:column;gap:0;min-width:150px}
+    .att-leftcol .al-punches .r{display:flex;align-items:center;gap:6px;padding:4px 0;font-size:11px;color:var(--text)}
+    .att-leftcol .al-punches .r .ic{width:18px;height:18px;border-radius:5px;background:#26241d;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0}
+    .att-leftcol .al-punches .r .v{margin-left:auto;font-weight:700;color:var(--accent2);font-size:11px}
+    .att-leftcol .al-punches .r .v small{font-size:9px}
     .att-leftcol .r .req{color:var(--muted);font-weight:500;font-size:11px}
     .att-leftcol .t{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:18px 0 10px;display:flex;align-items:center;gap:7px}
-    .att-leftcol .att-chips{display:flex;gap:10px;flex-wrap:wrap}
+    .att-leftcol .att-chips{display:flex;gap:6px;flex-wrap:nowrap}
+    .att-leftcol .att-chips .att-chip{padding:6px 4px;font-size:9.5px;min-width:0;text-align:center}
+    .att-leftcol .att-chips .att-chip b{display:block;font-size:14px}
     .att-leftcol .att-rulenote{font-size:11px;color:#6a6a6a;margin-top:12px;line-height:1.5}
-    .att-leftcol .att-siderows{border-top:1px solid var(--border);margin-top:14px;padding-top:4px}
+    .att-leftcol .att-siderows{border-top:1px solid var(--border);margin-top:14px;padding-top:8px;display:flex;gap:20px}
+    .att-leftcol .att-siderows .r{display:flex;align-items:center;gap:6px;padding:0;font-size:12px;color:var(--text)}
+    .att-leftcol .att-siderows .r .ic{width:22px;height:22px;border-radius:6px;background:#26241d;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
+    .att-leftcol .att-siderows .r .v{font-weight:700;color:var(--accent2);font-size:12px}
+    .att-leftcol .att-policy{margin-top:8px!important}
+    .att-leftcol .att-pol{padding:8px 10px!important;font-size:11px!important}
+    .att-leftcol .att-pol .txt b{font-size:11px!important}
+    .att-leftcol .att-pol .amt{font-size:14px!important}
     .att-rightcol{display:flex;flex-direction:column;gap:16px}
     .att-rightcol .pf-card{margin-bottom:0}
+    .pf-combined{display:flex;gap:16px;align-items:stretch}
+    .pf-combined .pf-gaugecard{flex:0 0 200px;text-align:left}
+    .pf-combined .pf-gaugecard .pf-head{justify-content:flex-start}
+    .pf-combined .pf-gaugecard svg{margin:0}
+    .pf-combined .team-lb{flex:1;min-width:0}
     .att-rightcol .att-policy{margin-top:0}
 
     /* ===== v20 · align live Overview to the approved design ===== */
@@ -2999,9 +3014,10 @@
     #page-overview .airport-board{display:none!important}
     .wip-card .wip-tag{display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent2);font-weight:500;margin-bottom:14px}
     .wip-card .wip-tag .wdot{width:7px;height:7px;border-radius:50%;background:var(--accent)}
-    .wip-card .wip-row{display:flex;gap:24px;flex-wrap:wrap}
-    .wip-card .wip-row .wk{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
-    .wip-card .wip-row .wv{font-size:14px;font-weight:500;margin-top:3px;color:var(--text)}
+    .wip-card .wip-row{display:flex;gap:14px;flex-wrap:nowrap}
+    .wip-card .wip-row>div{min-width:0;flex:1}
+    .wip-card .wip-row .wk{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
+    .wip-card .wip-row .wv{font-size:11.5px;font-weight:500;margin-top:2px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .wip-card .wip-row .wv.o{color:var(--accent2)}
     .wip-card .wip-empty{font-size:13px;color:var(--muted)}
     .wip-card .wip-row{transition:opacity .18s ease,transform .18s ease}
@@ -9070,6 +9086,9 @@ Current date: ${today}`;
     #today-stats .stat-card .value{font-size:16px!important}
     #today-stats .stat-card .sub{display:none!important}
     .today-title{font-size:20px!important}
+    /* Performance + Team Leaderboard: stack instead of side-by-side, doesn't fit at phone width */
+    .pf-combined{flex-direction:column!important}
+    .pf-combined .pf-gaugecard{flex:0 0 auto!important;width:100%!important;box-sizing:border-box!important}
     /* Founder Daily Overview: 5 flash cards per row, condensed to essentials */
     .att-daily-grid{grid-template-columns:repeat(5,1fr)!important;gap:5px!important}
     .att-daily-card{padding:5px 4px!important;border-radius:9px!important}
@@ -9371,16 +9390,16 @@ Current date: ${today}`;
       '<div class="att-2col">'+
         '<div class="att-leftwrap">'+
         '<div class="att-leftcol">'+
+          '<div class="al-daterow"><div class="att-datesel"><label>Date</label><input type="date" id="att-date" value="'+SEL+'" max="'+TODAY+'"></div></div>'+
           '<div class="al-top">'+
             '<div><div class="lab">Working Hours &middot; '+(isToday?"Today":new Date(SEL+"T00:00:00").toLocaleDateString("en-IN",{weekday:"short",day:"numeric",month:"short"}))+(isSat(SEL)?" &middot; Sat":"")+'</div>'+
               '<div class="clock">'+clockOf(rec.hrs)+'</div>'+
               '<div class="sub">&#8599; '+(isToday?"Hours worked today":"Hours worked")+' &middot; '+esc(a.desg)+'</div></div>'+
-            '<div class="att-datesel"><label>Date</label><input type="date" id="att-date" value="'+SEL+'" max="'+TODAY+'"></div>'+
-          '</div>'+
-          '<div class="rows">'+
-            '<div class="r"><span class="ic">&#128276;</span> First Punch <span class="v">'+esc(rec.in)+lateNote+'</span></div>'+
-            '<div class="r"><span class="ic">&#128235;</span> Last Punch <span class="v">'+esc(rec.out||"—")+'</span></div>'+
-            '<div class="r"><span class="ic">&#9749;</span> Total Break Time <span class="v">'+esc(rec.brk)+'</span></div>'+
+            '<div class="al-punches">'+
+              '<div class="r"><span class="ic">&#128276;</span> First Punch <span class="v">'+esc(rec.in)+lateNote+'</span></div>'+
+              '<div class="r"><span class="ic">&#128235;</span> Last Punch <span class="v">'+esc(rec.out||"—")+'</span></div>'+
+              '<div class="r"><span class="ic">&#9749;</span> Break <span class="v">'+esc(rec.brk)+'</span></div>'+
+            '</div>'+
           '</div>'+
           '<div class="t">&#128200; This Month</div>'+
           '<div class="att-chips">'+
@@ -9395,13 +9414,12 @@ Current date: ${today}`;
             '<div class="r"><span class="ic">&#128336;</span> Shift Timing <span class="v">'+shiftFor(SEL)+'</span></div>'+
             '<div class="r"><span class="ic">&#9203;</span> Required <span class="v">'+req+'h <span class="req">excl. breaks</span></span></div>'+
           '</div>'+
+          lateFeeBar(name)+
         '</div>'+
           wipCard()+
         '</div>'+
         '<div class="att-rightcol">'+
-          perfCardHTML(name)+
-          teamLeaderboard(name)+
-          lateFeeBar(name)+
+          '<div class="pf-combined">'+perfCardHTML(name)+teamLeaderboard(name)+'</div>'+
         '</div>'+
       '</div>'+
       calendar(name);
@@ -9534,7 +9552,7 @@ Current date: ${today}`;
         '</tr>';
       }).join("");
       return ''+
-      '<div class="att-founder-badge"><span class="em">&#129409;</span> <b>Gokul</b> <span style="color:var(--accent2)">('+esc(ATT.Gokul.code)+')</span> &middot; '+daysAt(ATT.Gokul.joinDate)+' days building Loona &middot; since '+fmtDate(ATT.Gokul.joinDate)+'</div>'+
+      '<div class="att-founder-badge"><span class="em">&#129409;</span> <b>Gokul</b> <span style="color:var(--accent2)">('+esc(ATT.Gokul.code)+')</span> &middot; '+daysAt(ATT.Gokul.joinDate)+' days building Loona</div>'+
       '<div class="att-board">'+
         '<div class="bh">&#128197; Daily Overview <span class="tag">Founder only</span></div>'+
         '<div class="att-sync" style="margin-bottom:6px"><span><b>Viewing:</b> <input type="date" id="daily-sel" value="'+DAILY_SEL+'" max="'+TODAY+'" onchange="window.attSetDailyDate(this.value)"></span>'+(DAILY_SEL!==TODAY?'<button onclick="window.attSetDailyDate(&quot;'+TODAY+'&quot;)">Jump to today</button>':'')+'<span class="sub" style="margin-left:8px">&#8592; this controls the cards below</span></div>'+
