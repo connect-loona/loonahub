@@ -6621,8 +6621,10 @@
       };
 
       // Active members
-      const activeMembers = Object.values(tMap).filter(m => !INACTIVE_MEMBERS.has(m.member)).sort((a, b) => b.total - a.total);
-      const inactiveMembers = Object.values(tMap).filter(m => INACTIVE_MEMBERS.has(m.member)).sort((a, b) => b.total - a.total);
+      // ALL_MEMBERS is the final source of truth for who's currently employed — anyone with historical
+      // tasks but no longer on that list (fully removed, not just paused) shouldn't show up here at all.
+      const activeMembers = Object.values(tMap).filter(m => ALL_MEMBERS.includes(m.member) && !INACTIVE_MEMBERS.has(m.member)).sort((a, b) => b.total - a.total);
+      const inactiveMembers = Object.values(tMap).filter(m => ALL_MEMBERS.includes(m.member) && INACTIVE_MEMBERS.has(m.member)).sort((a, b) => b.total - a.total);
 
       document.getElementById('member-cards').innerHTML = activeMembers.map(m => `
     <div class="member-card" style="border-color:${mColor(m.member)}22">
@@ -8975,6 +8977,11 @@ Current date: ${today}`;
     .att-legend{gap:6px 10px!important;font-size:10px!important}
     /* ---- Wide tables: horizontal scroll ---- */
     .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .table-wrap{overflow-x:auto!important;-webkit-overflow-scrolling:touch}
+    /* ---- Gantt timeline: 31 day-columns need real width, so scroll instead of squeezing ---- */
+    .gantt-inner{overflow-x:auto!important;-webkit-overflow-scrolling:touch}
+    .gantt-ruler,.gantt-weeks{grid-template-columns:120px repeat(31,26px)!important;min-width:926px!important}
+    .gantt-row{min-width:926px!important}
     #member-tabs,.member-tabs,.m-tabs{overflow-x:auto;flex-wrap:nowrap!important;-webkit-overflow-scrolling:touch}
     .task-filters,.filters{flex-wrap:wrap!important;gap:8px!important}
     .task-filters select,.filters select,.task-filters input{flex:1 1 45%!important;min-width:0!important}
