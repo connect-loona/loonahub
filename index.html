@@ -6407,8 +6407,8 @@
             : `<span style="color:${mColor(t.member)}">●</span> `;
           return `<tr id="trow-${gi}">
           <td data-label="Member">${memberAvatarHtml}${t.member || '—'}${isPersonal ? ' <span title="Personal To-Do" style="font-size:11px">📌</span>' : ''}</td>
-          <td data-label="Brand"><div class="task-cell"><span style="font-size:11px;padding:2px 8px;background:${isPersonal ? 'rgba(91,156,246,.15)' : 'rgba(200,169,110,.1)'};color:${isPersonal ? 'var(--blue)' : 'var(--accent)'};border-radius:4px">${t.brand || '—'}</span><div class="task-tip">${t.brand || '—'}</div></div></td>
-          <td data-label="Task" style="max-width:260px"><div class="task-cell prio-heat" style="--prio-color:${priorityHeatColor(t.priority)}">${t.task.length > 55 ? t.task.slice(0, 55) + '…' : t.task}${t.is_auto ? ' <span class="auto-task-badge">🤖 AUTO</span>' : ''}<div class="task-tip">${t.task}</div></div></td>
+          <td data-label="Brand" onclick="window.showTaskDetail(${gi})"><div class="task-cell"><span style="font-size:11px;padding:2px 8px;background:${isPersonal ? 'rgba(91,156,246,.15)' : 'rgba(200,169,110,.1)'};color:${isPersonal ? 'var(--blue)' : 'var(--accent)'};border-radius:4px">${t.brand || '—'}</span></div></td>
+          <td data-label="Task" style="max-width:260px" onclick="window.showTaskDetail(${gi})"><div class="task-cell prio-heat" style="--prio-color:${priorityHeatColor(t.priority)}">${t.task.length > 55 ? t.task.slice(0, 55) + '…' : t.task}${t.is_auto ? ' <span class="auto-task-badge">🤖 AUTO</span>' : ''}</div></td>
           <td data-label="Assigned by" style="color:var(--muted);font-size:12px">${t.assigned_by || '—'}</td>
           <td data-label="Assigned on" style="color:var(--muted);font-size:12px;white-space:nowrap">${t.assigned_on || (t.created_at?fmtStamp(new Date(t.created_at)):'—')}</td>
           <td data-label="Priority" style="${t.status === 'Completed' ? 'opacity:0.35;pointer-events:none' : ''}">${pBadge(t.priority)}</td>
@@ -7260,8 +7260,8 @@
       const rows = mine.map(t => `
         <tr>
           <td>${(MEMBER_INFO[t.member] || {}).avatar ? `<img src="${MEMBER_INFO[t.member].avatar}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px">` : ''}${t.member || '—'}</td>
-          <td><div class="task-cell"><span style="font-size:11px;padding:2px 8px;background:rgba(200,169,110,.1);color:var(--accent);border-radius:4px">${t.brand || '—'}</span><div class="task-tip">${t.brand || '—'}</div></div></td>
-          <td style="max-width:240px"><div class="task-cell">${t.task && t.task.length > 52 ? t.task.slice(0, 52) + '…' : (t.task || '—')}<div class="task-tip">${t.task || '—'}</div></div></td>
+          <td onclick="window.showTaskDetail(${TASKS.indexOf(t)})"><div class="task-cell"><span style="font-size:11px;padding:2px 8px;background:rgba(200,169,110,.1);color:var(--accent);border-radius:4px">${t.brand || '—'}</span></div></td>
+          <td style="max-width:240px" onclick="window.showTaskDetail(${TASKS.indexOf(t)})"><div class="task-cell">${t.task && t.task.length > 52 ? t.task.slice(0, 52) + '…' : (t.task || '—')}</div></td>
           <td>${sBadge(t.status)}</td>
           <td style="color:var(--muted);font-size:12px;white-space:nowrap">${t.assigned_on || (t.created_at ? fmtStamp(new Date(t.created_at)) : '—')}</td>
           <td style="color:var(--muted);font-size:12px;white-space:nowrap">${t.status_at || '—'}</td>
@@ -8152,8 +8152,8 @@
         const daysLabel = daysAgo === 1 ? 'yesterday' : `${daysAgo}d overdue`;
         return `<tr>
       <td><span style="color:${mColor(t.member)}">●</span> <strong>${t.member || '—'}</strong></td>
-      <td><div class="task-cell"><span style="font-size:11px;padding:2px 8px;background:rgba(224,92,92,.1);color:#e05c5c;border-radius:4px">${t.brand || '—'}</span><div class="task-tip">${t.brand || '—'}</div></div></td>
-      <td style="max-width:280px"><div class="task-cell prio-heat" style="--prio-color:${priorityHeatColor(t.priority)}">${t.task}<div class="task-tip">${t.task}</div></div></td>
+      <td onclick="window.showTaskDetail(${taskIdx})"><div class="task-cell"><span style="font-size:11px;padding:2px 8px;background:rgba(224,92,92,.1);color:#e05c5c;border-radius:4px">${t.brand || '—'}</span></div></td>
+      <td style="max-width:280px" onclick="window.showTaskDetail(${taskIdx})"><div class="task-cell prio-heat" style="--prio-color:${priorityHeatColor(t.priority)}">${t.task}</div></td>
       <td style="color:var(--muted);font-size:12px">${t.assigned_by || '—'}</td>
       <td>${pBadge(t.priority)}</td>
       <td>
@@ -9179,10 +9179,10 @@ Current date: ${today}`;
     #page-tasks .table-wrap table th:nth-child(8),#page-tasks .table-wrap table td:nth-child(8){display:none!important}
     #page-tasks .table-wrap table th:nth-child(1),#page-tasks .table-wrap table td:nth-child(1){width:13%}
     #page-tasks .table-wrap table th:nth-child(2),#page-tasks .table-wrap table td:nth-child(2){width:10%}
-    #page-tasks .table-wrap table th:nth-child(3),#page-tasks .table-wrap table td:nth-child(3){width:30%}
+    #page-tasks .table-wrap table th:nth-child(3),#page-tasks .table-wrap table td:nth-child(3){width:22%}
     #page-tasks .table-wrap table th:nth-child(4),#page-tasks .table-wrap table td:nth-child(4){width:11%}
     #page-tasks .table-wrap table th:nth-child(7),#page-tasks .table-wrap table td:nth-child(7){width:21%}
-    #page-tasks .table-wrap table th:nth-child(9),#page-tasks .table-wrap table td:nth-child(9){width:10%}
+    #page-tasks .table-wrap table th:nth-child(9),#page-tasks .table-wrap table td:nth-child(9){width:18%}
     #page-tasks .table-wrap table th:nth-child(10),#page-tasks .table-wrap table td:nth-child(10){width:5%}
     /* Overdue (Pending from Previous Days) table: Member/Brand/Task/Assigned By/Priority/Status/Due */
     #overdue-body table th:nth-child(1),#overdue-body table td:nth-child(1){width:13%}
@@ -9192,8 +9192,11 @@ Current date: ${today}`;
     #overdue-body table th:nth-child(5),#overdue-body table td:nth-child(5){display:none!important}
     #overdue-body table th:nth-child(6),#overdue-body table td:nth-child(6){width:22%}
     #overdue-body table th:nth-child(7),#overdue-body table td:nth-child(7){width:15%}
-    /* Priority as a heat-strip: red/yellow/blue bar next to the task text instead of a separate column */
-    .prio-heat{border-left:3px solid var(--prio-color,transparent)!important;padding-left:6px!important;margin-left:-1px!important}
+    /* Priority as a heat-strip: red/yellow/blue bar next to the task text instead of a separate column, pulsing to draw the eye */
+    .prio-heat{border-left:3px solid var(--prio-color,transparent)!important;padding-left:6px!important;margin-left:-1px!important;animation:prioHeatPulse 1.4s ease-in-out infinite}
+    @keyframes prioHeatPulse{0%,100%{border-left-color:var(--prio-color,transparent)}50%{border-left-color:transparent}}
+    /* Task/Brand cells open the full task-detail popup on tap */
+    #page-tasks .table-wrap table td[onclick],#overdue-body table td[onclick],.ao-table td[onclick]{cursor:pointer!important}
     /* "Tasks I Assigned to Others": same real-table treatment as My Tasks. Assigned On (5) and Time (6) hidden */
     .ao-table th:nth-child(5),.ao-table td:nth-child(5){display:none!important}
     .ao-table th:nth-child(6),.ao-table td:nth-child(6){display:none!important}
@@ -10104,6 +10107,24 @@ Current date: ${today}`;
         '<b style="color:var(--text)">'+d.allDone+'/'+d.allTotal+'</b> tasks completed all-time &middot; <b style="color:#e05c5c">'+d.tasks.length+'</b> pending from previous days'+
       '</div>'+rows;
       popupBox("info-pop","&#9203;",esc(member)+" · Pending tasks",html,null);
+    };
+
+    // ===== Full task detail popup (tap a task/brand cell on mobile task tables) =====
+    window.showTaskDetail=function(gi){
+      var t=(typeof TASKS!=="undefined"?TASKS:[])[gi]; if(!t) return;
+      var prioColor=(typeof priorityHeatColor==="function")?priorityHeatColor(t.priority):"var(--muted)";
+      var row=function(label,val){ return '<div class="pf-absrow"><span>'+label+'</span><span>'+val+'</span></div>'; };
+      var html='<div style="text-align:left">'+
+        '<div class="pf-absrow"><span>Task</span><span style="text-align:right;max-width:70%">'+esc(t.task||"—")+'</span></div>'+
+        row("Brand", esc(t.brand||"—"))+
+        row("Member", esc(t.member||"—"))+
+        row("Priority", t.priority?('<span style="color:'+prioColor+';font-weight:700">'+esc(t.priority)+'</span>'):"—")+
+        row("Status", esc(t.status||"—"))+
+        row("Assigned By", esc(t.assigned_by||"—"))+
+        row("Assigned On", esc(t.assigned_on||(t.created_at?fmtStamp(new Date(t.created_at)):"—")))+
+        row("Due Date", t.due_date?fmtDate(t.due_date):"—")+
+      '</div>';
+      popupBox("info-pop","&#128203;",esc(t.member||"Task")+" · Task detail",html,null);
     };
 
     // ===== Absent / Late detail popups (click the number on the board) =====
