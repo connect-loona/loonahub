@@ -2822,6 +2822,10 @@
     .hol-item button{margin-left:auto;background:transparent;border:1px solid #5a2a2a;color:var(--red);border-radius:8px;padding:5px 12px;cursor:pointer;font-size:12px}
     .hol-empty{color:var(--muted);font-size:13px}
     .att-holidays .note{font-size:11px;color:#555;margin-top:12px}
+    .hol-details summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--accent);padding:8px 0;list-style:none;user-select:none}
+    .hol-details summary::-webkit-details-marker{display:none}
+    .hol-details summary::before{content:"▸ ";display:inline-block;transition:transform .15s}
+    .hol-details[open] summary::before{transform:rotate(90deg)}
     /* late popup */
     #late-pop{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:99999}
     #late-pop .box{background:var(--surface);border:1px solid #5a3a1a;border-radius:18px;padding:30px 32px;width:370px;text-align:center}
@@ -9035,13 +9039,14 @@ Current date: ${today}`;
     /* pending approvals rows stack */
     .approval-row{flex-wrap:wrap!important}
     .approval-row .approval-task{flex:1 1 100%!important}
-    /* ---- Founder Monthly Overview table -> stacked cards, same pattern as Task Board ---- */
-    #founder-monthly-tbl{min-width:0!important;width:100%!important}
-    #founder-monthly-tbl thead{display:none!important}
-    #founder-monthly-tbl tbody{display:block!important}
-    #founder-monthly-tbl tr{display:block!important;background:rgba(255,255,255,.03)!important;border:1px solid var(--border)!important;border-radius:12px!important;margin:0 0 10px!important;padding:8px 12px!important}
-    #founder-monthly-tbl td{display:flex!important;align-items:center;justify-content:space-between;gap:12px;padding:7px 0!important;border:none!important;max-width:none!important;white-space:normal!important;font-size:13px}
-    #founder-monthly-tbl td::before{content:attr(data-label);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.03em;flex:0 0 36%;text-align:left}
+    /* ---- Founder Monthly Overview: stays a real table, just narrow enough to fit ---- */
+    #founder-monthly-tbl{min-width:0!important;width:100%!important;table-layout:fixed!important}
+    #founder-monthly-tbl th{padding:5px 2px!important;font-size:7.5px!important;white-space:normal!important;line-height:1.15!important}
+    #founder-monthly-tbl td{padding:5px 2px!important;font-size:9.5px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+    #founder-monthly-tbl td strong{font-size:9.5px!important}
+    #founder-monthly-tbl .sub{display:none!important}
+    /* Performance Scoreboard is redundant with the flash-card popup on mobile */
+    .pf-board{display:none!important}
     /* ---- Work Deck Links: 9 folders per row, condensed to icon + name ---- */
     #deck-links-grid{grid-template-columns:repeat(9,minmax(0,1fr))!important;gap:3px!important}
     #deck-links-grid .link-card{flex-direction:column!important;padding:4px 1px!important;gap:1px!important;text-align:center!important;border-radius:7px!important}
@@ -9049,6 +9054,11 @@ Current date: ${today}`;
     #deck-links-grid .lname{font-size:6.3px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:100%!important;line-height:1.1!important}
     #deck-links-grid .ltype{display:none!important}
     #deck-links-grid button[title="Edit link"]{display:none!important}
+    /* ---- Daily Overview: Total/Working/On Break/Time Off/Late Today in one line ---- */
+    .att-stats{grid-template-columns:repeat(5,1fr)!important;gap:4px!important}
+    .att-stat{padding:6px 3px!important;text-align:center!important}
+    .att-stat .n{font-size:15px!important}
+    .att-stat .l{font-size:6px!important;letter-spacing:0!important;line-height:1.15!important}
   }
   @media (max-width:430px){
     .tl-grid{grid-template-columns:repeat(3,1fr)!important}
@@ -9474,10 +9484,12 @@ Current date: ${today}`;
         '<div class="bh">&#127881; Holiday Manager <span class="tag">Founder only</span></div>'+
         '<div class="hol-form"><input type="date" id="hol-date"><input type="text" id="hol-name" placeholder="Holiday name (e.g. Diwali)">'+
           '<button onclick="window.attAddHoliday()">Add Holiday</button></div>'+
-        '<div class="t" style="margin-top:10px">Official Loona holidays (2026&ndash;27)</div>'+
-        '<div class="hol-list">'+official+'</div>'+
-        '<div class="t" style="margin-top:10px">Extra holidays added by founder</div>'+
-        '<div class="hol-list">'+list+'</div>'+
+        '<details class="hol-details"><summary>View holidays ('+OFFICIAL_HOLIDAYS.length+' official'+(HOLIDAYS.length?(' + '+HOLIDAYS.length+' extra'):'')+')</summary>'+
+          '<div class="t" style="margin-top:10px">Official Loona holidays (2026&ndash;27)</div>'+
+          '<div class="hol-list">'+official+'</div>'+
+          '<div class="t" style="margin-top:10px">Extra holidays added by founder</div>'+
+          '<div class="hol-list">'+list+'</div>'+
+        '</details>'+
         '<div class="note">&#127760; Holidays appear on everyone\'s calendar (purple) and are excluded from attendance analysis'+(_holRef?" &middot; extra ones synced to all via Firebase":" &middot; extra ones local until Firebase sync")+'.</div>'+
       '</div>';
     }
@@ -9496,7 +9508,7 @@ Current date: ${today}`;
       var teamNames=names.filter(function(n){return n!=="Gokul";});
       var dailyCards=teamNames.map(function(n){
         var a=ATT[n], p=perfCompute(n), rec=dayRecord(n,DAILY_SEL);
-        return '<div class="att-daily-card">'+
+        return '<div class="att-daily-card" onclick="window.attShowDailyCardDetail(&quot;'+n+'&quot;)" style="cursor:pointer">'+
           '<div class="adc-head"><div style="display:flex;gap:8px;align-items:center">'+memberAvatarHTML(n)+'<div><strong>'+esc(n)+'</strong><span class="sub">'+esc(a.code)+' · '+esc(a.desg)+'</span></div></div>'+pill(rec.status)+'</div>'+
           '<div class="adc-meta">Joined '+fmtDate(a.joinDate)+' &middot; '+daysAt(a.joinDate)+' days &middot; '+esc(a.dept)+'</div>'+
           '<div class="adc-rows">'+
@@ -9850,6 +9862,21 @@ Current date: ${today}`;
         });
       });
     }
+
+    // ===== Daily Overview flash-card detail popup (click a card) =====
+    window.attShowDailyCardDetail=function(name){
+      var a=ATT[name]; if(!a) return;
+      var p=perfCompute(name), rec=dayRecord(name,DAILY_SEL);
+      var html='<div style="text-align:left">'+
+        '<div class="pf-absrow"><span>Department</span><span>'+esc(a.dept)+'</span></div>'+
+        '<div class="pf-absrow"><span>Joined</span><span>'+fmtDate(a.joinDate)+' &middot; '+daysAt(a.joinDate)+'d</span></div>'+
+        '<div class="pf-absrow"><span>First Punch</span><span>'+esc(rec.in)+'</span></div>'+
+        '<div class="pf-absrow"><span>Working Hrs</span><span>'+esc(rec.hrs)+'</span></div>'+
+        '<div class="pf-absrow"><span>Break Time</span><span>'+esc(rec.brk)+'</span></div>'+
+        '<div class="pf-absrow"><span>Performance ('+curMonth()+')</span><span style="color:'+p.band.c+';font-weight:700">'+p.score+'% &middot; '+p.band.l+'</span></div>'+
+      '</div>';
+      popupBox("info-pop","&#128100;",esc(name)+' · '+esc(a.code)+' &middot; '+esc(a.desg),html,null);
+    };
 
     // ===== Absent / Late detail popups (click the number on the board) =====
     window.attShowAbsent=function(name){
