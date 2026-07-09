@@ -7541,7 +7541,7 @@
           ].filter(Boolean).map(([k, v]) => `<div class="bc-row"><span class="bc-key">${k}</span><span class="bc-val" title="${v}">${v}</span></div>`).join('')}
       <div class="bc-actions">
         ${isInactive
-            ? `<button class="bc-btn restore">↑ Restore</button>`
+            ? `<button class="bc-btn restore">↑ Restore</button><button class="bc-btn danger delete-perm">🗑 Delete Permanently</button>`
             : `<label class="bc-btn" style="cursor:pointer;text-align:center" title="Upload brand logo">🖼 Logo<input class="bc-upload" type="file" accept="image/*" style="display:none"></label><button class="bc-btn edit">✎ Edit</button><button class="bc-btn danger close">× Close Account</button>`
           }
       </div>
@@ -7580,6 +7580,10 @@
           if (restoreBtn) {
             restoreBtn.addEventListener('click', function (e) { e.stopPropagation(); restoreBrand(brand); });
           }
+          const deletePermBtn = card.querySelector('.bc-btn.delete-perm');
+          if (deletePermBtn) {
+            deletePermBtn.addEventListener('click', function (e) { e.stopPropagation(); deleteBrandPermanently(brand); });
+          }
           // Prevent card click propagation when clicking inside
           card.querySelectorAll('.bc-actions > *').forEach(el => el.addEventListener('click', e => e.stopPropagation()));
         });
@@ -7598,6 +7602,20 @@
 
     function restoreBrand(brandName) {
       fbUpdateBrand(brandName, { inactive: false });
+    }
+
+    function deleteBrandPermanently(brandName) {
+      if (!confirm(`Permanently delete "${brandName}"? This removes it from Past Clients for good — existing tasks/links referencing it are kept, but it can't be restored. This can't be undone.`)) return;
+      const idx = findBrandIndexByName(brandName);
+      const b = idx >= 0 ? BRANDS_ALLOC[idx] : null;
+      if (!b) return;
+      const key = b._key;
+      // Remove locally right away so it disappears immediately, then sync the delete to Firebase in the background.
+      BRANDS_ALLOC.splice(idx, 1);
+      renderBrands(); renderMonthly(); renderTeam();
+      if (_db && key) {
+        _db.ref('brands/' + key).remove().catch(e => { console.error('Failed to delete brand:', e); alert('Could not delete this brand from the server — check your connection. It may reappear on refresh.'); });
+      }
     }
 
     function openAddBrand() {
