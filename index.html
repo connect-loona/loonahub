@@ -598,21 +598,19 @@
     }
 
     .avatar-edit {
-      position: absolute;
-      bottom: -2px;
-      right: -2px;
-      width: 18px;
-      height: 18px;
+      width: 22px;
+      height: 22px;
       border-radius: 50%;
-      background: var(--accent, #c8a96e);
-      color: #111;
+      background: var(--surface2, #222);
+      color: var(--accent, #c8a96e);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 10px;
+      font-size: 11px;
       line-height: 1;
       cursor: pointer;
-      border: 2px solid var(--surface, #1a1a1a);
+      border: 1px solid var(--border, #333);
+      flex-shrink: 0;
     }
 
     .member-name {
@@ -6629,9 +6627,8 @@
       document.getElementById('member-cards').innerHTML = activeMembers.map(m => `
     <div class="member-card" style="border-color:${mColor(m.member)}22">
       <div class="member-header">
-        <div class="avatar" style="position:relative;background:${mColor(m.member)}20;color:${mColor(m.member)};${(MEMBER_INFO[m.member] || {}).avatar ? 'padding:0;' : ''}overflow:hidden">${mAvatar(m.member)}
-          <label class="avatar-edit" title="Change photo">📷<input type="file" accept="image/*" style="display:none" onchange="uploadMemberPhoto(this,'${m.member}')"></label>
-        </div>
+        <div class="avatar" style="background:${mColor(m.member)}20;color:${mColor(m.member)};${(MEMBER_INFO[m.member] || {}).avatar ? 'padding:0;' : ''}overflow:hidden">${mAvatar(m.member)}</div>
+        <label class="avatar-edit" title="Change photo">📷<input type="file" accept="image/*" style="display:none" onchange="uploadMemberPhoto(this,'${m.member}')"></label>
         <div><div class="member-name">${m.member}</div><div class="member-role">${m.asylum || (MEMBER_INFO[m.member] || {}).role || 'Team'} · ${m.brands.size} brands</div></div>
       </div>
       ${perfRowHTML(m.member)}
