@@ -6656,11 +6656,15 @@
       const activeMembers = Object.values(tMap).filter(m => ALL_MEMBERS.includes(m.member) && !INACTIVE_MEMBERS.has(m.member)).sort((a, b) => b.total - a.total);
       const inactiveMembers = Object.values(tMap).filter(m => ALL_MEMBERS.includes(m.member) && INACTIVE_MEMBERS.has(m.member)).sort((a, b) => b.total - a.total);
 
+      // Stash per-member stats so the mobile "tap for detail" popup can read them without recomputing
+      window._teamDetail = {};
+      activeMembers.concat(inactiveMembers).forEach(m => { window._teamDetail[m.member] = m; });
+
       document.getElementById('member-cards').innerHTML = activeMembers.map(m => `
-    <div class="member-card" style="border-color:${mColor(m.member)}22">
+    <div class="member-card" style="border-color:${mColor(m.member)}22" onclick="window.showMemberDetail('${m.member}')">
       <div class="member-header">
         <div class="avatar" style="background:${mColor(m.member)}20;color:${mColor(m.member)};${(MEMBER_INFO[m.member] || {}).avatar ? 'padding:0;' : ''}overflow:hidden">${mAvatar(m.member)}</div>
-        <label class="avatar-edit" title="Change photo">📷<input type="file" accept="image/*" style="display:none" onchange="uploadMemberPhoto(this,'${m.member}')"></label>
+        <label class="avatar-edit" title="Change photo" onclick="event.stopPropagation()">📷<input type="file" accept="image/*" style="display:none" onchange="uploadMemberPhoto(this,'${m.member}')"></label>
         <div><div class="member-name">${m.member}</div><div class="member-role">${m.asylum || (MEMBER_INFO[m.member] || {}).role || 'Team'} · ${m.brands.size} brands</div></div>
       </div>
       ${perfRowHTML(m.member)}
@@ -6670,9 +6674,9 @@
       <div class="member-stat-row"><span class="k">Completed</span><span style="color:var(--green)">${m.done}</span></div>
       <div class="member-stat-row"><span class="k">In Progress</span><span style="color:var(--blue)">${m.ip}</span></div>
       <div class="member-stat-row"><span class="k">Pending</span><span style="color:var(--yellow)">${m.ns}</span></div>
-      <div style="margin-top:12px">${progressBar(m.done, m.total)}</div>
-      <div style="margin-top:12px;display:flex;gap:8px">
-        <button onclick="removeMember('${m.member}')" style="background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);color:#e05c5c;padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;font-family:var(--font);flex:1">Remove from Team</button>
+      <div class="member-progress" style="margin-top:12px">${progressBar(m.done, m.total)}</div>
+      <div class="member-actions" style="margin-top:12px;display:flex;gap:8px">
+        <button onclick="event.stopPropagation();removeMember('${m.member}')" style="background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);color:#e05c5c;padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;font-family:var(--font);flex:1">Remove from Team</button>
       </div>
     </div>`).join('');
 
@@ -6689,13 +6693,13 @@
       if (inactiveMembers.length > 0) {
         pastSec.style.display = '';
         document.getElementById('past-employees-cards').innerHTML = inactiveMembers.map(m => `
-      <div class="member-card" style="border-color:${mColor(m.member)}22;opacity:0.6">
+      <div class="member-card" style="border-color:${mColor(m.member)}22;opacity:0.6" onclick="window.showMemberDetail('${m.member}')">
         <div class="member-header">
           <div class="avatar" style="background:${mColor(m.member)}20;color:${mColor(m.member)};${(MEMBER_INFO[m.member] || {}).avatar ? 'padding:0;' : ''}overflow:hidden">${mAvatar(m.member)}</div>
           <div><div class="member-name">${m.member}</div><div class="member-role">${m.asylum || (MEMBER_INFO[m.member] || {}).role || 'Team'}</div></div>
         </div>
-        <div style="margin-top:12px;display:flex;gap:8px">
-          <button onclick="restoreMember('${m.member}')" style="background:rgba(76,175,125,.1);border:1px solid rgba(76,175,125,.3);color:#4caf7d;padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;font-family:var(--font);flex:1">Restore</button>
+        <div class="member-actions-restore" style="margin-top:12px;display:flex;gap:8px">
+          <button onclick="event.stopPropagation();restoreMember('${m.member}')" style="background:rgba(76,175,125,.1);border:1px solid rgba(76,175,125,.3);color:#4caf7d;padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;font-family:var(--font);flex:1">Restore</button>
         </div>
       </div>`).join('');
       } else {
@@ -7586,6 +7590,8 @@
           }
           // Prevent card click propagation when clicking inside
           card.querySelectorAll('.bc-actions > *').forEach(el => el.addEventListener('click', e => e.stopPropagation()));
+          // Mobile: card itself is condensed to a logo+name tile — tap opens the full detail popup
+          card.addEventListener('click', () => window.showBrandDetail(brand));
         });
       }
 
@@ -9304,6 +9310,58 @@ Current date: ${today}`;
     .att-stat{padding:6px 3px!important;text-align:center!important}
     .att-stat .n{font-size:15px!important}
     .att-stat .l{font-size:6px!important;letter-spacing:0!important;line-height:1.15!important}
+    /* ---- Monthly Plan: 7 brand tabs on one line (swipe for the rest), cycle summary one line, phase cards 4/row ---- */
+    #brand-plan-tabs{overflow-x:auto!important;flex-wrap:nowrap!important;-webkit-overflow-scrolling:touch;gap:5px!important}
+    #brand-plan-tabs .bp-tab{flex:0 0 calc((100% - 30px)/7)!important;min-width:0!important;padding:6px 3px!important;font-size:9px!important;text-align:center!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+    #cycle-summary{flex-wrap:nowrap!important;gap:4px!important}
+    #cycle-summary .cs-card{padding:6px 2px!important;min-width:0!important}
+    #cycle-summary .cs-val{font-size:14px!important}
+    #cycle-summary .cs-lbl{font-size:6.3px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;letter-spacing:0!important}
+    #phase-grid{grid-template-columns:repeat(4,1fr)!important;gap:6px!important}
+    #phase-grid .phase-card{padding:6px 4px!important;border-radius:9px!important}
+    #phase-grid .phase-card-top{gap:4px!important;margin-bottom:4px!important}
+    #phase-grid .phase-num{width:18px!important;height:18px!important;font-size:8px!important;border-radius:5px!important}
+    #phase-grid .phase-card-name{font-size:8px!important;line-height:1.15!important}
+    #phase-grid .phase-card-meta{display:none!important}
+    #phase-grid .phase-status-sel{font-size:7.5px!important;padding:3px 2px!important;margin-bottom:4px!important}
+    #phase-grid .phase-items{display:none!important}
+    /* ---- Team: 4 member cards per row, condensed to essentials, tap for full detail ---- */
+    #member-cards{grid-template-columns:repeat(4,1fr)!important;gap:6px!important}
+    #member-cards .member-card{padding:6px 4px!important;border-radius:9px!important;cursor:pointer!important}
+    #member-cards .member-header{flex-direction:column!important;text-align:center!important;gap:3px!important;margin-bottom:5px!important}
+    #member-cards .avatar{width:26px!important;height:26px!important;font-size:11px!important}
+    #member-cards .avatar-edit{width:16px!important;height:16px!important;font-size:8px!important;margin-top:-6px!important}
+    #member-cards .member-name{font-size:8px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:100%!important}
+    #member-cards .member-role{font-size:6.3px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:100%!important}
+    #member-cards .member-stat-row,#member-cards .member-actions{display:none!important}
+    #member-cards .member-progress{margin-top:5px!important}
+    #member-cards .member-progress .progress-pct{font-size:6.3px!important;margin-top:2px!important}
+    /* ---- Past Employees: 6 per row, tiny cards, icon-only Restore ---- */
+    #past-employees-cards{grid-template-columns:repeat(6,1fr)!important;gap:5px!important}
+    #past-employees-cards .member-card{padding:5px 2px!important;border-radius:8px!important;cursor:pointer!important}
+    #past-employees-cards .member-header{flex-direction:column!important;text-align:center!important;gap:2px!important;margin-bottom:3px!important}
+    #past-employees-cards .avatar{width:20px!important;height:20px!important;font-size:9px!important}
+    #past-employees-cards .member-name{font-size:6.3px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:100%!important}
+    #past-employees-cards .member-role{display:none!important}
+    #past-employees-cards .member-actions-restore{margin-top:2px!important}
+    #past-employees-cards .member-actions-restore button{font-size:0!important;padding:4px!important}
+    #past-employees-cards .member-actions-restore button::after{content:'\2191';font-size:11px}
+    /* ---- Brands: 4 active brand cards per row, condensed to a logo+name tile, tap for full detail ---- */
+    #brand-cards-active{grid-template-columns:repeat(4,1fr)!important;gap:6px!important}
+    #brand-cards-active .brand-card{padding:6px 4px!important;border-radius:9px!important}
+    #brand-cards-active .brand-card:hover{transform:none!important}
+    #brand-cards-active .bc-header{flex-direction:column!important;text-align:center!important;gap:3px!important;margin-bottom:0!important}
+    #brand-cards-active .bc-header img,#brand-cards-active .bc-dot{width:20px!important;height:20px!important}
+    #brand-cards-active .bc-name{font-size:8px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:100%!important}
+    #brand-cards-active .bc-badge,#brand-cards-active .bc-row,#brand-cards-active .bc-actions{display:none!important}
+    /* ---- Past Clients: 6 per row, condensed to a logo+name tile, tap for full detail ---- */
+    #brand-cards-inactive{grid-template-columns:repeat(6,1fr)!important;gap:5px!important}
+    #brand-cards-inactive .brand-card{padding:5px 2px!important;border-radius:8px!important}
+    #brand-cards-inactive .brand-card:hover{transform:none!important}
+    #brand-cards-inactive .bc-header{flex-direction:column!important;text-align:center!important;gap:2px!important;margin-bottom:0!important}
+    #brand-cards-inactive .bc-header img,#brand-cards-inactive .bc-dot{width:16px!important;height:16px!important}
+    #brand-cards-inactive .bc-name{font-size:6.3px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:100%!important}
+    #brand-cards-inactive .bc-badge,#brand-cards-inactive .bc-row,#brand-cards-inactive .bc-actions{display:none!important}
   }
   @media (max-width:430px){
     .tl-grid{grid-template-columns:repeat(3,1fr)!important}
@@ -10201,6 +10259,70 @@ Current date: ${today}`;
         row("Due Date", t.due_date?fmtDate(t.due_date):"—")+
       '</div>';
       popupBox("info-pop","&#128203;",esc(t.member||"Task")+" · Task detail",html,null);
+    };
+
+    // ===== Team member detail popup (mobile: cards are condensed to essentials, tap for the rest) =====
+    window.showMemberDetail=function(name){
+      if(window.innerWidth>820) return; // desktop cards already show everything inline
+      var m=(window._teamDetail||{})[name]; if(!m) return;
+      var isInactive=(typeof INACTIVE_MEMBERS!=="undefined")&&INACTIVE_MEMBERS.has(name);
+      var info=(typeof MEMBER_INFO!=="undefined"&&MEMBER_INFO[name])||{};
+      var row=function(label,val){ return '<div class="pf-absrow"><span>'+label+'</span><span>'+val+'</span></div>'; };
+      var html='<div style="text-align:left">';
+      html+=row("Role", esc(m.asylum||info.role||"Team"));
+      var perf=null; try{ perf=window.perfCompute?window.perfCompute(name):null; }catch(e){}
+      if(perf) html+=row("Performance (this month)", '<span style="color:'+perf.band.c+';font-weight:700">'+perf.score+'% &middot; '+esc(perf.band.l)+'</span>');
+      var a=(window.ATT||{})[name];
+      var dept=(a&&a.dept)||info.department;
+      if(dept) html+=row("Department", esc(dept));
+      var joinDate=(a&&a.joinDate)||info.joinDate;
+      if(joinDate) html+=row("Loonatic since", fmtDate(joinDate)+(window.daysAt?(' &middot; '+window.daysAt(joinDate)+'d'):''));
+      html+=row("Brands", (m.brands?m.brands.size:0));
+      if(!isInactive){
+        html+=row("Total Tasks", m.total);
+        html+=row("Completed", '<span style="color:var(--green)">'+m.done+'</span>');
+        html+=row("In Progress", '<span style="color:var(--blue)">'+m.ip+'</span>');
+        html+=row("Pending", '<span style="color:var(--yellow)">'+m.ns+'</span>');
+      }
+      html+='</div><div style="margin-top:12px">'+progressBar(m.done,m.total)+'</div>';
+      html+='<div style="margin-top:14px;display:flex;gap:8px">';
+      if(isInactive){
+        html+='<button onclick="document.getElementById(&quot;info-pop&quot;).remove();restoreMember(&quot;'+name+'&quot;)" style="background:rgba(76,175,125,.1);border:1px solid rgba(76,175,125,.3);color:#4caf7d;padding:7px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;font-family:var(--font);flex:1">Restore</button>';
+      } else {
+        html+='<button onclick="document.getElementById(&quot;info-pop&quot;).remove();removeMember(&quot;'+name+'&quot;)" style="background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);color:#e05c5c;padding:7px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;font-family:var(--font);flex:1">Remove from Team</button>';
+      }
+      html+='</div>';
+      popupBox("info-pop","&#128100;",esc(name),html,null);
+    };
+
+    // ===== Brand card detail popup (mobile: cards are condensed to a logo+name tile, tap for the rest) =====
+    window.showBrandDetail=function(brandName){
+      if(window.innerWidth>820) return; // desktop cards already show everything inline
+      var idx=(typeof findBrandIndexByName==="function")?findBrandIndexByName(brandName):-1;
+      var b=idx>-1?BRANDS_ALLOC[idx]:null; if(!b) return;
+      var td={total:0,done:0};
+      (typeof TASKS!=="undefined"?TASKS:[]).forEach(function(t){ if(t.brand===brandName){ td.total++; if(t.status==="Completed") td.done++; } });
+      var pct=td.total>0?Math.round(td.done/td.total*100):0;
+      var row=function(label,val){ return '<div class="pf-absrow"><span>'+label+'</span><span>'+val+'</span></div>'; };
+      var html='<div style="text-align:left">';
+      html+=row("Strategy", esc(b.strategy||"—"));
+      html+=row("Design Lead", esc(b.design_lead||"—"));
+      html+=row("Video Lead", esc(b.video_lead||"—"));
+      html+=row("Ads Lead", esc(b.ads_lead||"—"));
+      html+=row("Deliverables/mo", esc(b.deliverables||"—"));
+      html+=row("Tasks", td.done+"/"+td.total+" ("+pct+"%)");
+      if(b.insta) html+=row("Instagram", esc(b.insta));
+      if(b.website) html+=row("Website", esc(b.website));
+      html+='</div><div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">';
+      if(b.inactive){
+        html+='<button onclick="document.getElementById(&quot;info-pop&quot;).remove();restoreBrand(&quot;'+brandName+'&quot;)" style="background:rgba(76,175,125,.1);border:1px solid rgba(76,175,125,.3);color:#4caf7d;padding:7px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;font-family:var(--font);flex:1">↑ Restore</button>';
+        html+='<button onclick="document.getElementById(&quot;info-pop&quot;).remove();deleteBrandPermanently(&quot;'+brandName+'&quot;)" style="background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);color:#e05c5c;padding:7px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;font-family:var(--font);flex:1">🗑 Delete Permanently</button>';
+      } else {
+        html+='<button onclick="document.getElementById(&quot;info-pop&quot;).remove();openEditBrand(&quot;'+brandName+'&quot;)" style="background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text);padding:7px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;font-family:var(--font);flex:1">✎ Edit</button>';
+        html+='<button onclick="document.getElementById(&quot;info-pop&quot;).remove();closeBrandAccount(&quot;'+brandName+'&quot;)" style="background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);color:#e05c5c;padding:7px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;font-family:var(--font);flex:1">× Close Account</button>';
+      }
+      html+='</div>';
+      popupBox("info-pop","&#127970;",esc(brandName),html,null);
     };
 
     // ===== Absent / Late detail popups (click the number on the board) =====
