@@ -9075,11 +9075,10 @@ Current date: ${today}`;
     .topbar{flex-wrap:wrap!important;padding:10px 12px!important;gap:6px!important;position:relative;background:transparent!important}
     .topbar > div:first-child{gap:10px!important;flex:1 1 auto;order:1}
     .topbar .logo img{height:20px!important}
-    /* Profile/name-picker chip: same row as the logo (not down with the hamburger) */
-    .topbar > div:last-child{order:2;flex:0 0 auto}
-    /* Hamburger gets its own full-width row below the chip, right-aligned, with a clear gap */
-    .mobile-menu-row{order:3;flex:0 0 100%;display:flex;justify-content:flex-end;margin-top:14px}
+    /* Hamburger sits right next to the profile chip, same row, both on the right */
+    .mobile-menu-row{order:2;flex:0 0 auto;display:flex}
     #mobile-menu-btn{display:inline-flex!important}
+    .topbar > div:last-child{order:3;flex:0 0 auto}
     .topbar .nav{order:4;position:absolute;top:100%;left:8px;right:8px;margin-top:6px;flex-direction:column;align-items:stretch;gap:4px;padding:8px;border-radius:16px;background:rgba(18,12,8,.98);border:1px solid var(--border);box-shadow:0 16px 40px rgba(0,0,0,.6);display:none;z-index:500;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
     .topbar .nav.nav-open{display:flex}
     .topbar .nav .nav-btn{width:100%;text-align:left;border-radius:10px;padding:12px 14px;font-size:15px}
