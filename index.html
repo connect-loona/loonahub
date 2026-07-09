@@ -5174,7 +5174,33 @@
     </div>
 
     <div class="page" id="page-loonaverse">
-      <div class="loonaverse-hero"><div class="lv-soon">Coming soon</div></div>
+      <div class="lv-hero">
+        <div class="lv-title">Loonaverse</div>
+        <div class="lv-subtitle">Our playground for everything we wish existed.</div>
+        <div class="lv-tagline">From wild ideas to useful tools, this is where we build, break, test, and dream out loud.</div>
+      </div>
+      <div class="lv-grid">
+        <div class="lv-card"><span class="lv-card-ic">🎵</span><div class="lv-card-name">Loona Radio</div><div class="lv-card-desc">24/7 curated music for creatives.</div></div>
+        <div class="lv-card"><span class="lv-card-ic">🎥</span><div class="lv-card-name">Loona Meet</div><div class="lv-card-desc">Your own branded video-call platform.</div></div>
+        <div class="lv-card"><span class="lv-card-ic">📝</span><div class="lv-card-name">Loona Notes</div><div class="lv-card-desc">AI meeting recorder with action items.</div></div>
+        <div class="lv-card"><span class="lv-card-ic">🤖</span><div class="lv-card-name">Loona GPT</div><div class="lv-card-desc">Trained on your philosophy and tone.</div></div>
+        <div class="lv-card"><span class="lv-card-ic">🔍</span><div class="lv-card-name">Loona Search</div><div class="lv-card-desc">Search every client file, brief, and reference.</div></div>
+        <div class="lv-card"><span class="lv-card-ic">📺</span><div class="lv-card-name">Loona TV</div><div class="lv-card-desc">Behind-the-scenes livestreams.</div></div>
+        <div class="lv-card"><span class="lv-card-ic">💼</span><div class="lv-card-name">Loona Jobs</div><div class="lv-card-desc">Hiring portal with creative challenges.</div></div>
+        <div class="lv-card"><span class="lv-card-ic">📚</span><div class="lv-card-name">Loona Wiki</div><div class="lv-card-desc">Your internal agency brain.</div></div>
+        <div class="lv-card"><span class="lv-card-ic">🔤</span><div class="lv-card-name">Loona Fonts</div><div class="lv-card-desc">Curated font library.</div></div>
+        <div class="lv-card"><span class="lv-card-ic">💬</span><div class="lv-card-name">Loona Promptbook</div><div class="lv-card-desc">Searchable prompt database.</div></div>
+        <div class="lv-card"><span class="lv-card-ic">🎨</span><div class="lv-card-name">Loona Moodboard</div><div class="lv-card-desc">AI-generated inspiration boards.</div></div>
+        <div class="lv-card"><span class="lv-card-ic">📸</span><div class="lv-card-name">Loona Shots</div><div class="lv-card-desc">AI product photography.</div></div>
+        <div class="lv-card"><span class="lv-card-ic">🎞️</span><div class="lv-card-name">Loona Motion</div><div class="lv-card-desc">AI motion graphics.</div></div>
+        <div class="lv-card"><span class="lv-card-ic">🎙️</span><div class="lv-card-name">Loona Voice</div><div class="lv-card-desc">Clone and manage brand voices.</div></div>
+        <div class="lv-card"><span class="lv-card-ic">👁️</span><div class="lv-card-name">Loona Vision</div><div class="lv-card-desc">Analyze competitors' social feeds instantly.</div></div>
+        <div class="lv-card"><span class="lv-card-ic">🔐</span><div class="lv-card-name">Loona Vault</div><div class="lv-card-desc">Client assets, brand books, and files.</div></div>
+        <div class="lv-card"><span class="lv-card-ic">🖊️</span><div class="lv-card-name">Loona Canvas</div><div class="lv-card-desc">Collaborative whiteboard.</div></div>
+        <div class="lv-card"><span class="lv-card-ic">✂️</span><div class="lv-card-name">Loona Clips</div><div class="lv-card-desc">AI-generated social edits.</div></div>
+        <div class="lv-card"><span class="lv-card-ic">🧪</span><div class="lv-card-name">Loona Labs</div><div class="lv-card-desc">Public experiments and prototypes.</div></div>
+        <div class="lv-card"><span class="lv-card-ic">🌐</span><div class="lv-card-name">Loona Browser</div><div class="lv-card-desc">A browser tailored for marketers and creatives.</div></div>
+      </div>
     </div>
 
     <!-- ======= LOONA CODE ======= -->
@@ -9849,9 +9875,27 @@ Current date: ${today}`;
 .tl-pct{font-size:9px;font-weight:600;line-height:1}
 </style>
   <style id="loonaverse-css">
-#page-loonaverse{padding:0}
-.loonaverse-hero{min-height:72vh;border-radius:18px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:radial-gradient(34% 22% at 6% 56%, rgba(255,242,216,.5) 0%, rgba(255,150,66,.26) 34%, transparent 60%), linear-gradient(178deg, #ff6d29 0%, #fb5713 16%, #db3d09 30%, #8f2605 46%, #3e0f02 64%, #150602 82%, #070301 100%)}
-.loonaverse-hero .lv-soon{font-size:36px;font-weight:500;letter-spacing:.02em;color:#fff;text-shadow:0 2px 24px rgba(0,0,0,.45)}
+.lv-hero{text-align:center;padding:36px 20px 30px}
+.lv-title{font-size:44px;font-weight:800;letter-spacing:-.01em;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;margin-bottom:10px}
+.lv-subtitle{font-size:17px;color:var(--text);font-weight:600;margin-bottom:12px}
+.lv-tagline{font-size:13px;color:var(--muted);font-style:italic;max-width:580px;margin:0 auto;line-height:1.6}
+.lv-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:14px;padding:0 4px 20px}
+.lv-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 10px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px;transition:transform .15s,border-color .15s}
+.lv-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.lv-card-ic{font-size:22px}
+.lv-card-name{font-size:12px;font-weight:700;color:var(--text);line-height:1.25}
+.lv-card-desc{font-size:10px;color:var(--muted);line-height:1.35}
+@media(max-width:820px){
+  .lv-hero{padding:24px 12px 20px}
+  .lv-title{font-size:30px}
+  .lv-subtitle{font-size:14px}
+  .lv-tagline{font-size:12px}
+  .lv-grid{grid-template-columns:repeat(4,1fr);gap:8px}
+  .lv-card{padding:10px 6px;border-radius:11px;gap:4px}
+  .lv-card-ic{font-size:17px}
+  .lv-card-name{font-size:9.5px}
+  .lv-card-desc{font-size:8px;line-height:1.25}
+}
 </style>
   <style id="layout-fix">
 .att-2col{align-items:stretch!important}
