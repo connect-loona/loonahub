@@ -5365,6 +5365,7 @@
           const data = snap.val() || {};
           BRANDS_ALLOC.length = 0;
           BRANDS_ALLOC.push(...Object.entries(data).map(([k, v]) => ({ ...v, _key: k })));
+          window._brandsLoaded = true; // signals real brand data has arrived, not just the embedded seed
           if (currentUser) {
             checkAndCreateAutoTasks(); // Re-run now that brands are loaded
             renderBrands(); renderMonthly(); renderOverview(); renderTeam(); renderTasks();
@@ -10046,6 +10047,15 @@ Current date: ${today}`;
         window._perfRemindTimers.push(setTimeout(function(){ if(currentUser===name) showPerfTrend(name); },delay));
       });
     }
+    // Brand-role reminders (checkBrandRoleReminders inside runPopups) need the REAL brand list
+    // from Firebase, not the small demo seed still embedded in this page at first paint. Wait for
+    // it (up to ~5s) before running the once-per-session popup queue, falling back to whatever's
+    // there if Firebase never connects (offline/demo mode) so the queue isn't stuck forever.
+    function _waitForBrandsThenRunPopups(name,attemptsLeft){
+      attemptsLeft = (attemptsLeft==null) ? 20 : attemptsLeft;
+      if(window._brandsLoaded || attemptsLeft<=0){ runPopups(name); return; }
+      setTimeout(function(){ _waitForBrandsThenRunPopups(name,attemptsLeft-1); },250);
+    }
     function runPopups(name){
       var a=ATT[name]||{}; var q=[];
       var today=new Date().toISOString().slice(0,10);
@@ -10086,7 +10096,7 @@ Current date: ${today}`;
       startWipRotation();
       var di=document.getElementById("att-date");
       if(di) di.onchange=function(){ SEL=this.value||TODAY; window.renderAttendanceOverview(); };
-      if(!window._attPopupShown){ window._attPopupShown=true; setTimeout(function(){ runPopups(name); },450); scheduleTaskReminders(name); schedulePerfReminders(name); }
+      if(!window._attPopupShown){ window._attPopupShown=true; setTimeout(function(){ _waitForBrandsThenRunPopups(name); },450); scheduleTaskReminders(name); schedulePerfReminders(name); }
     };
 
     if(typeof showPage==="function"){ var _sp=showPage; showPage=function(id,btn){ if(id==="overview") SEL=TODAY; var _mn=document.querySelector(".topbar .nav"); if(_mn) _mn.classList.remove("nav-open"); _sp(id,btn); if(id==="overview") window.renderAttendanceOverview(); }; }
