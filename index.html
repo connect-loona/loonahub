@@ -9161,15 +9161,16 @@ Current date: ${today}`;
     #page-tasks .table-wrap table th,#overdue-body table th{padding:4px 2px!important;font-size:7px!important;white-space:normal!important;line-height:1.15!important}
     #page-tasks .table-wrap table td,#overdue-body table td{padding:5px 2px!important;font-size:9px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:none!important}
     /* Main tasks table: Member/Brand/Task/Assigned By/Assigned On/Priority/Status/Time/Due/Actions */
-    #page-tasks .table-wrap table th:nth-child(1),#page-tasks .table-wrap table td:nth-child(1){width:12%}
-    #page-tasks .table-wrap table th:nth-child(2),#page-tasks .table-wrap table td:nth-child(2){width:9%}
-    #page-tasks .table-wrap table th:nth-child(3),#page-tasks .table-wrap table td:nth-child(3){width:21%}
-    #page-tasks .table-wrap table th:nth-child(4),#page-tasks .table-wrap table td:nth-child(4){width:8%}
-    #page-tasks .table-wrap table th:nth-child(5),#page-tasks .table-wrap table td:nth-child(5){width:8%}
-    #page-tasks .table-wrap table th:nth-child(6),#page-tasks .table-wrap table td:nth-child(6){width:7%}
-    #page-tasks .table-wrap table th:nth-child(7),#page-tasks .table-wrap table td:nth-child(7){width:13%}
-    #page-tasks .table-wrap table th:nth-child(8),#page-tasks .table-wrap table td:nth-child(8){width:8%}
-    #page-tasks .table-wrap table th:nth-child(9),#page-tasks .table-wrap table td:nth-child(9){width:10%}
+    /* Assigned On (5) and Time (8) are hidden on mobile - low-value for a quick glance, freed width goes to Task/Status */
+    #page-tasks .table-wrap table th:nth-child(5),#page-tasks .table-wrap table td:nth-child(5){display:none!important}
+    #page-tasks .table-wrap table th:nth-child(8),#page-tasks .table-wrap table td:nth-child(8){display:none!important}
+    #page-tasks .table-wrap table th:nth-child(1),#page-tasks .table-wrap table td:nth-child(1){width:13%}
+    #page-tasks .table-wrap table th:nth-child(2),#page-tasks .table-wrap table td:nth-child(2){width:10%}
+    #page-tasks .table-wrap table th:nth-child(3),#page-tasks .table-wrap table td:nth-child(3){width:30%}
+    #page-tasks .table-wrap table th:nth-child(4),#page-tasks .table-wrap table td:nth-child(4){width:10%}
+    #page-tasks .table-wrap table th:nth-child(6),#page-tasks .table-wrap table td:nth-child(6){width:8%}
+    #page-tasks .table-wrap table th:nth-child(7),#page-tasks .table-wrap table td:nth-child(7){width:16%}
+    #page-tasks .table-wrap table th:nth-child(9),#page-tasks .table-wrap table td:nth-child(9){width:9%}
     #page-tasks .table-wrap table th:nth-child(10),#page-tasks .table-wrap table td:nth-child(10){width:4%}
     /* Overdue (Pending from Previous Days) table: Member/Brand/Task/Assigned By/Priority/Status/Due */
     #overdue-body table th:nth-child(1),#overdue-body table td:nth-child(1){width:13%}
