@@ -2940,38 +2940,23 @@
     .att-2col{display:grid;grid-template-columns:1.15fr 1fr;gap:16px;align-items:start}
     @media(max-width:900px){.att-2col{grid-template-columns:1fr}}
     .att-leftcol{background:linear-gradient(135deg,#1c1a14,#141414);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:16px;padding:22px 24px}
-    .att-leftcol .al-daterow{display:flex;justify-content:flex-end;margin-bottom:10px}
-    .att-leftcol .al-top{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+    .att-leftcol .al-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
     .att-leftcol .lab{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
     .att-leftcol .clock{font-size:52px;font-weight:800;color:var(--text);line-height:1.05;margin:4px 0}
     .att-leftcol .clock small{font-size:20px;color:var(--accent);font-weight:600}
     .att-leftcol .sub{font-size:12px;color:var(--accent2);margin-bottom:6px}
-    .att-leftcol .al-punches{display:flex;flex-direction:column;gap:0;min-width:150px}
-    .att-leftcol .al-punches .r{display:flex;align-items:center;gap:6px;padding:4px 0;font-size:11px;color:var(--text)}
-    .att-leftcol .al-punches .r .ic{width:18px;height:18px;border-radius:5px;background:#26241d;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0}
-    .att-leftcol .al-punches .r .v{margin-left:auto;font-weight:700;color:var(--accent2);font-size:11px}
-    .att-leftcol .al-punches .r .v small{font-size:9px}
+    .att-leftcol .rows{border-top:1px solid var(--border);padding-top:10px;margin-top:12px}
+    .att-leftcol .r{display:flex;align-items:center;gap:10px;padding:8px 0;font-size:13px;color:var(--text)}
+    .att-leftcol .r+.r{border-top:1px solid #201f1c}
+    .att-leftcol .r .ic{width:26px;height:26px;border-radius:7px;background:#26241d;display:flex;align-items:center;justify-content:center;font-size:13px}
+    .att-leftcol .r .v{margin-left:auto;font-weight:700;color:var(--accent2)}
     .att-leftcol .r .req{color:var(--muted);font-weight:500;font-size:11px}
     .att-leftcol .t{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:18px 0 10px;display:flex;align-items:center;gap:7px}
-    .att-leftcol .att-chips{display:flex;gap:6px;flex-wrap:nowrap}
-    .att-leftcol .att-chips .att-chip{padding:6px 4px;font-size:9.5px;min-width:0;text-align:center}
-    .att-leftcol .att-chips .att-chip b{display:block;font-size:14px}
+    .att-leftcol .att-chips{display:flex;gap:10px;flex-wrap:wrap}
     .att-leftcol .att-rulenote{font-size:11px;color:#6a6a6a;margin-top:12px;line-height:1.5}
-    .att-leftcol .att-siderows{border-top:1px solid var(--border);margin-top:14px;padding-top:8px;display:flex;gap:20px}
-    .att-leftcol .att-siderows .r{display:flex;align-items:center;gap:6px;padding:0;font-size:12px;color:var(--text)}
-    .att-leftcol .att-siderows .r .ic{width:22px;height:22px;border-radius:6px;background:#26241d;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
-    .att-leftcol .att-siderows .r .v{font-weight:700;color:var(--accent2);font-size:12px}
-    .att-leftcol .att-policy{margin-top:8px!important}
-    .att-leftcol .att-pol{padding:8px 10px!important;font-size:11px!important}
-    .att-leftcol .att-pol .txt b{font-size:11px!important}
-    .att-leftcol .att-pol .amt{font-size:14px!important}
+    .att-leftcol .att-siderows{border-top:1px solid var(--border);margin-top:14px;padding-top:4px}
     .att-rightcol{display:flex;flex-direction:column;gap:16px}
     .att-rightcol .pf-card{margin-bottom:0}
-    .pf-combined{display:flex;gap:16px;align-items:stretch}
-    .pf-combined .pf-gaugecard{flex:0 0 200px;text-align:left}
-    .pf-combined .pf-gaugecard .pf-head{justify-content:flex-start}
-    .pf-combined .pf-gaugecard svg{margin:0}
-    .pf-combined .team-lb{flex:1;min-width:0}
     .att-rightcol .att-policy{margin-top:0}
 
     /* ===== v20 · align live Overview to the approved design ===== */
@@ -9026,6 +9011,30 @@ Current date: ${today}`;
     .att-leftwrap,.att-rightcol{min-width:0!important}
     .att-leftcol{padding:18px!important}
     .att-leftcol .clock{font-size:40px!important}
+    /* ---- My Attendance: compact mobile-only layout (desktop unchanged) ---- */
+    .att-leftcol .al-daterow{display:flex;justify-content:flex-end;margin-bottom:10px}
+    .att-leftcol .al-top{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+    .att-leftcol .al-punches{display:flex;flex-direction:column;gap:0;min-width:150px}
+    .att-leftcol .al-punches .r{display:flex;align-items:center;gap:6px;padding:4px 0;font-size:11px;color:var(--text)}
+    .att-leftcol .al-punches .r .ic{width:18px;height:18px;border-radius:5px;background:#26241d;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0}
+    .att-leftcol .al-punches .r .v{margin-left:auto;font-weight:700;color:var(--accent2);font-size:11px}
+    .att-leftcol .al-punches .r .v small{font-size:9px}
+    .att-leftcol .att-chips{display:flex;gap:6px;flex-wrap:nowrap}
+    .att-leftcol .att-chips .att-chip{padding:6px 4px;font-size:9.5px;min-width:0;text-align:center}
+    .att-leftcol .att-chips .att-chip b{display:block;font-size:14px}
+    .att-leftcol .att-siderows{border-top:1px solid var(--border);margin-top:14px;padding-top:8px;display:flex;gap:20px}
+    .att-leftcol .att-siderows .r{display:flex;align-items:center;gap:6px;padding:0;font-size:12px;color:var(--text)}
+    .att-leftcol .att-siderows .r .ic{width:22px;height:22px;border-radius:6px;background:#26241d;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
+    .att-leftcol .att-siderows .r .v{font-weight:700;color:var(--accent2);font-size:12px}
+    .att-leftcol .att-policy{margin-top:8px!important}
+    .att-leftcol .att-pol{padding:8px 10px!important;font-size:11px!important}
+    .att-leftcol .att-pol .txt b{font-size:11px!important}
+    .att-leftcol .att-pol .amt{font-size:14px!important}
+    .pf-combined{display:flex;gap:16px;align-items:stretch}
+    .pf-combined .pf-gaugecard{flex:0 0 200px;text-align:left}
+    .pf-combined .pf-gaugecard .pf-head{justify-content:flex-start}
+    .pf-combined .pf-gaugecard svg{margin:0}
+    .pf-combined .team-lb{flex:1;min-width:0}
     /* ---- Leaderboard: 4 per row ---- */
     .tl-grid{grid-template-columns:repeat(4,1fr)!important}
     /* ---- Calendar cells ---- */
@@ -9402,42 +9411,52 @@ Current date: ${today}`;
       var isToday=SEL===TODAY;
       var req=reqFor(SEL);
       var lateNote=rec.status==="late"?' <small>(after 10:30 grace)</small>':(rec.status==="present"&&rec.in!=="—"?' <small>(within grace)</small>':'');
-      return ''+
-      '<div class="att-head">&#128197; My Attendance '+pill(rec.status)+'</div>'+
-      '<div class="att-2col">'+
-        '<div class="att-leftwrap">'+
-        '<div class="att-leftcol">'+
-          '<div class="al-daterow"><div class="att-datesel"><label>Date</label><input type="date" id="att-date" value="'+SEL+'" max="'+TODAY+'"></div></div>'+
-          '<div class="al-top">'+
-            '<div><div class="lab">Working Hours &middot; '+(isToday?"Today":new Date(SEL+"T00:00:00").toLocaleDateString("en-IN",{weekday:"short",day:"numeric",month:"short"}))+(isSat(SEL)?" &middot; Sat":"")+'</div>'+
+      var mobile=window.innerWidth<=820;
+      var dateSel='<div class="att-datesel"><label>Date</label><input type="date" id="att-date" value="'+SEL+'" max="'+TODAY+'"></div>';
+      var clockBlock='<div><div class="lab">Working Hours &middot; '+(isToday?"Today":new Date(SEL+"T00:00:00").toLocaleDateString("en-IN",{weekday:"short",day:"numeric",month:"short"}))+(isSat(SEL)?" &middot; Sat":"")+'</div>'+
               '<div class="clock">'+clockOf(rec.hrs)+'</div>'+
-              '<div class="sub">&#8599; '+(isToday?"Hours worked today":"Hours worked")+' &middot; '+esc(a.desg)+'</div></div>'+
-            '<div class="al-punches">'+
-              '<div class="r"><span class="ic">&#128276;</span> First Punch <span class="v">'+esc(rec.in)+lateNote+'</span></div>'+
+              '<div class="sub">&#8599; '+(isToday?"Hours worked today":"Hours worked")+' &middot; '+esc(a.desg)+'</div></div>';
+      var punchRows='<div class="r"><span class="ic">&#128276;</span> First Punch <span class="v">'+esc(rec.in)+lateNote+'</span></div>'+
               '<div class="r"><span class="ic">&#128235;</span> Last Punch <span class="v">'+esc(rec.out||"—")+'</span></div>'+
-              '<div class="r"><span class="ic">&#9749;</span> Break <span class="v">'+esc(rec.brk)+'</span></div>'+
-            '</div>'+
-          '</div>'+
-          '<div class="t">&#128200; This Month</div>'+
-          '<div class="att-chips">'+
+              '<div class="r"><span class="ic">&#9749;</span> '+(mobile?"Break":"Total Break Time")+' <span class="v">'+esc(rec.brk)+'</span></div>';
+      var chips='<div class="att-chips">'+
             '<div class="att-chip g"><b>'+a.monthPresent+'</b>Present</div>'+
             '<div class="att-chip y"><b>'+a.monthLate+'</b>Late</div>'+
             '<div class="att-chip o"><b>'+(a.monthHalf||0)+'</b>Half Day</div>'+
             '<div class="att-chip b"><b>'+approvedLeavesMo(name)+'</b>Leave</div>'+
             '<div class="att-chip r"><b>'+Math.max(0,a.monthAbsent-approvedLeavesMo(name))+'</b>Absent</div>'+
-          '</div>'+
-          '<div class="att-rulenote">&#9203; Complete '+req+'h (excl. breaks) for Present. At least half ('+(req/2)+'h) marks <b>Half Day</b>; under that marks <b>Absent</b>. Weekdays 7h (3.5h half), Saturdays min 5h (2.5h half), 10:00–3:30.</div>'+
-          '<div class="att-siderows">'+
+          '</div>';
+      var siderows='<div class="att-siderows">'+
             '<div class="r"><span class="ic">&#128336;</span> Shift Timing <span class="v">'+shiftFor(SEL)+'</span></div>'+
             '<div class="r"><span class="ic">&#9203;</span> Required <span class="v">'+req+'h <span class="req">excl. breaks</span></span></div>'+
-          '</div>'+
-          lateFeeBar(name)+
-        '</div>'+
+          '</div>';
+      var leftInner, rightInner;
+      if(mobile){
+        leftInner=
+          '<div class="al-daterow">'+dateSel+'</div>'+
+          '<div class="al-top">'+clockBlock+'<div class="al-punches">'+punchRows+'</div></div>'+
+          '<div class="t">&#128200; This Month</div>'+chips+
+          '<div class="att-rulenote">&#9203; Complete '+req+'h (excl. breaks) for Present. At least half ('+(req/2)+'h) marks <b>Half Day</b>; under that marks <b>Absent</b>. Weekdays 7h (3.5h half), Saturdays min 5h (2.5h half), 10:00–3:30.</div>'+
+          siderows+
+          lateFeeBar(name);
+        rightInner='<div class="pf-combined">'+perfCardHTML(name)+teamLeaderboard(name)+'</div>';
+      } else {
+        leftInner=
+          '<div class="al-top">'+clockBlock+dateSel+'</div>'+
+          '<div class="rows">'+punchRows+'</div>'+
+          '<div class="t">&#128200; This Month</div>'+chips+
+          '<div class="att-rulenote">&#9203; Complete '+req+'h (excl. breaks) for Present. At least half ('+(req/2)+'h) marks <b>Half Day</b>; under that marks <b>Absent</b>. Weekdays 7h (3.5h half), Saturdays min 5h (2.5h half), 10:00–3:30.</div>'+
+          siderows;
+        rightInner=perfCardHTML(name)+teamLeaderboard(name)+lateFeeBar(name);
+      }
+      return ''+
+      '<div class="att-head">&#128197; My Attendance '+pill(rec.status)+'</div>'+
+      '<div class="att-2col">'+
+        '<div class="att-leftwrap">'+
+        '<div class="att-leftcol">'+leftInner+'</div>'+
           wipCard()+
         '</div>'+
-        '<div class="att-rightcol">'+
-          '<div class="pf-combined">'+perfCardHTML(name)+teamLeaderboard(name)+'</div>'+
-        '</div>'+
+        '<div class="att-rightcol">'+rightInner+'</div>'+
       '</div>'+
       calendar(name);
     }
