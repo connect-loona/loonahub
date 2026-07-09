@@ -597,6 +597,24 @@
       flex-shrink: 0;
     }
 
+    .avatar-edit {
+      position: absolute;
+      bottom: -2px;
+      right: -2px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--accent, #c8a96e);
+      color: #111;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      line-height: 1;
+      cursor: pointer;
+      border: 2px solid var(--surface, #1a1a1a);
+    }
+
     .member-name {
       font-weight: 600;
       font-size: 15px;
@@ -6611,7 +6629,9 @@
       document.getElementById('member-cards').innerHTML = activeMembers.map(m => `
     <div class="member-card" style="border-color:${mColor(m.member)}22">
       <div class="member-header">
-        <div class="avatar" style="background:${mColor(m.member)}20;color:${mColor(m.member)};${(MEMBER_INFO[m.member] || {}).avatar ? 'padding:0;' : ''}overflow:hidden">${mAvatar(m.member)}</div>
+        <div class="avatar" style="position:relative;background:${mColor(m.member)}20;color:${mColor(m.member)};${(MEMBER_INFO[m.member] || {}).avatar ? 'padding:0;' : ''}overflow:hidden">${mAvatar(m.member)}
+          <label class="avatar-edit" title="Change photo">📷<input type="file" accept="image/*" style="display:none" onchange="uploadMemberPhoto(this,'${m.member}')"></label>
+        </div>
         <div><div class="member-name">${m.member}</div><div class="member-role">${m.asylum || (MEMBER_INFO[m.member] || {}).role || 'Team'} · ${m.brands.size} brands</div></div>
       </div>
       ${perfRowHTML(m.member)}
@@ -6890,60 +6910,78 @@
       document.getElementById('pp-role').textContent = info.role || 'Team Member';
     }
 
-    function uploadProfilePic(input) {
+    // Compress an <input type=file> image to a small square-ish JPEG data URL (keeps Firebase payload small)
+    function compressImageFile(file, maxSize) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(img.width * scale);
+            canvas.height = Math.round(img.height * scale);
+            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL('image/jpeg', 0.75));
+          };
+          img.onerror = reject;
+          img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Sets any member's avatar (self-serve profile upload AND admin-driven Team page upload use this)
+    // and pushes it everywhere avatars are shown — login picker, member tabs, Team cards, topbar.
+    async function setMemberAvatar(name, compressed) {
+      if (!MEMBER_INFO[name]) MEMBER_INFO[name] = { color: '#888', emoji: '👤', role: 'Team Member' };
+      MEMBER_INFO[name].avatar = compressed;
+
+      try {
+        const avatarCache = JSON.parse(localStorage.getItem('loona_avatars') || '{}');
+        avatarCache[name] = compressed;
+        localStorage.setItem('loona_avatars', JSON.stringify(avatarCache));
+      } catch (e) {}
+
+      if (_db) {
+        const info = MEMBER_INFO[name];
+        await _db.ref('members/' + fbMemberKey(name)).set({
+          name, color: info.color || '#888', emoji: info.emoji || '👤', role: info.role || 'Team Member', avatar: compressed
+        });
+      }
+
+      renderProfilePanel();
+      if (currentUser === name) updateTopbarAvatar();
+      renderTeam();
+      rebuildLoginPicker();
+      buildMemberTabs(currentUser);
+    }
+
+    async function uploadProfilePic(input) {
       const file = input.files[0];
       if (!file || !currentUser) return;
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        // Compress image to max 300×300 before saving to keep Firebase payload small
-        const img = new Image();
-        img.onload = function () {
-          const MAX = 300;
-          const scale = Math.min(1, MAX / Math.max(img.width, img.height));
-          const canvas = document.createElement('canvas');
-          canvas.width = Math.round(img.width * scale);
-          canvas.height = Math.round(img.height * scale);
-          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-          const compressed = canvas.toDataURL('image/jpeg', 0.75);
+      const compressed = await compressImageFile(file, 300);
+      await setMemberAvatar(currentUser, compressed);
+      document.getElementById('toast-emoji').textContent = '📸';
+      document.getElementById('toast-msg').textContent = 'Profile photo updated!';
+      document.getElementById('toast-sub').textContent = 'Live across all dashboards';
+      const toast = document.getElementById('completion-toast');
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
 
-          if (!MEMBER_INFO[currentUser]) MEMBER_INFO[currentUser] = {};
-          MEMBER_INFO[currentUser].avatar = compressed;
-
-          // Save avatar to localStorage so it loads instantly on refresh (before Firebase connects)
-          try {
-            const avatarCache = JSON.parse(localStorage.getItem('loona_avatars') || '{}');
-            avatarCache[currentUser] = compressed;
-            localStorage.setItem('loona_avatars', JSON.stringify(avatarCache));
-          } catch(e) {}
-
-          // Persist to Firebase using set() with full member data so the record always has a `name` field
-          if (_db) {
-            const info = MEMBER_INFO[currentUser];
-            _db.ref('members/' + fbMemberKey(currentUser)).set({
-              name: currentUser,
-              color: info.color || '#888',
-              emoji: info.emoji || '👤',
-              role: info.role || 'Team Member',
-              avatar: compressed
-            }).then(() => {
-              document.getElementById('toast-emoji').textContent = '📸';
-              document.getElementById('toast-msg').textContent = 'Profile photo updated!';
-              document.getElementById('toast-sub').textContent = 'Live across all dashboards';
-              const toast = document.getElementById('completion-toast');
-              toast.classList.add('show');
-              setTimeout(() => toast.classList.remove('show'), 3000);
-            });
-          }
-
-          renderProfilePanel();
-          updateTopbarAvatar();
-          renderTeam();
-          // Rebuild login picker with new avatar
-          rebuildLoginPicker();
-        };
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
+    async function uploadMemberPhoto(input, name) {
+      const file = input.files[0];
+      if (!file) return;
+      const compressed = await compressImageFile(file, 300);
+      await setMemberAvatar(name, compressed);
+      document.getElementById('toast-emoji').textContent = '📸';
+      document.getElementById('toast-msg').textContent = `${name}'s photo updated!`;
+      document.getElementById('toast-sub').textContent = 'Live across all dashboards';
+      const toast = document.getElementById('completion-toast');
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3000);
     }
 
     function updateTopbarAvatar() {
@@ -7036,6 +7074,13 @@
       if (_db) _db.ref('categories/' + kind).set(CUSTOM_CATEGORIES[kind]);
       populateAmpSelect(kind, v);
     }
+    let _ampPhotoDataUrl = null;
+    async function handleAmpPhotoChange(input) {
+      const file = input.files[0];
+      if (!file) return;
+      _ampPhotoDataUrl = await compressImageFile(file, 300);
+      document.getElementById('amp-photo-preview').innerHTML = `<img src="${_ampPhotoDataUrl}" style="width:100%;height:100%;object-fit:cover">`;
+    }
     function openAddMember() {
       const emojis = ['🚀', '💼', '👩', '📊', '⭐', '✍️', '🎯', '✨', '🎨', '📐', '✂️', '🎞️', '🎬', '🦁', '💪', '🔥', '🌟', '⚡', '😎', '🎉'];
       document.getElementById('amp-emoji-row').innerHTML = emojis.map(e =>
@@ -7049,6 +7094,9 @@
       document.getElementById('amp-birthdate').value = '';
       document.getElementById('amp-color').value = '#c8a96e';
       document.getElementById('amp-emoji').value = '👤';
+      _ampPhotoDataUrl = null;
+      document.getElementById('amp-photo-input').value = '';
+      document.getElementById('amp-photo-preview').innerHTML = '👤';
       document.getElementById('add-member-modal').classList.remove('hidden');
     }
     function closeAddMember() { document.getElementById('add-member-modal').classList.add('hidden'); }
@@ -7067,23 +7115,20 @@
       const birthdate = document.getElementById('amp-birthdate').value;
       const color = document.getElementById('amp-color').value;
       const emoji = document.getElementById('amp-emoji').value;
+      const avatar = _ampPhotoDataUrl;
 
       const memberRole = role || dept || 'Team Member';
       if (!ALL_MEMBERS.includes(name)) ALL_MEMBERS.push(name);
-      MEMBER_INFO[name] = { color, emoji, role: memberRole, department: dept || null, joinDate: joinDate || null, employeeId: employeeId || null, birthdate: birthdate || null };
+      MEMBER_INFO[name] = { color, emoji, role: memberRole, avatar: avatar || null, department: dept || null, joinDate: joinDate || null, employeeId: employeeId || null, birthdate: birthdate || null };
 
       // Update UI instantly — don't wait for Firebase round-trip
       buildMemberTabs(currentUser);
       renderTeam();
       renderOverview();
-      const picker = document.getElementById('member-picker');
-      if (picker) {
-        const avatarHtml = `<span class="pill-emoji">${emoji}</span>`;
-        picker.innerHTML += `<button class="member-pill" onclick="login('${name}')" style="border-color:${color}40">${avatarHtml}<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><div style="font-weight:600;font-size:14px">${name}</div><div style="font-size:11px;color:var(--muted)">${memberRole}</div></div></button>`;
-      }
+      rebuildLoginPicker();
 
       // Persist to Firebase in the background
-      if (_db) _db.ref('members/' + fbMemberKey(name)).set({ name, color, emoji, role: memberRole, department: dept || null, joinDate: joinDate || null, employeeId: employeeId || null, birthdate: birthdate || null });
+      if (_db) _db.ref('members/' + fbMemberKey(name)).set({ name, color, emoji, role: memberRole, avatar: avatar || null, department: dept || null, joinDate: joinDate || null, employeeId: employeeId || null, birthdate: birthdate || null });
 
       closeAddMember();
       document.getElementById('toast-emoji').textContent = '🎉';
@@ -8583,7 +8628,14 @@ Current date: ${today}`;
     <div class="modal" style="max-width:480px">
       <div class="modal-title">Add <span>Team Member</span></div>
       <div class="form-group">
-        <label>Pick an Emoji</label>
+        <label>Photo (optional)</label>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div id="amp-photo-preview" style="width:56px;height:56px;border-radius:50%;background:#2a2a2a;display:flex;align-items:center;justify-content:center;overflow:hidden;color:#888;font-size:22px;flex-shrink:0">👤</div>
+          <input type="file" accept="image/*" id="amp-photo-input" onchange="handleAmpPhotoChange(this)">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Pick an Emoji <span style="font-weight:400;color:var(--muted)">(used if no photo)</span></label>
         <div class="amp-emoji-row" id="amp-emoji-row">
           🚀💼👩📊⭐✍️🎯✨🎨📐✂️🎞️🎬🦁💪🔥🌟⚡
         </div>
