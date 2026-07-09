@@ -9035,11 +9035,37 @@ Current date: ${today}`;
     /* pending approvals rows stack */
     .approval-row{flex-wrap:wrap!important}
     .approval-row .approval-task{flex:1 1 100%!important}
+    /* ---- Founder Monthly Overview table -> stacked cards, same pattern as Task Board ---- */
+    #founder-monthly-tbl{min-width:0!important;width:100%!important}
+    #founder-monthly-tbl thead{display:none!important}
+    #founder-monthly-tbl tbody{display:block!important}
+    #founder-monthly-tbl tr{display:block!important;background:rgba(255,255,255,.03)!important;border:1px solid var(--border)!important;border-radius:12px!important;margin:0 0 10px!important;padding:8px 12px!important}
+    #founder-monthly-tbl td{display:flex!important;align-items:center;justify-content:space-between;gap:12px;padding:7px 0!important;border:none!important;max-width:none!important;white-space:normal!important;font-size:13px}
+    #founder-monthly-tbl td::before{content:attr(data-label);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.03em;flex:0 0 36%;text-align:left}
   }
   @media (max-width:430px){
     .tl-grid{grid-template-columns:repeat(3,1fr)!important}
-    #today-stats,.stats-grid,.stat-grid{grid-template-columns:repeat(2,1fr)!important}
+    .stats-grid,.stat-grid{grid-template-columns:repeat(2,1fr)!important}
+    /* My Tasks row: all 6 in one line, shrunk to fit */
+    #today-stats{grid-template-columns:repeat(6,1fr)!important;gap:4px!important}
+    #today-stats .stat-card{padding:5px 3px!important;border-radius:9px!important;text-align:center!important}
+    #today-stats .stat-card .label{font-size:6.2px!important;letter-spacing:.2px!important;margin-bottom:2px!important;line-height:1.15!important}
+    #today-stats .stat-card .value{font-size:16px!important}
+    #today-stats .stat-card .sub{display:none!important}
     .today-title{font-size:20px!important}
+    /* Founder Daily Overview: 5 flash cards per row, condensed to essentials */
+    .att-daily-grid{grid-template-columns:repeat(5,1fr)!important;gap:5px!important}
+    .att-daily-card{padding:5px 4px!important;border-radius:9px!important}
+    .att-daily-card .adc-head{flex-direction:column!important;align-items:center!important;gap:2px!important;text-align:center!important}
+    .att-daily-card .adc-head>div{display:flex!important;flex-direction:column!important;align-items:center!important;gap:2px!important}
+    .att-daily-card .adc-head>div>div:first-child{width:22px!important;height:22px!important;font-size:12px!important}
+    .att-daily-card .adc-head strong{font-size:9px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:100%!important}
+    .att-daily-card .adc-head .sub{display:none!important}
+    .att-daily-card .att-pill{font-size:6px!important;padding:1px 4px!important}
+    .att-daily-card .adc-meta,.att-daily-card .adc-rows{display:none!important}
+    .att-daily-card .adc-perf{margin-top:3px!important;padding-top:3px!important;justify-content:center!important}
+    .att-daily-card .adc-perf .tl-gauge{width:34px!important;height:auto!important}
+    .att-daily-card .adc-band{display:none!important}
     .att-leftcol .clock{font-size:34px!important}
   }
   </style>
@@ -9480,12 +9506,12 @@ Current date: ${today}`;
         var fLate=lateFine(effLate(n,mo)), fHalf=halfDayFine(n,mo), fShort=shortAbsentFine(n,mo), fine=fLate+fHalf+fShort;
         var appr=approvedLeaves(n), earned=earnedLeave(n), left=earned-appr;
         return '<tr>'+
-          '<td><strong>'+esc(n)+'</strong><div class="sub"><span class="code">'+esc(a.code)+'</span> · '+esc(a.desg)+'</div></td>'+
-          '<td class="att-chipcell" title="Full days worked: '+mc.present+' &middot; Half days: '+mc.half+' (click H to review/forgive)"><span class="ac-p">'+mc.present+'P</span> <span class="ac-h att-clickable" onclick="window.attShowHalf(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)">'+mc.half+'H</span></td>'+
-          '<td>'+(function(){var na=Math.max(0,mc.absent-approvedLeavesMo(n,mo));return '<span class="pend att-clickable" style="'+(na>0?'':'color:var(--muted)')+'" onclick="window.attShowAbsent(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)">'+na+'</span>';})()+'</td>'+'<td>'+(function(){var fg=forgivenLateMo(n,mo);return '<span class="att-clickable" style="'+(mc.late>0?'color:var(--yellow);font-weight:700':'color:var(--muted)')+'" onclick="window.attShowLate(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)">'+mc.late+'</span>'+(fg?(' <span class="sub">('+fg+' forgiven)</span>'):'');})()+'</td>'+
-          '<td title="Late: &#8377;'+fLate+' &middot; Half Day: &#8377;'+fHalf+' &middot; Absent (short hours): &#8377;'+fShort+'">'+(fine>0?'<span class="fine">&#8377;'+fine+'</span>':'—')+'</td>'+
-          '<td><b>'+appr+'</b> <span class="sub">leave / '+earned+' earned</span></td>'+
-          '<td><span class="left'+(left<=3?" low":"")+'">'+left+'</span> <span class="sub">left</span></td>'+
+          '<td data-label="Employee"><strong>'+esc(n)+'</strong><div class="sub"><span class="code">'+esc(a.code)+'</span> · '+esc(a.desg)+'</div></td>'+
+          '<td data-label="Attendance" class="att-chipcell" title="Full days worked: '+mc.present+' &middot; Half days: '+mc.half+' (click H to review/forgive)"><span class="ac-p">'+mc.present+'P</span> <span class="ac-h att-clickable" onclick="window.attShowHalf(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)">'+mc.half+'H</span></td>'+
+          '<td data-label="Absent">'+(function(){var na=Math.max(0,mc.absent-approvedLeavesMo(n,mo));return '<span class="pend att-clickable" style="'+(na>0?'':'color:var(--muted)')+'" onclick="window.attShowAbsent(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)">'+na+'</span>';})()+'</td>'+'<td data-label="Late">'+(function(){var fg=forgivenLateMo(n,mo);return '<span class="att-clickable" style="'+(mc.late>0?'color:var(--yellow);font-weight:700':'color:var(--muted)')+'" onclick="window.attShowLate(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)">'+mc.late+'</span>'+(fg?(' <span class="sub">('+fg+' forgiven)</span>'):'');})()+'</td>'+
+          '<td data-label="Fines" title="Late: &#8377;'+fLate+' &middot; Half Day: &#8377;'+fHalf+' &middot; Absent (short hours): &#8377;'+fShort+'">'+(fine>0?'<span class="fine">&#8377;'+fine+'</span>':'—')+'</td>'+
+          '<td data-label="Leave Taken"><b>'+appr+'</b> <span class="sub">leave / '+earned+' earned</span></td>'+
+          '<td data-label="Leave Left"><span class="left'+(left<=3?" low":"")+'">'+left+'</span> <span class="sub">left</span></td>'+
         '</tr>';
       }).join("");
       return ''+
@@ -9500,7 +9526,7 @@ Current date: ${today}`;
       '<div class="att-board">'+
         '<div class="bh">&#128202; Monthly Overview <span class="tag">Founder only</span></div>'+
         '<div class="att-sync"><span>Month <input type="month" id="founder-mo" value="'+mo+'" max="'+curMonth()+'" onchange="window.attSetFounderMonth(this.value)"></span></div>'+
-        '<div class="scroll"><table class="att-tbl wide"><thead><tr>'+
+        '<div class="scroll"><table class="att-tbl wide" id="founder-monthly-tbl"><thead><tr>'+
           '<th>Employee</th><th>Attendance (mo)</th><th>Absent (mo)</th><th>Late (mo)</th><th>Fines (mo)</th><th>Leave Taken</th><th>Leave Left</th>'+
         '</tr></thead><tbody>'+rows+'</tbody></table></div>'+
         '<div class="note">Attendance = full (P) &amp; half (H) days worked in the selected month, click H to review/forgive &middot; Absent = unresolved (no punch = approvable as Official Leave; short hours = fined, click to review) &middot; Late = total days late (forgiven count shown alongside), click to review/forgive — forgiving removes it from fees/score but the calendar still shows it as Late &middot; Fines combine late, Half Day and short-hours-absence at &#8377;'+LATE_FEE+' per '+LATE_BLOCK+' each, for the selected month &middot; Leave Taken/Left is a running total (not month-specific) — the count of approved no-punch absences against the '+TOTAL_LEAVE+'-day yearly balance, accrued pro-rata (1.25/month) since April or join date.</div>'+
