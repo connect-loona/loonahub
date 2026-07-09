@@ -5398,6 +5398,37 @@
           });
           if (Object.keys(updates).length > 0) _db.ref('members').update(updates);
         });
+        // Avatars — synced from their own, separately-fetched node (declared before the members
+        // listener below since it calls this on every fire). Photos are the heavy part of this
+        // data; keeping them out of members/ means new teammates and name changes show up
+        // immediately, while photos fill themselves in a moment later without blocking anything.
+        let _rawMemberAvatars = {};
+        function applyPendingAvatars() {
+          let changed = false;
+          ALL_MEMBERS.forEach(name => {
+            const avatar = _rawMemberAvatars[fbMemberKey(name)];
+            if (avatar && MEMBER_INFO[name] && MEMBER_INFO[name].avatar !== avatar) {
+              MEMBER_INFO[name].avatar = avatar;
+              changed = true;
+            }
+          });
+          if (!changed) return;
+          rebuildLoginPicker();
+          if (currentUser) { updateTopbarAvatar(); renderProfilePanel(); renderTeam(); buildMemberTabs(currentUser); }
+          try {
+            const avatarCache = {};
+            ALL_MEMBERS.forEach(n => { if (MEMBER_INFO[n] && MEMBER_INFO[n].avatar) avatarCache[n] = MEMBER_INFO[n].avatar; });
+            localStorage.setItem('loona_avatars', JSON.stringify(avatarCache));
+          } catch(e) {}
+        }
+        _db.ref('member_avatars').on('value', snap => {
+          _rawMemberAvatars = snap.val() || {};
+          applyPendingAvatars();
+        });
+
+        // Members metadata — kept deliberately small (no photos), so this fires fast even on a
+        // slow connection and new members/names show up right away. Avatars sync separately
+        // above via member_avatars/, so a big photo download never blocks that.
         _db.ref('members').on('value', snap => {
           const data = snap.val() || {};
           const fbMembers = Object.values(data).filter(m => m && m.name);
@@ -5407,23 +5438,25 @@
             const isNew = !ALL_MEMBERS.includes(m.name);
             if (isNew) { ALL_MEMBERS.push(m.name); pickerNeedsRebuild = true; teamNeedsRender = true; }
             const existing = MEMBER_INFO[m.name] || {};
-            const newAvatar = m.avatar || existing.avatar || null;
-            const avatarChanged = newAvatar !== existing.avatar;
-            // Firebase is source of truth — prefer Firebase avatar over local
-            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: newAvatar, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null };
-            if (avatarChanged) { pickerNeedsRebuild = true; teamNeedsRender = true; }
+            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || null, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null };
+            // Older records still carry the avatar inline on this same node — use it right away,
+            // then migrate it out to member_avatars/ so this node stays small for everyone from now on.
+            if (m.avatar && m.avatar !== MEMBER_INFO[m.name].avatar) {
+              MEMBER_INFO[m.name].avatar = m.avatar;
+              pickerNeedsRebuild = true; teamNeedsRender = true;
+              const key = fbMemberKey(m.name);
+              _db.ref('member_avatars/' + key).set(m.avatar).then(() => _db.ref('members/' + key + '/avatar').remove()).catch(() => {});
+            }
           });
+          applyPendingAvatars();
           if (!pickerNeedsRebuild) return; // nothing changed, skip all re-renders
-          // Rebuild login picker to reflect new members and updated avatars
+          // Rebuild login picker to reflect new members
           rebuildLoginPicker();
           if (currentUser && teamNeedsRender) { updateTopbarAvatar(); renderProfilePanel(); renderTeam(); renderOverview(); buildMemberTabs(currentUser); }
-          // Persist to localStorage so members + avatars appear instantly on next page load
+          // Persist to localStorage so members appear instantly on next page load
           try {
             const cacheList = ALL_MEMBERS.map(n => { const i = MEMBER_INFO[n] || {}; return { name: n, color: i.color, emoji: i.emoji, role: i.role }; });
             localStorage.setItem('loona_members_cache', JSON.stringify(cacheList));
-            const avatarCache = {};
-            ALL_MEMBERS.forEach(n => { if (MEMBER_INFO[n] && MEMBER_INFO[n].avatar) avatarCache[n] = MEMBER_INFO[n].avatar; });
-            localStorage.setItem('loona_avatars', JSON.stringify(avatarCache));
           } catch(e) {}
         });
 
@@ -6994,9 +7027,12 @@
 
       if (_db) {
         const info = MEMBER_INFO[name];
-        await _db.ref('members/' + fbMemberKey(name)).set({
-          name, color: info.color || '#888', emoji: info.emoji || '👤', role: info.role || 'Team Member', avatar: compressed
-        });
+        const key = fbMemberKey(name);
+        // Avatars live in their own node so a big photo never blocks the members/ metadata
+        // sync the login picker depends on. update() (not set()) so this never wipes out
+        // department/joinDate/employeeId/birthdate that may already be on the record.
+        await _db.ref('member_avatars/' + key).set(compressed);
+        await _db.ref('members/' + key).update({ name, color: info.color || '#888', emoji: info.emoji || '👤', role: info.role || 'Team Member' });
       }
 
       renderProfilePanel();
@@ -7009,7 +7045,9 @@
     async function uploadProfilePic(input) {
       const file = input.files[0];
       if (!file || !currentUser) return;
-      const compressed = await compressImageFile(file, 300);
+      // 160px is plenty for the biggest avatar spot on screen (a 72px circle, even at 2x retina)
+      // — keeping this small is what makes the members sync fast for everyone.
+      const compressed = await compressImageFile(file, 160);
       await setMemberAvatar(currentUser, compressed);
       document.getElementById('toast-emoji').textContent = '📸';
       document.getElementById('toast-msg').textContent = 'Profile photo updated!';
@@ -7022,7 +7060,7 @@
     async function uploadMemberPhoto(input, name) {
       const file = input.files[0];
       if (!file) return;
-      const compressed = await compressImageFile(file, 300);
+      const compressed = await compressImageFile(file, 160);
       await setMemberAvatar(name, compressed);
       document.getElementById('toast-emoji').textContent = '📸';
       document.getElementById('toast-msg').textContent = `${name}'s photo updated!`;
