@@ -2788,15 +2788,17 @@
     .lc-reimb-grand span{color:var(--accent2)}
     .lc-reimb-declare{display:flex;align-items:flex-start;gap:8px;font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:16px;cursor:pointer}
     .lc-reimb-declare input{margin-top:2px;flex-shrink:0}
-    .lc-reimb-receipts{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px}
-    .lc-reimb-receipts:empty{margin-bottom:0}
-    .lc-reimb-receipt{position:relative;width:76px;height:76px;border-radius:8px;overflow:hidden;border:1px solid var(--border);flex-shrink:0}
-    .lc-reimb-receipt img{width:100%;height:100%;object-fit:cover;display:block}
-    .lc-reimb-receipt button{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.65);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:12px;line-height:1;cursor:pointer}
-    .lc-reimb-upload{display:inline-block;background:rgba(255,255,255,.04);border:1px dashed var(--border);color:var(--muted);border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer}
-    .lc-reimb-upload:hover{color:#ff9457;border-color:rgba(255,109,41,.4)}
+    .lc-reimb-rcpt{width:34px;height:34px;border-radius:6px;border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;position:relative;background:rgba(255,255,255,.03)}
+    .lc-reimb-rcpt .ph{font-size:14px;color:var(--muted)}
+    .lc-reimb-rcpt img{width:100%;height:100%;object-fit:cover}
+    .lc-reimb-rcpt-x{position:absolute;top:1px;right:1px;background:rgba(0,0,0,.65);color:#fff;border:none;border-radius:50%;width:14px;height:14px;font-size:10px;line-height:1;cursor:pointer;padding:0}
+    .lc-reimb-highlight{background:rgba(255,109,41,.08);border:1px solid rgba(255,109,41,.35);border-radius:14px;padding:16px 18px;margin:14px 0 18px;display:flex;flex-direction:column;gap:12px}
+    .lc-reimb-hl-item{display:flex;gap:10px;align-items:flex-start;font-size:12.5px;color:var(--text);line-height:1.55}
+    .lc-reimb-hl-item b{color:#ff9457}
+    .lc-reimb-hl-ic{font-size:18px;flex-shrink:0;margin-top:-1px}
     @media(max-width:600px){.lc-reimb-table{min-width:560px}}
-    .lc-reimb-mobile-note{display:none}
+    .lc-reimb-mobile-note{display:none;background:rgba(255,109,41,.12);border:1px solid rgba(255,109,41,.4);border-radius:12px;padding:12px 14px;font-size:12.5px;color:var(--text);font-weight:600;line-height:1.5;margin:12px 0}
+    .lc-reimb-mobile-badge{display:none}
     .lc-reimb-err{color:var(--red,#e05c5c);font-size:10.5px;font-weight:600;margin-top:3px;line-height:1.3}
     .lc-reimb-reason-row td{background:rgba(224,92,92,.06)}
     .lc-reimb-reason-input{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:6px;font-size:12px;font-family:var(--font);outline:none;resize:vertical}
@@ -2805,6 +2807,7 @@
     @media(max-width:820px){
       #lc-reimb-form{display:none}
       .lc-reimb-mobile-note{display:block}
+      .lc-reimb-mobile-badge{display:inline-block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:#ff9457;background:rgba(255,109,41,.15);border:1px solid rgba(255,109,41,.4);border-radius:20px;padding:2px 8px;margin-left:8px;vertical-align:middle}
     }
     /* org chart */
     .lc-org-tree{display:inline-flex;flex-direction:column;align-items:center;padding:16px 24px}
@@ -5354,22 +5357,30 @@
 
         <div class="lc-acc-item">
           <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
-            <span class="lc-acc-num">13</span><span class="lc-acc-ic">🧾</span><span class="lc-acc-title">Reimbursement Form</span><span class="lc-acc-toggle">+</span>
+            <span class="lc-acc-num">13</span><span class="lc-acc-ic">🧾</span><span class="lc-acc-title">Reimbursement Form <span class="lc-reimb-mobile-badge">Desktop only to submit</span></span><span class="lc-acc-toggle">+</span>
           </button>
           <div class="lc-acc-body">
-            <p>This Employee Reimbursement Form is to be used for all conveyance and local purchase claims. Please ensure every claim submitted is genuine and made in good faith, using the most economical resources available to keep costs reasonable.</p>
+            <p>This Employee Reimbursement Form is to be used for all conveyance, local purchase, and food bill claims. Please ensure every claim submitted is genuine and made in good faith, using the most economical resources available to keep costs reasonable.</p>
+
+            <div class="lc-reimb-highlight">
+              <div class="lc-reimb-hl-item"><span class="lc-reimb-hl-ic">🚕</span><div><b>Conveyance mode of preference:</b> always use auto or train first — cab services like Uber, Ola, or Rapido should only be used in exceptional situations.</div></div>
+              <div class="lc-reimb-hl-item"><span class="lc-reimb-hl-ic">🍽️</span><div><b>Food allowance:</b> capped at ₹300 per person (excluding taxes), per bill. Anything beyond this will need additional approval before the payment is made.</div></div>
+              <div class="lc-reimb-hl-item"><span class="lc-reimb-hl-ic">🧾</span><div><b>Local purchases above ₹1,000</b> need a written email confirmation from your reporting manager.</div></div>
+            </div>
+
             <p><b>Key points to note:</b></p>
             <ul>
               <li>Only one reimbursement form per employee, per month will be accepted.</li>
               <li>All claims must be submitted by the 5th of the following month.</li>
               <li>Approved reimbursements will be processed along with the monthly salary.</li>
-              <li>Bills/receipts are mandatory for all claims.</li>
+              <li>Bills/receipts are mandatory for all claims — attach one against each item below.</li>
               <li>For conveyance, employees are expected to use the most economical mode of transport available. Any single conveyance entry over ₹600 will ask you to confirm you chose the cheapest mode, with a reason if not.</li>
-              <li>Food expenses are capped at <b>₹300 per person</b> per bill — claims exceeding this limit cannot be submitted.</li>
+              <li>Food expenses are capped at <b>₹300 per person (excluding taxes)</b> per bill — amounts beyond this need additional approval before payment.</li>
+              <li>Local purchases above <b>₹1,000</b> need written email confirmation from your reporting manager.</li>
               <li>Please ensure the format and guidelines are followed strictly.</li>
               <li>Non-compliant submissions may be delayed or rejected.</li>
             </ul>
-            <p class="lc-note lc-reimb-mobile-note">Submitting a reimbursement claim is only available on desktop — please open the Hub on a computer to fill out and submit the form. The rules above still apply on mobile.</p>
+            <p class="lc-reimb-mobile-note">📵 Submitting a reimbursement claim is only available on desktop — please open the Hub on a computer to fill out and submit the form. The rules above still apply here on mobile.</p>
 
             <div class="lc-reimb-form" id="lc-reimb-form">
               <div class="form-row">
@@ -5385,27 +5396,27 @@
               <h4 class="lc-reimb-h">A. Local Conveyance</h4>
               <div class="lc-reimb-table-wrap">
                 <table class="lc-reimb-table">
-                  <thead><tr><th>Date</th><th>From</th><th>To</th><th>Reason for Travel</th><th>Kms</th><th>Mode</th><th>Amount (₹)</th><th></th></tr></thead>
+                  <thead><tr><th>Date</th><th>From</th><th>To</th><th>Reason for Travel</th><th>Kms</th><th>Mode</th><th>Amount (₹)</th><th>Receipt</th><th></th></tr></thead>
                   <tbody id="reimb-conv-body"></tbody>
                 </table>
               </div>
               <button type="button" class="lc-reimb-add" onclick="reimbAddRow('conv')">+ Add row</button>
               <div class="lc-reimb-total">Conveyance Total: ₹<span id="reimb-conv-total">0</span></div>
 
-              <h4 class="lc-reimb-h">B. Local Purchases</h4>
+              <h4 class="lc-reimb-h">B. Local Purchases <span class="lc-note" style="font-style:normal">(above ₹1,000 needs manager email confirmation)</span></h4>
               <div class="lc-reimb-table-wrap">
                 <table class="lc-reimb-table">
-                  <thead><tr><th>Sr.</th><th>Party's Name</th><th>Bill No.</th><th>Bill Date</th><th>Amount (₹)</th><th></th></tr></thead>
+                  <thead><tr><th>Sr.</th><th>Party's Name</th><th>Bill No.</th><th>Bill Date</th><th>Amount (₹)</th><th>Receipt</th><th></th></tr></thead>
                   <tbody id="reimb-purch-body"></tbody>
                 </table>
               </div>
               <button type="button" class="lc-reimb-add" onclick="reimbAddRow('purch')">+ Add row</button>
               <div class="lc-reimb-total">Local Purchases Total: ₹<span id="reimb-purch-total">0</span></div>
 
-              <h4 class="lc-reimb-h">C. Food Bills <span class="lc-note" style="font-style:normal">(capped at ₹300/person)</span></h4>
+              <h4 class="lc-reimb-h">C. Food Bills <span class="lc-note" style="font-style:normal">(capped at ₹300/person, excl. taxes)</span></h4>
               <div class="lc-reimb-table-wrap">
                 <table class="lc-reimb-table">
-                  <thead><tr><th>Date</th><th>Restaurant</th><th>Paid For</th><th>Bill No.</th><th>Bill Amount (₹)</th><th>Taxes (₹)</th><th>Total (₹)</th><th></th></tr></thead>
+                  <thead><tr><th>Date</th><th>Restaurant</th><th>Paid For</th><th>Bill No.</th><th>Bill Amount (₹)</th><th>Taxes (₹)</th><th>Total (₹)</th><th>Receipt</th><th></th></tr></thead>
                   <tbody id="reimb-food-body"></tbody>
                 </table>
               </div>
@@ -5413,12 +5424,6 @@
               <div class="lc-reimb-total">Food Total: ₹<span id="reimb-food-total">0</span></div>
 
               <div class="lc-reimb-grand">Grand Total: ₹<span id="reimb-grand-total">0</span></div>
-
-              <h4 class="lc-reimb-h">Receipts</h4>
-              <div class="lc-reimb-receipts" id="reimb-receipts"></div>
-              <label class="lc-reimb-upload">📎 Upload receipt (JPEG/PNG)
-                <input type="file" accept="image/*" multiple id="reimb-receipt-input" onchange="event.stopPropagation();handleReimbReceiptUpload(this)" style="display:none">
-              </label>
 
               <label class="lc-reimb-declare"><input type="checkbox" id="reimb-declare"> I hereby declare that the expenses claimed above were incurred for official purposes only and that I have made reasonable efforts to use the most economical mode of transport and purchase options available.</label>
 
@@ -7074,6 +7079,24 @@
       var members=(typeof ALL_MEMBERS!=="undefined"?ALL_MEMBERS:[]).filter(function(n){ return n!=="Gokul"; });
       return members.map(function(n){ return '<option value="'+n+'">'+n+'</option>'; }).join("");
     }
+    function reimbReceiptCellHTML(){
+      return '<td><div class="lc-reimb-rcpt" onclick="var i=this.querySelector(&quot;input&quot;);if(i)i.click();"><span class="ph">📎</span><input type="file" accept="image/*" style="display:none" onchange="event.stopPropagation();handleRowReceiptUpload(this)"></div></td>';
+    }
+    async function handleRowReceiptUpload(input){
+      var file=input.files&&input.files[0];
+      if(!file) return;
+      var container=input.closest(".lc-reimb-rcpt");
+      try{
+        var compressed=await compressImageFile(file,1000);
+        container.innerHTML='<img src="'+compressed+'"><button type="button" class="lc-reimb-rcpt-x" onclick="event.stopPropagation();clearReceiptCell(this)">&times;</button>';
+      }catch(e){}
+    }
+    window.handleRowReceiptUpload=handleRowReceiptUpload;
+    function clearReceiptCell(btn){
+      var container=btn.closest(".lc-reimb-rcpt");
+      container.innerHTML='<span class="ph">📎</span><input type="file" accept="image/*" style="display:none" onchange="event.stopPropagation();handleRowReceiptUpload(this)">';
+    }
+    window.clearReceiptCell=clearReceiptCell;
     function reimbAddRow(kind){
       var tbody=document.getElementById(kind==="conv"?"reimb-conv-body":kind==="food"?"reimb-food-body":"reimb-purch-body");
       var row;
@@ -7086,6 +7109,7 @@
           '<td><input type="number" min="0" style="width:60px"></td>'+
           '<td><input type="text" placeholder="Uber / Auto / Train"></td>'+
           '<td><input type="number" min="0" class="reimb-amt" oninput="onConveyanceAmountInput(this)" onblur="onConveyanceAmountBlur(this)"></td>'+
+          reimbReceiptCellHTML()+
           '<td><button type="button" class="lc-reimb-del" onclick="reimbDelRow(this)">&times;</button></td>'+
         '</tr>';
       } else if(kind==="food"){
@@ -7096,7 +7120,8 @@
           '<td><input type="text" placeholder="Bill No."></td>'+
           '<td><input type="number" min="0" class="food-bill-amt" oninput="reimbFoodRecalc(this)"></td>'+
           '<td><input type="number" min="0" class="food-tax-amt" oninput="reimbFoodRecalc(this)"></td>'+
-          '<td><input type="number" class="reimb-amt food-total-amt" readonly value="0"><div class="lc-reimb-err" style="display:none">Exceeds ₹300/person limit</div></td>'+
+          '<td><input type="number" class="reimb-amt food-total-amt" readonly value="0"><div class="lc-reimb-err" style="display:none">Exceeds ₹300/person (excl. tax) — needs additional approval</div></td>'+
+          reimbReceiptCellHTML()+
           '<td><button type="button" class="lc-reimb-del" onclick="reimbDelRow(this)">&times;</button></td>'+
         '</tr>';
       } else {
@@ -7105,7 +7130,8 @@
           '<td><input type="text" placeholder="Party name"></td>'+
           '<td><input type="text" placeholder="Bill No."></td>'+
           '<td><input type="date"></td>'+
-          '<td><input type="number" min="0" class="reimb-amt" oninput="reimbRecalc()"></td>'+
+          '<td><input type="number" min="0" class="reimb-amt" oninput="reimbPurchRecalc(this)"></td>'+
+          reimbReceiptCellHTML()+
           '<td><button type="button" class="lc-reimb-del" onclick="reimbDelRow(this)">&times;</button></td>'+
         '</tr>';
       }
@@ -7121,11 +7147,29 @@
       totalInput.value=total.toFixed(0);
       var peopleCount=row.querySelector("select").selectedOptions.length;
       var errEl=row.querySelector(".lc-reimb-err");
-      var perPerson=peopleCount>0?total/peopleCount:total;
-      if(peopleCount>0 && perPerson>300){ errEl.style.display="block"; } else { errEl.style.display="none"; }
+      var perPersonExclTax=peopleCount>0?billAmt/peopleCount:billAmt;
+      if(peopleCount>0 && perPersonExclTax>300){ errEl.style.display="block"; } else { errEl.style.display="none"; }
       reimbRecalc();
     }
     window.reimbFoodRecalc=reimbFoodRecalc;
+    function reimbPurchRecalc(input){
+      var row=input.closest("tr");
+      var amt=parseFloat(input.value)||0;
+      var existing=row.querySelector(".lc-reimb-err");
+      if(amt>1000){
+        if(!existing){
+          existing=document.createElement("div");
+          existing.className="lc-reimb-err";
+          input.parentNode.appendChild(existing);
+        }
+        existing.textContent="Above ₹1,000 — needs written email confirmation from your reporting manager";
+        existing.style.display="block";
+      } else if(existing){
+        existing.style.display="none";
+      }
+      reimbRecalc();
+    }
+    window.reimbPurchRecalc=reimbPurchRecalc;
     function removeReasonRow(row){
       var next=row.nextSibling;
       if(next && next.classList && next.classList.contains("lc-reimb-reason-row")) next.remove();
@@ -7214,31 +7258,20 @@
       reimbAddRow("food");
     }
     window.initReimbForm=initReimbForm;
-    async function handleReimbReceiptUpload(input){
-      var files=Array.prototype.slice.call(input.files||[]);
-      var container=document.getElementById("reimb-receipts");
-      for(var i=0;i<files.length;i++){
-        try{
-          var compressed=await compressImageFile(files[i],1000);
-          var wrap=document.createElement("div");
-          wrap.className="lc-reimb-receipt";
-          wrap.innerHTML='<img src="'+compressed+'"><button type="button" onclick="event.stopPropagation();this.parentNode.remove()">&times;</button>';
-          container.appendChild(wrap);
-        }catch(e){}
-      }
-      input.value="";
+    function rowReceiptSrc(tr){
+      var img=tr.querySelector(".lc-reimb-rcpt img");
+      return img?img.src:null;
     }
-    window.handleReimbReceiptUpload=handleReimbReceiptUpload;
     function submitReimbursement(){
       if(!document.getElementById("reimb-declare").checked){
         alert("Please confirm the declaration checkbox before submitting.");
         return;
       }
-      var conv=[]; var convBlocked=false;
+      var conv=[]; var convBlocked=false; var flagged=false;
       Array.prototype.forEach.call(document.querySelectorAll("#reimb-conv-body > tr:not(.lc-reimb-reason-row)"),function(tr){
         var c=tr.querySelectorAll("input");
         var amount=parseFloat(c[6].value)||0;
-        var r={date:c[0].value,from:c[1].value,to:c[2].value,reason:c[3].value,kms:c[4].value,mode:c[5].value,amount:amount};
+        var r={date:c[0].value,from:c[1].value,to:c[2].value,reason:c[3].value,kms:c[4].value,mode:c[5].value,amount:amount,receipt:rowReceiptSrc(tr)};
         if(amount>600){
           if(!tr.dataset.cheapest){
             convBlocked=true;
@@ -7259,10 +7292,13 @@
       }
       var purch=[]; document.querySelectorAll("#reimb-purch-body tr").forEach(function(tr){
         var c=tr.querySelectorAll("input");
-        var r={party:c[0].value,billNo:c[1].value,billDate:c[2].value,amount:parseFloat(c[3].value)||0};
+        var amount=parseFloat(c[3].value)||0;
+        var needsApproval=amount>1000;
+        if(needsApproval) flagged=true;
+        var r={party:c[0].value,billNo:c[1].value,billDate:c[2].value,amount:amount,needsApproval:needsApproval,receipt:rowReceiptSrc(tr)};
         if(r.party||r.billNo||r.amount) purch.push(r);
       });
-      var food=[]; var foodBlocked=false;
+      var food=[];
       document.querySelectorAll("#reimb-food-body tr").forEach(function(tr){
         var select=tr.querySelector("select");
         var paidFor=Array.prototype.map.call(select.selectedOptions,function(o){ return o.value; });
@@ -7271,14 +7307,11 @@
         var total=billAmt+taxAmt;
         var textInputs=tr.querySelectorAll('input[type="text"]');
         var dateInput=tr.querySelector('input[type="date"]');
-        var r={date:dateInput.value,restaurant:textInputs[0]?textInputs[0].value:"",paidFor:paidFor,billNo:textInputs[1]?textInputs[1].value:"",billAmount:billAmt,taxAmount:taxAmt,amount:total};
-        if(paidFor.length>0 && (total/paidFor.length)>300) foodBlocked=true;
+        var needsApproval=paidFor.length>0 && (billAmt/paidFor.length)>300;
+        if(needsApproval) flagged=true;
+        var r={date:dateInput.value,restaurant:textInputs[0]?textInputs[0].value:"",paidFor:paidFor,billNo:textInputs[1]?textInputs[1].value:"",billAmount:billAmt,taxAmount:taxAmt,amount:total,needsApproval:needsApproval,receipt:rowReceiptSrc(tr)};
         if(r.restaurant||r.billNo||r.amount) food.push(r);
       });
-      if(foodBlocked){
-        alert("One or more food bills exceed the ₹300 per person limit. Please adjust before submitting.");
-        return;
-      }
       if(!conv.length && !purch.length && !food.length){
         alert("Add at least one conveyance, local purchase, or food bill line before submitting.");
         return;
@@ -7286,7 +7319,6 @@
       var convTotal=conv.reduce(function(s,r){return s+r.amount;},0);
       var purchTotal=purch.reduce(function(s,r){return s+r.amount;},0);
       var foodTotal=food.reduce(function(s,r){return s+r.amount;},0);
-      var receipts=Array.prototype.map.call(document.querySelectorAll("#reimb-receipts img"),function(img){ return img.src; });
       var claim={
         employee:(typeof currentUser!=="undefined")?currentUser:"",
         empId:document.getElementById("reimb-empid").value,
@@ -7300,19 +7332,18 @@
         purchasesTotal:purchTotal,
         foodTotal:foodTotal,
         grandTotal:convTotal+purchTotal+foodTotal,
-        receipts:receipts,
+        needsApproval:flagged,
         status:"Pending",
         submittedAt:new Date().toISOString()
       };
       if(typeof _db!=="undefined" && _db) _db.ref("reimbursements").push(claim);
       document.getElementById("toast-emoji").textContent="🧾";
       document.getElementById("toast-msg").textContent="Reimbursement claim submitted";
-      document.getElementById("toast-sub").textContent="Will be processed with your monthly salary";
+      document.getElementById("toast-sub").textContent=flagged?"Some items need additional approval before payment":"Will be processed with your monthly salary";
       var toast=document.getElementById("completion-toast"); toast.classList.add("show"); setTimeout(function(){toast.classList.remove("show");},2600);
       document.getElementById("reimb-conv-body").innerHTML="";
       document.getElementById("reimb-purch-body").innerHTML="";
       document.getElementById("reimb-food-body").innerHTML="";
-      document.getElementById("reimb-receipts").innerHTML="";
       document.getElementById("reimb-declare").checked=false;
       reimbAddRow("conv"); reimbAddRow("purch"); reimbAddRow("food"); reimbRecalc();
     }
@@ -10614,16 +10645,23 @@ Current date: ${today}`;
       holidayManager();
     }
 
+    function reimbClaimReceiptCount(r){
+      var n=0;
+      (r.conveyance||[]).forEach(function(c){ if(c.receipt) n++; });
+      (r.localPurchases||[]).forEach(function(p){ if(p.receipt) n++; });
+      (r.foodBills||[]).forEach(function(f){ if(f.receipt) n++; });
+      return n;
+    }
     function reimbursementBoardHTML(){
       var list=(window.REIMBURSEMENTS||[]);
       var pending=list.filter(function(r){ return r.status==="Pending"; });
       var rows=list.slice(0,40).map(function(r){
         var color=r.status==="Approved"?"var(--green)":r.status==="Rejected"?"var(--red)":"var(--yellow)";
         return '<tr class="att-clickable" style="cursor:pointer" onclick="window.showReimbursementDetail(&quot;'+r._key+'&quot;)">'+
-          '<td data-label="Employee"><strong>'+esc(r.employee||"—")+'</strong></td>'+
+          '<td data-label="Employee"><strong>'+esc(r.employee||"—")+'</strong>'+(r.needsApproval?' <span class="tag" style="background:var(--yellow);color:#1a1204;font-size:9px">needs approval</span>':'')+'</td>'+
           '<td data-label="Period">'+esc(r.period||"—")+'</td>'+
           '<td data-label="Amount">&#8377;'+(r.grandTotal||0)+'</td>'+
-          '<td data-label="Receipts">'+((r.receipts||[]).length)+'</td>'+
+          '<td data-label="Receipts">'+reimbClaimReceiptCount(r)+'</td>'+
           '<td data-label="Status" style="color:'+color+';font-weight:700">'+esc(r.status||"Pending")+'</td>'+
         '</tr>';
       }).join("");
@@ -10635,18 +10673,18 @@ Current date: ${today}`;
     window.showReimbursementDetail=function(key){
       var r=(window.REIMBURSEMENTS||[]).find(function(x){ return x._key===key; });
       if(!r) return;
+      var rcptThumb=function(src){ return src?('<img src="'+src+'" style="width:32px;height:32px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer" onclick="window.open(this.src,\'_blank\')">'):'<span class="lc-note">—</span>'; };
       var convRows=(r.conveyance||[]).map(function(c){
         var note=c.cheapestConfirmed?('<div class="lc-note" style="margin-top:2px">'+(c.cheapestConfirmed==="yes"?("Confirmed cheapest — "+esc(c.cheapestReason||"")):"Flagged as not cheapest")+'</div>'):"";
-        return '<tr><td>'+esc(c.date||"")+'</td><td>'+esc(c.from||"")+'</td><td>'+esc(c.to||"")+'</td><td>'+esc(c.reason||"")+'</td><td>'+esc(c.kms||"")+'</td><td>'+esc(c.mode||"")+'</td><td>&#8377;'+(c.amount||0)+note+'</td></tr>';
+        return '<tr><td>'+esc(c.date||"")+'</td><td>'+esc(c.from||"")+'</td><td>'+esc(c.to||"")+'</td><td>'+esc(c.reason||"")+'</td><td>'+esc(c.kms||"")+'</td><td>'+esc(c.mode||"")+'</td><td>&#8377;'+(c.amount||0)+note+'</td><td>'+rcptThumb(c.receipt)+'</td></tr>';
       }).join("");
       var purchRows=(r.localPurchases||[]).map(function(p,i){
-        return '<tr><td>'+(i+1)+'</td><td>'+esc(p.party||"")+'</td><td>'+esc(p.billNo||"")+'</td><td>'+esc(p.billDate||"")+'</td><td>&#8377;'+(p.amount||0)+'</td></tr>';
+        var flag=p.needsApproval?'<div class="lc-note" style="margin-top:2px;color:var(--yellow)">Needs manager email confirmation</div>':"";
+        return '<tr><td>'+(i+1)+'</td><td>'+esc(p.party||"")+'</td><td>'+esc(p.billNo||"")+'</td><td>'+esc(p.billDate||"")+'</td><td>&#8377;'+(p.amount||0)+flag+'</td><td>'+rcptThumb(p.receipt)+'</td></tr>';
       }).join("");
       var foodRows=(r.foodBills||[]).map(function(f){
-        return '<tr><td>'+esc(f.date||"")+'</td><td>'+esc(f.restaurant||"")+'</td><td>'+esc((f.paidFor||[]).join(", "))+'</td><td>'+esc(f.billNo||"")+'</td><td>&#8377;'+(f.amount||0)+'</td></tr>';
-      }).join("");
-      var receiptsHTML=(r.receipts||[]).map(function(src){
-        return '<img src="'+src+'" style="width:90px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:pointer" onclick="window.open(this.src,\'_blank\')">';
+        var flag=f.needsApproval?'<div class="lc-note" style="margin-top:2px;color:var(--yellow)">Exceeds ₹300/person (excl. tax) — needs approval</div>':"";
+        return '<tr><td>'+esc(f.date||"")+'</td><td>'+esc(f.restaurant||"")+'</td><td>'+esc((f.paidFor||[]).join(", "))+'</td><td>'+esc(f.billNo||"")+'</td><td>&#8377;'+(f.amount||0)+flag+'</td><td>'+rcptThumb(f.receipt)+'</td></tr>';
       }).join("");
       var id="reimb-detail-pop";
       var old=document.getElementById(id); if(old) old.remove();
@@ -10657,11 +10695,11 @@ Current date: ${today}`;
             '<button class="pop-x" aria-label="Close" onclick="document.getElementById(&quot;'+id+'&quot;).remove()">&times;</button>'+
             '<h3 style="margin:0 0 4px;color:var(--text)">'+esc(r.employee||"")+'</h3>'+
             '<p style="color:var(--muted);font-size:12px;margin:0 0 16px">'+esc(r.designation||"")+' &middot; '+esc(r.empId||"")+' &middot; '+esc(r.period||"")+' &middot; '+esc(r.location||"")+'</p>'+
-            (convRows?('<h4 class="lc-reimb-h">Local Conveyance</h4><div class="lc-reimb-table-wrap"><table class="lc-reimb-table"><thead><tr><th>Date</th><th>From</th><th>To</th><th>Reason</th><th>Kms</th><th>Mode</th><th>Amount</th></tr></thead><tbody>'+convRows+'</tbody></table></div>'):'')+
-            (purchRows?('<h4 class="lc-reimb-h">Local Purchases</h4><div class="lc-reimb-table-wrap"><table class="lc-reimb-table"><thead><tr><th>Sr.</th><th>Party</th><th>Bill No.</th><th>Bill Date</th><th>Amount</th></tr></thead><tbody>'+purchRows+'</tbody></table></div>'):'')+
-            (foodRows?('<h4 class="lc-reimb-h">Food Bills</h4><div class="lc-reimb-table-wrap"><table class="lc-reimb-table"><thead><tr><th>Date</th><th>Restaurant</th><th>Paid For</th><th>Bill No.</th><th>Amount</th></tr></thead><tbody>'+foodRows+'</tbody></table></div>'):'')+
+            (convRows?('<h4 class="lc-reimb-h">Local Conveyance</h4><div class="lc-reimb-table-wrap"><table class="lc-reimb-table"><thead><tr><th>Date</th><th>From</th><th>To</th><th>Reason</th><th>Kms</th><th>Mode</th><th>Amount</th><th>Receipt</th></tr></thead><tbody>'+convRows+'</tbody></table></div>'):'')+
+            (purchRows?('<h4 class="lc-reimb-h">Local Purchases</h4><div class="lc-reimb-table-wrap"><table class="lc-reimb-table"><thead><tr><th>Sr.</th><th>Party</th><th>Bill No.</th><th>Bill Date</th><th>Amount</th><th>Receipt</th></tr></thead><tbody>'+purchRows+'</tbody></table></div>'):'')+
+            (foodRows?('<h4 class="lc-reimb-h">Food Bills</h4><div class="lc-reimb-table-wrap"><table class="lc-reimb-table"><thead><tr><th>Date</th><th>Restaurant</th><th>Paid For</th><th>Bill No.</th><th>Amount</th><th>Receipt</th></tr></thead><tbody>'+foodRows+'</tbody></table></div>'):'')+
             '<div class="lc-reimb-grand">Grand Total: <span>&#8377;'+(r.grandTotal||0)+'</span></div>'+
-            (receiptsHTML?('<h4 class="lc-reimb-h">Receipts</h4><div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px">'+receiptsHTML+'</div>'):'<p class="lc-note">No receipts attached.</p>')+
+            (r.needsApproval?'<p class="lc-note" style="color:var(--yellow);text-align:center;margin-top:8px">⚠️ This claim has items that need additional approval before payment.</p>':'')+
             (pending?
               ('<div style="display:flex;gap:10px;margin-top:18px">'+
                 '<button style="flex:1;background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);color:#e05c5c;padding:10px;border-radius:10px;font-weight:700;cursor:pointer;font-family:var(--font)" onclick="window.decideReimbursement(&quot;'+key+'&quot;,&quot;Rejected&quot;)">Reject</button>'+
