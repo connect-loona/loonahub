@@ -7998,12 +7998,12 @@
       <div style="font-size:20px;color:var(--accent)">+</div>
       <div><div class="lname">${brand}</div><div class="ltype">Add folder link</div></div>
     </div>`;
-      }).join('') + (currentUser === 'Gokul' ? `
+      }).join('') + (`
     <div class="link-card" onclick="addFinalCreative()"
       style="border-style:dashed;opacity:0.6;cursor:pointer;align-items:center;justify-content:center">
       <div style="font-size:22px;color:var(--accent)">+</div>
       <div><div class="lname">Add Folder</div><div class="ltype">New brand or folder</div></div>
-    </div>` : '');
+    </div>`);
     }
     let _fcBrand=null;
     function editFinalCreative(brand){
