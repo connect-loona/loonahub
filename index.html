@@ -6409,7 +6409,7 @@
           return `<tr id="trow-${gi}">
           <td data-label="Member">${memberAvatarHtml}${t.member || '—'}${isPersonal ? ' <span title="Personal To-Do" style="font-size:11px">📌</span>' : ''}</td>
           <td data-label="Brand" onclick="window.showTaskDetail(${gi})"><div class="task-cell"><span style="font-size:11px;padding:2px 8px;background:${isPersonal ? 'rgba(91,156,246,.15)' : 'rgba(200,169,110,.1)'};color:${isPersonal ? 'var(--blue)' : 'var(--accent)'};border-radius:4px">${t.brand || '—'}</span></div></td>
-          <td data-label="Task" style="max-width:260px" onclick="window.showTaskDetail(${gi})"><div class="prio-dot-row"><span class="prio-dot" style="--prio-color:${priorityHeatColor(t.priority)}"></span><div class="task-cell">${t.task.length > 55 ? t.task.slice(0, 55) + '…' : t.task}${t.is_auto ? ' <span class="auto-task-badge">🤖 AUTO</span>' : ''}</div></div></td>
+          <td data-label="Task" style="max-width:260px" onclick="window.showTaskDetail(${gi})"><div class="prio-dot-row"><span class="prio-dot" style="--prio-color:${priorityHeatColor(t.priority, t.status)}"></span><div class="task-cell">${t.task.length > 55 ? t.task.slice(0, 55) + '…' : t.task}${t.is_auto ? ' <span class="auto-task-badge">🤖 AUTO</span>' : ''}</div></div></td>
           <td data-label="Assigned by" style="color:var(--muted);font-size:12px">${t.assigned_by || '—'}</td>
           <td data-label="Assigned on" style="color:var(--muted);font-size:12px;white-space:nowrap">${t.assigned_on || (t.created_at?fmtStamp(new Date(t.created_at)):'—')}</td>
           <td data-label="Priority" style="${t.status === 'Completed' ? 'opacity:0.35;pointer-events:none' : ''}">${pBadge(t.priority)}</td>
@@ -7266,7 +7266,7 @@
         <tr>
           <td>${(MEMBER_INFO[t.member] || {}).avatar ? `<img src="${MEMBER_INFO[t.member].avatar}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px">` : ''}${t.member || '—'}</td>
           <td onclick="window.showTaskDetail(${TASKS.indexOf(t)})"><div class="task-cell"><span style="font-size:11px;padding:2px 8px;background:rgba(200,169,110,.1);color:var(--accent);border-radius:4px">${t.brand || '—'}</span></div></td>
-          <td style="max-width:240px" onclick="window.showTaskDetail(${TASKS.indexOf(t)})"><div class="prio-dot-row"><span class="prio-dot" style="--prio-color:${priorityHeatColor(t.priority)}"></span><div class="task-cell">${t.task && t.task.length > 52 ? t.task.slice(0, 52) + '…' : (t.task || '—')}</div></div></td>
+          <td style="max-width:240px" onclick="window.showTaskDetail(${TASKS.indexOf(t)})"><div class="prio-dot-row"><span class="prio-dot" style="--prio-color:${priorityHeatColor(t.priority, t.status)}"></span><div class="task-cell">${t.task && t.task.length > 52 ? t.task.slice(0, 52) + '…' : (t.task || '—')}</div></div></td>
           <td>${sBadge(t.status)}</td>
           <td style="color:var(--muted);font-size:12px;white-space:nowrap">${t.assigned_on || (t.created_at ? fmtStamp(new Date(t.created_at)) : '—')}</td>
           <td style="color:var(--muted);font-size:12px;white-space:nowrap">${t.status_at || '—'}</td>
@@ -8238,7 +8238,7 @@
         return `<tr>
       <td><span style="color:${mColor(t.member)}">●</span> <strong>${t.member || '—'}</strong></td>
       <td onclick="window.showTaskDetail(${taskIdx})"><div class="task-cell"><span style="font-size:11px;padding:2px 8px;background:rgba(224,92,92,.1);color:#e05c5c;border-radius:4px">${t.brand || '—'}</span></div></td>
-      <td style="max-width:280px" onclick="window.showTaskDetail(${taskIdx})"><div class="prio-dot-row"><span class="prio-dot" style="--prio-color:${priorityHeatColor(t.priority)}"></span><div class="task-cell">${t.task}</div></div></td>
+      <td style="max-width:280px" onclick="window.showTaskDetail(${taskIdx})"><div class="prio-dot-row"><span class="prio-dot" style="--prio-color:${priorityHeatColor(t.priority, t.status)}"></span><div class="task-cell">${t.task}</div></div></td>
       <td style="color:var(--muted);font-size:12px">${t.assigned_by || '—'}</td>
       <td>${pBadge(t.priority)}</td>
       <td>
@@ -8503,7 +8503,8 @@
       const m = { High: 'high', Medium: 'medium', Low: 'low' };
       return p ? `<span class="badge ${m[p] || ''}">${p}</span>` : '';
     }
-    function priorityHeatColor(p) {
+    function priorityHeatColor(p, status) {
+      if (status === 'Completed') return 'transparent';
       return p === 'High' ? 'var(--red)' : p === 'Medium' ? 'var(--yellow)' : p === 'Low' ? 'var(--blue)' : 'transparent';
     }
     function fmtDate(d) {
