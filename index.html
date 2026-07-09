@@ -4332,7 +4332,11 @@
         </div>
         <div class="form-group">
           <label>Task Description *</label>
-          <input class="form-control" type="text" id="nt-task" placeholder="Describe the task...">
+          <div class="nt-task-row">
+            <input class="form-control" type="text" id="nt-task" placeholder="Describe the task...">
+            <button type="button" class="nt-mic-btn" id="nt-mic-btn" onclick="ntToggleVoice()" title="Record task by voice">🎤</button>
+          </div>
+          <div class="nt-mic-note" id="nt-mic-note" style="display:none"></div>
         </div>
         <div class="form-row">
           <div class="form-group">
@@ -9257,6 +9261,8 @@
       if (by && by.tagName === 'SELECT' && !by.value) by.value = currentUser || '';
     }
     function openAddTask(preselect) {
+      ntStopVoice();
+      ntSetMicNote('');
       // Rebuild member dropdown fresh: Personal To-Do first, then everyone except current user
       const memberSel = document.getElementById('nt-member');
       memberSel.innerHTML = '';
@@ -9290,7 +9296,75 @@
       document.getElementById('add-task-modal').classList.remove('hidden');
       setTimeout(() => document.getElementById('nt-task').focus(), 100);
     }
-    function closeAddTask() { document.getElementById('add-task-modal').classList.add('hidden'); }
+    function closeAddTask() { ntStopVoice(); document.getElementById('add-task-modal').classList.add('hidden'); }
+
+    // ═══ ADD TASK: voice input for task description ═══
+    let ntRecognition = null;
+    let ntRecording = false;
+    let ntBaseText = '';
+    let ntConsecutiveErrors = 0;
+
+    function ntSetMicNote(msg) {
+      const el = document.getElementById('nt-mic-note');
+      if (!msg) { el.style.display = 'none'; el.textContent = ''; return; }
+      el.style.display = 'block';
+      el.textContent = msg;
+    }
+
+    function ntToggleVoice() {
+      if (ntRecording) ntStopVoice(); else ntStartVoice();
+    }
+
+    function ntStartVoice() {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) { ntSetMicNote('Voice input needs Chrome or Edge. Type the task instead.'); return; }
+      ntSetMicNote('');
+      ntConsecutiveErrors = 0;
+      const input = document.getElementById('nt-task');
+      ntBaseText = input.value.trim() ? input.value.trim() + ' ' : '';
+      ntRecognition = new SR();
+      ntRecognition.continuous = true;
+      ntRecognition.interimResults = true;
+      ntRecognition.lang = 'en-US';
+      ntRecognition.onresult = (e) => {
+        ntConsecutiveErrors = 0;
+        let interim = '', final = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const piece = e.results[i][0].transcript;
+          if (e.results[i].isFinal) final += piece + ' ';
+          else interim += piece;
+        }
+        if (final) ntBaseText += final;
+        input.value = (ntBaseText + interim).trim();
+        input.style.borderColor = '';
+      };
+      ntRecognition.onerror = (e) => {
+        if (e.error === 'no-speech' || e.error === 'aborted') return;
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+          ntSetMicNote('⚠️ Microphone access was blocked. Allow access, or type the task instead.');
+          ntStopVoice();
+          return;
+        }
+        ntConsecutiveErrors++;
+        if (ntConsecutiveErrors >= 3) {
+          ntSetMicNote('⚠️ Voice input isn\'t working right now. Type the task instead.');
+          ntStopVoice();
+        }
+      };
+      ntRecognition.onend = () => {
+        if (ntRecording) { try { ntRecognition.start(); } catch (e) {} }
+      };
+      try { ntRecognition.start(); } catch (e) { ntSetMicNote('⚠️ Couldn\'t start voice input. Type the task instead.'); return; }
+      ntRecording = true;
+      document.getElementById('nt-mic-btn').classList.add('recording');
+    }
+
+    function ntStopVoice() {
+      ntRecording = false;
+      if (ntRecognition) { try { ntRecognition.stop(); } catch (e) {} }
+      const btn = document.getElementById('nt-mic-btn');
+      if (btn) btn.classList.remove('recording');
+    }
     function submitAddTask() {
       const rawMember = document.getElementById('nt-member').value;
       const isPersonal = rawMember === '__personal__';
@@ -10375,6 +10449,12 @@ Current date: ${today}`;
 .ln-sr-note{font-size:11.5px;color:var(--yellow);background:rgba(245,200,66,.1);border:1px solid rgba(245,200,66,.3);border-radius:8px;padding:10px 12px;line-height:1.5}
 .ln-rec-status-line{font-size:11.5px;color:var(--red);background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);border-radius:8px;padding:9px 12px;line-height:1.5;width:100%}
 .ln-manual-toggle{background:none;border:none;color:var(--accent2);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font);padding:2px;text-decoration:underline}
+.nt-task-row{display:flex;gap:8px;align-items:center}
+.nt-task-row .form-control{flex:1}
+.nt-mic-btn{width:38px;height:38px;min-width:38px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--font)}
+.nt-mic-btn.recording{background:var(--red);border-color:var(--red);animation:ntMicPulse 1s infinite}
+@keyframes ntMicPulse{0%,100%{opacity:1}50%{opacity:.55}}
+.nt-mic-note{font-size:11px;color:var(--yellow);margin-top:6px;line-height:1.4}
 .ln-actions-row{display:flex;gap:10px;margin-top:6px;flex-wrap:wrap;justify-content:center}
 .ln-result-loading{display:flex;flex-direction:column;align-items:center;gap:12px;padding:50px 20px;color:var(--muted);font-size:13px}
 .ln-spinner{width:26px;height:26px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:lnSpin .8s linear infinite}
