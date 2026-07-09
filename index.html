@@ -3962,7 +3962,7 @@
 
     <!-- ======= TASKS ======= -->
     <div class="page" id="page-tasks">
-      <div class="section-header" style="margin-top:0">
+      <div class="section-header" id="task-board-header" style="margin-top:0">
         <div class="section-title">Task <span>Board</span></div>
         <div style="display:flex;align-items:center;gap:10px">
           <div id="task-count">5 tasks</div>
@@ -7349,10 +7349,12 @@
       let dismissed; try{ dismissed=getDismissedIds(); }catch(e){ dismissed=new Set(); }
       const items=(ANNOUNCEMENTS||[]).filter(a=>a && !dismissed.has(a.id)).slice(0,6);
       if(!items.length){ cont.innerHTML=''; return; }
-      cont.innerHTML=`<div class="loona-board-card"><div class="lb-head">📣 Loona Board</div><div class="lb-list">`+items.map(a=>{
+      cont.innerHTML=`<div class="loona-board-card"><div class="lb-head">📣 Loona Board<span class="lb-flash" title="${items.length} live update${items.length!==1?'s':''}"><span class="lb-flash-dot"></span>${items.length}</span></div><div class="lb-list">`+items.map(a=>{
         const canDel=true;
         const when=a.timestamp?new Date(a.timestamp).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
-        return `<div class="lb-item"><div class="lb-meta"><span class="lb-author">${a.emoji||'📢'} ${a.author||'Team'}</span><span class="lb-time">${when}</span>${canDel?`<span class="lb-del" title="Remove" onclick="deleteAnnouncement(${a.id})">✕</span>`:''}</div>${a.text?`<div class="lb-text">${String(a.text).replace(/</g,'&lt;')}</div>`:''}${a.image?`<img class="lb-img" src="${a.image}" alt="">`:''}${(((a.links&&a.links.length)?a.links:(a.link?[a.link]:[]))||[]).map(L=>`<a class="lb-link" href="${L}" target="_blank" rel="noopener">🔗 ${L.length>50?L.slice(0,50)+'…':L}</a>`).join('')}</div>`;
+        const av=(MEMBER_INFO[a.author]||{}).avatar;
+        const authorIcon=av?`<img class="lb-avatar" src="${av}" alt="">`:(a.emoji||'📢');
+        return `<div class="lb-item"><div class="lb-meta">${authorIcon}<span class="lb-author">${a.author||'Team'}</span><span class="lb-time">${when}</span>${canDel?`<span class="lb-del" title="Remove" onclick="deleteAnnouncement(${a.id})">✕</span>`:''}</div>${a.text?`<div class="lb-text">${String(a.text).replace(/</g,'&lt;')}</div>`:''}${a.image?`<img class="lb-img" src="${a.image}" alt="">`:''}${(((a.links&&a.links.length)?a.links:(a.link?[a.link]:[]))||[]).map(L=>`<a class="lb-link" href="${L}" target="_blank" rel="noopener">🔗 ${L.length>50?L.slice(0,50)+'…':L}</a>`).join('')}</div>`;
       }).join('')+`</div></div>`;
     }
     function postBroadcast() {
@@ -9126,17 +9128,57 @@ Current date: ${today}`;
     .member-pill .pill-role{font-size:10px!important;line-height:1.25!important}
     .login-logo-brand{width:150px!important;margin-bottom:26px!important}
     .login-tagline{font-size:15px!important}
-    /* ---- Task Board table -> stacked cards ---- */
-    #page-tasks .table-wrap{overflow:visible!important}
-    #page-tasks .table-wrap > table > thead{display:none!important}
-    #page-tasks #tasks-tbody{display:block!important}
-    #page-tasks #tasks-tbody tr{display:block!important;background:rgba(255,255,255,.03)!important;border:1px solid var(--border)!important;border-radius:12px!important;margin:0 0 10px!important;padding:8px 12px!important}
-    #page-tasks #tasks-tbody td{display:flex!important;align-items:center;justify-content:space-between;gap:12px;padding:7px 0!important;border:none!important;max-width:none!important;white-space:normal!important;font-size:13px}
-    #page-tasks #tasks-tbody td::before{content:attr(data-label);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.03em;flex:0 0 36%;text-align:left}
-    #page-tasks #tasks-tbody td[data-label=""]{justify-content:flex-end;padding-top:2px}
-    #page-tasks #tasks-tbody td[data-label=""]::before{display:none}
-    #page-tasks #tasks-tbody td .task-cell{max-width:62%;text-align:right}
-    #page-tasks #tasks-tbody td select{max-width:62%}
+    /* ---- Board Summary: smaller brand gauges (4/row), parallel to Pending Today + monthly gauge ---- */
+    .board-summary-card{flex-wrap:nowrap!important;align-items:flex-start!important;padding:10px 12px!important;gap:8px!important}
+    .bs-left{flex:1 1 auto;min-width:0}
+    .bs-name{font-size:12px!important}
+    .bs-name img{width:18px!important;height:18px!important;margin-right:5px!important}
+    .bs-role{display:none!important}
+    .bs-brands{display:grid!important;grid-template-columns:repeat(4,1fr)!important;gap:4px!important;margin-top:6px!important}
+    .bs-brand-card{min-width:0!important;padding:3px 2px 2px!important;border-radius:7px!important}
+    .bs-bc-name{font-size:6.5px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:100%!important}
+    .bs-bc-gauge{width:100%!important;height:auto!important;max-width:32px!important}
+    .bs-right{flex:0 0 auto!important;flex-direction:column!important;gap:6px!important}
+    .bs-num{font-size:16px!important}
+    .bs-lbl{font-size:6.5px!important}
+    .bs-gauge-svg{width:40px!important;height:26px!important}
+    .bs-glabel{font-size:6.5px!important;white-space:nowrap!important}
+    /* ---- Task Board header: title one line, hide the count badge, buttons compact one line ---- */
+    #task-board-header{flex-wrap:nowrap!important;gap:6px!important}
+    #task-board-header .section-title{font-size:15px!important;white-space:nowrap!important;flex-shrink:0}
+    #task-board-header>div:last-child{gap:5px!important;flex-shrink:1;min-width:0}
+    #task-count{display:none!important}
+    #task-board-header .btn{padding:6px 8px!important;font-size:9.5px!important;white-space:nowrap!important}
+    /* ---- Task Board tables: stay a real table, just narrow enough to fit ---- */
+    #page-tasks .table-wrap{overflow-x:auto!important}
+    #page-tasks .table-wrap table,#overdue-body table{min-width:0!important;width:100%!important;table-layout:fixed!important}
+    #page-tasks .table-wrap table th,#overdue-body table th{padding:4px 2px!important;font-size:7px!important;white-space:normal!important;line-height:1.15!important}
+    #page-tasks .table-wrap table td,#overdue-body table td{padding:5px 2px!important;font-size:9px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:none!important}
+    /* Main tasks table: Member/Brand/Task/Assigned By/Assigned On/Priority/Status/Time/Due/Actions */
+    #page-tasks .table-wrap table th:nth-child(1),#page-tasks .table-wrap table td:nth-child(1){width:12%}
+    #page-tasks .table-wrap table th:nth-child(2),#page-tasks .table-wrap table td:nth-child(2){width:9%}
+    #page-tasks .table-wrap table th:nth-child(3),#page-tasks .table-wrap table td:nth-child(3){width:21%}
+    #page-tasks .table-wrap table th:nth-child(4),#page-tasks .table-wrap table td:nth-child(4){width:8%}
+    #page-tasks .table-wrap table th:nth-child(5),#page-tasks .table-wrap table td:nth-child(5){width:8%}
+    #page-tasks .table-wrap table th:nth-child(6),#page-tasks .table-wrap table td:nth-child(6){width:7%}
+    #page-tasks .table-wrap table th:nth-child(7),#page-tasks .table-wrap table td:nth-child(7){width:13%}
+    #page-tasks .table-wrap table th:nth-child(8),#page-tasks .table-wrap table td:nth-child(8){width:8%}
+    #page-tasks .table-wrap table th:nth-child(9),#page-tasks .table-wrap table td:nth-child(9){width:10%}
+    #page-tasks .table-wrap table th:nth-child(10),#page-tasks .table-wrap table td:nth-child(10){width:4%}
+    /* Overdue (Pending from Previous Days) table: Member/Brand/Task/Assigned By/Priority/Status/Due */
+    #overdue-body table th:nth-child(1),#overdue-body table td:nth-child(1){width:13%}
+    #overdue-body table th:nth-child(2),#overdue-body table td:nth-child(2){width:10%}
+    #overdue-body table th:nth-child(3),#overdue-body table td:nth-child(3){width:27%}
+    #overdue-body table th:nth-child(4),#overdue-body table td:nth-child(4){width:10%}
+    #overdue-body table th:nth-child(5),#overdue-body table td:nth-child(5){width:9%}
+    #overdue-body table th:nth-child(6),#overdue-body table td:nth-child(6){width:17%}
+    #overdue-body table th:nth-child(7),#overdue-body table td:nth-child(7){width:14%}
+    #page-tasks table td img{width:16px!important;height:16px!important;margin-right:3px!important}
+    #page-tasks table td .badge{font-size:7px!important;padding:2px 4px!important}
+    #page-tasks table td select{font-size:7px!important;padding:2px 3px!important;max-width:100%!important}
+    #page-tasks table td input[type="date"]{font-size:7px!important;padding:2px 1px!important;max-width:100%!important}
+    #page-tasks table td .task-cell{max-width:none!important}
+    #page-tasks table td button{font-size:13px!important;padding:0!important}
     /* pending approvals rows stack */
     .approval-row{flex-wrap:wrap!important}
     .approval-row .approval-task{flex:1 1 100%!important}
@@ -9250,11 +9292,15 @@ Current date: ${today}`;
   <style id="loona-board-css">
   #loona-board{margin-bottom:14px}
   .loona-board-card{background:linear-gradient(135deg,#1c1714,#100d0e);border:1px solid rgba(255,109,41,.28);border-left:4px solid var(--accent);border-radius:14px;padding:14px 18px}
-  .lb-head{font-size:12px;font-weight:700;color:var(--accent2,#ff9457);letter-spacing:.05em;text-transform:uppercase;margin-bottom:12px}
+  .lb-head{font-size:12px;font-weight:700;color:var(--accent2,#ff9457);letter-spacing:.05em;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .lb-flash{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;background:rgba(224,92,92,.16);color:#ff7a52;border:1px solid rgba(255,109,41,.4);border-radius:20px;padding:2px 8px;letter-spacing:0;text-transform:none}
+  .lb-flash-dot{position:relative;width:7px;height:7px;border-radius:50%;background:#ff5a3c}
+  .lb-flash-dot::after{content:'';position:absolute;inset:-4px;border-radius:50%;background:#ff5a3c;opacity:.5;animation:ping 1.4s ease-out infinite}
   .lb-list{display:flex;flex-direction:column;gap:12px}
   .lb-item{border-top:1px solid rgba(255,255,255,.06);padding-top:12px}
   .lb-item:first-child{border-top:none;padding-top:0}
   .lb-meta{display:flex;align-items:center;gap:10px;font-size:11px;color:var(--muted);margin-bottom:5px}
+  .lb-avatar{width:20px;height:20px;border-radius:50%;object-fit:cover;flex-shrink:0}
   .lb-author{color:#ff9457;font-weight:600}
   .lb-time{color:var(--muted)}
   .lb-del{margin-left:auto;cursor:pointer;color:#666}
