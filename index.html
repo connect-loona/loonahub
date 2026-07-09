@@ -5172,6 +5172,17 @@
     let FINAL_CREATIVES = {};
     let DECK_LINKS = { "Casa Water": "https://www.canva.com/design/DAG7TC_JR2I/oQsVek6DnxiU96JcEZGmQg/edit", "Designs Master": "https://drive.google.com/drive/folders/1I80k1cByAvcOYubl-F55NDhFfz0NicEK", "Goonda": "https://docs.google.com/presentation/d/1tt2LxZ9CkHGoQ5e511ZIdv5PafW8dwWzbCIYH1qxd9k/edit", "One O One": "https://www.canva.com/design/DAG56cAQ0Xg/_ZA-gJLn-VYz3rWVuHzJmw/edit", "RRO": "https://www.canva.com/design/DAG9WFHOKXo/eTkXO7bHaP9i32tRpZ644g/edit", "Red Beryl": "https://www.canva.com/design/DAG54gnSfp0/xt6HYq6mc691q-nMqT141Q/edit", "Shic": "https://www.canva.com/design/DAG4XnddbWA/c3zEjrz4ri4GnFDBSRpXkg/edit", "Shookra": "https://www.canva.com/design/DAG2s9EhDns/pB_VscRDfQxJ8VopiqZVaw/edit" };
 
+    // Firebase Realtime Database keys can't contain ".", "#", "$", "[", "]" (e.g. a brand
+    // literally named "2100co." breaks a path built as `deck_links/2100co.`) — brand names are
+    // used directly as path segments for deck links / final creatives, so sanitize on the way in
+    // and reverse it on the way out to keep the in-memory dictionaries keyed by the real name.
+    function fbSafeKey(name) {
+      return String(name).replace(/[.#$\[\]]/g, c => ({ '.': '%2E', '#': '%23', '$': '%24', '[': '%5B', ']': '%5D' }[c]));
+    }
+    function fbUnsafeKey(key) {
+      return String(key).replace(/%2E/g, '.').replace(/%23/g, '#').replace(/%24/g, '$').replace(/%5B/g, '[').replace(/%5D/g, ']');
+    }
+
     const PAGE_SIZE = 30;
 
     // ═══════════════════════════════════════════════════════════════
@@ -5245,7 +5256,9 @@
 
         // Final approved creatives — real-time
         _db.ref('loona_final_creatives').on('value', snap => {
-          FINAL_CREATIVES = snap.val() || {};
+          const raw = snap.val() || {};
+          FINAL_CREATIVES = {};
+          Object.keys(raw).forEach(k => { FINAL_CREATIVES[fbUnsafeKey(k)] = raw[k]; });
           if (currentUser) renderFinalCreatives();
         });
 
@@ -5354,13 +5367,15 @@
         // Seed deck links + real-time sync
         _db.ref('deck_links').once('value', snap => {
           if (!snap.val() && Object.keys(DECK_LINKS).length > 0) {
-            _db.ref('deck_links').set(DECK_LINKS);
+            const seeded = {};
+            Object.keys(DECK_LINKS).forEach(k => { seeded[fbSafeKey(k)] = DECK_LINKS[k]; });
+            _db.ref('deck_links').set(seeded);
           }
         });
         _db.ref('deck_links').on('value', snap => {
           const data = snap.val() || {};
           Object.keys(DECK_LINKS).forEach(k => delete DECK_LINKS[k]);
-          Object.assign(DECK_LINKS, data);
+          Object.keys(data).forEach(k => { DECK_LINKS[fbUnsafeKey(k)] = data[k]; });
           if (currentUser) renderDeckLinks();
         });
 
@@ -7779,8 +7794,8 @@
               delete DECK_LINKS[editOldName];
               if (_db) {
                 if (_db.ref) {
-                  _db.ref('deck_links/' + editOldName).remove();
-                  _db.ref('deck_links/' + newName).set(DECK_LINKS[newName]);
+                  _db.ref('deck_links/' + fbSafeKey(editOldName)).remove();
+                  _db.ref('deck_links/' + fbSafeKey(newName)).set(DECK_LINKS[newName]);
                 }
               }
             }
@@ -8044,8 +8059,19 @@
       const brand=(document.getElementById('fc-brand-input').value||'').trim() || _fcBrand;
       if(!brand){ document.getElementById('fc-brand-input').style.borderColor='var(--red)'; return; }
       if(url && !/^https?:\/\//i.test(url)) url='https://'+url;
-      if(url){ FINAL_CREATIVES[brand]=url; if(_db){ _db.ref('loona_final_creatives/'+brand).set(url).catch(function(e){ console.error('Failed to save final creative link:', e); alert('Could not save this link — check your connection and try again.\n\n'+(e&&e.message?e.message:e)); }); } }
-      else { delete FINAL_CREATIVES[brand]; if(_db){ _db.ref('loona_final_creatives/'+brand).remove().catch(function(e){ console.error('Failed to remove final creative link:', e); }); } }
+      if(url){
+        FINAL_CREATIVES[brand]=url;
+        if(_db){
+          try { _db.ref('loona_final_creatives/'+fbSafeKey(brand)).set(url).catch(function(e){ console.error('Failed to save final creative link:', e); alert('Could not save this link — check your connection and try again.\n\n'+(e&&e.message?e.message:e)); }); }
+          catch(e){ console.error('Failed to save final creative link:', e); alert('Could not save this link.\n\n'+(e&&e.message?e.message:e)); }
+        }
+      } else {
+        delete FINAL_CREATIVES[brand];
+        if(_db){
+          try { _db.ref('loona_final_creatives/'+fbSafeKey(brand)).remove().catch(function(e){ console.error('Failed to remove final creative link:', e); }); }
+          catch(e){ console.error('Failed to remove final creative link:', e); }
+        }
+      }
       closeFcModal(); renderFinalCreatives();
     }
     function removeFinalCreative(){ document.getElementById('fc-url-input').value=''; saveFinalCreative(); }
@@ -8139,14 +8165,19 @@
       // If brand name changed, remove old key first
       if (_deckEditOrigBrand && _deckEditOrigBrand !== brand) {
         delete DECK_LINKS[_deckEditOrigBrand];
-        if (_db) _db.ref('deck_links/' + _deckEditOrigBrand).remove().catch(e => console.error('Failed to remove old deck link:', e));
+        if (_db) { try { _db.ref('deck_links/' + fbSafeKey(_deckEditOrigBrand)).remove().catch(e => console.error('Failed to remove old deck link:', e)); } catch (e) { console.error('Failed to remove old deck link:', e); } }
       }
       DECK_LINKS[brand] = url;
       if (_db) {
-        _db.ref('deck_links/' + brand).set(url).catch(e => {
+        try {
+          _db.ref('deck_links/' + fbSafeKey(brand)).set(url).catch(e => {
+            console.error('Failed to save deck link:', e);
+            alert('Could not save this link — check your connection and try again.\n\n' + (e && e.message ? e.message : e));
+          });
+        } catch (e) {
           console.error('Failed to save deck link:', e);
-          alert('Could not save this link — check your connection and try again.\n\n' + (e && e.message ? e.message : e));
-        });
+          alert('Could not save this link.\n\n' + (e && e.message ? e.message : e));
+        }
       }
       closeDeckLinkModal();
       renderDeckLinks();
@@ -8154,7 +8185,7 @@
     function deleteDeckLinkModal() {
       if (!_deckEditOrigBrand) return;
       delete DECK_LINKS[_deckEditOrigBrand];
-      if (_db) _db.ref('deck_links/' + _deckEditOrigBrand).remove();
+      if (_db) { try { _db.ref('deck_links/' + fbSafeKey(_deckEditOrigBrand)).remove(); } catch (e) { console.error('Failed to remove deck link:', e); } }
       closeDeckLinkModal();
       renderDeckLinks();
     }
