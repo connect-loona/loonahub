@@ -4074,7 +4074,7 @@
         <input class="filter-input" type="text" id="task-search" placeholder="🔍  Search tasks..."
           oninput="renderTasks()">
         <select class="filter-select" id="filter-brand" onchange="renderTasks()">
-          <option value="">All Brands</option>
+          <option value="">Brands</option>
           <option value="2100">2100</option>
           <option value="Barkha Beauty">Barkha Beauty</option>
           <option value="Carry On">Carry On</option>
@@ -4098,7 +4098,7 @@
           <option value="shookra">shookra</option>
         </select>
         <select class="filter-select" id="filter-status" onchange="renderTasks()">
-          <option value="">All Statuses</option>
+          <option value="">Status</option>
           <option>Completed</option>
           <option>In Progress</option>
           <option>Not Started</option>
@@ -4110,7 +4110,7 @@
           <option>Client Approval</option>
         </select>
         <select class="filter-select" id="filter-priority" onchange="renderTasks()">
-          <option value="">All Priorities</option>
+          <option value="">Priority</option>
           <option>High</option>
           <option>Medium</option>
           <option>Low</option>
@@ -6256,7 +6256,7 @@
       const brands = Object.values(brandMap).sort((a, b) => String(a).localeCompare(String(b)));
       const bs = document.getElementById('filter-brand');
       if (bs) {
-        bs.innerHTML = '<option value="">All Brands</option>';
+        bs.innerHTML = '<option value="">Brands</option>';
         brands.forEach(b => { const o = document.createElement('option'); o.value = b; o.textContent = b; bs.appendChild(o); });
       }
 
@@ -9115,9 +9115,15 @@ Current date: ${today}`;
     .gantt-inner{overflow-x:auto!important;-webkit-overflow-scrolling:touch}
     .gantt-ruler,.gantt-weeks{grid-template-columns:120px repeat(31,26px)!important;min-width:926px!important}
     .gantt-row{min-width:926px!important}
-    #member-tabs,.member-tabs,.m-tabs{overflow-x:auto;flex-wrap:nowrap!important;-webkit-overflow-scrolling:touch}
-    .task-filters,.filters{flex-wrap:wrap!important;gap:8px!important}
-    .task-filters select,.filters select,.task-filters input{flex:1 1 45%!important;min-width:0!important}
+    /* ---- Member tabs: 7 visible at a time, scroll for the rest ---- */
+    #member-tabs,.member-tabs,.m-tabs{overflow-x:auto!important;flex-wrap:nowrap!important;-webkit-overflow-scrolling:touch;gap:4px!important}
+    #member-tabs-bar .m-tab,.member-tabs .m-tab{flex:0 0 calc((100% - 24px)/7)!important;min-width:0!important;padding:5px 2px!important;font-size:8px!important;gap:2px!important;justify-content:center!important;overflow:hidden!important;white-space:nowrap!important}
+    #member-tabs-bar .m-tab img,.member-tabs .m-tab img{width:14px!important;height:14px!important;flex-shrink:0}
+    #member-tabs-bar .m-tab .m-count,.member-tabs .m-tab .m-count{font-size:7px!important;padding:1px 3px!important}
+    /* ---- Task filters: search + 3 dropdowns on one line ---- */
+    .task-filters,.filters{flex-wrap:nowrap!important;gap:5px!important}
+    .task-filters select,.filters select,.task-filters input,.filters input{flex:1 1 0!important;min-width:0!important;font-size:10.5px!important;padding:6px 4px!important}
+    .filters .filter-input{flex:1.4 1 0!important}
     /* ---- Login: 2 pills per row, shrunk enough that names/roles don't get cut ---- */
     #login-screen{padding:0 16px!important;box-sizing:border-box!important}
     #member-picker{grid-template-columns:repeat(2,1fr)!important;gap:8px!important;width:100%!important;box-sizing:border-box!important}
