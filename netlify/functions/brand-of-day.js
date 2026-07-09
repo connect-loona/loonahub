@@ -20,7 +20,7 @@ const { URL } = require("url");
 const FB = (process.env.FIREBASE_DB_URL || "https://loona-hub-c85d7-default-rtdb.firebaseio.com").replace(/\/+$/, "");
 
 // Keep this list in sync with ALL_MEMBERS in index.html.
-const BASE_MEMBERS = ["Gokul", "Anam", "Arya", "Ankita", "Archisha", "Ricky", "Muskan", "Nishant", "Karnik", "Chinmay", "Majid", "Anurag"];
+const BASE_MEMBERS = ["Gokul", "Anam", "Ankita", "Ricky", "Muskan", "Nishant", "Karnik", "Chinmay", "Majid", "Anurag", "Vivaan", "Diya", "Ananya"];
 
 // Keep in sync with OFFICIAL_HOLIDAYS in index.html.
 const OFFICIAL_HOLIDAYS = [
