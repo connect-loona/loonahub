@@ -6270,7 +6270,7 @@
       const divM = document.createElement('option');
       divM.disabled = true; divM.textContent = '──────────────';
       ntMember.appendChild(divM);
-      ALL_MEMBERS.forEach(m => { const o = document.createElement('option'); o.value = m; o.textContent = m; ntMember.appendChild(o); });
+      ALL_MEMBERS.filter(m => !INACTIVE_MEMBERS.has(m)).forEach(m => { const o = document.createElement('option'); o.value = m; o.textContent = m; ntMember.appendChild(o); });
       if (currentUser) ntMember.value = currentUser;
       refreshTaskBrandDropdown();
       document.getElementById('nt-due').valueAsDate = new Date();
@@ -7603,7 +7603,7 @@
     function openAddBrand() {
       ['ab-strategy', 'ab-response', 'ab-posting', 'ab-design', 'ab-video', 'ab-ads'].forEach(id => {
         const sel = document.getElementById(id);
-        sel.innerHTML = '<option value="">— Select —</option>' + ALL_MEMBERS.map(m => `<option value="${m}">${m}</option>`).join('');
+        sel.innerHTML = '<option value="">— Select —</option>' + ALL_MEMBERS.filter(m => !INACTIVE_MEMBERS.has(m)).map(m => `<option value="${m}">${m}</option>`).join('');
       });
       ['ab-name', 'ab-insta', 'ab-website', 'ab-handles'].forEach(id => document.getElementById(id).value = '');
       document.getElementById('ab-deliverables').value = '';
@@ -7656,9 +7656,15 @@
       if (idx === -1) return;
       const b = BRANDS_ALLOC[idx];
 
+      const activeMembers = ALL_MEMBERS.filter(m => !INACTIVE_MEMBERS.has(m));
+      const fieldMap = { 'ab-strategy': 'strategy', 'ab-response': 'response', 'ab-posting': 'posting', 'ab-design': 'design_lead', 'ab-video': 'video_lead', 'ab-ads': 'ads_lead' };
       ['ab-strategy', 'ab-response', 'ab-posting', 'ab-design', 'ab-video', 'ab-ads'].forEach(id => {
         const sel = document.getElementById(id);
-        sel.innerHTML = '<option value="">— Select —</option>' + ALL_MEMBERS.map(m => `<option value="${m}">${m}</option>`).join('');
+        // Keep the brand's currently-assigned person visible even if they've since gone inactive, so editing doesn't silently blank out real data
+        const current = (b[fieldMap[id]] || '').trim();
+        const opts = activeMembers.slice();
+        if (current && !opts.some(m => normName(m) === normName(current))) opts.push(current);
+        sel.innerHTML = '<option value="">— Select —</option>' + opts.map(m => `<option value="${m}">${m}</option>`).join('');
       });
       document.getElementById('ab-name').value = b.brand;
       // Set selects: prefer exact value, otherwise match option text case-insensitively
@@ -8002,19 +8008,27 @@
         if (url.includes('figma.com')) return { icon: '🎯', label: 'Figma' };
         return { icon: '🔗', label: 'Deck Link' };
       };
+      const activeBrandNames = new Set(BRANDS_ALLOC.filter(b => !b.inactive).map(b => b.brand));
       const _bset = {};
-      BRANDS_ALLOC.filter(b => !b.inactive).forEach(b => { _bset[b.brand] = DECK_LINKS[b.brand] || ''; });
-      Object.keys(DECK_LINKS).forEach(k => { if (!(k in _bset)) _bset[k] = DECK_LINKS[k]; });
+      activeBrandNames.forEach(brand => { _bset[brand] = DECK_LINKS[brand] || ''; });
+      // Anything in DECK_LINKS that isn't a current active brand is stray (renamed/removed brand, typo, etc.) —
+      // keep it visible but clearly marked as "not an active brand" instead of silently blending it in, so it's
+      // easy to spot and remove via the existing edit -> Remove flow rather than being auto-deleted here.
+      const strayKeys = Object.keys(DECK_LINKS).filter(k => !activeBrandNames.has(k));
+      strayKeys.forEach(k => { _bset[k] = DECK_LINKS[k]; });
       const entries = Object.entries(_bset).sort((a, b) => a[0].localeCompare(b[0]));
       // Store brands in a lookup array so onclick can reference by index (avoids quote-in-attribute bug)
       window._deckLinkBrands = entries.map(([brand]) => brand);
       grid.innerHTML = entries.map(([brand, url], idx) => {
-        if (!url) { return `<div class="link-card" onclick="editDeckLink(window._deckLinkBrands[${idx}])" style="border-style:dashed;opacity:.55;cursor:pointer;align-items:center;justify-content:center"><div style="font-size:20px;color:var(--accent)">+</div><div><div class="lname">${brand}</div><div class="ltype">Add link</div></div></div>`; }
+        const isStray = strayKeys.includes(brand);
+        const strayStyle = isStray ? 'border-color:rgba(224,92,92,.5)' : '';
+        const strayTag = isStray ? '<span title="Not an active brand — remove if stale" style="color:#e05c5c">⚠ </span>' : '';
+        if (!url) { return `<div class="link-card" onclick="editDeckLink(window._deckLinkBrands[${idx}])" style="border-style:dashed;opacity:.55;cursor:pointer;align-items:center;justify-content:center;${strayStyle}"><div style="font-size:20px;color:var(--accent)">+</div><div><div class="lname">${strayTag}${brand}</div><div class="ltype">Add link</div></div></div>`; }
         const { icon, label } = getType(url);
         return `<div style="position:relative;display:flex">
-      <a class="link-card" href="${url}" target="_blank" style="flex:1;padding-right:36px">
+      <a class="link-card" href="${url}" target="_blank" style="flex:1;padding-right:36px;${strayStyle}">
         <div style="font-size:20px">${icon}</div>
-        <div><div class="lname">${brand}</div><div class="ltype">${label}</div></div>
+        <div><div class="lname">${strayTag}${brand}</div><div class="ltype">${label}</div></div>
       </a>
       <button onclick="editDeckLink(window._deckLinkBrands[${idx}]);event.stopPropagation()"
         title="Edit link"
@@ -8033,7 +8047,13 @@
       _deckEditOrigBrand = brand;
       const modal = document.getElementById('deck-link-modal');
       document.getElementById('dl-modal-title').textContent = 'Edit Deck Link';
-      document.getElementById('dl-brand-input').value = brand;
+      const brandInput = document.getElementById('dl-brand-input');
+      brandInput.value = brand;
+      // Lock the brand name while editing an existing entry — typos here (e.g. "2100" -> "2100co.")
+      // silently create a stray duplicate instead of updating the real one. Delete + re-add instead if it's wrong.
+      brandInput.readOnly = true;
+      brandInput.style.opacity = '.6';
+      brandInput.style.cursor = 'not-allowed';
       document.getElementById('dl-url-input').value = DECK_LINKS[brand] || '';
       document.getElementById('dl-delete-btn').style.display = 'inline-flex';
       modal.style.display = 'flex';
@@ -8041,6 +8061,10 @@
     }
     function addDeckLink() {
       _deckEditOrigBrand = null;
+      const brandInput0 = document.getElementById('dl-brand-input');
+      brandInput0.readOnly = false;
+      brandInput0.style.opacity = '';
+      brandInput0.style.cursor = '';
       const modal = document.getElementById('deck-link-modal');
       document.getElementById('dl-modal-title').textContent = 'Add Deck Link';
       document.getElementById('dl-brand-input').value = '';
@@ -8217,7 +8241,7 @@
       const divO = document.createElement('option');
       divO.disabled = true; divO.textContent = '──────────────';
       memberSel.appendChild(divO);
-      ALL_MEMBERS.forEach(m => {
+      ALL_MEMBERS.filter(m => !INACTIVE_MEMBERS.has(m)).forEach(m => {
         const o = document.createElement('option');
         o.value = m; o.textContent = (m === currentUser) ? (m + ' (me)') : m;
         memberSel.appendChild(o);
@@ -8226,7 +8250,7 @@
       const bySel = document.getElementById('nt-by');
       if (bySel && bySel.tagName === 'SELECT') {
         bySel.innerHTML = '';
-        ALL_MEMBERS.forEach(m => { const o = document.createElement('option'); o.value = m; o.textContent = (m === currentUser) ? (m + ' (me)') : m; bySel.appendChild(o); });
+        ALL_MEMBERS.filter(m => !INACTIVE_MEMBERS.has(m)).forEach(m => { const o = document.createElement('option'); o.value = m; o.textContent = (m === currentUser) ? (m + ' (me)') : m; bySel.appendChild(o); });
         bySel.value = currentUser || '';
       }
       // Pre-select: if active tab is another member (not self, not All), pick them; else Personal To-Do
