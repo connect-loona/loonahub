@@ -7998,14 +7998,38 @@
       <div style="font-size:20px;color:var(--accent)">+</div>
       <div><div class="lname">${brand}</div><div class="ltype">Add folder link</div></div>
     </div>`;
-      }).join('');
+      }).join('') + (currentUser === 'Gokul' ? `
+    <div class="link-card" onclick="addFinalCreative()"
+      style="border-style:dashed;opacity:0.6;cursor:pointer;align-items:center;justify-content:center">
+      <div style="font-size:22px;color:var(--accent)">+</div>
+      <div><div class="lname">Add Folder</div><div class="ltype">New brand or folder</div></div>
+    </div>` : '');
     }
     let _fcBrand=null;
-    function editFinalCreative(brand){ _fcBrand=brand; document.getElementById('fc-brand-label').textContent=brand; const u=document.getElementById('fc-url-input'); u.value=FINAL_CREATIVES[brand]||''; u.style.borderColor='#444'; document.getElementById('fc-remove-btn').style.display=FINAL_CREATIVES[brand]?'inline-block':'none'; document.getElementById('fc-modal').style.display='flex'; setTimeout(()=>u.focus(),80); }
+    function editFinalCreative(brand){
+      _fcBrand=brand;
+      const b=document.getElementById('fc-brand-input');
+      b.value=brand;
+      // Lock the brand name while editing an existing entry, same reasoning as Deck Links —
+      // typing a new name here would silently create a stray duplicate instead of updating this one.
+      b.readOnly=true; b.style.opacity='.6'; b.style.cursor='not-allowed';
+      const u=document.getElementById('fc-url-input'); u.value=FINAL_CREATIVES[brand]||''; u.style.borderColor='#444';
+      document.getElementById('fc-remove-btn').style.display=FINAL_CREATIVES[brand]?'inline-block':'none';
+      document.getElementById('fc-modal').style.display='flex'; setTimeout(()=>u.focus(),80);
+    }
+    function addFinalCreative(){
+      _fcBrand=null;
+      const b=document.getElementById('fc-brand-input');
+      b.value=''; b.readOnly=false; b.style.opacity=''; b.style.cursor=''; b.style.borderColor='#444';
+      const u=document.getElementById('fc-url-input'); u.value=''; u.style.borderColor='#444';
+      document.getElementById('fc-remove-btn').style.display='none';
+      document.getElementById('fc-modal').style.display='flex'; setTimeout(()=>b.focus(),80);
+    }
     function closeFcModal(){ document.getElementById('fc-modal').style.display='none'; }
     function saveFinalCreative(){
       let url=document.getElementById('fc-url-input').value.trim();
-      const brand=_fcBrand; if(!brand) return;
+      const brand=(document.getElementById('fc-brand-input').value||'').trim() || _fcBrand;
+      if(!brand){ document.getElementById('fc-brand-input').style.borderColor='var(--red)'; return; }
       if(url && !/^https?:\/\//i.test(url)) url='https://'+url;
       if(url){ FINAL_CREATIVES[brand]=url; if(_db){ _db.ref('loona_final_creatives/'+brand).set(url).catch(function(e){ console.error('Failed to save final creative link:', e); alert('Could not save this link — check your connection and try again.\n\n'+(e&&e.message?e.message:e)); }); } }
       else { delete FINAL_CREATIVES[brand]; if(_db){ _db.ref('loona_final_creatives/'+brand).remove().catch(function(e){ console.error('Failed to remove final creative link:', e); }); } }
@@ -8898,8 +8922,9 @@ Current date: ${today}`;
   <!-- Final Creative Folder Modal -->
   <div id="fc-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;align-items:center;justify-content:center" onclick="if(event.target===this)closeFcModal()">
     <div style="background:#1a1a1a;border:1px solid #333;border-radius:14px;padding:26px;width:440px;max-width:92vw;box-shadow:0 24px 80px #000a">
-      <h3 style="color:#fff;margin:0 0 6px;font-size:18px">Final Creatives Folder</h3>
-      <div style="color:#ff9457;font-size:13px;margin-bottom:18px" id="fc-brand-label"></div>
+      <h3 style="color:#fff;margin:0 0 18px;font-size:18px">Final Creatives Folder</h3>
+      <label style="display:block;font-size:12px;color:#888;margin-bottom:6px">Brand / Name</label>
+      <input id="fc-brand-input" placeholder="e.g. Shookra, One O One…" style="width:100%;background:#111;border:1px solid #444;border-radius:8px;color:#d0d0d0;padding:10px 12px;font-family:inherit;font-size:13px;box-sizing:border-box;margin-bottom:14px" onkeydown="if(event.key==='Enter')document.getElementById('fc-url-input').focus()">
       <label style="display:block;font-size:12px;color:#888;margin-bottom:6px">Google Drive folder link (or Canva/Frame.io)</label>
       <input id="fc-url-input" placeholder="https://drive.google.com/drive/folders/…" style="width:100%;background:#111;border:1px solid #444;border-radius:8px;color:#d0d0d0;padding:10px 12px;font-family:inherit;font-size:13px;box-sizing:border-box;margin-bottom:18px" onkeydown="if(event.key==='Enter')saveFinalCreative()">
       <div style="display:flex;gap:8px;justify-content:space-between;align-items:center">
