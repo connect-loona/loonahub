@@ -2763,6 +2763,32 @@
     .lc-acc-body li b{color:var(--text)}
     .lc-yes{color:var(--green,#68e6a6);font-weight:600}
     .lc-no{color:var(--red,#e05c5c);font-weight:600}
+    .lc-sub{border-top:1px dashed var(--border);margin-top:14px;padding-top:14px}
+    .lc-sub:first-of-type{border-top:none;margin-top:4px;padding-top:0}
+    .lc-sub-h{display:flex;align-items:baseline;gap:8px;margin-bottom:8px}
+    .lc-sub-num{font-size:11px;color:var(--accent2);font-weight:700}
+    .lc-sub-title{font-size:13px;font-weight:700;color:var(--text)}
+    /* reimbursement form */
+    .lc-reimb-form{margin-top:16px;border-top:1px solid var(--border);padding-top:16px}
+    .lc-reimb-h{font-size:12.5px;color:var(--accent2);text-transform:uppercase;letter-spacing:.04em;margin:18px 0 10px}
+    .lc-reimb-table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px}
+    .lc-reimb-table{width:100%;border-collapse:collapse;min-width:640px}
+    .lc-reimb-table th{font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);text-align:left;padding:8px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
+    .lc-reimb-table td{padding:5px 6px;border-bottom:1px solid var(--border)}
+    .lc-reimb-table tr:last-child td{border-bottom:none}
+    .lc-reimb-table input{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:6px;font-size:12px;font-family:var(--font);outline:none;width:100%}
+    .lc-reimb-table input:focus{border-color:var(--accent)}
+    .reimb-sr{color:var(--muted);font-size:12px;text-align:center}
+    .lc-reimb-del{background:none;border:none;color:var(--red,#e05c5c);font-size:16px;cursor:pointer;line-height:1;padding:4px 6px}
+    .lc-reimb-add{margin-top:8px;background:rgba(255,255,255,.04);border:1px dashed var(--border);color:var(--muted);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:var(--font)}
+    .lc-reimb-add:hover{color:#ff9457;border-color:rgba(255,109,41,.4)}
+    .lc-reimb-total{text-align:right;font-size:12.5px;color:var(--muted);margin-top:6px}
+    .lc-reimb-total span{color:var(--text);font-weight:700}
+    .lc-reimb-grand{text-align:right;font-size:14px;color:var(--text);font-weight:700;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+    .lc-reimb-grand span{color:var(--accent2)}
+    .lc-reimb-declare{display:flex;align-items:flex-start;gap:8px;font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:16px;cursor:pointer}
+    .lc-reimb-declare input{margin-top:2px;flex-shrink:0}
+    @media(max-width:600px){.lc-reimb-table{min-width:560px}}
     /* org chart */
     .lc-org-tree{display:inline-flex;flex-direction:column;align-items:center;padding:16px 24px}
     .lc-org-stem{width:1px;height:16px;background:var(--border)}
@@ -5164,7 +5190,121 @@
 
         <div class="lc-acc-item">
           <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
-            <span class="lc-acc-num">04</span><span class="lc-acc-ic">📝</span><span class="lc-acc-title">Notice Period &amp; Resignation</span><span class="lc-acc-toggle">+</span>
+            <span class="lc-acc-num">04</span><span class="lc-acc-ic">🤝</span><span class="lc-acc-title">Behavior &amp; Conduct</span><span class="lc-acc-toggle">+</span>
+          </button>
+          <div class="lc-acc-body">
+            <p>You are expected to maintain professionalism and represent Loona positively at all shoots, events, and client interactions. Misconduct or inappropriate behaviour with clients or team members may result in immediate termination.</p>
+            <p>Timely presence, adherence to schedules, and meeting delivery deadlines are essential to every role — repeated delays or absenteeism may be treated as misconduct.</p>
+
+            <div class="lc-sub">
+              <div class="lc-sub-h"><span class="lc-sub-num">4.a</span><span class="lc-sub-title">Team Communication Rules</span></div>
+              <p class="lc-note">Applies to all internal work communication — primarily WhatsApp, plus email and the Hub.</p>
+              <ul>
+                <li>Every work-related message must be <b>replied to properly</b> — no emoji-only responses. <span class="lc-yes">✅ "Working on SC deck, will send by 3 PM."</span> &nbsp; <span class="lc-no">❌ "👌", "Yesss"</span></li>
+                <li>No ghosting, no floating deliverables — every message needs a clear, actionable response.</li>
+                <li>If you have doubts, pick up the phone and call your lead. Don't wait around or delay the task — work cannot be paused just because you're unsure.</li>
+                <li>Ask questions, clarify quickly, and summarise if needed.</li>
+                <li>Acknowledge any new task or feedback within <b>1 working hour</b>.</li>
+              </ul>
+            </div>
+
+            <div class="lc-sub">
+              <div class="lc-sub-h"><span class="lc-sub-num">4.b</span><span class="lc-sub-title">Feedback &amp; Revisions</span></div>
+              <ul>
+                <li>Feedback loops are a normal part of the process — don't take them personally.</li>
+                <li>Always implement changes after confirming you've understood them. If unclear, ask immediately.</li>
+                <li>Keep it efficient: max <b>2 rounds</b> of internal review before sharing with the client.</li>
+                <li>Revisions are to uphold Loona's quality standards, not to nitpick.</li>
+              </ul>
+            </div>
+
+            <div class="lc-sub">
+              <div class="lc-sub-h"><span class="lc-sub-num">4.c</span><span class="lc-sub-title">Responsibility &amp; Ownership</span></div>
+              <ul>
+                <li>If you're assigned a task, you own it until it's done, approved, and shared — no hand-offs without context.</li>
+                <li>Don't wait to be reminded. Reminders are not a workflow.</li>
+                <li>If you're blocked or delayed, communicate early — not when the deadline passes.</li>
+              </ul>
+            </div>
+
+            <div class="lc-sub">
+              <div class="lc-sub-h"><span class="lc-sub-num">4.d</span><span class="lc-sub-title">External Communication Etiquette</span></div>
+              <ul>
+                <li>Always use a professional tone and structure in all client-facing communication — email, DMs, or WhatsApp.</li>
+                <li>Never share incomplete work without internal approval or context.</li>
+                <li>Decks, visuals, or pitch work should always be shared as PDFs, unless the client asks for editable versions.</li>
+                <li>Every email must include a subject — it reflects clarity, respect, and urgency.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="lc-acc-item">
+          <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
+            <span class="lc-acc-num">05</span><span class="lc-acc-ic">🔒</span><span class="lc-acc-title">Confidentiality and IP</span><span class="lc-acc-toggle">+</span>
+          </button>
+          <div class="lc-acc-body">
+            <p><b>What is confidential information?</b></p>
+            <p>"Confidential Information" includes, but is not limited to:</p>
+            <ul>
+              <li>All client information, briefs, strategies, and internal communications.</li>
+              <li>Campaign ideas, storyboards, scripts, shoot plans, and creative concepts.</li>
+              <li>Canva decks, strategy decks, internal presentations, images, raw footage, edited videos, photography, design files, and any other creative assets.</li>
+              <li>Client and influencer contact details, vendor lists, and collaboration databases.</li>
+              <li>Any financial, operational, or business data of the Company or its clients.</li>
+              <li>Any other material, tangible or intangible, produced, shared, or accessed during employment.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="lc-acc-item">
+          <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
+            <span class="lc-acc-num">06</span><span class="lc-acc-ic">📋</span><span class="lc-acc-title">Employee Obligations</span><span class="lc-acc-toggle">+</span>
+          </button>
+          <div class="lc-acc-body">
+            <p>The Employee agrees and understands that:</p>
+            <ul>
+              <li>All work produced, shared, or accessed during employment is confidential and proprietary.</li>
+              <li>Such materials must not be shown, shared, distributed, forwarded, or uploaded anywhere, including but not limited to personal portfolios, résumés, websites, social media, or third-party platforms.</li>
+              <li>No visuals, decks, client/influencer data, raw or edited footage, or campaign concepts may be used or presented as personal work at any time.</li>
+              <li>All work at Loona is a <b>collaborative effort of the team</b>, and no individual may claim independent authorship, credit, or representation without prior written consent from management.</li>
+              <li>All materials, files, and data (digital or physical) must be returned or deleted immediately upon termination of employment or upon management's request.</li>
+            </ul>
+            <p>For twelve (12) months after leaving Loona, you may not engage — directly or indirectly, paid or unpaid — with any Loona client or partner you worked with, worked on, or had access to during your tenure, without prior written consent from management. You also may not solicit Loona employees, freelancers, or clients for personal or competitive projects, during or after your employment, for the same twelve (12) months.</p>
+          </div>
+        </div>
+
+        <div class="lc-acc-item">
+          <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
+            <span class="lc-acc-num">07</span><span class="lc-acc-ic">©️</span><span class="lc-acc-title">Intellectual Property Ownership and Duration</span><span class="lc-acc-toggle">+</span>
+          </button>
+          <div class="lc-acc-body">
+            <p>All content, visuals, designs, videos, photographs, edits, strategies, and concepts created during employment shall be considered <b>"work made for hire"</b> and remain the exclusive intellectual property of Loona and/or its clients. The Employee shall have no ownership, usage, or distribution rights whatsoever.</p>
+            <p>The confidentiality and non-disclosure obligations of the Employee shall remain in effect <b>indefinitely</b>, even after cessation of employment.</p>
+          </div>
+        </div>
+
+        <div class="lc-acc-item">
+          <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
+            <span class="lc-acc-num">08</span><span class="lc-acc-ic">⚖️</span><span class="lc-acc-title">Breach &amp; Remedies</span><span class="lc-acc-toggle">+</span>
+          </button>
+          <div class="lc-acc-body">
+            <p>Any breach of this Agreement — including the unauthorised sharing, use, or representation of the Company's work, materials, or contacts — shall constitute serious misconduct and a violation of trust. Such a breach may result in immediate termination of employment, and the Company reserves the right to seek legal remedies, including injunctive relief, recovery of damages, and criminal prosecution under applicable laws of India.</p>
+          </div>
+        </div>
+
+        <div class="lc-acc-item">
+          <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
+            <span class="lc-acc-num">09</span><span class="lc-acc-ic">🏛️</span><span class="lc-acc-title">Governing Law &amp; Jurisdiction</span><span class="lc-acc-toggle">+</span>
+          </button>
+          <div class="lc-acc-body">
+            <p>This Agreement shall be governed by and construed in accordance with the laws of the <b>State of Maharashtra, India</b>. The Employee acknowledges that any dispute, controversy, or claim arising out of or in connection with this Agreement shall fall under the exclusive jurisdiction of the courts of Maharashtra (India). Both parties expressly agree to submit to this jurisdiction and recognise that any breach of confidentiality or intellectual property will be treated as a serious offence subject to civil and criminal action under Indian law.</p>
+          </div>
+        </div>
+
+        <div class="lc-acc-item">
+          <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
+            <span class="lc-acc-num">10</span><span class="lc-acc-ic">📝</span><span class="lc-acc-title">Notice Period &amp; Termination/Resignation</span><span class="lc-acc-toggle">+</span>
           </button>
           <div class="lc-acc-body">
             <p><b>During probation:</b> you may resign by giving one (1) month's notice, or salary/wages in lieu. The Company may terminate your employment during probation without any notice or compensation in cases of misconduct, breach of policy, negligence, or failure to perform assigned duties.</p>
@@ -5174,79 +5314,72 @@
 
         <div class="lc-acc-item">
           <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
-            <span class="lc-acc-num">05</span><span class="lc-acc-ic">🔒</span><span class="lc-acc-title">Confidentiality, IP &amp; Conduct</span><span class="lc-acc-toggle">+</span>
+            <span class="lc-acc-num">11</span><span class="lc-acc-ic">📜</span><span class="lc-acc-title">General Rules and Regulations</span><span class="lc-acc-toggle">+</span>
           </button>
           <div class="lc-acc-body">
-            <p>All raw footage, edited content, concepts, decks, shoot materials, and client data created during your employment are "work made for hire" and remain the sole property of Loona and/or its clients — you retain no ownership, usage, or distribution rights, and may not publish, share, or present any of it as personal work (portfolio, résumé, social media, or any third-party platform), during or after your employment.</p>
-            <p>Confidentiality and non-disclosure obligations remain in effect indefinitely, even after you leave. For twelve (12) months after leaving, you may not engage — directly or indirectly, paid or unpaid — with any Loona client or partner you worked with, nor solicit Loona employees, freelancers, or clients, without prior written consent from management.</p>
-            <p>Timely presence, adherence to schedules, and meeting delivery deadlines are essential to every role — repeated delays or absenteeism may be treated as misconduct. Professionalism is expected at all shoots, events, and client interactions at all times; misconduct or inappropriate behaviour with clients or teammates can result in immediate termination.</p>
+            <p>Your appointment is subject to your being declared medically fit by a Registered Medical Practitioner.</p>
+            <p>Your services will be governed by any Rules and Regulations enforced by the management from time to time in relation to conduct, discipline, medical leave and holidays, or any other matters relating to service conditions, which will be deemed as rules and regulations and form part of these terms of employment.</p>
+            <p>As a term of employment, you will not misuse your position by disclosing or divulging to any person the knowledge or confidential information concerning the organisation or its clients in whatever form acquired by you while in the employment of the organisation. Towards this, you may be called upon to execute a non-disclosure agreement with the organisation.</p>
+            <p>This offer is subject to your signing the prescribed (i) Secrecy and non-disclosure agreement, and (ii) an agreement as to patents, inventions, and other creative property rights and competitive activities, as per the organisation's policies and practices at the time of joining, and as amended from time to time by management.</p>
+            <p>Whenever you change your present or local residential address for any reason, you must intimate the change to management immediately. Working hours are as communicated by your superiors from time to time, depending on the exigencies of work. Management reserves the right to restructure or change your compensation at any time, at its sole discretion.</p>
+            <p>Your appointment is based on the information supplied by you. If you're found to have misrepresented, concealed, or given wrong information about your candidature at the time of appointment or subsequently, your services shall be liable for termination without any notice or compensation.</p>
           </div>
         </div>
 
         <div class="lc-acc-item">
           <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
-            <span class="lc-acc-num">06</span><span class="lc-acc-ic">💬</span><span class="lc-acc-title">Team Communication Rules</span><span class="lc-acc-toggle">+</span>
+            <span class="lc-acc-num">12</span><span class="lc-acc-ic">🧾</span><span class="lc-acc-title">Reimbursement Form</span><span class="lc-acc-toggle">+</span>
           </button>
           <div class="lc-acc-body">
-            <p class="lc-note">Applies to all internal work communication — primarily WhatsApp, plus email and the Hub.</p>
+            <p>This Employee Reimbursement Form is to be used for all conveyance and local purchase claims. Please ensure every claim submitted is genuine and made in good faith, using the most economical resources available to keep costs reasonable.</p>
+            <p><b>Key points to note:</b></p>
             <ul>
-              <li>Every work-related message must be <b>replied to properly</b> — no emoji-only responses. <span class="lc-yes">✅ "Working on SC deck, will send by 3 PM."</span> &nbsp; <span class="lc-no">❌ "👌", "Yesss"</span></li>
-              <li>No ghosting, no floating deliverables — every message needs a clear, actionable response.</li>
-              <li>If you have doubts, pick up the phone and call your lead. Don't wait around or delay the task — work cannot be paused just because you're unsure.</li>
-              <li>Ask questions, clarify quickly, and summarise if needed.</li>
-              <li>Acknowledge any new task or feedback within <b>1 working hour</b>.</li>
+              <li>Only one reimbursement form per employee, per month will be accepted.</li>
+              <li>All claims must be submitted by the 5th of the following month.</li>
+              <li>Approved reimbursements will be processed along with the monthly salary.</li>
+              <li>Bills/receipts are mandatory for all claims.</li>
+              <li>For conveyance, employees are expected to use the most economical mode of transport available.</li>
+              <li>Please ensure the format and guidelines are followed strictly.</li>
+              <li>Non-compliant submissions may be delayed or rejected.</li>
             </ul>
-          </div>
-        </div>
 
-        <div class="lc-acc-item">
-          <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
-            <span class="lc-acc-num">07</span><span class="lc-acc-ic">🔁</span><span class="lc-acc-title">Feedback &amp; Revisions</span><span class="lc-acc-toggle">+</span>
-          </button>
-          <div class="lc-acc-body">
-            <ul>
-              <li>Feedback loops are a normal part of the process — don't take them personally.</li>
-              <li>Always implement changes after confirming you've understood them. If unclear, ask immediately.</li>
-              <li>Keep it efficient: max <b>2 rounds</b> of internal review before sharing with the client.</li>
-              <li>Revisions are to uphold Loona's quality standards, not to nitpick.</li>
-            </ul>
-          </div>
-        </div>
+            <div class="lc-reimb-form" id="lc-reimb-form">
+              <div class="form-row">
+                <div class="form-group"><label>Employee Name</label><input class="form-control" id="reimb-name" readonly></div>
+                <div class="form-group"><label>Employee ID</label><input class="form-control" id="reimb-empid" readonly></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group"><label>Designation</label><input class="form-control" id="reimb-desg" readonly></div>
+                <div class="form-group"><label>Location</label><input class="form-control" id="reimb-location" value="Mumbai"></div>
+              </div>
+              <div class="form-group" style="max-width:220px"><label>Claim Period</label><input class="form-control" type="month" id="reimb-period"></div>
 
-        <div class="lc-acc-item">
-          <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
-            <span class="lc-acc-num">08</span><span class="lc-acc-ic">🎯</span><span class="lc-acc-title">Responsibility &amp; Ownership</span><span class="lc-acc-toggle">+</span>
-          </button>
-          <div class="lc-acc-body">
-            <ul>
-              <li>If you're assigned a task, you own it until it's done, approved, and shared — no hand-offs without context.</li>
-              <li>Don't wait to be reminded. Reminders are not a workflow.</li>
-              <li>If you're blocked or delayed, communicate early — not when the deadline passes.</li>
-            </ul>
-          </div>
-        </div>
+              <h4 class="lc-reimb-h">A. Local Conveyance</h4>
+              <div class="lc-reimb-table-wrap">
+                <table class="lc-reimb-table">
+                  <thead><tr><th>Date</th><th>From</th><th>To</th><th>Reason for Travel</th><th>Kms</th><th>Mode</th><th>Amount (₹)</th><th></th></tr></thead>
+                  <tbody id="reimb-conv-body"></tbody>
+                </table>
+              </div>
+              <button type="button" class="lc-reimb-add" onclick="reimbAddRow('conv')">+ Add row</button>
+              <div class="lc-reimb-total">Conveyance Total: ₹<span id="reimb-conv-total">0</span></div>
 
-        <div class="lc-acc-item">
-          <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
-            <span class="lc-acc-num">09</span><span class="lc-acc-ic">📧</span><span class="lc-acc-title">External Communication Etiquette</span><span class="lc-acc-toggle">+</span>
-          </button>
-          <div class="lc-acc-body">
-            <ul>
-              <li>Always use a professional tone and structure in all client-facing communication — email, DMs, or WhatsApp.</li>
-              <li>Never share incomplete work without internal approval or context.</li>
-              <li>Decks, visuals, or pitch work should always be shared as PDFs, unless the client asks for editable versions.</li>
-              <li>Every email must include a subject — it reflects clarity, respect, and urgency.</li>
-            </ul>
-          </div>
-        </div>
+              <h4 class="lc-reimb-h">B. Local Purchases</h4>
+              <div class="lc-reimb-table-wrap">
+                <table class="lc-reimb-table">
+                  <thead><tr><th>Sr.</th><th>Party's Name</th><th>Bill No.</th><th>Bill Date</th><th>Amount (₹)</th><th></th></tr></thead>
+                  <tbody id="reimb-purch-body"></tbody>
+                </table>
+              </div>
+              <button type="button" class="lc-reimb-add" onclick="reimbAddRow('purch')">+ Add row</button>
+              <div class="lc-reimb-total">Local Purchases Total: ₹<span id="reimb-purch-total">0</span></div>
 
-        <div class="lc-acc-item">
-          <button class="lc-acc-head" onclick="toggleLcAccordion(this)">
-            <span class="lc-acc-num">10</span><span class="lc-acc-ic">🧾</span><span class="lc-acc-title">Reimbursement Form</span><span class="lc-acc-toggle">+</span>
-          </button>
-          <div class="lc-acc-body">
-            <p>Use the official form to submit any expense reimbursement claims.</p>
-            <button class="btn btn-primary" onclick="event.stopPropagation();openReimbursementForm()" style="margin-top:4px">Open Reimbursement Form</button>
+              <div class="lc-reimb-grand">Grand Total: ₹<span id="reimb-grand-total">0</span></div>
+
+              <label class="lc-reimb-declare"><input type="checkbox" id="reimb-declare"> I hereby declare that the expenses claimed above were incurred for official purposes only and that I have made reasonable efforts to use the most economical mode of transport and purchase options available.</label>
+
+              <button class="btn btn-primary" onclick="event.stopPropagation();submitReimbursement()" style="margin-top:10px">Submit Claim</button>
+            </div>
           </div>
         </div>
       </div>
@@ -6877,6 +7010,114 @@
       btn.querySelector(".lc-acc-toggle").textContent=open?"–":"+";
     }
     window.toggleLcAccordion=toggleLcAccordion;
+    function reimbAddRow(kind){
+      var tbody=document.getElementById(kind==="conv"?"reimb-conv-body":"reimb-purch-body");
+      var row;
+      if(kind==="conv"){
+        row='<tr>'+
+          '<td><input type="date"></td>'+
+          '<td><input type="text" placeholder="From"></td>'+
+          '<td><input type="text" placeholder="To"></td>'+
+          '<td><input type="text" placeholder="Reason for travel"></td>'+
+          '<td><input type="number" min="0" style="width:60px"></td>'+
+          '<td><input type="text" placeholder="Uber / Auto / Train"></td>'+
+          '<td><input type="number" min="0" class="reimb-amt" oninput="reimbRecalc()"></td>'+
+          '<td><button type="button" class="lc-reimb-del" onclick="reimbDelRow(this)">&times;</button></td>'+
+        '</tr>';
+      } else {
+        row='<tr>'+
+          '<td class="reimb-sr">'+(tbody.children.length+1)+'</td>'+
+          '<td><input type="text" placeholder="Party name"></td>'+
+          '<td><input type="text" placeholder="Bill No."></td>'+
+          '<td><input type="date"></td>'+
+          '<td><input type="number" min="0" class="reimb-amt" oninput="reimbRecalc()"></td>'+
+          '<td><button type="button" class="lc-reimb-del" onclick="reimbDelRow(this)">&times;</button></td>'+
+        '</tr>';
+      }
+      tbody.insertAdjacentHTML("beforeend",row);
+    }
+    window.reimbAddRow=reimbAddRow;
+    function reimbDelRow(btn){
+      var tr=btn.closest("tr");
+      var tbody=tr.parentNode;
+      tr.remove();
+      if(tbody.id==="reimb-purch-body"){
+        Array.prototype.forEach.call(tbody.querySelectorAll("tr"),function(r,i){ r.querySelector(".reimb-sr").textContent=i+1; });
+      }
+      reimbRecalc();
+    }
+    window.reimbDelRow=reimbDelRow;
+    function reimbRecalc(){
+      var convTotal=0; document.querySelectorAll("#reimb-conv-body .reimb-amt").forEach(function(i){ convTotal+=parseFloat(i.value)||0; });
+      var purchTotal=0; document.querySelectorAll("#reimb-purch-body .reimb-amt").forEach(function(i){ purchTotal+=parseFloat(i.value)||0; });
+      var ct=document.getElementById("reimb-conv-total"), pt=document.getElementById("reimb-purch-total"), gt=document.getElementById("reimb-grand-total");
+      if(ct) ct.textContent=convTotal.toFixed(0);
+      if(pt) pt.textContent=purchTotal.toFixed(0);
+      if(gt) gt.textContent=(convTotal+purchTotal).toFixed(0);
+    }
+    window.reimbRecalc=reimbRecalc;
+    function initReimbForm(){
+      var nameEl=document.getElementById("reimb-name");
+      if(!nameEl || window._reimbFormInited) return;
+      window._reimbFormInited=true;
+      var name=(typeof currentUser!=="undefined"&&currentUser)?currentUser:"";
+      var a=(window.ATT||{})[name]||{};
+      var info=(typeof MEMBER_INFO!=="undefined"?MEMBER_INFO[name]:null)||{};
+      nameEl.value=name;
+      document.getElementById("reimb-empid").value=(a.code&&a.code!=="—")?a.code:"";
+      document.getElementById("reimb-desg").value=(a.desg&&a.desg!=="—")?a.desg:(info.role||"");
+      var now=new Date();
+      document.getElementById("reimb-period").value=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
+      reimbAddRow("conv");
+      reimbAddRow("purch");
+    }
+    window.initReimbForm=initReimbForm;
+    function submitReimbursement(){
+      if(!document.getElementById("reimb-declare").checked){
+        alert("Please confirm the declaration checkbox before submitting.");
+        return;
+      }
+      var conv=[]; document.querySelectorAll("#reimb-conv-body tr").forEach(function(tr){
+        var c=tr.querySelectorAll("input");
+        var r={date:c[0].value,from:c[1].value,to:c[2].value,reason:c[3].value,kms:c[4].value,mode:c[5].value,amount:parseFloat(c[6].value)||0};
+        if(r.from||r.to||r.reason||r.amount) conv.push(r);
+      });
+      var purch=[]; document.querySelectorAll("#reimb-purch-body tr").forEach(function(tr){
+        var c=tr.querySelectorAll("input");
+        var r={party:c[0].value,billNo:c[1].value,billDate:c[2].value,amount:parseFloat(c[3].value)||0};
+        if(r.party||r.billNo||r.amount) purch.push(r);
+      });
+      if(!conv.length && !purch.length){
+        alert("Add at least one conveyance or local purchase line before submitting.");
+        return;
+      }
+      var convTotal=conv.reduce(function(s,r){return s+r.amount;},0);
+      var purchTotal=purch.reduce(function(s,r){return s+r.amount;},0);
+      var claim={
+        employee:(typeof currentUser!=="undefined")?currentUser:"",
+        empId:document.getElementById("reimb-empid").value,
+        designation:document.getElementById("reimb-desg").value,
+        location:document.getElementById("reimb-location").value,
+        period:document.getElementById("reimb-period").value,
+        conveyance:conv,
+        localPurchases:purch,
+        conveyanceTotal:convTotal,
+        purchasesTotal:purchTotal,
+        grandTotal:convTotal+purchTotal,
+        status:"Pending",
+        submittedAt:new Date().toISOString()
+      };
+      if(typeof _db!=="undefined" && _db) _db.ref("reimbursements").push(claim);
+      document.getElementById("toast-emoji").textContent="🧾";
+      document.getElementById("toast-msg").textContent="Reimbursement claim submitted";
+      document.getElementById("toast-sub").textContent="Will be processed with your monthly salary";
+      var toast=document.getElementById("completion-toast"); toast.classList.add("show"); setTimeout(function(){toast.classList.remove("show");},2600);
+      document.getElementById("reimb-conv-body").innerHTML="";
+      document.getElementById("reimb-purch-body").innerHTML="";
+      document.getElementById("reimb-declare").checked=false;
+      reimbAddRow("conv"); reimbAddRow("purch"); reimbRecalc();
+    }
+    window.submitReimbursement=submitReimbursement;
     var ORG_CHART_TREE={ name:"Gokul", reports:[
       { name:"Karnik" },
       { name:"Ricky", reports:[ {name:"Muskan"}, {name:"Ananya"}, {name:"Nishant"} ] },
@@ -8881,7 +9122,10 @@
         renderOverdue();
         renderTaskPage();
       }
-      if (id === 'loonacode' && typeof renderOrgChart === 'function') renderOrgChart();
+      if (id === 'loonacode') {
+        if (typeof renderOrgChart === 'function') renderOrgChart();
+        if (typeof initReimbForm === 'function') initReimbForm();
+      }
     }
 
     // ═══ SAVE TO FILE ═══
@@ -9772,22 +10016,10 @@ Current date: ${today}`;
     var SHIFT_WD="10:00 am – 05:30 pm", SHIFT_SAT="10:00 am – 03:30 pm";
     var REQ_WD=7, REQ_SAT=5;
     var LATE_FEE=200, LATE_BLOCK=3, TOTAL_LEAVE=15;
-    var REIMBURSEMENT_FORM_URL="";
     (function(){
       var lf=document.getElementById("lc-late-fee"), lb=document.getElementById("lc-late-block"), tl=document.getElementById("lc-total-leave");
       if(lf) lf.textContent=LATE_FEE; if(lb) lb.textContent=LATE_BLOCK; if(tl) tl.textContent=TOTAL_LEAVE;
     })();
-    function openReimbursementForm(){
-      if(!REIMBURSEMENT_FORM_URL){
-        document.getElementById("toast-emoji").textContent="🧾";
-        document.getElementById("toast-msg").textContent="Form link coming soon";
-        document.getElementById("toast-sub").textContent="Check back shortly";
-        var toast=document.getElementById("completion-toast"); toast.classList.add("show"); setTimeout(function(){toast.classList.remove("show");},2600);
-        return;
-      }
-      window.open(REIMBURSEMENT_FORM_URL,"_blank");
-    }
-    window.openReimbursementForm=openReimbursementForm;
     var SEL=TODAY;
     var FOUNDER_MO=TODAY.slice(0,7); // month shown in the founder board's Monthly Overview table
     window.attSetFounderMonth=function(val){ if(val) FOUNDER_MO=val; if(window.renderAttendanceOverview) window.renderAttendanceOverview(); };
