@@ -2842,7 +2842,7 @@
     .hol-details[open] summary::before{transform:rotate(90deg)}
     /* late popup */
     #late-pop{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:99999}
-    #late-pop .box{background:var(--surface);border:1px solid #5a3a1a;border-radius:18px;padding:30px 32px;width:370px;text-align:center}
+    #late-pop .box{background:var(--surface);border:1px solid #5a3a1a;border-radius:18px;padding:30px 32px;width:370px;text-align:center;position:relative}
     #late-pop .lk{font-size:38px}
     #late-pop h3{color:var(--text);margin:8px 0 6px;font-size:19px}
     #late-pop p{color:var(--muted);font-size:13px;line-height:1.55;margin-bottom:18px}
@@ -2857,7 +2857,7 @@
     table.att-tbl td .code{color:var(--accent2);font-weight:600}
     /* missed-hours popup shares late-pop styling */
     #miss-pop{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:99999}
-    #miss-pop .box{background:var(--surface);border:1px solid #5a2a2a;border-radius:18px;padding:30px 32px;width:370px;text-align:center}
+    #miss-pop .box{background:var(--surface);border:1px solid #5a2a2a;border-radius:18px;padding:30px 32px;width:370px;text-align:center;position:relative}
     #miss-pop .lk{font-size:38px}
     #miss-pop h3{color:var(--text);margin:8px 0 6px;font-size:19px}
     #miss-pop p{color:var(--muted);font-size:13px;line-height:1.55;margin-bottom:18px}
@@ -2896,11 +2896,18 @@
     .adc-perf{display:flex;align-items:center;gap:8px;margin-top:8px;border-top:1px solid var(--border);padding-top:8px}
     .adc-band{font-size:12px;font-weight:700}
     #info-pop{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:99999}
-    #info-pop .box{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:26px 28px;width:400px;max-height:72vh;overflow:auto;text-align:left}
-    #info-pop .lk{font-size:30px;text-align:center}
-    #info-pop h3{color:var(--text);margin:8px 0 14px;font-size:16px;text-align:center}
-    #info-pop p{color:var(--muted);font-size:13px;line-height:1.8}
-    #info-pop .go{margin-top:16px;width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0d0d0d;border:none;border-radius:12px;padding:10px;font-weight:700;cursor:pointer;font-size:14px}
+    /* display:flex + overflow:hidden here (was overflow:auto on the whole box) so only the <p>
+       content scrolls internally — the icon/title/close/"Got it" stay pinned in place regardless
+       of how long the content is (e.g. a full month's daily breakdown). */
+    #info-pop .box{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:26px 28px;width:400px;max-height:72vh;overflow:hidden;text-align:left;position:relative;display:flex;flex-direction:column}
+    #info-pop .lk{font-size:30px;text-align:center;flex:0 0 auto}
+    #info-pop h3{color:var(--text);margin:8px 0 14px;font-size:16px;text-align:center;flex:0 0 auto}
+    #info-pop p{color:var(--muted);font-size:13px;line-height:1.8;overflow:auto;flex:1 1 auto;min-height:0}
+    #info-pop .go{margin-top:16px;width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0d0d0d;border:none;border-radius:12px;padding:10px;font-weight:700;cursor:pointer;font-size:14px;flex:0 0 auto}
+    /* Persistent close "x", pinned to the box's own corner (not the screen's) so it stays right
+       next to the popup regardless of viewport size, and reachable without scrolling. */
+    .pop-x{position:absolute;top:14px;right:14px;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid var(--border);color:var(--muted);font-size:16px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:1}
+    .pop-x:hover{color:var(--text);border-color:var(--muted)}
 
     /* ===== v15 · Performance system ===== */
     .pf-card{background:linear-gradient(135deg,#171a15,#141414);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:16px;padding:20px 22px;margin-bottom:16px}
@@ -3041,7 +3048,7 @@
     .m-tab.active .m-count{background:var(--accent)!important;color:#1a0f08!important}
     #login-screen{background:radial-gradient(34% 22% at 6% 56%, rgba(255,242,216,.5) 0%, rgba(255,150,66,.26) 34%, transparent 60%), linear-gradient(178deg, #ff6d29 0%, #fb5713 16%, #db3d09 30%, #8f2605 46%, #3e0f02 64%, #150602 82%, #070301 100%)!important;background-attachment:fixed!important}
     #pend-pop{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:99999}
-    #pend-pop .box{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:30px 32px;width:370px;text-align:center}
+    #pend-pop .box{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:30px 32px;width:370px;text-align:center;position:relative}
     #pend-pop .lk{font-size:38px}
     #pend-pop h3{color:var(--text);margin:8px 0 6px;font-size:19px}
     #pend-pop p{color:var(--muted);font-size:13px;line-height:1.55;margin-bottom:18px}
@@ -9990,9 +9997,11 @@ Current date: ${today}`;
     function popupBox(id,icon,title,html,onClose){
       var old=document.getElementById(id); if(old) old.remove();
       document.body.insertAdjacentHTML("beforeend",
-        '<div id="'+id+'"><div class="box"><div class="lk">'+icon+'</div><h3>'+title+'</h3><p>'+html+'</p><button class="go">Got it</button></div></div>');
+        '<div id="'+id+'"><div class="box"><button class="pop-x" aria-label="Close">&times;</button><div class="lk">'+icon+'</div><h3>'+title+'</h3><p>'+html+'</p><button class="go">Got it</button></div></div>');
       var el=document.getElementById(id);
-      el.querySelector(".go").onclick=function(){ el.remove(); if(onClose) onClose(); };
+      var close=function(){ el.remove(); if(onClose) onClose(); };
+      el.querySelector(".go").onclick=close;
+      el.querySelector(".pop-x").onclick=close;
     }
     var MISSED_MSGS=[
       {icon:"&#128683;",title:"Missed hours yesterday",txt:function(){return "You didn’t complete your required <b>"+reqFor(YDAY)+" hours</b> yesterday ("+fmtDate(YDAY)+") — you punched out early. Please note <b>yesterday has been marked as Absent</b>.";}},
