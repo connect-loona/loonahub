@@ -3049,9 +3049,6 @@
     #pend-pop .go{width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#1a0f08;border:none;border-radius:12px;padding:11px;font-weight:600;cursor:pointer;font-size:14px}
 
   </style>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="app.js"></script>
   <style></style>
   <script>
     if ('serviceWorker' in navigator) {
@@ -3061,6 +3058,15 @@
 </head>
 
 <body>
+
+  <!-- Boot splash: pure inline styles, zero dependency on the stylesheet/scripts below, so
+       something branded is on screen the instant the browser starts painting <body> at all —
+       removed the moment the login screen (or a logged-in session) actually renders. -->
+  <div id="boot-splash" style="position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:linear-gradient(178deg,#ff6d29 0%,#fb5713 16%,#db3d09 30%,#8f2605 46%,#3e0f02 64%,#150602 82%,#070301 100%);font-family:system-ui,-apple-system,sans-serif">
+    <div style="width:34px;height:34px;border-radius:50%;border:3px solid rgba(255,255,255,.25);border-top-color:#fff;animation:boot-spin .8s linear infinite"></div>
+    <div style="color:#fff;font-size:13px;letter-spacing:.04em;opacity:.85">Loading Loona Hub…</div>
+  </div>
+  <style>@keyframes boot-spin{to{transform:rotate(360deg)}}</style>
 
   <!-- =========== LOGIN SCREEN =========== -->
   <div id="login-screen"
@@ -3108,6 +3114,9 @@
       }).join('');
     } catch(e) {}
   })();
+  // Login screen markup above is now fully parsed and in the DOM — safe to drop the splash.
+  var _bootSplash = document.getElementById('boot-splash');
+  if (_bootSplash) _bootSplash.remove();
   </script>
 
   <!-- =========== APP =========== -->
@@ -5056,6 +5065,13 @@
     </div>
   </div><!-- /app -->
 
+  <!-- Firebase SDK + app.js load here (not in <head>) so the login screen and all static
+       markup above paint immediately, without the browser blocking on three network round
+       trips first. Nothing above this point needs them; initFirebase() isn't called until
+       the script block below runs. -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="app.js"></script>
   <script>
     function normName(v) {
       return String(v || '').trim().toLowerCase();
