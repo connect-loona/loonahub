@@ -2749,6 +2749,26 @@
     .lc-card p{font-size:12.5px;color:var(--muted);line-height:1.6;margin:0 0 10px}
     .lc-card p:last-child{margin-bottom:0}
     .lc-card p b{color:var(--text)}
+    .lc-card .lc-note{font-size:11.5px;color:#8a8178;font-style:italic;margin:0 0 12px}
+    .lc-card ul{margin:0 0 4px;padding-left:18px;font-size:12.5px;color:var(--muted);line-height:1.7}
+    .lc-card ul:last-child{margin-bottom:0}
+    .lc-card li{margin-bottom:6px}
+    .lc-card li:last-child{margin-bottom:0}
+    .lc-card li b{color:var(--text)}
+    .lc-yes{color:var(--green,#68e6a6);font-weight:600}
+    .lc-no{color:var(--red,#e05c5c);font-weight:600}
+    /* org chart */
+    .lc-org{display:flex;flex-direction:column;align-items:center;gap:10px;padding:10px 0}
+    .lc-org-node{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 18px;font-size:12.5px;text-align:center;min-width:140px}
+    .lc-org-node b{display:block;color:var(--text);font-size:13px}
+    .lc-org-node span{color:var(--muted);font-size:11px}
+    .lc-org-row{display:flex;flex-wrap:wrap;justify-content:center;gap:14px}
+    .lc-org-branch{display:flex;flex-direction:column;align-items:center;gap:10px}
+    .lc-org-line{width:1px;height:16px;background:var(--border)}
+    .lc-closing{background:linear-gradient(135deg,rgba(255,109,41,.12),rgba(255,109,41,.03));border:1px solid rgba(255,109,41,.35);border-radius:16px;padding:22px 24px;margin-top:20px;text-align:center}
+    .lc-closing p{font-size:13px;color:var(--text);line-height:1.7;margin:0 0 10px}
+    .lc-closing p:last-of-type{margin-bottom:0}
+    .lc-closing .lc-shout{font-weight:800;letter-spacing:.04em;color:var(--accent2);font-size:15px;margin-top:4px}
     /* calendar */
     .att-cal{margin-top:18px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 20px}
     .att-cal .ch{display:flex;align-items:center;justify-content:center;gap:20px;margin-bottom:14px}
@@ -5132,11 +5152,67 @@
           <p>Timely presence, adherence to schedules, and meeting delivery deadlines are essential to every role — repeated delays or absenteeism may be treated as misconduct. Professionalism is expected at all shoots, events, and client interactions at all times; misconduct or inappropriate behaviour with clients or teammates can result in immediate termination.</p>
         </div>
 
+        <div class="lc-card" style="grid-column:1/-1">
+          <div class="lc-card-h"><span class="lc-ic">💬</span><h3>Team Communication Rules</h3></div>
+          <p class="lc-note">Applies to all internal work communication — primarily WhatsApp, plus email and the Hub.</p>
+          <ul>
+            <li>Every work-related message must be <b>replied to properly</b> — no emoji-only responses. <span class="lc-yes">✅ "Working on SC deck, will send by 3 PM."</span> &nbsp; <span class="lc-no">❌ "👌", "Yesss"</span></li>
+            <li>No ghosting, no floating deliverables — every message needs a clear, actionable response.</li>
+            <li>If you have doubts, pick up the phone and call your lead. Don't wait around or delay the task — work cannot be paused just because you're unsure.</li>
+            <li>Ask questions, clarify quickly, and summarise if needed.</li>
+            <li>Acknowledge any new task or feedback within <b>1 working hour</b>.</li>
+          </ul>
+        </div>
+
+        <div class="lc-card">
+          <div class="lc-card-h"><span class="lc-ic">🔁</span><h3>Feedback &amp; Revisions</h3></div>
+          <ul>
+            <li>Feedback loops are a normal part of the process — don't take them personally.</li>
+            <li>Always implement changes after confirming you've understood them. If unclear, ask immediately.</li>
+            <li>Keep it efficient: max <b>2 rounds</b> of internal review before sharing with the client.</li>
+            <li>Revisions are to uphold Loona's quality standards, not to nitpick.</li>
+          </ul>
+        </div>
+
+        <div class="lc-card">
+          <div class="lc-card-h"><span class="lc-ic">🎯</span><h3>Responsibility &amp; Ownership</h3></div>
+          <ul>
+            <li>If you're assigned a task, you own it until it's done, approved, and shared — no hand-offs without context.</li>
+            <li>Don't wait to be reminded. Reminders are not a workflow.</li>
+            <li>If you're blocked or delayed, communicate early — not when the deadline passes.</li>
+          </ul>
+        </div>
+
+        <div class="lc-card" style="grid-column:1/-1">
+          <div class="lc-card-h"><span class="lc-ic">📧</span><h3>External Communication Etiquette</h3></div>
+          <ul>
+            <li>Always use a professional tone and structure in all client-facing communication — email, DMs, or WhatsApp.</li>
+            <li>Never share incomplete work without internal approval or context.</li>
+            <li>Decks, visuals, or pitch work should always be shared as PDFs, unless the client asks for editable versions.</li>
+            <li>Every email must include a subject — it reflects clarity, respect, and urgency.</li>
+          </ul>
+        </div>
+
         <div class="lc-card">
           <div class="lc-card-h"><span class="lc-ic">🧾</span><h3>Reimbursement Form</h3></div>
           <p>Use the official form to submit any expense reimbursement claims.</p>
           <button class="btn btn-primary" onclick="openReimbursementForm()" style="margin-top:4px">Open Reimbursement Form</button>
         </div>
+      </div>
+
+      <div class="section-header">
+        <div class="section-title">Org <span>Chart</span></div>
+      </div>
+      <div class="lc-card" id="lc-org-chart">
+        <p class="lc-note" style="margin-bottom:14px">Reporting structure — confirming with management before this goes live.</p>
+      </div>
+
+      <div class="lc-closing">
+        <p>We now have the clarity, the process, and the direction.</p>
+        <p>What comes next is simple — showing up, owning our roles, and delivering excellence every single day.</p>
+        <p>This is how we protect the culture we've built.</p>
+        <p>This is how we grow — as individuals and as Loona.</p>
+        <p class="lc-shout">LET'S MAKE IT COUNT</p>
       </div>
     </div>
   </div><!-- /app -->
