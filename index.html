@@ -9002,9 +9002,16 @@ Current date: ${today}`;
     /* ---- Stat cards: 2 per row ---- */
     #today-stats,.stats-grid,.stat-grid{grid-template-columns:repeat(2,1fr)!important}
     .stat-card{padding:12px 14px!important}
-    /* ---- Overview columns stack ---- */
-    .ov-toprow{flex-direction:column!important}
-    .ov-toprow .quote-card{width:auto!important;flex:auto!important}
+    /* ---- Overview: Good Morning + Quote side by side, same line ---- */
+    .ov-toprow{flex-direction:row!important;align-items:stretch!important;gap:8px!important}
+    .ov-toprow .today-panel,.ov-toprow .quote-card{width:auto!important;flex:1 1 50%!important;min-width:0!important;padding:12px!important;border-radius:14px!important}
+    .ov-toprow .today-title{font-size:13px!important;gap:6px!important;flex-wrap:wrap!important}
+    .ov-toprow .today-title img{width:22px!important;height:22px!important;margin-right:4px!important}
+    .ov-toprow .today-date{font-size:8.5px!important}
+    .ov-toprow .today-sub{font-size:9.5px!important;line-height:1.3!important}
+    .ov-toprow .quote-text{font-size:10.5px!important;line-height:1.3!important}
+    .ov-toprow .quote-author{font-size:8.5px!important}
+    .ov-toprow .quote-day{font-size:8px!important}
     .att-2col{grid-template-columns:1fr!important}
     .att-leftwrap,.att-rightcol{min-width:0!important}
     .att-leftcol{padding:18px!important}
