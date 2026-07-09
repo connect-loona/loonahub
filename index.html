@@ -9941,9 +9941,59 @@ Current date: ${today}`;
         next);
     }
     function showPendingPopup(name,count,next){
-      popupBox("pend-pop","&#128203;",count+" task"+(count>1?"s":"")+" pending from earlier",
-        "You have <b>"+count+"</b> task"+(count>1?"s":"")+" carried over from previous days. Clear the backlog to stay on track.",
+      popupBox("pend-pop","&#128203;",count+" task"+(count>1?"s":"")+" pending",
+        "You have <b>"+count+"</b> task"+(count>1?"s":"")+" not yet completed. Clear the backlog to stay on track.",
         next);
+    }
+    // ===== Monthly Plan phase check-in (tap "Yes, done" marks the phase complete;
+    // "Not yet" posts a heads-up to the Loona Board instead of nagging silently) =====
+    function showPhaseCheckinPopup(brand,phaseId,question,next){
+      var id="checkin-pop";
+      var old=document.getElementById(id); if(old) old.remove();
+      document.body.insertAdjacentHTML("beforeend",
+        '<div id="'+id+'" style="position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:99999">'+
+          '<div class="box" style="background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:28px;width:370px;max-width:90vw;text-align:center;position:relative">'+
+            '<button class="pop-x" aria-label="Close">&times;</button>'+
+            '<div style="font-size:30px">&#128203;</div>'+
+            '<h3 style="color:var(--text);margin:8px 0 6px;font-size:17px;line-height:1.35">'+esc(question)+'</h3>'+
+            '<p style="color:var(--muted);font-size:12px;margin-bottom:18px">'+esc(brand)+' &middot; this phase\'s window has closed</p>'+
+            '<div style="display:flex;gap:8px">'+
+              '<button id="checkin-no" style="flex:1;background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);color:#e05c5c;padding:10px;border-radius:10px;font-weight:700;cursor:pointer;font-family:var(--font);font-size:13px">Not yet</button>'+
+              '<button id="checkin-yes" style="flex:1;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0d0d0d;border:none;padding:10px;border-radius:10px;font-weight:700;cursor:pointer;font-family:var(--font);font-size:13px">Yes, done &#10003;</button>'+
+            '</div>'+
+          '</div>'+
+        '</div>');
+      var el=document.getElementById(id);
+      var close=function(){ el.remove(); if(next) next(); };
+      el.querySelector(".pop-x").onclick=close;
+      el.querySelector("#checkin-yes").onclick=function(){
+        setBrandPhaseStatus(brand,phaseId,"Completed");
+        if(typeof activePlanBrand!=="undefined" && activePlanBrand===brand && typeof renderMonthlyContent==="function") renderMonthlyContent();
+        close();
+      };
+      el.querySelector("#checkin-no").onclick=function(){
+        fbAddAnnouncement({ id: Date.now(), text: question+" — "+currentUser+" flagged it as not finished yet.", author: currentUser, timestamp: new Date().toISOString(), emoji: "⏰" });
+        close();
+      };
+    }
+    // Checks each active brand this person leads (strategy / design / video) for a phase whose
+    // window has passed without being marked Completed, and queues a check-in popup for each.
+    function checkBrandRoleReminders(name,q){
+      if(typeof BRANDS_ALLOC==="undefined"||typeof MONTHLY_PHASES==="undefined") return;
+      var dayOfMonth=new Date().getDate();
+      var hasRole=function(field,val){ return String(field||"").split(",").some(function(x){ return normName(x.trim())===normName(val); }); };
+      var strategyPhase=MONTHLY_PHASES[0], designVideoPhase=MONTHLY_PHASES[1];
+      BRANDS_ALLOC.filter(function(b){ return b && !b.inactive && b.on_monthly_plan!==false; }).forEach(function(b){
+        if(hasRole(b.strategy,name) && dayOfMonth>strategyPhase.end && getBrandPhaseStatus(b.brand,strategyPhase.id)!=="Completed"){
+          q.push(function(next){ showPhaseCheckinPopup(b.brand,strategyPhase.id,"Have you finished the strategy plan for "+b.brand+"?",next); });
+        }
+        if(b.design_lead && normName(b.design_lead)===normName(name) && dayOfMonth>designVideoPhase.end && getBrandPhaseStatus(b.brand,designVideoPhase.id)!=="Completed"){
+          q.push(function(next){ showPhaseCheckinPopup(b.brand,designVideoPhase.id,"Have you finished all creatives for "+b.brand+"?",next); });
+        }
+        if(b.video_lead && normName(b.video_lead)===normName(name) && dayOfMonth>designVideoPhase.end && getBrandPhaseStatus(b.brand,designVideoPhase.id)!=="Completed"){
+          q.push(function(next){ showPhaseCheckinPopup(b.brand,designVideoPhase.id,"Have you finished all videos for "+b.brand+"?",next); });
+        }
+      });
     }
     // ===== Daily task-count reminders (3 slots/day) =====
     var TASK_REMIND_TIMES=[[11,30],[13,30],[16,30],[17,0]]; // 11:30 am, 1:30 pm, 4:30 pm, 5:00 pm
@@ -9999,8 +10049,9 @@ Current date: ${today}`;
     function runPopups(name){
       var a=ATT[name]||{}; var q=[];
       var today=new Date().toISOString().slice(0,10);
-      var pend=(typeof TASKS!=="undefined"&&TASKS?TASKS:[]).filter(function(t){return t&&normName(t.member)===normName(name)&&["Not Started","In Progress"].indexOf(t.status)>=0&&t.due_date&&t.due_date<today;});
+      var pend=(typeof TASKS!=="undefined"&&TASKS?TASKS:[]).filter(function(t){return t&&normName(t.member)===normName(name)&&["Not Started","In Progress"].indexOf(t.status)>=0;});
       if(pend.length) q.push(function(next){ showPendingPopup(name,pend.length,next); });
+      checkBrandRoleReminders(name,q);
       var missed = a.missedYesterday || (LIVEDAYS[name]&&LIVEDAYS[name][YDAY]&&LIVEDAYS[name][YDAY].status==="absent");
       if(missed){
         var mst=missedState(name);
