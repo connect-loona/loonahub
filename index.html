@@ -136,6 +136,23 @@
       margin-left: 5px;
     }
 
+    .member-pill .pill-info {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+
+    .member-pill .pill-name {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .member-pill .pill-role {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
     /* ── NAV ── */
     .topbar {
       display: flex;
@@ -3073,9 +3090,9 @@
         var role  = m.role  || '';
         return '<button class="member-pill" onclick="login(\'' + m.name.replace(/'/g,"\\'") + '\')" style="border-color:' + color + '40">'
           + avatarHtml
-          + '<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
-          + '<div style="font-weight:600;font-size:14px">' + m.name + '</div>'
-          + '<div style="font-size:11px;color:var(--muted)">' + role + '</div>'
+          + '<div class="pill-info">'
+          + '<div class="pill-name">' + m.name + '</div>'
+          + '<div class="pill-role">' + role + '</div>'
           + '</div></button>';
       }).join('');
     } catch(e) {}
@@ -7591,7 +7608,7 @@
       picker.innerHTML = ALL_MEMBERS.filter(n => !INACTIVE_MEMBERS.has(n)).map(n => {
         const info = MEMBER_INFO[n] || { emoji: '👤', color: '#888', role: '' };
         const avatarHtml = info.avatar ? `<img class="pill-avatar" src="${info.avatar}">` : `<span class="pill-emoji">${info.emoji}</span>`;
-        return `<button class="member-pill" onclick="login('${n}')" style="border-color:${info.color}40">${avatarHtml}<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><div style="font-weight:600;font-size:14px">${n}</div><div style="font-size:11px;color:var(--muted)">${info.role}</div></div></button>`;
+        return `<button class="member-pill" onclick="login('${n}')" style="border-color:${info.color}40">${avatarHtml}<div class="pill-info"><div class="pill-name">${n}</div><div class="pill-role">${info.role}</div></div></button>`;
       }).join('');
     }
 
@@ -8994,8 +9011,13 @@ Current date: ${today}`;
     #member-tabs,.member-tabs,.m-tabs{overflow-x:auto;flex-wrap:nowrap!important;-webkit-overflow-scrolling:touch}
     .task-filters,.filters{flex-wrap:wrap!important;gap:8px!important}
     .task-filters select,.filters select,.task-filters input{flex:1 1 45%!important;min-width:0!important}
-    /* ---- Login ---- */
-    #member-picker{grid-template-columns:repeat(2,1fr)!important;gap:10px!important}
+    /* ---- Login: 2 pills per row, shrunk enough that names/roles don't get cut ---- */
+    #member-picker{grid-template-columns:repeat(2,1fr)!important;gap:8px!important}
+    .member-pill{padding:10px 12px!important;gap:8px!important;border-radius:16px!important}
+    .member-pill .pill-avatar,.member-pill .pill-emoji{width:34px!important;height:34px!important;font-size:20px!important}
+    .member-pill .pill-info{white-space:normal!important;overflow:visible!important;text-overflow:clip!important}
+    .member-pill .pill-name{font-size:12.5px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+    .member-pill .pill-role{font-size:10px!important;line-height:1.25!important}
     .login-logo-brand{width:150px!important;margin-bottom:26px!important}
     .login-tagline{font-size:15px!important}
     /* ---- Task Board table -> stacked cards ---- */
@@ -9018,7 +9040,6 @@ Current date: ${today}`;
     #today-stats,.stats-grid,.stat-grid{grid-template-columns:repeat(2,1fr)!important}
     .today-title{font-size:20px!important}
     .att-leftcol .clock{font-size:34px!important}
-    #member-picker{grid-template-columns:1fr!important}
   }
   </style>
   <style id="approval-extra-css">
