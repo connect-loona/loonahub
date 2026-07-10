@@ -2,7 +2,7 @@
 // basic offline fallback. Deliberately network-first for the app shell: this
 // dashboard changes often and pulls live data, so we never want someone stuck
 // looking at a stale cached version while thinking it's up to date.
-const CACHE = 'loona-hub-v3';
+const CACHE = 'loona-hub-v4';
 const APP_SHELL = ['/', '/manifest.json', '/icons/icon-192-v2.png', '/icons/icon-512-v2.png'];
 
 self.addEventListener('install', (event) => {
@@ -20,6 +20,11 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return; // don't intercept Firebase/API writes
+  // Never intercept the top-level page navigation — a service worker handing back the
+  // response (even one that mirrors a 401) stops the browser from showing its native
+  // Basic Auth username/password prompt. Letting navigations go straight to the network
+  // keeps that prompt working; the cache below still covers icons/manifest for offline use.
+  if (req.mode === 'navigate') return;
 
   event.respondWith(
     fetch(req)
