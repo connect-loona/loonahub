@@ -15,7 +15,7 @@ exports.handler = async (event, context) => {
     return { statusCode: 405, body: 'Method not allowed' };
   }
 
-  const { transcript, members, brands, today } = JSON.parse(event.body);
+  const { transcript, members, brands } = JSON.parse(event.body);
   const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
 
   const headers = {
@@ -33,7 +33,12 @@ exports.handler = async (event, context) => {
 
   const memberList = Array.isArray(members) ? members.join(', ') : '';
   const brandList = Array.isArray(brands) ? brands.join(', ') : '';
-  const todayStr = today || new Date().toISOString().slice(0, 10);
+  // IST, with the weekday name included explicitly — resolving "by Friday" requires knowing
+  // today's day-of-week first, and that extra derivation step is where models tend to slip
+  // by a day.
+  const istDate = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+  const todayStr = istDate.toISOString().slice(0, 10);
+  const todayWeekday = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][istDate.getUTCDay()];
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -46,7 +51,7 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
         max_tokens: 1200,
-        system: `You extract discrete, actionable tasks from a spoken or typed note for a creative agency. Today's date is ${todayStr}. Known team members: ${memberList || '(none provided)'}. Known brand/client names: ${brandList || '(none provided)'}.
+        system: `You extract discrete, actionable tasks from a spoken or typed note for a creative agency. Today is ${todayWeekday}, ${todayStr} (India Standard Time) — double-check your day-of-week arithmetic before resolving a relative date. Known team members: ${memberList || '(none provided)'}. Known brand/client names: ${brandList || '(none provided)'}.
 
 For each distinct task mentioned, output an object with:
 - "task": a clear, specific description of the action to take (rewrite for clarity, keep it short)

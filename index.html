@@ -3833,9 +3833,9 @@
             <div class="ln-timer" id="rt-rec-status">00:00</div>
             <button class="ln-rec-btn" id="rt-rec-btn" onclick="rtToggleRecording()"><span class="ln-rec-dot"></span><span id="rt-rec-btn-label">Start Recording</span></button>
             <div class="ln-rec-status-line" id="rt-rec-status-line" style="display:none"></div>
-            <div class="ln-transcript-box" id="rt-live-transcript"></div>
+            <div class="ln-transcript-box" id="rt-live-transcript" style="display:none">🎙️ Recording — audio only. Sarvam will transcribe it once you stop.</div>
             <textarea class="ln-manual-transcript" id="rt-manual-transcript" style="display:none" placeholder="Type or paste tasks here… e.g. Ricky needs to finish the Shookra moodboard by Friday"></textarea>
-            <div class="ln-sr-note" id="rt-sr-unsupported-note" style="display:none">Live in-browser transcription needs Chrome or Edge. Type or paste your tasks above instead, then extract tasks.</div>
+            <div class="ln-sr-note" id="rt-sr-unsupported-note" style="display:none">Audio recording isn't supported in this browser. Type or paste your tasks above instead, then extract tasks.</div>
             <button class="ln-manual-toggle" id="rt-manual-toggle" onclick="rtToggleManualEntry()" style="display:none">✎ Type tasks manually instead</button>
           </div>
           <div class="modal-actions">
@@ -8863,14 +8863,15 @@
       if (btn) btn.classList.remove('recording');
     }
 
-    // ═══ RECORD TASK: voice → transcribe → extract multiple tasks → prefilled add rows ═══
-    let rtRecognition = null;
+    // ═══ RECORD TASK: voice (MediaRecorder + Sarvam) → transcribe → extract multiple tasks → prefilled add rows ═══
     let rtRecording = false;
-    let rtFinalTranscript = '';
-    let rtInterimTranscript = '';
+    let rtStream = null;
+    let rtMediaRecorder = null;
+    let rtAudioChunks = [];
+    let rtMimeType = '';
+    let rtWakeLock = null;
     let rtRecordStartTime = null;
     let rtTimerInterval = null;
-    let rtConsecutiveErrors = 0;
     window._rtPendingTasks = [];
 
     function rtSetStatusLine(msg) {
@@ -8884,18 +8885,15 @@
       document.getElementById('record-task-modal').classList.remove('hidden');
       document.getElementById('rt-view-record').style.display = 'block';
       document.getElementById('rt-view-result').style.display = 'none';
-      rtFinalTranscript = '';
-      rtInterimTranscript = '';
-      rtConsecutiveErrors = 0;
-      document.getElementById('rt-live-transcript').innerHTML = '';
+      document.getElementById('rt-live-transcript').style.display = 'none';
       document.getElementById('rt-manual-transcript').value = '';
       document.getElementById('rt-rec-status').textContent = '00:00';
       document.getElementById('rt-rec-btn-label').textContent = 'Start Recording';
       document.getElementById('rt-rec-btn').classList.remove('recording');
+      rtAudioChunks = [];
+      rtRecording = false;
       rtSetStatusLine('');
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const supported = !!SR;
-      document.getElementById('rt-live-transcript').style.display = supported ? 'block' : 'none';
+      const supported = lnRecordingSupported();
       document.getElementById('rt-manual-transcript').style.display = supported ? 'none' : 'block';
       document.getElementById('rt-rec-btn').style.display = supported ? 'flex' : 'none';
       document.getElementById('rt-sr-unsupported-note').style.display = supported ? 'none' : 'block';
@@ -8905,7 +8903,7 @@
     }
 
     function closeRecordTask() {
-      rtStopRecording();
+      if (rtRecording) rtStopRecording();
       document.getElementById('record-task-modal').classList.add('hidden');
     }
 
@@ -8926,58 +8924,39 @@
       if (rtRecording) rtStopRecording(); else rtBeginRecording();
     }
 
-    function rtBeginRecording() {
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SR) return;
+    async function rtBeginRecording() {
       rtSetStatusLine('');
-      rtConsecutiveErrors = 0;
-      rtRecognition = new SR();
-      rtRecognition.continuous = true;
-      rtRecognition.interimResults = true;
-      rtRecognition.lang = 'en-US';
-      rtRecognition.onresult = (e) => {
-        rtConsecutiveErrors = 0;
-        let interim = '', final = '';
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-          const piece = e.results[i][0].transcript;
-          if (e.results[i].isFinal) final += piece + ' ';
-          else interim += piece;
-        }
-        if (final) rtFinalTranscript += final;
-        rtInterimTranscript = interim;
-        rtRenderTranscript();
-      };
-      rtRecognition.onerror = (e) => {
-        if (e.error === 'no-speech' || e.error === 'aborted') return;
-        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-          rtSetStatusLine('⚠️ Microphone access was blocked. Allow microphone access, or type the tasks manually below.');
-          rtStopRecording();
-          return;
-        }
-        rtConsecutiveErrors++;
-        const reasons = {
-          'network': 'a network issue reaching the speech recognition service',
-          'audio-capture': 'no microphone could be found',
-          'language-not-supported': 'this browser’s speech engine doesn’t support the selected language'
-        };
-        const why = reasons[e.error] || `an error (${e.error})`;
-        if (rtConsecutiveErrors >= 3) {
-          rtSetStatusLine(`⚠️ Live transcription isn't working (${why}). Type or paste the tasks manually below instead.`);
-          rtStopRecording();
-        }
-      };
-      rtRecognition.onend = () => {
-        if (rtRecording) { try { rtRecognition.start(); } catch (e) {} }
-      };
-      try { rtRecognition.start(); } catch (e) {
-        rtSetStatusLine('⚠️ Couldn’t start live transcription. Type or paste the tasks manually below instead.');
+      if (!lnRecordingSupported()) {
+        rtSetStatusLine('⚠️ Audio recording isn’t supported in this browser. Type or paste the tasks manually below instead.');
         return;
       }
+      try {
+        rtStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (e) {
+        rtSetStatusLine('⚠️ Microphone access was blocked. Allow microphone access, or type the tasks manually below.');
+        return;
+      }
+      rtMimeType = lnPickMimeType();
+      rtAudioChunks = [];
+      try {
+        rtMediaRecorder = rtMimeType ? new MediaRecorder(rtStream, { mimeType: rtMimeType }) : new MediaRecorder(rtStream);
+      } catch (e) {
+        rtSetStatusLine('⚠️ Couldn’t start recording on this device. Type or paste the tasks manually below instead.');
+        rtStream.getTracks().forEach(t => t.stop());
+        rtStream = null;
+        return;
+      }
+      rtMediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) rtAudioChunks.push(e.data); };
+      rtMediaRecorder.start();
       rtRecording = true;
       rtRecordStartTime = Date.now();
       document.getElementById('rt-rec-btn-label').textContent = 'Stop Recording';
       document.getElementById('rt-rec-btn').classList.add('recording');
+      document.getElementById('rt-live-transcript').style.display = 'block';
       rtTimerInterval = setInterval(rtUpdateTimer, 1000);
+      if (navigator.wakeLock) {
+        try { rtWakeLock = await navigator.wakeLock.request('screen'); } catch (e) { rtWakeLock = null; }
+      }
     }
 
     function rtUpdateTimer() {
@@ -8987,42 +8966,60 @@
       document.getElementById('rt-rec-status').textContent = `${m}:${s}`;
     }
 
-    function rtRenderTranscript() {
-      const el = document.getElementById('rt-live-transcript');
-      el.innerHTML = lnEsc(rtFinalTranscript) + '<span style="opacity:.5">' + lnEsc(rtInterimTranscript) + '</span>';
-      el.scrollTop = el.scrollHeight;
+    function rtStopRecording() {
+      return new Promise(resolve => {
+        rtRecording = false;
+        clearInterval(rtTimerInterval);
+        const btn = document.getElementById('rt-rec-btn-label');
+        if (btn) btn.textContent = 'Start Recording';
+        const recBtn = document.getElementById('rt-rec-btn');
+        if (recBtn) recBtn.classList.remove('recording');
+        document.getElementById('rt-live-transcript').style.display = 'none';
+        if (rtWakeLock) { rtWakeLock.release().catch(() => {}); rtWakeLock = null; }
+        const finish = () => {
+          if (rtStream) { rtStream.getTracks().forEach(t => t.stop()); rtStream = null; }
+          resolve();
+        };
+        if (rtMediaRecorder && rtMediaRecorder.state !== 'inactive') {
+          rtMediaRecorder.onstop = finish;
+          try { rtMediaRecorder.stop(); } catch (e) { finish(); }
+        } else {
+          finish();
+        }
+      });
     }
 
-    function rtStopRecording() {
-      rtRecording = false;
-      if (rtRecognition) { try { rtRecognition.stop(); } catch (e) {} }
-      clearInterval(rtTimerInterval);
-      const btn = document.getElementById('rt-rec-btn-label');
-      if (btn) btn.textContent = 'Start Recording';
-      const recBtn = document.getElementById('rt-rec-btn');
-      if (recBtn) recBtn.classList.remove('recording');
+    function rtSetProcessingStage(msg) {
+      const el = document.getElementById('rt-result-loading');
+      if (el) el.innerHTML = `<div class="ln-spinner"></div>${lnEsc(msg)}`;
     }
 
     async function rtExtractTasks() {
-      if (rtRecording) rtStopRecording();
+      if (rtRecording) await rtStopRecording();
       const manualText = document.getElementById('rt-manual-transcript').value.trim();
-      const liveText = rtFinalTranscript.trim();
-      const transcript = manualText || liveText;
-      if (!transcript) { alert('No transcript captured yet. Record some audio or type/paste the tasks first.'); return; }
-      window._rtTranscript = transcript;
+      const hasAudio = rtAudioChunks.length > 0;
+      if (!manualText && !hasAudio) { alert('No recording or transcript yet. Record some audio or type/paste the tasks first.'); return; }
       document.getElementById('rt-view-record').style.display = 'none';
       document.getElementById('rt-view-result').style.display = 'block';
       document.getElementById('rt-result-loading').style.display = 'flex';
       document.getElementById('rt-result-content').style.display = 'none';
+      rtSetProcessingStage(manualText ? 'Extracting tasks…' : 'Uploading audio…');
       try {
-        const resp = await fetch('/.netlify/functions/tasks-extract', {
+        let transcript = manualText;
+        if (!transcript) {
+          const blob = new Blob(rtAudioChunks, { type: lnBaseMimeType(rtMimeType) || 'audio/webm' });
+          transcript = await lnTranscribeAudio(blob, rtMimeType, rtSetProcessingStage);
+          if (!transcript || !transcript.trim()) throw new Error('Transcription came back empty. Try again or type the tasks manually.');
+        }
+        window._rtTranscript = transcript;
+        rtSetProcessingStage('Extracting tasks…');
+        const resp = await lnFetchStage('Extracting tasks', '/.netlify/functions/tasks-extract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             transcript,
             members: ALL_MEMBERS.filter(m => !INACTIVE_MEMBERS.has(m)),
-            brands: BRANDS_ALLOC.map(b => b.brand),
-            today: new Date().toISOString().slice(0, 10)
+            brands: BRANDS_ALLOC.map(b => b.brand)
           })
         });
         const data = await resp.json();
@@ -9629,9 +9626,15 @@
       }
     }
 
-    async function lnTranscribeAudio(blob) {
-      lnSetProcessingStage('Uploading audio…');
-      const ext = lnMimeToExt(lnMimeType);
+    // Shared Sarvam recording→transcript pipeline, used by both Loona Notes and the quick
+    // Record Task modal. mimeType/onStage are parameterized so callers don't have to reach
+    // into each other's recording state — pass the mimeType from whichever MediaRecorder
+    // instance captured the audio, and a stage-callback for wherever that caller shows
+    // progress (defaults to Loona Notes' own progress box).
+    async function lnTranscribeAudio(blob, mimeType, onStage) {
+      onStage = onStage || lnSetProcessingStage;
+      onStage('Uploading audio…');
+      const ext = lnMimeToExt(mimeType);
       const createResp = await lnFetchStage('Creating transcription job', '/.netlify/functions/sarvam-create-job', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fileExt: ext })
       });
@@ -9642,7 +9645,7 @@
       // Azure Blob's presigned upload URL doesn't have CORS enabled for browser origins,
       // so this goes through our own same-origin proxy instead of PUTting to it directly.
       const proxyUrl = '/api/sarvam-upload-proxy?url=' + encodeURIComponent(uploadUrl);
-      const putResp = await lnFetchStage('Uploading audio to Sarvam', proxyUrl, { method: 'PUT', headers: { 'Content-Type': lnBaseMimeType(lnMimeType) || 'application/octet-stream' }, body: blob });
+      const putResp = await lnFetchStage('Uploading audio to Sarvam', proxyUrl, { method: 'PUT', headers: { 'Content-Type': lnBaseMimeType(mimeType) || 'application/octet-stream' }, body: blob });
       if (!putResp.ok) throw new Error(`Failed to upload audio for transcription (HTTP ${putResp.status})`);
 
       const startResp = await lnFetchStage('Starting transcription job', '/.netlify/functions/sarvam-start-job', {
@@ -9651,7 +9654,7 @@
       const startData = await startResp.json();
       if (!startResp.ok) throw new Error(startData.error || 'Failed to start transcription');
 
-      lnSetProcessingStage('Transcribing audio… this can take a few minutes');
+      onStage('Transcribing audio… this can take a few minutes');
       await lnPollJobStatus(jobId);
 
       const resultResp = await lnFetchStage('Fetching transcript', '/.netlify/functions/sarvam-job-result', {
@@ -9679,7 +9682,7 @@
         let transcript = manualText;
         if (!transcript) {
           const blob = new Blob(lnAudioChunks, { type: lnBaseMimeType(lnMimeType) || 'audio/webm' });
-          transcript = await lnTranscribeAudio(blob);
+          transcript = await lnTranscribeAudio(blob, lnMimeType);
           if (!transcript || !transcript.trim()) throw new Error('Transcription came back empty. Try again or type the transcript manually.');
         }
         lnSetProcessingStage('Generating notes…');
