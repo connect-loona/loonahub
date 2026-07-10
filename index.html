@@ -9587,7 +9587,7 @@
       const started = Date.now();
       const TIMEOUT_MS = 10 * 60 * 1000;
       while (Date.now() - started < TIMEOUT_MS) {
-        const resp = await fetch('/.netlify/functions/sarvam-job-status', {
+        const resp = await lnFetchStage('Checking transcription status', '/.netlify/functions/sarvam-job-status', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobId })
         });
         const data = await resp.json();
@@ -9599,20 +9599,30 @@
       throw new Error('Transcription is taking longer than expected. Please try again shortly.');
     }
 
+    async function lnFetchStage(label, url, opts) {
+      try {
+        return await fetch(url, opts);
+      } catch (e) {
+        let host = url;
+        try { host = new URL(url, location.href).host; } catch (e2) {}
+        throw new Error(`${label}: ${e.message} (couldn't reach ${host} — network issue or blocked request)`);
+      }
+    }
+
     async function lnTranscribeAudio(blob) {
       lnSetProcessingStage('Uploading audio…');
       const ext = lnMimeToExt(lnMimeType);
-      const createResp = await fetch('/.netlify/functions/sarvam-create-job', {
+      const createResp = await lnFetchStage('Creating transcription job', '/.netlify/functions/sarvam-create-job', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fileExt: ext })
       });
       const createData = await createResp.json();
       if (!createResp.ok) throw new Error(createData.error || 'Failed to start transcription job');
       const { jobId, uploadUrl } = createData;
 
-      const putResp = await fetch(uploadUrl, { method: 'PUT', headers: { 'x-ms-blob-type': 'BlockBlob' }, body: blob });
-      if (!putResp.ok) throw new Error('Failed to upload audio for transcription');
+      const putResp = await lnFetchStage('Uploading audio to Sarvam', uploadUrl, { method: 'PUT', headers: { 'x-ms-blob-type': 'BlockBlob' }, body: blob });
+      if (!putResp.ok) throw new Error(`Failed to upload audio for transcription (HTTP ${putResp.status})`);
 
-      const startResp = await fetch('/.netlify/functions/sarvam-start-job', {
+      const startResp = await lnFetchStage('Starting transcription job', '/.netlify/functions/sarvam-start-job', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobId })
       });
       const startData = await startResp.json();
@@ -9621,7 +9631,7 @@
       lnSetProcessingStage('Transcribing audio… this can take a few minutes');
       await lnPollJobStatus(jobId);
 
-      const resultResp = await fetch('/.netlify/functions/sarvam-job-result', {
+      const resultResp = await lnFetchStage('Fetching transcript', '/.netlify/functions/sarvam-job-result', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobId })
       });
       const resultData = await resultResp.json();
@@ -9650,7 +9660,7 @@
           if (!transcript || !transcript.trim()) throw new Error('Transcription came back empty. Try again or type the transcript manually.');
         }
         lnSetProcessingStage('Generating notes…');
-        const resp = await fetch('/.netlify/functions/notes-summarize', {
+        const resp = await lnFetchStage('Generating notes', '/.netlify/functions/notes-summarize', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ transcript, title })
