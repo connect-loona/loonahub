@@ -8849,7 +8849,7 @@
       const mEmoji = m => (MEMBER_INFO[m] || {}).emoji || '👤';
 
       const overdue = TASKS.filter(t => {
-        if (t.status === 'Completed' || t.status === 'Deferred') return false;
+        if (RESOLVED_TASK_STATUSES.includes(t.status)) return false;
         const pastDue = t.due_date && t.due_date < today;
         const notDone = t.status === 'In Progress' || t.status === 'Not Started' || t.status === '';
         return pastDue || notDone;
@@ -8903,8 +8903,8 @@
           <span class="ov-tag" style="background:rgba(224,92,92,.12);color:#e05c5c">${daysLabel}</span>
           <span class="ov-brand" style="background:rgba(200,169,110,.08);color:var(--accent)">${t.brand || '—'}</span>
           <div class="ov-row-top-right">
-            <select class="ov-select" onchange="updateStatus(${idx},this.value);renderOverviewOverdue();renderOverdue();">
-              ${['Not Started', 'In Progress', 'Completed', 'Deferred'].map(s => `<option${t.status === s ? ' selected' : ''}>${s}</option>`).join('')}
+            <select class="ov-select" onchange="updateStatus(${idx},this.value)">
+              ${['Not Started', 'In Progress', 'Changes Required', 'Client Approval', 'Completed', 'Deferred', 'Awaiting Approval', 'Awaiting Deferral', 'Approval Declined'].map(s => `<option${t.status === s ? ' selected' : ''}>${s}</option>`).join('')}
             </select>
           </div>
         </div>
@@ -9213,14 +9213,17 @@
     }
 
     // ═══ OVERDUE / CARRY-OVER TASKS ═══
+    // Statuses where the task has moved out of the assignee's hands — no longer "pending"
+    // action from them, so it shouldn't clutter overdue/carry-over lists even past its due date.
+    const RESOLVED_TASK_STATUSES = ['Completed', 'Deferred', 'Client Approval', 'Awaiting Approval', 'Awaiting Deferral'];
     function renderOverdue() {
       const today = new Date().toISOString().slice(0, 10);
       const mColor = m => (MEMBER_INFO[m] || {}).color || '#888';
 
-      // Tasks that: have a due_date before today, not completed, not deferred
+      // Tasks that: have a due_date before today, and are still actionable by the assignee
       const overdue = TASKS.filter(t => {
         if (!t.due_date) return false;
-        if (t.status === 'Completed' || t.status === 'Deferred') return false;
+        if (RESOLVED_TASK_STATUSES.includes(t.status)) return false;
         return t.due_date < today;
       }).sort((a, b) => a.due_date.localeCompare(b.due_date)); // oldest first
 
@@ -9246,9 +9249,7 @@
       <td style="color:var(--muted);font-size:12px">${t.assigned_by || '—'}</td>
       <td>${pBadge(t.priority)}</td>
       <td>
-        <select onchange="updateStatus(${taskIdx},this.value);renderOverdue();renderTasks();" style="background:var(--surface2);border:1px solid rgba(224,92,92,.3);color:var(--text);padding:4px 8px;border-radius:6px;font-size:12px;cursor:pointer">
-          ${['Not Started', 'In Progress', 'Completed', 'Deferred'].map(s => `<option${t.status === s ? ' selected' : ''}>${s}</option>`).join('')}
-        </select>
+        ${statusSelectHTML(t, taskIdx)}
       </td>
       <td><span class="days-ago">${daysLabel}</span></td>
     </tr>`;
