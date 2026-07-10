@@ -9755,6 +9755,7 @@
         assignedBy.toLowerCase() !== 'myself' &&
         assignedBy.toLowerCase() !== 'me' &&
         normName(assignedBy) !== normName(currentUser) &&
+        normName(t.member) === normName(currentUser) &&
         !t.is_personal;
 
       if (needsAssignerApproval) {
