@@ -9745,6 +9745,76 @@
         </div>` : '';
     }
 
+    function lnSlugify(s) {
+      return (String(s || 'meeting').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')) || 'meeting';
+    }
+
+    function lnBuildMOMText(data) {
+      const lines = [];
+      lines.push(`MEETING MINUTES — ${data.title || 'Untitled Meeting'}`);
+      const meta = [lnFmtDate(data.date || new Date().toISOString())];
+      if (data.brand) meta.push(data.brand);
+      if (data.createdBy) meta.push('Recorded by ' + data.createdBy);
+      lines.push(meta.join(' · '));
+      lines.push('');
+      lines.push('SUMMARY');
+      lines.push(data.summary || '—');
+      lines.push('');
+      if (data.clientSafeSummary && data.clientSafeSummary.trim()) {
+        lines.push('CLIENT-SAFE SUMMARY');
+        lines.push(data.clientSafeSummary);
+        lines.push('');
+      }
+      if ((data.decisions || []).length) {
+        lines.push('DECISIONS');
+        data.decisions.forEach(d => lines.push('- ' + d));
+        lines.push('');
+      }
+      lines.push('ACTION ITEMS');
+      if ((data.actionItems || []).length) {
+        data.actionItems.forEach(a => {
+          const due = a.dueDate ? ` (Due: ${a.dueDate})` : '';
+          lines.push(`- ${a.task} — ${a.assignee || 'Unassigned'}${due}`);
+        });
+      } else {
+        lines.push('- None');
+      }
+      lines.push('');
+      if ((data.followUps || []).length) {
+        lines.push('FOLLOW-UPS');
+        data.followUps.forEach(f => lines.push('- ' + f));
+        lines.push('');
+      }
+      lines.push('FULL TRANSCRIPT');
+      lines.push(data.transcript || '—');
+      return lines.join('\n');
+    }
+
+    function lnTriggerTextDownload(filename, text) {
+      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function lnDownloadPendingMOM() {
+      const p = window._lnPending;
+      if (!p) return;
+      const text = lnBuildMOMText(Object.assign({}, p, { date: new Date().toISOString(), createdBy: currentUser || '' }));
+      lnTriggerTextDownload(`MOM-${lnSlugify(p.title)}.txt`, text);
+    }
+
+    function lnDownloadNoteMOM() {
+      const note = window._lnDetailNote;
+      if (!note) return;
+      lnTriggerTextDownload(`MOM-${lnSlugify(note.title)}.txt`, lnBuildMOMText(note));
+    }
+
     function lnRenderResult(p) {
       document.getElementById('ln-result-loading').style.display = 'none';
       const el = document.getElementById('ln-result-content');
@@ -9764,6 +9834,7 @@
           <button class="btn btn-ghost" onclick="lnDiscardResult()">Discard</button>
           ${p.actionItems.length > 1 ? `<button class="btn btn-ghost" onclick="lnAddAllActionItemsToTasks()">+ Push All to Tasks</button>` : ''}
           <button class="btn btn-primary" onclick="lnSaveNote()">Save Note</button>
+          <button class="btn btn-ghost" onclick="lnDownloadPendingMOM()">⬇ Download MOM</button>
         </div>
       `;
     }
@@ -9876,6 +9947,7 @@
         <div class="ln-actions-row">
           <button class="btn btn-ghost" onclick="lnShowView('list')">Back to all notes</button>
           ${(note.actionItems || []).length > 1 ? `<button class="btn btn-ghost" onclick="lnAddAllDetailActionsToTasks()">+ Push All to Tasks</button>` : ''}
+          <button class="btn btn-ghost" onclick="lnDownloadNoteMOM()">⬇ Download MOM</button>
         </div>
       `;
       window._lnDetailNote = note;
