@@ -125,8 +125,19 @@ export default async (request: Request, context: Context) => {
 
 export const config: Config = {
   path: "/*",
-  // Leave the API functions reachable directly: the scheduled ones (petpooja-sync,
-  // brand-of-day) are invoked by Netlify's own cron trigger, not a browser, so they'd
-  // never present a session cookie and would silently stop running if gated here.
-  excludedPath: "/.netlify/functions/*",
+  excludedPath: [
+    // The scheduled functions (petpooja-sync, brand-of-day) are invoked by Netlify's own
+    // cron trigger, not a browser, so they'd never present a session cookie and would
+    // silently stop running if gated here.
+    "/.netlify/functions/*",
+    // Public, non-sensitive static assets — none of these need to be behind the gate, and
+    // some (icons, manifest) actively need to be fetchable unauthenticated: iOS/Android
+    // fetch them directly (no cookies sent) to build the "Add to Home Screen" icon, and a
+    // gated response there is what was showing a generic letter icon instead of the logo.
+    "/manifest.json",
+    "/robots.txt",
+    "/icons/*",
+    "/apple-touch-icon.png",
+    "/apple-touch-icon-precomposed.png",
+  ],
 };
