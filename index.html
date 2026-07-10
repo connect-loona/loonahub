@@ -8255,7 +8255,7 @@
           <td>${(MEMBER_INFO[t.member] || {}).avatar ? `<img src="${MEMBER_INFO[t.member].avatar}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px">` : ''}${t.member || '—'}</td>
           <td onclick="window.showTaskDetail(${TASKS.indexOf(t)})"><div class="task-cell"><span style="font-size:11px;padding:2px 8px;background:rgba(200,169,110,.1);color:var(--accent);border-radius:4px">${t.brand || '—'}</span></div></td>
           <td style="max-width:240px" onclick="window.showTaskDetail(${TASKS.indexOf(t)})"><div class="prio-dot-row"><span class="prio-dot" style="--prio-color:${priorityHeatColor(t.priority, t.status)}"></span><div class="task-cell">${t.task && t.task.length > 52 ? t.task.slice(0, 52) + '…' : (t.task || '—')}</div></div></td>
-          <td>${sBadge(t.status)}</td>
+          <td>${statusSelectHTML(t, TASKS.indexOf(t))}</td>
           <td style="color:var(--muted);font-size:12px;white-space:nowrap">${t.assigned_on || (t.created_at ? fmtStamp(new Date(t.created_at)) : '—')}</td>
           <td style="color:var(--muted);font-size:12px;white-space:nowrap">${t.status_at || '—'}</td>
           <td style="white-space:nowrap"><input type="date" value="${t.due_date || ''}" onchange="updateDueDate(TASKS.indexOf(TASKS.find(x=>x._key===''+t._key)||t),this.value)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px 7px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit"></td>
@@ -9827,6 +9827,19 @@
         'Client Approval': 'client-approval'
       };
       return `<span class="badge ${m[s] || 'not-started'}">${s || 'Not Started'}</span>`;
+    }
+    function statusSelectHTML(t, gi) {
+      const isDone = t.status === 'Completed';
+      const isAwait = t.status === 'Awaiting Approval' || t.status === 'Awaiting Deferral';
+      const isDeclined = t.status === 'Approval Declined';
+      const isDeferred = t.status === 'Deferred';
+      const isChanges = t.status === 'Changes Required';
+      const isClient = t.status === 'Client Approval';
+      const sc = isDone ? '#4caf7d' : isClient ? '#5b9cf6' : isChanges ? '#e0a53a' : isAwait ? '#ed8936' : isDeclined ? '#e05c5c' : isDeferred ? '#9f7aea' : 'var(--text)';
+      const sb = isDone ? 'rgba(76,175,125,.18)' : isClient ? 'rgba(91,156,246,.18)' : isChanges ? 'rgba(224,165,58,.18)' : isAwait ? 'rgba(237,137,54,.18)' : isDeclined ? 'rgba(224,92,92,.18)' : isDeferred ? 'rgba(159,122,234,.18)' : 'var(--surface2)';
+      const sborder = isDone ? 'rgba(76,175,125,.4)' : isClient ? 'rgba(91,156,246,.4)' : isChanges ? 'rgba(224,165,58,.4)' : isAwait ? 'rgba(237,137,54,.4)' : isDeclined ? 'rgba(224,92,92,.4)' : isDeferred ? 'rgba(159,122,234,.4)' : 'var(--border)';
+      const statuses = ['Not Started', 'In Progress', 'Changes Required', 'Client Approval', 'Completed', 'Deferred', 'Awaiting Approval', 'Awaiting Deferral', 'Approval Declined'];
+      return `<select onchange="updateStatus(${gi},this.value)" style="background:${sb};border:1px solid ${sborder};color:${sc};padding:4px 8px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600">${statuses.map(s => `<option value="${s}"${t.status === s ? ' selected' : ''}>${s}</option>`).join('')}</select>`;
     }
     function pBadge(p) {
       const m = { High: 'high', Medium: 'medium', Low: 'low' };
