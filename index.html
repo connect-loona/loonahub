@@ -9541,6 +9541,7 @@
       const liveText = rtFinalTranscript.trim();
       const transcript = manualText || liveText;
       if (!transcript) { alert('No transcript captured yet. Record some audio or type/paste the tasks first.'); return; }
+      window._rtTranscript = transcript;
       document.getElementById('rt-view-record').style.display = 'none';
       document.getElementById('rt-view-result').style.display = 'block';
       document.getElementById('rt-result-loading').style.display = 'flex';
@@ -9558,7 +9559,7 @@
         });
         const data = await resp.json();
         if (!resp.ok) throw new Error(data.error || 'Failed to extract tasks');
-        window._rtPendingTasks = (data.tasks || []).map(t => ({ task: t.task || '', assignee: t.assignee || '', brand: t.brand || '', due_date: t.due_date || '', added: false }));
+        window._rtPendingTasks = (data.tasks || []).map(t => ({ task: t.task || '', assignee: t.assignee || '', brand: t.brand || '', due_date: t.due_date || '', priority: t.priority || 'Medium', added: false }));
         rtRenderResult();
       } catch (e) {
         document.getElementById('rt-result-loading').style.display = 'none';
@@ -9575,16 +9576,25 @@
       return '<option value="">— Select Brand —</option>' + BRANDS_ALLOC.map(b => b.brand).map(b => `<option value="${lnEsc(b)}" ${b === selected ? 'selected' : ''}>${lnEsc(b)}</option>`).join('');
     }
 
+    function rtPriorityOptions(selected) {
+      return ['High', 'Medium', 'Low'].map(p => `<option value="${p}" ${p === selected ? 'selected' : ''}>${p}</option>`).join('');
+    }
+
+    function rtAssignedByOptions(selected) {
+      return ALL_MEMBERS.filter(m => !INACTIVE_MEMBERS.has(m)).map(m => `<option value="${lnEsc(m)}" ${m === selected ? 'selected' : ''}>${m === currentUser ? m + ' (me)' : lnEsc(m)}</option>`).join('');
+    }
+
     function rtRenderResult() {
       document.getElementById('rt-result-loading').style.display = 'none';
       const el = document.getElementById('rt-result-content');
       el.style.display = 'block';
       const tasks = window._rtPendingTasks;
+      const transcriptBox = `<div class="ln-section-label">Transcript</div><div class="rt-transcript-box">${lnEsc(window._rtTranscript || '')}</div>`;
       if (!tasks.length) {
-        el.innerHTML = '<div class="rt-empty">No clear tasks were found in that recording. Try again or add the task manually.</div><div class="modal-actions"><button class="btn btn-ghost" onclick="closeRecordTask()">Close</button><button class="btn btn-primary" onclick="openRecordTask()">Record Again</button></div>';
+        el.innerHTML = transcriptBox + '<div class="rt-empty">No clear tasks were found in that recording. Try again or add the task manually.</div><div class="modal-actions"><button class="btn btn-ghost" onclick="closeRecordTask()">Close</button><button class="btn btn-primary" onclick="openRecordTask()">Record Again</button></div>';
         return;
       }
-      el.innerHTML = `<div id="rt-task-rows">${tasks.map((t, i) => rtTaskRowHTML(t, i)).join('')}</div>
+      el.innerHTML = `${transcriptBox}<div class="ln-section-label">Tasks Found</div><div id="rt-task-rows">${tasks.map((t, i) => rtTaskRowHTML(t, i)).join('')}</div>
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="closeRecordTask()">Done</button>
           <button class="btn btn-primary" onclick="openRecordTask()">Record Again</button>
@@ -9595,11 +9605,15 @@
       return `<div class="rt-task-row" id="rt-task-row-${i}">
         <input type="text" class="rt-task-input" id="rt-task-text-${i}" value="${lnEsc(t.task)}">
         <div class="rt-task-fields">
-          <select id="rt-task-member-${i}">${rtMemberOptions(t.assignee)}</select>
-          <select id="rt-task-brand-${i}">${rtBrandOptions(t.brand)}</select>
-          <input type="date" id="rt-task-due-${i}" value="${lnEsc(t.due_date)}">
-          <button class="rt-task-add" onclick="rtAddTask(${i})">+ Add Task</button>
+          <label class="rt-field-label">Assigned To<select id="rt-task-member-${i}">${rtMemberOptions(t.assignee)}</select></label>
+          <label class="rt-field-label">Brand<select id="rt-task-brand-${i}">${rtBrandOptions(t.brand)}</select></label>
         </div>
+        <div class="rt-task-fields">
+          <label class="rt-field-label">Priority<select id="rt-task-priority-${i}">${rtPriorityOptions(t.priority)}</select></label>
+          <label class="rt-field-label">Due Date<input type="date" id="rt-task-due-${i}" value="${lnEsc(t.due_date)}"></label>
+          <label class="rt-field-label">Assigned By<select id="rt-task-by-${i}">${rtAssignedByOptions(currentUser)}</select></label>
+        </div>
+        <button class="rt-task-add" onclick="rtAddTask(${i})">+ Add Task</button>
       </div>`;
     }
 
@@ -9609,17 +9623,19 @@
       const taskText = document.getElementById('rt-task-text-' + i).value.trim();
       const assignee = document.getElementById('rt-task-member-' + i).value;
       const brand = document.getElementById('rt-task-brand-' + i).value;
+      const priority = document.getElementById('rt-task-priority-' + i).value;
       const due = document.getElementById('rt-task-due-' + i).value;
+      const assignedBy = document.getElementById('rt-task-by-' + i).value;
       if (!taskText) { document.getElementById('rt-task-text-' + i).style.borderColor = 'var(--red)'; return; }
       if (!brand) { document.getElementById('rt-task-brand-' + i).style.borderColor = 'var(--red)'; return; }
       fbAddTask({
         member: assignee || currentUser || '',
         brand,
         task: taskText,
-        priority: 'Medium',
+        priority: priority || 'Medium',
         status: 'Not Started',
         due_date: due || '',
-        assigned_by: currentUser || '',
+        assigned_by: assignedBy || currentUser || '',
         asylum: (MEMBER_INFO[assignee] || {}).role || '',
         isNew: true
       });
@@ -10726,12 +10742,14 @@ Current date: ${today}`;
 @keyframes ntMicPulse{0%,100%{opacity:1}50%{opacity:.55}}
 .nt-mic-note{font-size:11px;color:var(--yellow);margin-top:6px;line-height:1.4}
 .rt-task-row{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px}
-.rt-task-input{width:100%;margin-bottom:8px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;font-family:var(--font)}
-.rt-task-fields{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.rt-task-fields select,.rt-task-fields input[type=date]{flex:1;min-width:100px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 8px;color:var(--text);font-size:12px;font-family:var(--font)}
-.rt-task-add{background:var(--green);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:var(--font)}
+.rt-task-input{width:100%;margin-bottom:10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;font-family:var(--font)}
+.rt-task-fields{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.rt-field-label{flex:1;min-width:100px;font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;display:flex;flex-direction:column;gap:3px}
+.rt-task-fields select,.rt-task-fields input[type=date]{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 8px;color:var(--text);font-size:12px;font-family:var(--font);text-transform:none;font-weight:400;letter-spacing:normal}
+.rt-task-add{background:var(--green);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:var(--font);width:100%}
 .rt-task-add:disabled{opacity:.5;cursor:default}
 .rt-empty{text-align:center;padding:30px 20px;color:var(--muted);font-size:13px}
+.rt-transcript-box{font-size:12px;line-height:1.6;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:16px;max-height:120px;overflow-y:auto;white-space:pre-wrap}
 @media(max-width:820px){
   .rt-task-fields{flex-direction:column;align-items:stretch}
 }
