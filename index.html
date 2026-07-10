@@ -5418,33 +5418,30 @@
           });
           if (Object.keys(updates).length > 0) _db.ref('members').update(updates);
         });
-        // Avatars — synced from their own, separately-fetched node (declared before the members
-        // listener below since it calls this on every fire). Photos are the heavy part of this
-        // data; keeping them out of members/ means new teammates and name changes show up
-        // immediately, while photos fill themselves in a moment later without blocking anything.
-        let _rawMemberAvatars = {};
-        function applyPendingAvatars() {
-          let changed = false;
-          ALL_MEMBERS.forEach(name => {
-            const avatar = _rawMemberAvatars[fbMemberKey(name)];
-            if (avatar && MEMBER_INFO[name] && MEMBER_INFO[name].avatar !== avatar) {
-              MEMBER_INFO[name].avatar = avatar;
-              changed = true;
-            }
+        // Avatars — synced per-member (one Firebase listener per person) instead of one listener
+        // on the whole member_avatars node. That single-listener approach meant Firebase had to
+        // fully download EVERY teammate's photo combined before any of them appeared — on a slow
+        // connection, a single large photo held up everyone else's too. Per-member listeners let
+        // each photo show up the moment its own (much smaller) download finishes.
+        const _avatarListenersAttached = new Set();
+        function attachAvatarListener(name) {
+          if (_avatarListenersAttached.has(name)) return;
+          _avatarListenersAttached.add(name);
+          _db.ref('member_avatars/' + fbMemberKey(name)).on('value', snap => {
+            const avatar = snap.val() || null;
+            if (!MEMBER_INFO[name]) MEMBER_INFO[name] = { color: '#888', emoji: '👤', role: 'Team Member' };
+            if (MEMBER_INFO[name].avatar === avatar) return;
+            MEMBER_INFO[name].avatar = avatar;
+            rebuildLoginPicker();
+            if (currentUser) { updateTopbarAvatar(); renderProfilePanel(); renderTeam(); buildMemberTabs(currentUser); }
+            try {
+              const avatarCache = JSON.parse(localStorage.getItem('loona_avatars') || '{}');
+              if (avatar) avatarCache[name] = avatar; else delete avatarCache[name];
+              localStorage.setItem('loona_avatars', JSON.stringify(avatarCache));
+            } catch(e) {}
           });
-          if (!changed) return;
-          rebuildLoginPicker();
-          if (currentUser) { updateTopbarAvatar(); renderProfilePanel(); renderTeam(); buildMemberTabs(currentUser); }
-          try {
-            const avatarCache = {};
-            ALL_MEMBERS.forEach(n => { if (MEMBER_INFO[n] && MEMBER_INFO[n].avatar) avatarCache[n] = MEMBER_INFO[n].avatar; });
-            localStorage.setItem('loona_avatars', JSON.stringify(avatarCache));
-          } catch(e) {}
         }
-        _db.ref('member_avatars').on('value', snap => {
-          _rawMemberAvatars = snap.val() || {};
-          applyPendingAvatars();
-        });
+        ALL_MEMBERS.forEach(attachAvatarListener);
 
         // Members metadata — kept deliberately small (no photos), so this fires fast even on a
         // slow connection and new members/names show up right away. Avatars sync separately
@@ -5457,6 +5454,7 @@
           fbMembers.forEach(m => {
             const isNew = !ALL_MEMBERS.includes(m.name);
             if (isNew) { ALL_MEMBERS.push(m.name); pickerNeedsRebuild = true; teamNeedsRender = true; }
+            attachAvatarListener(m.name);
             const existing = MEMBER_INFO[m.name] || {};
             MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || null, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null };
             // Older records still carry the avatar inline on this same node — use it right away,
@@ -5468,7 +5466,6 @@
               _db.ref('member_avatars/' + key).set(m.avatar).then(() => _db.ref('members/' + key + '/avatar').remove()).catch(() => {});
             }
           });
-          applyPendingAvatars();
           if (!pickerNeedsRebuild) return; // nothing changed, skip all re-renders
           // Rebuild login picker to reflect new members
           rebuildLoginPicker();
