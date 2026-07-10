@@ -9619,7 +9619,10 @@
       if (!createResp.ok) throw new Error(createData.error || 'Failed to start transcription job');
       const { jobId, uploadUrl } = createData;
 
-      const putResp = await lnFetchStage('Uploading audio to Sarvam', uploadUrl, { method: 'PUT', headers: { 'x-ms-blob-type': 'BlockBlob' }, body: blob });
+      // Azure Blob's presigned upload URL doesn't have CORS enabled for browser origins,
+      // so this goes through our own same-origin proxy instead of PUTting to it directly.
+      const proxyUrl = '/api/sarvam-upload-proxy?url=' + encodeURIComponent(uploadUrl);
+      const putResp = await lnFetchStage('Uploading audio to Sarvam', proxyUrl, { method: 'PUT', headers: { 'Content-Type': lnMimeType || 'application/octet-stream' }, body: blob });
       if (!putResp.ok) throw new Error(`Failed to upload audio for transcription (HTTP ${putResp.status})`);
 
       const startResp = await lnFetchStage('Starting transcription job', '/.netlify/functions/sarvam-start-job', {
