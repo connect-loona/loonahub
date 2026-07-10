@@ -106,7 +106,7 @@ export default async (request: Request, context: Context) => {
         status: 302,
         headers: {
           Location: redirectTo || "/",
-          "Set-Cookie": `${COOKIE_NAME}=${expectedToken}; Path=/; Max-Age=2592000; HttpOnly; Secure; SameSite=Lax`,
+          "Set-Cookie": `${COOKIE_NAME}=${expectedToken}; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax`,
         },
       });
     }
