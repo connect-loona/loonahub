@@ -9578,6 +9578,13 @@
       return 'webm';
     }
 
+    // MediaRecorder's mimeType includes codec params (e.g. "audio/webm;codecs=opus"),
+    // but Sarvam validates the uploaded blob's Content-Type against an exact allowlist
+    // that only contains the bare type ("audio/webm") — the codec suffix fails that check.
+    function lnBaseMimeType(mime) {
+      return (mime || '').split(';')[0].trim();
+    }
+
     function lnSetProcessingStage(msg) {
       const el = document.getElementById('ln-result-loading');
       if (el) el.innerHTML = `<div class="ln-spinner"></div>${lnEsc(msg)}`;
@@ -9622,7 +9629,7 @@
       // Azure Blob's presigned upload URL doesn't have CORS enabled for browser origins,
       // so this goes through our own same-origin proxy instead of PUTting to it directly.
       const proxyUrl = '/api/sarvam-upload-proxy?url=' + encodeURIComponent(uploadUrl);
-      const putResp = await lnFetchStage('Uploading audio to Sarvam', proxyUrl, { method: 'PUT', headers: { 'Content-Type': lnMimeType || 'application/octet-stream' }, body: blob });
+      const putResp = await lnFetchStage('Uploading audio to Sarvam', proxyUrl, { method: 'PUT', headers: { 'Content-Type': lnBaseMimeType(lnMimeType) || 'application/octet-stream' }, body: blob });
       if (!putResp.ok) throw new Error(`Failed to upload audio for transcription (HTTP ${putResp.status})`);
 
       const startResp = await lnFetchStage('Starting transcription job', '/.netlify/functions/sarvam-start-job', {
@@ -9658,7 +9665,7 @@
       try {
         let transcript = manualText;
         if (!transcript) {
-          const blob = new Blob(lnAudioChunks, { type: lnMimeType || 'audio/webm' });
+          const blob = new Blob(lnAudioChunks, { type: lnBaseMimeType(lnMimeType) || 'audio/webm' });
           transcript = await lnTranscribeAudio(blob);
           if (!transcript || !transcript.trim()) throw new Error('Transcription came back empty. Try again or type the transcript manually.');
         }
