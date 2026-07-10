@@ -25,3 +25,5 @@
 #   PETPOOJA_CLIENT_SECRET
 #   PETPOOJA_BASE_URL
 #   FIREBASE_DB_URL   (optional; defaults to the loona-hub RTDB)
+#   BASIC_AUTH_CREDENTIALS   (site-wide password gate — see netlify/edge-functions/basic-auth.ts.
+#                             Format: username:password. Without this set, the site is NOT gated.)
