@@ -27,3 +27,6 @@
 #   FIREBASE_DB_URL   (optional; defaults to the loona-hub RTDB)
 #   BASIC_AUTH_CREDENTIALS   (site-wide password gate — see netlify/edge-functions/basic-auth.ts.
 #                             Format: username:password. Without this set, the site is NOT gated.)
+#   CLAUDE_API_KEY           (used by notes-summarize + tasks-extract for note/task generation)
+#   SARVAM_API_KEY           (Sarvam AI batch speech-to-text, used by Loona Notes' meeting
+#                             recorder — see netlify/functions/sarvam-*.js)

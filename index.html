@@ -4698,7 +4698,10 @@
       <!-- LIST VIEW -->
       <div id="ln-view-list">
         <div class="ln-toprow">
-          <div></div>
+          <div class="ln-list-filters">
+            <input type="text" id="ln-search" class="ln-title-input" placeholder="Search notes…" oninput="lnRenderList()" style="max-width:220px;margin-bottom:0">
+            <select id="ln-filter-brand" class="ln-title-input" onchange="lnRenderList()" style="max-width:160px;margin-bottom:0"></select>
+          </div>
           <button class="btn btn-primary" onclick="lnStartNew()">+ New Recording</button>
         </div>
         <div id="ln-notes-grid" class="ln-notes-grid"></div>
@@ -4709,13 +4712,15 @@
         <div class="ln-card">
           <label class="ln-field-label">Meeting title</label>
           <input type="text" id="ln-meeting-title" class="ln-title-input" placeholder="e.g. Weekly strategy sync">
+          <label class="ln-field-label">Brand</label>
+          <select id="ln-meeting-brand" class="ln-title-input"></select>
           <div class="ln-rec-panel">
             <div class="ln-timer" id="ln-rec-status">00:00</div>
             <button class="ln-rec-btn" id="ln-rec-btn" onclick="lnToggleRecording()"><span class="ln-rec-dot"></span><span id="ln-rec-btn-label">Start Recording</span></button>
             <div class="ln-rec-status-line" id="ln-rec-status-line" style="display:none"></div>
-            <div class="ln-transcript-box" id="ln-live-transcript"></div>
+            <div class="ln-transcript-box" id="ln-live-transcript" style="display:none">🎙️ Recording — audio only. Sarvam will transcribe it once you stop.</div>
             <textarea class="ln-manual-transcript" id="ln-manual-transcript" style="display:none" placeholder="Paste or type the meeting transcript / notes here…"></textarea>
-            <div class="ln-sr-note" id="ln-sr-unsupported-note" style="display:none">Live in-browser transcription needs Chrome or Edge. Type or paste your notes above instead, then generate notes.</div>
+            <div class="ln-sr-note" id="ln-sr-unsupported-note" style="display:none">Audio recording isn't supported in this browser. Type or paste your notes above instead, then generate notes.</div>
             <button class="ln-manual-toggle" id="ln-manual-toggle" onclick="lnToggleManualEntry()" style="display:none">✎ Type transcript manually instead</button>
           </div>
           <div class="ln-actions-row">
@@ -9353,6 +9358,7 @@
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
       document.getElementById('page-loonanotes').classList.add('active');
       lnShowView('list');
+      lnPopulateFilterBrandSelect();
       lnRenderList();
       window.scrollTo(0, 0);
     }
@@ -9372,33 +9378,71 @@
       catch (e) { return ''; }
     }
 
+    function lnBrandOptionList() {
+      const seen = new Set();
+      return (BRANDS_ALLOC || []).filter(b => !b.inactive).map(b => canonicalBrandName(b.brand)).filter(b => {
+        const key = b.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).sort((a, b) => String(a).localeCompare(String(b)));
+    }
+
+    function lnPopulateBrandSelect() {
+      const sel = document.getElementById('ln-meeting-brand');
+      if (!sel) return;
+      const current = sel.value;
+      sel.innerHTML = '<option value="">— No specific brand (internal) —</option>' + lnBrandOptionList().map(b => `<option value="${lnEsc(b)}">${lnEsc(b)}</option>`).join('');
+      if (current) sel.value = current;
+    }
+
+    function lnPopulateFilterBrandSelect() {
+      const sel = document.getElementById('ln-filter-brand');
+      if (!sel) return;
+      const current = sel.value;
+      sel.innerHTML = '<option value="">All Brands</option>' + lnBrandOptionList().map(b => `<option value="${lnEsc(b)}">${lnEsc(b)}</option>`).join('');
+      if (current) sel.value = current;
+    }
+
     function lnRenderList() {
       const grid = document.getElementById('ln-notes-grid');
       if (!grid) return;
-      const notes = window.MEETING_NOTES || [];
+      const allNotes = window.MEETING_NOTES || [];
+      const searchEl = document.getElementById('ln-search');
+      const brandEl = document.getElementById('ln-filter-brand');
+      const q = ((searchEl && searchEl.value) || '').trim().toLowerCase();
+      const brandFilter = (brandEl && brandEl.value) || '';
+      let notes = allNotes;
+      if (brandFilter) notes = notes.filter(n => canonicalBrandName(n.brand || '') === brandFilter);
+      if (q) notes = notes.filter(n =>
+        (n.title || '').toLowerCase().includes(q) ||
+        (n.brand || '').toLowerCase().includes(q) ||
+        (n.summary || '').toLowerCase().includes(q) ||
+        (n.transcript || '').toLowerCase().includes(q)
+      );
       if (!notes.length) {
-        grid.innerHTML = '<div class="ln-empty">No meeting notes yet. Click "+ New Recording" to capture your first one.</div>';
+        grid.innerHTML = `<div class="ln-empty">${allNotes.length ? 'No notes match your search.' : 'No meeting notes yet. Click "+ New Recording" to capture your first one.'}</div>`;
         return;
       }
       grid.innerHTML = notes.map(n => `
         <div class="ln-note-card" onclick="lnViewNote('${n._key}')">
           <div class="ln-note-title">${lnEsc(n.title)}</div>
-          <div class="ln-note-meta">${lnFmtDate(n.date)} · ${lnEsc(n.createdBy || '')}</div>
+          <div class="ln-note-meta">${lnFmtDate(n.date)}${n.brand ? ' · ' + lnEsc(n.brand) : ''} · ${lnEsc(n.createdBy || '')}</div>
           <div class="ln-note-summary">${lnEsc(n.summary)}</div>
           ${(n.actionItems && n.actionItems.length) ? `<div class="ln-note-tags"><span class="ln-note-tag">${n.actionItems.length} action item${n.actionItems.length > 1 ? 's' : ''}</span></div>` : ''}
         </div>
       `).join('');
     }
 
-    // --- Recording ---
-    let lnRecognition = null;
+    // --- Recording (Mode A: mic capture via MediaRecorder, transcribed server-side via Sarvam) ---
     let lnRecording = false;
-    let lnFinalTranscript = '';
-    let lnInterimTranscript = '';
+    let lnStream = null;
+    let lnMediaRecorder = null;
+    let lnAudioChunks = [];
+    let lnMimeType = '';
+    let lnWakeLock = null;
     let lnRecordStartTime = null;
     let lnTimerInterval = null;
-    let lnConsecutiveErrors = 0;
-    let lnGotAnyResult = false;
 
     function lnSetStatusLine(msg) {
       const el = document.getElementById('ln-rec-status-line');
@@ -9407,22 +9451,23 @@
       el.textContent = msg;
     }
 
+    function lnRecordingSupported() {
+      return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
+    }
+
     function lnStartNew() {
       lnShowView('record');
       document.getElementById('ln-meeting-title').value = '';
-      lnFinalTranscript = '';
-      lnInterimTranscript = '';
-      lnConsecutiveErrors = 0;
-      lnGotAnyResult = false;
-      document.getElementById('ln-live-transcript').innerHTML = '';
       document.getElementById('ln-manual-transcript').value = '';
       document.getElementById('ln-rec-status').textContent = '00:00';
       document.getElementById('ln-rec-btn-label').textContent = 'Start Recording';
       document.getElementById('ln-rec-btn').classList.remove('recording');
+      document.getElementById('ln-live-transcript').style.display = 'none';
+      lnAudioChunks = [];
+      lnRecording = false;
       lnSetStatusLine('');
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const supported = !!SR;
-      document.getElementById('ln-live-transcript').style.display = supported ? 'block' : 'none';
+      lnPopulateBrandSelect();
+      const supported = lnRecordingSupported();
       document.getElementById('ln-manual-transcript').style.display = supported ? 'none' : 'block';
       document.getElementById('ln-rec-btn').style.display = supported ? 'flex' : 'none';
       document.getElementById('ln-sr-unsupported-note').style.display = supported ? 'none' : 'block';
@@ -9448,60 +9493,47 @@
       if (lnRecording) lnStopRecording(); else lnBeginRecording();
     }
 
-    function lnBeginRecording() {
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SR) return;
+    function lnPickMimeType() {
+      const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/aac', 'audio/mpeg', 'audio/ogg'];
+      for (const c of candidates) {
+        if (window.MediaRecorder && MediaRecorder.isTypeSupported(c)) return c;
+      }
+      return '';
+    }
+
+    async function lnBeginRecording() {
       lnSetStatusLine('');
-      lnConsecutiveErrors = 0;
-      lnGotAnyResult = false;
-      lnRecognition = new SR();
-      lnRecognition.continuous = true;
-      lnRecognition.interimResults = true;
-      lnRecognition.lang = 'en-US';
-      lnRecognition.onresult = (e) => {
-        lnGotAnyResult = true;
-        lnConsecutiveErrors = 0;
-        let interim = '', final = '';
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-          const piece = e.results[i][0].transcript;
-          if (e.results[i].isFinal) final += piece + ' ';
-          else interim += piece;
-        }
-        if (final) lnFinalTranscript += final;
-        lnInterimTranscript = interim;
-        lnRenderTranscript();
-      };
-      lnRecognition.onerror = (e) => {
-        if (e.error === 'no-speech' || e.error === 'aborted') return;
-        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-          lnSetStatusLine('⚠️ Microphone access was blocked. Allow microphone access in your browser, or type the transcript manually below.');
-          lnStopRecording();
-          return;
-        }
-        lnConsecutiveErrors++;
-        const reasons = {
-          'network': 'a network issue reaching the speech recognition service',
-          'audio-capture': 'no microphone could be found',
-          'language-not-supported': 'this browser’s speech engine doesn’t support the selected language'
-        };
-        const why = reasons[e.error] || `an error (${e.error})`;
-        if (lnConsecutiveErrors >= 3) {
-          lnSetStatusLine(`⚠️ Live transcription isn't working (${why}). Type or paste the transcript manually below instead.`);
-          lnStopRecording();
-        }
-      };
-      lnRecognition.onend = () => {
-        if (lnRecording) { try { lnRecognition.start(); } catch (e) {} }
-      };
-      try { lnRecognition.start(); } catch (e) {
-        lnSetStatusLine('⚠️ Couldn’t start live transcription. Type or paste the transcript manually below instead.');
+      if (!lnRecordingSupported()) {
+        lnSetStatusLine('⚠️ Audio recording isn’t supported in this browser. Type or paste the transcript manually below instead.');
         return;
       }
+      try {
+        lnStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (e) {
+        lnSetStatusLine('⚠️ Microphone access was blocked. Allow microphone access in your browser, or type the transcript manually below.');
+        return;
+      }
+      lnMimeType = lnPickMimeType();
+      lnAudioChunks = [];
+      try {
+        lnMediaRecorder = lnMimeType ? new MediaRecorder(lnStream, { mimeType: lnMimeType }) : new MediaRecorder(lnStream);
+      } catch (e) {
+        lnSetStatusLine('⚠️ Couldn’t start recording on this device. Type or paste the transcript manually below instead.');
+        lnStream.getTracks().forEach(t => t.stop());
+        lnStream = null;
+        return;
+      }
+      lnMediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) lnAudioChunks.push(e.data); };
+      lnMediaRecorder.start();
       lnRecording = true;
       lnRecordStartTime = Date.now();
       document.getElementById('ln-rec-btn-label').textContent = 'Stop Recording';
       document.getElementById('ln-rec-btn').classList.add('recording');
+      document.getElementById('ln-live-transcript').style.display = 'block';
       lnTimerInterval = setInterval(lnUpdateTimer, 1000);
+      if (navigator.wakeLock) {
+        try { lnWakeLock = await navigator.wakeLock.request('screen'); } catch (e) { lnWakeLock = null; }
+      }
     }
 
     function lnUpdateTimer() {
@@ -9511,18 +9543,25 @@
       document.getElementById('ln-rec-status').textContent = `${m}:${s}`;
     }
 
-    function lnRenderTranscript() {
-      const el = document.getElementById('ln-live-transcript');
-      el.innerHTML = lnEsc(lnFinalTranscript) + '<span style="opacity:.5">' + lnEsc(lnInterimTranscript) + '</span>';
-      el.scrollTop = el.scrollHeight;
-    }
-
     function lnStopRecording() {
-      lnRecording = false;
-      if (lnRecognition) { try { lnRecognition.stop(); } catch (e) {} }
-      clearInterval(lnTimerInterval);
-      document.getElementById('ln-rec-btn-label').textContent = 'Start Recording';
-      document.getElementById('ln-rec-btn').classList.remove('recording');
+      return new Promise(resolve => {
+        lnRecording = false;
+        clearInterval(lnTimerInterval);
+        document.getElementById('ln-rec-btn-label').textContent = 'Start Recording';
+        document.getElementById('ln-rec-btn').classList.remove('recording');
+        document.getElementById('ln-live-transcript').style.display = 'none';
+        if (lnWakeLock) { lnWakeLock.release().catch(() => {}); lnWakeLock = null; }
+        const finish = () => {
+          if (lnStream) { lnStream.getTracks().forEach(t => t.stop()); lnStream = null; }
+          resolve();
+        };
+        if (lnMediaRecorder && lnMediaRecorder.state !== 'inactive') {
+          lnMediaRecorder.onstop = finish;
+          try { lnMediaRecorder.stop(); } catch (e) { finish(); }
+        } else {
+          finish();
+        }
+      });
     }
 
     function lnCancelRecording() {
@@ -9530,18 +9569,87 @@
       lnShowView('list');
     }
 
+    function lnMimeToExt(mime) {
+      if (!mime) return 'webm';
+      if (mime.includes('mp4')) return 'mp4';
+      if (mime.includes('aac')) return 'aac';
+      if (mime.includes('mpeg')) return 'mp3';
+      if (mime.includes('ogg')) return 'ogg';
+      return 'webm';
+    }
+
+    function lnSetProcessingStage(msg) {
+      const el = document.getElementById('ln-result-loading');
+      if (el) el.innerHTML = `<div class="ln-spinner"></div>${lnEsc(msg)}`;
+    }
+
+    async function lnPollJobStatus(jobId) {
+      const started = Date.now();
+      const TIMEOUT_MS = 10 * 60 * 1000;
+      while (Date.now() - started < TIMEOUT_MS) {
+        const resp = await fetch('/.netlify/functions/sarvam-job-status', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobId })
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'Failed to check transcription status');
+        if (data.state === 'Completed') return data;
+        if (data.state === 'Failed') throw new Error(data.errorMessage || 'Transcription failed');
+        await new Promise(r => setTimeout(r, 5000));
+      }
+      throw new Error('Transcription is taking longer than expected. Please try again shortly.');
+    }
+
+    async function lnTranscribeAudio(blob) {
+      lnSetProcessingStage('Uploading audio…');
+      const ext = lnMimeToExt(lnMimeType);
+      const createResp = await fetch('/.netlify/functions/sarvam-create-job', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fileExt: ext })
+      });
+      const createData = await createResp.json();
+      if (!createResp.ok) throw new Error(createData.error || 'Failed to start transcription job');
+      const { jobId, uploadUrl } = createData;
+
+      const putResp = await fetch(uploadUrl, { method: 'PUT', headers: { 'x-ms-blob-type': 'BlockBlob' }, body: blob });
+      if (!putResp.ok) throw new Error('Failed to upload audio for transcription');
+
+      const startResp = await fetch('/.netlify/functions/sarvam-start-job', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobId })
+      });
+      const startData = await startResp.json();
+      if (!startResp.ok) throw new Error(startData.error || 'Failed to start transcription');
+
+      lnSetProcessingStage('Transcribing audio… this can take a few minutes');
+      await lnPollJobStatus(jobId);
+
+      const resultResp = await fetch('/.netlify/functions/sarvam-job-result', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobId })
+      });
+      const resultData = await resultResp.json();
+      if (!resultResp.ok) throw new Error(resultData.error || 'Failed to fetch transcript');
+      return resultData.transcript || '';
+    }
+
     async function lnGenerateNotes() {
-      if (lnRecording) lnStopRecording();
+      if (lnRecording) await lnStopRecording();
       const manualBox = document.getElementById('ln-manual-transcript');
       const manualText = manualBox.value.trim();
-      const liveText = lnFinalTranscript.trim();
-      const transcript = manualText || liveText;
-      if (!transcript) { alert('No transcript captured yet. Record some audio or type/paste a transcript first.'); return; }
+      const hasAudio = lnAudioChunks.length > 0;
+      if (!manualText && !hasAudio) { alert('No recording or transcript yet. Record some audio or type/paste a transcript first.'); return; }
       const title = document.getElementById('ln-meeting-title').value.trim() || `Meeting — ${lnFmtDate(new Date().toISOString())}`;
+      const brandSel = document.getElementById('ln-meeting-brand');
+      const brand = brandSel ? brandSel.value : '';
       lnShowView('result');
       document.getElementById('ln-result-loading').style.display = 'flex';
       document.getElementById('ln-result-content').style.display = 'none';
+      lnSetProcessingStage(manualText ? 'Generating notes…' : 'Uploading audio…');
       try {
+        let transcript = manualText;
+        if (!transcript) {
+          const blob = new Blob(lnAudioChunks, { type: lnMimeType || 'audio/webm' });
+          transcript = await lnTranscribeAudio(blob);
+          if (!transcript || !transcript.trim()) throw new Error('Transcription came back empty. Try again or type the transcript manually.');
+        }
+        lnSetProcessingStage('Generating notes…');
         const resp = await fetch('/.netlify/functions/notes-summarize', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -9550,10 +9658,12 @@
         const data = await resp.json();
         if (!resp.ok) throw new Error(data.error || 'Failed to generate notes');
         window._lnPending = {
-          title, transcript,
+          title, brand, transcript,
           summary: data.summary || '',
-          keyPoints: data.keyPoints || [],
-          actionItems: (data.actionItems || []).map(a => ({ task: a.task || '', assignee: a.assignee || '' }))
+          decisions: Array.isArray(data.decisions) ? data.decisions : [],
+          actionItems: (data.actionItems || []).map(a => ({ task: a.task || '', assignee: a.assignee || '' })),
+          followUps: Array.isArray(data.followUps) ? data.followUps : [],
+          clientSafeSummary: data.clientSafeSummary || ''
         };
         lnRenderResult(window._lnPending);
       } catch (e) {
@@ -9567,18 +9677,39 @@
       return '<option value="">Unassigned</option>' + ALL_MEMBERS.map(m => `<option value="${lnEsc(m)}" ${m === selected ? 'selected' : ''}>${lnEsc(m)}</option>`).join('');
     }
 
+    function lnSwitchSummaryView(which) {
+      document.getElementById('ln-summary-internal').style.display = which === 'internal' ? 'block' : 'none';
+      document.getElementById('ln-summary-clientsafe').style.display = which === 'clientsafe' ? 'block' : 'none';
+      document.getElementById('ln-tab-internal').classList.toggle('active', which === 'internal');
+      document.getElementById('ln-tab-clientsafe').classList.toggle('active', which === 'clientsafe');
+    }
+
+    function lnSafeToggleHTML(hasClientSafe) {
+      return hasClientSafe ? `
+        <div class="ln-safe-toggle">
+          <button class="ln-safe-tab active" id="ln-tab-internal" onclick="lnSwitchSummaryView('internal')">Internal</button>
+          <button class="ln-safe-tab" id="ln-tab-clientsafe" onclick="lnSwitchSummaryView('clientsafe')">Client-safe</button>
+        </div>` : '';
+    }
+
     function lnRenderResult(p) {
       document.getElementById('ln-result-loading').style.display = 'none';
       const el = document.getElementById('ln-result-content');
       el.style.display = 'block';
+      const hasClientSafe = !!(p.clientSafeSummary && p.clientSafeSummary.trim());
       el.innerHTML = `
         <label class="ln-field-label">${lnEsc(p.title)}</label>
-        <div class="ln-summary-box">${lnEsc(p.summary)}</div>
-        ${p.keyPoints.length ? `<div class="ln-section-label">Key Points</div><ul class="ln-keypoints">${p.keyPoints.map(k => `<li>${lnEsc(k)}</li>`).join('')}</ul>` : ''}
+        ${p.brand ? `<div class="ln-note-meta" style="margin-bottom:10px">${lnEsc(p.brand)}</div>` : ''}
+        ${lnSafeToggleHTML(hasClientSafe)}
+        <div class="ln-summary-box" id="ln-summary-internal">${lnEsc(p.summary)}</div>
+        <div class="ln-summary-box" id="ln-summary-clientsafe" style="display:none">${lnEsc(p.clientSafeSummary)}</div>
+        ${p.decisions.length ? `<div class="ln-section-label">Decisions</div><ul class="ln-keypoints">${p.decisions.map(k => `<li>${lnEsc(k)}</li>`).join('')}</ul>` : ''}
         <div class="ln-section-label">Action Items</div>
         <div id="ln-result-actions">${p.actionItems.length ? p.actionItems.map((a, i) => lnActionItemRow(a, i)).join('') : '<div class="ln-note-meta">No action items detected.</div>'}</div>
+        ${p.followUps.length ? `<div class="ln-section-label">Follow-ups</div><ul class="ln-keypoints">${p.followUps.map(k => `<li>${lnEsc(k)}</li>`).join('')}</ul>` : ''}
         <div class="ln-actions-row">
           <button class="btn btn-ghost" onclick="lnDiscardResult()">Discard</button>
+          ${p.actionItems.length > 1 ? `<button class="btn btn-ghost" onclick="lnAddAllActionItemsToTasks()">+ Push All to Tasks</button>` : ''}
           <button class="btn btn-primary" onclick="lnSaveNote()">Save Note</button>
         </div>
       `;
@@ -9598,7 +9729,7 @@
       const assignee = document.getElementById('ln-action-assignee-' + i).value;
       fbAddTask({
         member: assignee || currentUser || '',
-        brand: 'Meeting Notes',
+        brand: canonicalBrandName(p.brand || 'Meeting Notes'),
         task: p.actionItems[i].task,
         priority: 'Medium',
         status: 'Not Started',
@@ -9615,6 +9746,16 @@
       }
     }
 
+    function lnAddAllActionItemsToTasks() {
+      const p = window._lnPending;
+      if (!p) return;
+      p.actionItems.forEach((a, i) => {
+        const row = document.getElementById('ln-action-' + i);
+        const btn = row && row.querySelector('.ln-action-add');
+        if (btn && !btn.disabled) lnAddActionItemToTasks(i);
+      });
+    }
+
     function lnDiscardResult() {
       window._lnPending = null;
       lnShowView('list');
@@ -9626,12 +9767,15 @@
       if (!p) return;
       const note = {
         title: p.title,
+        brand: p.brand || '',
         date: new Date().toISOString(),
         createdBy: currentUser || '',
         transcript: p.transcript,
         summary: p.summary,
-        keyPoints: p.keyPoints,
+        decisions: p.decisions,
         actionItems: p.actionItems,
+        followUps: p.followUps,
+        clientSafeSummary: p.clientSafeSummary || '',
         ts: Date.now()
       };
       if (_db) {
@@ -9650,19 +9794,26 @@
       if (!note) return;
       lnShowView('detail');
       const canDelete = currentUser === 'Gokul' || currentUser === note.createdBy;
+      const hasClientSafe = !!(note.clientSafeSummary && note.clientSafeSummary.trim());
       document.getElementById('ln-detail-content').innerHTML = `
         <div class="ln-toprow">
           <label class="ln-field-label" style="margin:0">${lnEsc(note.title)}</label>
           ${canDelete ? `<button class="btn btn-ghost" onclick="lnDeleteNote('${key}')">Delete</button>` : ''}
         </div>
-        <div class="ln-note-meta" style="margin-bottom:14px">${lnFmtDate(note.date)} · ${lnEsc(note.createdBy || '')}</div>
-        <div class="ln-summary-box">${lnEsc(note.summary)}</div>
-        ${(note.keyPoints || []).length ? `<div class="ln-section-label">Key Points</div><ul class="ln-keypoints">${note.keyPoints.map(k => `<li>${lnEsc(k)}</li>`).join('')}</ul>` : ''}
+        <div class="ln-note-meta" style="margin-bottom:14px">${lnFmtDate(note.date)}${note.brand ? ' · ' + lnEsc(note.brand) : ''} · ${lnEsc(note.createdBy || '')}</div>
+        ${lnSafeToggleHTML(hasClientSafe)}
+        <div class="ln-summary-box" id="ln-summary-internal">${lnEsc(note.summary)}</div>
+        <div class="ln-summary-box" id="ln-summary-clientsafe" style="display:none">${lnEsc(note.clientSafeSummary || '')}</div>
+        ${(note.decisions || []).length ? `<div class="ln-section-label">Decisions</div><ul class="ln-keypoints">${note.decisions.map(k => `<li>${lnEsc(k)}</li>`).join('')}</ul>` : ''}
         <div class="ln-section-label">Action Items</div>
         <div id="ln-detail-actions">${(note.actionItems || []).length ? note.actionItems.map((a, i) => lnDetailActionRow(a, i)).join('') : '<div class="ln-note-meta">No action items.</div>'}</div>
+        ${(note.followUps || []).length ? `<div class="ln-section-label">Follow-ups</div><ul class="ln-keypoints">${note.followUps.map(k => `<li>${lnEsc(k)}</li>`).join('')}</ul>` : ''}
         <div class="ln-section-label">Full Transcript</div>
         <div class="ln-detail-transcript">${lnEsc(note.transcript)}</div>
-        <div class="ln-actions-row"><button class="btn btn-ghost" onclick="lnShowView('list')">Back to all notes</button></div>
+        <div class="ln-actions-row">
+          <button class="btn btn-ghost" onclick="lnShowView('list')">Back to all notes</button>
+          ${(note.actionItems || []).length > 1 ? `<button class="btn btn-ghost" onclick="lnAddAllDetailActionsToTasks()">+ Push All to Tasks</button>` : ''}
+        </div>
       `;
       window._lnDetailNote = note;
     }
@@ -9681,14 +9832,15 @@
       const assignee = document.getElementById('ln-detail-assignee-' + i).value;
       fbAddTask({
         member: assignee || currentUser || '',
-        brand: 'Meeting Notes',
+        brand: canonicalBrandName(note.brand || 'Meeting Notes'),
         task: note.actionItems[i].task,
         priority: 'Medium',
         status: 'Not Started',
         due_date: '',
         assigned_by: currentUser || '',
         asylum: (MEMBER_INFO[assignee] || {}).role || '',
-        isNew: true
+        isNew: true,
+        sourceNoteKey: note._key || null
       });
       const row = document.getElementById('ln-detail-action-' + i);
       if (row) {
@@ -9696,6 +9848,16 @@
         btn.textContent = 'Added ✓';
         btn.disabled = true;
       }
+    }
+
+    function lnAddAllDetailActionsToTasks() {
+      const note = window._lnDetailNote;
+      if (!note) return;
+      (note.actionItems || []).forEach((a, i) => {
+        const row = document.getElementById('ln-detail-action-' + i);
+        const btn = row && row.querySelector('.ln-action-add');
+        if (btn && !btn.disabled) lnAddDetailActionToTasks(i);
+      });
     }
 
     function lnDeleteNote(key) {
@@ -10244,6 +10406,10 @@ Current date: ${today}`;
 .ln-action-add:disabled{opacity:.5;cursor:default}
 .ln-error{color:var(--red);font-size:13px;text-align:center;padding:20px}
 .ln-detail-transcript{white-space:pre-wrap;font-size:12.5px;line-height:1.6;color:var(--muted);background:var(--surface2);border-radius:10px;padding:14px;max-height:260px;overflow-y:auto}
+.ln-list-filters{display:flex;gap:10px;flex-wrap:wrap}
+.ln-safe-toggle{display:flex;gap:6px;margin-bottom:12px}
+.ln-safe-tab{background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:20px;padding:6px 14px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:var(--font)}
+.ln-safe-tab.active{background:var(--accent);color:#000;border-color:var(--accent)}
 @media(max-width:820px){
   .ln-notes-grid{grid-template-columns:1fr}
   .ln-card{padding:16px}

@@ -1,0 +1,9 @@
+{
+  "name": "loona-hub-functions",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Server-side dependencies for Loona Hub's Netlify Functions.",
+  "dependencies": {
+    "sarvamai": "^1.1.7"
+  }
+}

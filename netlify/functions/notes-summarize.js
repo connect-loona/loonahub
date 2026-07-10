@@ -44,8 +44,8 @@ exports.handler = async (event, context) => {
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
-        max_tokens: 1500,
-        system: 'You turn raw meeting transcripts into clean, useful notes for a creative agency. Always reply with ONLY valid JSON, no markdown fences, no commentary, matching this exact shape: {"summary": "2-4 sentence plain-language summary of what the meeting was about and what was decided", "keyPoints": ["short bullet point", "..."], "actionItems": [{"task": "clear, specific action to take", "assignee": "person\'s first name if mentioned in the transcript, else empty string"}]}. Keep keyPoints to at most 8 items and actionItems to whatever is genuinely actionable (can be empty array if none). If the transcript is too short or unclear to summarize meaningfully, still return valid JSON with your best-effort interpretation.',
+        max_tokens: 1800,
+        system: 'You turn raw meeting transcripts into clean, structured notes for a creative agency. Always reply with ONLY valid JSON, no markdown fences, no commentary, matching this exact shape: {"summary": "2-4 sentence plain-language summary of what the meeting was about", "decisions": ["short bullet point per concrete decision made", "..."], "actionItems": [{"task": "clear, specific action to take", "assignee": "person\'s first name if mentioned in the transcript, else empty string"}], "followUps": ["open question or item that needs a future follow-up", "..."], "clientSafeSummary": "a version of the summary and decisions rewritten to be safe to share externally with a client — strip internal team discussion, costs, staffing, and anything sensitive, keep only what a client would want to know about their project status and next steps. If the meeting was purely internal with nothing client-appropriate to share, use a short neutral line like \'Internal team sync — no client-facing updates.\'"}. Keep decisions and followUps to at most 8 items each and actionItems to whatever is genuinely actionable (any of these can be an empty array if none apply). If the transcript is too short or unclear to summarize meaningfully, still return valid JSON with your best-effort interpretation.',
         messages: [
           {
             role: 'user',
@@ -68,15 +68,17 @@ exports.handler = async (event, context) => {
     try {
       parsed = JSON.parse(raw);
     } catch (e) {
-      parsed = { summary: raw, keyPoints: [], actionItems: [] };
+      parsed = { summary: raw, decisions: [], actionItems: [], followUps: [], clientSafeSummary: '' };
     }
 
     return {
       statusCode: 200,
       body: JSON.stringify({
         summary: parsed.summary || '',
-        keyPoints: Array.isArray(parsed.keyPoints) ? parsed.keyPoints : [],
-        actionItems: Array.isArray(parsed.actionItems) ? parsed.actionItems : []
+        decisions: Array.isArray(parsed.decisions) ? parsed.decisions : [],
+        actionItems: Array.isArray(parsed.actionItems) ? parsed.actionItems : [],
+        followUps: Array.isArray(parsed.followUps) ? parsed.followUps : [],
+        clientSafeSummary: parsed.clientSafeSummary || ''
       }),
       headers
     };
