@@ -9681,7 +9681,7 @@
           title, brand, transcript,
           summary: data.summary || '',
           decisions: Array.isArray(data.decisions) ? data.decisions : [],
-          actionItems: (data.actionItems || []).map(a => ({ task: a.task || '', assignee: a.assignee || '' })),
+          actionItems: (data.actionItems || []).map(a => ({ task: a.task || '', assignee: a.assignee || '', dueDate: a.dueDate || '' })),
           followUps: Array.isArray(data.followUps) ? data.followUps : [],
           clientSafeSummary: data.clientSafeSummary || ''
         };
@@ -9695,6 +9695,39 @@
 
     function lnMemberOptions(selected) {
       return '<option value="">Unassigned</option>' + ALL_MEMBERS.map(m => `<option value="${lnEsc(m)}" ${m === selected ? 'selected' : ''}>${lnEsc(m)}</option>`).join('');
+    }
+
+    function lnMemberByOptions(selected) {
+      return ALL_MEMBERS.map(m => `<option value="${lnEsc(m)}" ${m === selected ? 'selected' : ''}>${lnEsc(m === currentUser ? m + ' (me)' : m)}</option>`).join('');
+    }
+
+    function lnActionBrandOptionsHTML(selected) {
+      return '<option value="">— No specific brand —</option>' + lnBrandOptionList().map(b => `<option value="${lnEsc(b)}" ${b === selected ? 'selected' : ''}>${lnEsc(b)}</option>`).join('');
+    }
+
+    function lnPriorityOptionsHTML(selected) {
+      return ['High', 'Medium', 'Low'].map(p => `<option value="${p}" ${p === selected ? 'selected' : ''}>${p}</option>`).join('');
+    }
+
+    // If the meeting is being recorded from the same person's own dashboard and the action
+    // item ends up assigned back to them, show "Myself" instead of their own name as the
+    // assigner — matches the "Personal To-Do" convention already used in the Add Task modal.
+    function lnResolveAssignedBy(assigneeName, selectedBy) {
+      if (assigneeName && normName(assigneeName) === normName(currentUser)) return 'Myself';
+      return selectedBy || currentUser || '';
+    }
+
+    function lnActionRowFieldsHTML(prefix, i, a, defaultBrand) {
+      const dueDate = a.dueDate || '';
+      return `
+        <input type="text" class="ln-action-task-input" id="${prefix}-task-${i}" value="${lnEsc(a.task)}">
+        <div class="ln-action-fields">
+          <div class="ln-action-field"><label>Brand</label><select class="ln-action-ctl" id="${prefix}-brand-${i}">${lnActionBrandOptionsHTML(a.brand || defaultBrand || '')}</select></div>
+          <div class="ln-action-field"><label>Priority</label><select class="ln-action-ctl" id="${prefix}-priority-${i}">${lnPriorityOptionsHTML('Medium')}</select></div>
+          <div class="ln-action-field"><label>Due Date</label><input type="date" class="ln-action-ctl" id="${prefix}-due-${i}" value="${lnEsc(dueDate)}"></div>
+          <div class="ln-action-field"><label>Assigned To</label><select class="ln-action-ctl" id="${prefix}-assignee-${i}">${lnMemberOptions(a.assignee)}</select></div>
+          <div class="ln-action-field"><label>Assigned By</label><select class="ln-action-ctl" id="${prefix}-by-${i}">${lnMemberByOptions(currentUser)}</select></div>
+        </div>`;
     }
 
     function lnSwitchSummaryView(which) {
@@ -9736,9 +9769,9 @@
     }
 
     function lnActionItemRow(a, i) {
+      const p = window._lnPending;
       return `<div class="ln-action-item" id="ln-action-${i}">
-        <div class="ln-action-task">${lnEsc(a.task)}</div>
-        <select class="ln-action-assignee" id="ln-action-assignee-${i}">${lnMemberOptions(a.assignee)}</select>
+        ${lnActionRowFieldsHTML('ln-action', i, a, p && p.brand)}
         <button class="ln-action-add" onclick="lnAddActionItemToTasks(${i})">+ Task Board</button>
       </div>`;
     }
@@ -9746,15 +9779,21 @@
     function lnAddActionItemToTasks(i) {
       const p = window._lnPending;
       if (!p || !p.actionItems[i]) return;
+      const task = document.getElementById('ln-action-task-' + i).value.trim();
+      if (!task) return;
+      const brand = document.getElementById('ln-action-brand-' + i).value;
+      const priority = document.getElementById('ln-action-priority-' + i).value;
+      const dueDate = document.getElementById('ln-action-due-' + i).value;
       const assignee = document.getElementById('ln-action-assignee-' + i).value;
+      const assignedBySel = document.getElementById('ln-action-by-' + i).value;
       fbAddTask({
         member: assignee || currentUser || '',
-        brand: canonicalBrandName(p.brand || 'Meeting Notes'),
-        task: p.actionItems[i].task,
-        priority: 'Medium',
+        brand: canonicalBrandName(brand || 'Meeting Notes'),
+        task,
+        priority: priority || 'Medium',
         status: 'Not Started',
-        due_date: '',
-        assigned_by: currentUser || '',
+        due_date: dueDate || '',
+        assigned_by: lnResolveAssignedBy(assignee, assignedBySel),
         asylum: (MEMBER_INFO[assignee] || {}).role || '',
         isNew: true
       });
@@ -9770,9 +9809,13 @@
       const p = window._lnPending;
       if (!p) return;
       p.actionItems.forEach((a, i) => {
-        const row = document.getElementById('ln-action-' + i);
-        const btn = row && row.querySelector('.ln-action-add');
-        if (btn && !btn.disabled) lnAddActionItemToTasks(i);
+        try {
+          const row = document.getElementById('ln-action-' + i);
+          const btn = row && row.querySelector('.ln-action-add');
+          if (btn && !btn.disabled) lnAddActionItemToTasks(i);
+        } catch (e) {
+          console.error('Push All to Tasks: failed on action item', i, e);
+        }
       });
     }
 
@@ -9839,9 +9882,9 @@
     }
 
     function lnDetailActionRow(a, i) {
+      const note = window._lnDetailNote;
       return `<div class="ln-action-item" id="ln-detail-action-${i}">
-        <div class="ln-action-task">${lnEsc(a.task)}</div>
-        <select class="ln-action-assignee" id="ln-detail-assignee-${i}">${lnMemberOptions(a.assignee)}</select>
+        ${lnActionRowFieldsHTML('ln-detail', i, a, note && note.brand)}
         <button class="ln-action-add" onclick="lnAddDetailActionToTasks(${i})">+ Task Board</button>
       </div>`;
     }
@@ -9849,15 +9892,21 @@
     function lnAddDetailActionToTasks(i) {
       const note = window._lnDetailNote;
       if (!note || !note.actionItems[i]) return;
+      const task = document.getElementById('ln-detail-task-' + i).value.trim();
+      if (!task) return;
+      const brand = document.getElementById('ln-detail-brand-' + i).value;
+      const priority = document.getElementById('ln-detail-priority-' + i).value;
+      const dueDate = document.getElementById('ln-detail-due-' + i).value;
       const assignee = document.getElementById('ln-detail-assignee-' + i).value;
+      const assignedBySel = document.getElementById('ln-detail-by-' + i).value;
       fbAddTask({
         member: assignee || currentUser || '',
-        brand: canonicalBrandName(note.brand || 'Meeting Notes'),
-        task: note.actionItems[i].task,
-        priority: 'Medium',
+        brand: canonicalBrandName(brand || 'Meeting Notes'),
+        task,
+        priority: priority || 'Medium',
         status: 'Not Started',
-        due_date: '',
-        assigned_by: currentUser || '',
+        due_date: dueDate || '',
+        assigned_by: lnResolveAssignedBy(assignee, assignedBySel),
         asylum: (MEMBER_INFO[assignee] || {}).role || '',
         isNew: true,
         sourceNoteKey: note._key || null
@@ -9874,9 +9923,13 @@
       const note = window._lnDetailNote;
       if (!note) return;
       (note.actionItems || []).forEach((a, i) => {
-        const row = document.getElementById('ln-detail-action-' + i);
-        const btn = row && row.querySelector('.ln-action-add');
-        if (btn && !btn.disabled) lnAddDetailActionToTasks(i);
+        try {
+          const row = document.getElementById('ln-detail-action-' + i);
+          const btn = row && row.querySelector('.ln-action-add');
+          if (btn && !btn.disabled) lnAddDetailActionToTasks(i);
+        } catch (e) {
+          console.error('Push All to Tasks: failed on action item', i, e);
+        }
       });
     }
 
@@ -10419,10 +10472,13 @@ Current date: ${today}`;
 .ln-summary-box{font-size:13.5px;line-height:1.65;color:var(--text);background:var(--surface2);border-radius:10px;padding:14px 16px;margin-bottom:18px}
 .ln-section-label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--accent2);font-weight:700;margin:18px 0 8px}
 .ln-keypoints{margin:0;padding-left:18px;font-size:13px;color:var(--text);line-height:1.7}
-.ln-action-item{display:flex;align-items:center;gap:8px;background:var(--surface2);border-radius:8px;padding:9px 10px;margin-bottom:8px;flex-wrap:wrap}
+.ln-action-item{display:block;background:var(--surface2);border-radius:10px;padding:12px;margin-bottom:10px}
 .ln-action-task{flex:1;min-width:160px;font-size:12.5px;color:var(--text)}
-.ln-action-assignee{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px;font-size:11.5px;font-family:var(--font)}
-.ln-action-add{background:var(--green);color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
+.ln-action-task-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 10px;font-size:13px;font-weight:600;color:var(--text);font-family:var(--font);margin-bottom:10px}
+.ln-action-fields{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px}
+.ln-action-field label{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;margin-bottom:3px}
+.ln-action-ctl,.ln-action-assignee{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;font-size:11.5px;font-family:var(--font)}
+.ln-action-add{background:var(--green);color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
 .ln-action-add:disabled{opacity:.5;cursor:default}
 .ln-error{color:var(--red);font-size:13px;text-align:center;padding:20px}
 .ln-detail-transcript{white-space:pre-wrap;font-size:12.5px;line-height:1.6;color:var(--muted);background:var(--surface2);border-radius:10px;padding:14px;max-height:260px;overflow-y:auto}

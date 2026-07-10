@@ -34,6 +34,10 @@ exports.handler = async (event, context) => {
     return { statusCode: 400, body: JSON.stringify({ error: 'No transcript provided' }), headers };
   }
 
+  // IST, so relative dates ("by Friday", "end of this month") resolve against the team's
+  // actual local day rather than the server's UTC clock.
+  const todayIST = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -45,7 +49,7 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
         max_tokens: 1800,
-        system: 'You turn raw meeting transcripts into clean, structured notes for a creative agency. Always reply with ONLY valid JSON, no markdown fences, no commentary, matching this exact shape: {"summary": "2-4 sentence plain-language summary of what the meeting was about", "decisions": ["short bullet point per concrete decision made", "..."], "actionItems": [{"task": "clear, specific action to take", "assignee": "person\'s first name if mentioned in the transcript, else empty string"}], "followUps": ["open question or item that needs a future follow-up", "..."], "clientSafeSummary": "a version of the summary and decisions rewritten to be safe to share externally with a client — strip internal team discussion, costs, staffing, and anything sensitive, keep only what a client would want to know about their project status and next steps. If the meeting was purely internal with nothing client-appropriate to share, use a short neutral line like \'Internal team sync — no client-facing updates.\'"}. Keep decisions and followUps to at most 8 items each and actionItems to whatever is genuinely actionable (any of these can be an empty array if none apply). If the transcript is too short or unclear to summarize meaningfully, still return valid JSON with your best-effort interpretation.',
+        system: `You turn raw meeting transcripts into clean, structured notes for a creative agency. Today's date is ${todayIST} (India Standard Time) — use it to resolve relative deadlines. Always reply with ONLY valid JSON, no markdown fences, no commentary, matching this exact shape: {"summary": "2-4 sentence plain-language summary of what the meeting was about", "decisions": ["short bullet point per concrete decision made", "..."], "actionItems": [{"task": "clear, specific action to take", "assignee": "person's first name if mentioned in the transcript, else empty string", "dueDate": "YYYY-MM-DD if the transcript mentions a specific or relative deadline for this task (e.g. 'by Friday', 'next Monday', 'end of this month'), else empty string"}], "followUps": ["open question or item that needs a future follow-up", "..."], "clientSafeSummary": "a version of the summary and decisions rewritten to be safe to share externally with a client — strip internal team discussion, costs, staffing, and anything sensitive, keep only what a client would want to know about their project status and next steps. If the meeting was purely internal with nothing client-appropriate to share, use a short neutral line like 'Internal team sync — no client-facing updates.'"}. Keep decisions and followUps to at most 8 items each and actionItems to whatever is genuinely actionable (any of these can be an empty array if none apply). If the transcript is too short or unclear to summarize meaningfully, still return valid JSON with your best-effort interpretation.`,
         messages: [
           {
             role: 'user',
