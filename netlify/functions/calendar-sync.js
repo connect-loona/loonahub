@@ -12,6 +12,9 @@
 //   /calendarEvents/{safeUid} = { title, start, end, attendeeCount,
 //     knownAttendees: [names], organizer, htmlLink, updatedAt }
 //   /tasks/{key} — auto-created, tagged is_auto + auto_calendar_event_id for dedup
+//   /announcements/{key} — one Loona Board post per meeting (not per attendee),
+//     tagged calendar_event_id for dedup and visibleTo: [names] so it only shows
+//     to the actual participants, not the whole team
 //
 // Team roster + emails come from /members.json (already synced by the app) —
 // a member's email is guessed as "firstname@loona.in" unless that member's
@@ -201,8 +204,11 @@ async function runSync() {
         is_auto: true,
         auto_calendar_event_id: uid,
         meeting_link: data.htmlLink || '',
-        created_at: new Date().toISOString(),
-        assigned_on: new Date().toISOString()
+        created_at: new Date().toISOString()
+        // no assigned_on here — the client already falls back to formatting
+        // created_at with fmtStamp() when assigned_on is absent, which matches
+        // how every other task in the app displays it. A raw ISO string here
+        // (what this used to be) shows up looking wrong next to that format.
       };
       existingSigs.add(sig);
       tasksCreated++;
@@ -210,7 +216,38 @@ async function runSync() {
   }
   if (Object.keys(newTasks).length) await fbPatch('tasks', newTasks);
 
-  return { synced: eventsByUid.size, tasksCreated, errors: fetchErrors };
+  // Loona Board post per meeting (not per attendee) — visible only to the actual
+  // participants, in addition to (not instead of) each attendee's own task.
+  let boardPosted = 0;
+  const existingAnnData = await fbGet('announcements');
+  const existingAnn = Object.values(existingAnnData || {});
+  const postedEventIds = new Set(existingAnn.filter(a => a && a.calendar_event_id).map(a => a.calendar_event_id));
+
+  const newAnnouncements = {};
+  let idBump = 0;
+  for (const [uid, data] of eventsByUid) {
+    if (data.attendeeCount < 2 || !data.knownAttendees.length) continue;
+    if (postedEventIds.has(uid)) continue;
+    const startTime = fmtIST(data.start);
+    const endTime = fmtIST(data.end);
+    const timeRange = startTime ? (endTime && endTime !== startTime ? `${startTime} – ${endTime} IST` : `${startTime} IST`) : '';
+    const key = 'auto_ann_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2);
+    newAnnouncements[key] = {
+      id: Date.now() + (idBump++),
+      text: `📅 ${data.title}${timeRange ? ` — ${timeRange}` : ''} · ${data.knownAttendees.join(', ')}`,
+      links: data.htmlLink ? [data.htmlLink] : [],
+      author: 'Google Calendar',
+      emoji: '📅',
+      timestamp: new Date().toISOString(),
+      calendar_event_id: uid,
+      visibleTo: data.knownAttendees
+    };
+    postedEventIds.add(uid);
+    boardPosted++;
+  }
+  if (Object.keys(newAnnouncements).length) await fbPatch('announcements', newAnnouncements);
+
+  return { synced: eventsByUid.size, tasksCreated, boardPosted, errors: fetchErrors };
 }
 
 exports.handler = async (event) => {

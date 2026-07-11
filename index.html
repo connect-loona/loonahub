@@ -7858,7 +7858,7 @@
     function renderLoonaBoard(){
       const cont=document.getElementById('loona-board'); if(!cont) return;
       let dismissed; try{ dismissed=getDismissedIds(); }catch(e){ dismissed=new Set(); }
-      const items=(ANNOUNCEMENTS||[]).filter(a=>a && !dismissed.has(a.id)).slice(0,6);
+      const items=(ANNOUNCEMENTS||[]).filter(a=>a && !dismissed.has(a.id) && (!a.visibleTo || !a.visibleTo.length || a.visibleTo.some(n=>normName(n)===normName(currentUser)))).slice(0,6);
       if(!items.length){ cont.innerHTML=''; return; }
       cont.innerHTML=`<div class="loona-board-card"><div class="lb-head">📣 Loona Board<span class="lb-flash" title="${items.length} live update${items.length!==1?'s':''}"><span class="lb-flash-dot"></span>${items.length}</span></div><div class="lb-list">`+items.map(a=>{
         const canDel=true;
