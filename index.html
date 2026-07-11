@@ -6325,6 +6325,19 @@
     }
 
     function populateFilters() {
+      // iOS Safari (and bfcache generally) can silently restore a previously-selected filter
+      // value across page loads/PWA relaunches — a task can exist and count correctly in the
+      // member-tab badge, yet still not show in "My Tasks" because a stale Status/Priority
+      // filter or leftover search text from a past session is quietly still applied. Force a
+      // clean slate on every boot so filters never hide tasks without the user consciously
+      // having set them this session.
+      const taskSearchEl = document.getElementById('task-search');
+      if (taskSearchEl) taskSearchEl.value = '';
+      const filterStatusEl = document.getElementById('filter-status');
+      if (filterStatusEl) filterStatusEl.value = '';
+      const filterPriorityEl = document.getElementById('filter-priority');
+      if (filterPriorityEl) filterPriorityEl.value = '';
+
       // Brand dropdown (dedupe case-insensitively + known-alias-insensitively, clear existing options first)
       const brandMap = {};
       TASKS.forEach(t => {
