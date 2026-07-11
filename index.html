@@ -7708,7 +7708,11 @@
       const reqType = _approvalPendingType || 'completion';
       const prevStatus = t.status;
       // Immediately set status to Awaiting
-      fbUpdateTask(idx, { status: reqType === 'deferral' ? 'Awaiting Deferral' : 'Awaiting Approval' });
+      // submitted_at marks when the assignee actually finished their side of the
+      // work — approval (completed_at) can land a day or more later, and the
+      // Calendar tab should credit the day the work was done, not the day it
+      // happened to get signed off.
+      fbUpdateTask(idx, { status: reqType === 'deferral' ? 'Awaiting Deferral' : 'Awaiting Approval', submitted_at: new Date().toISOString() });
 
       fbAddApproval({
         id: Date.now(),
@@ -9288,10 +9292,15 @@
 
       const completedNow = newStatus === 'Completed' && oldStatus !== 'Completed';
       const deferredNow = newStatus === 'Deferred';
+      // Covers picking "Awaiting Approval"/"Awaiting Deferral" straight from the status
+      // dropdown (bypassing handleDeckConfirm's own approval-request flow) — same reasoning
+      // as there: this is when the assignee actually finished, not whenever it's approved.
+      const enteringAwait = (newStatus === 'Awaiting Approval' || newStatus === 'Awaiting Deferral') && oldStatus !== newStatus;
       fbUpdateTask(idx, {
         status: newStatus,
         ...(completedNow ? { completed_at: new Date().toISOString() } : {}),
-        ...(deferredNow ? { deferred_at: new Date().toISOString() } : {})
+        ...(deferredNow ? { deferred_at: new Date().toISOString() } : {}),
+        ...(enteringAwait ? { submitted_at: new Date().toISOString() } : {})
       });
 
       if (completedNow) {
@@ -9472,7 +9481,11 @@
       const person = calSelectedPerson;
       const meetings = (window.MEETING_NOTES || []).filter(n => n && normName(n.createdBy) === normName(person) && (n.date || '').slice(0, 10) === dateStr);
       const dueTasks = (TASKS || []).filter(t => t && normName(t.member) === normName(person) && t.due_date === dateStr);
-      const completedTasks = (TASKS || []).filter(t => t && normName(t.member) === normName(person) && t.status === 'Completed' && (t.completed_at || '').slice(0, 10) === dateStr);
+      // submitted_at (when the assignee actually finished and requested approval) takes
+      // priority over completed_at (when the approver signed off, which can be a day or
+      // more later) — otherwise work someone finished yesterday shows as "completed" on
+      // whatever day it happened to get approved instead.
+      const completedTasks = (TASKS || []).filter(t => t && normName(t.member) === normName(person) && t.status === 'Completed' && (t.submitted_at || t.completed_at || '').slice(0, 10) === dateStr);
       const calEvents = (window.CALENDAR_EVENTS || []).filter(e => e && (e.start || '').slice(0, 10) === dateStr && (e.knownAttendees || []).some(a => normName(a) === normName(person)));
       return { meetings, dueTasks, completedTasks, calEvents };
     }
