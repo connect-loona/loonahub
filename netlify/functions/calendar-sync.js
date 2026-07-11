@@ -139,7 +139,11 @@ async function runSync() {
   const eventsByUid = new Map();
   const fetchErrors = [];
 
-  for (const member of members) {
+  // Parallel across members, not sequential — each member is 2 network round-trips
+  // (token + events), and awaiting those one-by-one for a team of any real size risks
+  // blowing past Netlify's function timeout, which is exactly what made this feel slow
+  // (a run that times out partway through writes nothing for that run at all).
+  await Promise.all(members.map(async member => {
     const email = deriveEmail(member);
     try {
       const accessToken = await getAccessToken(email, sa);
@@ -175,7 +179,7 @@ async function runSync() {
     } catch (e) {
       fetchErrors.push({ member: member.name, error: String(e.message || e) });
     }
-  }
+  }));
 
   // Solo calendar entries (focus time, personal reminders, doctor's appointments) have
   // only 1 attendee and no business syncing into a shared company tool at all — drop

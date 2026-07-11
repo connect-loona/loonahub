@@ -14,12 +14,18 @@
 // additional scope alongside the existing readonly one, don't replace it.
 //
 // POST body: { creatorName, title, date (YYYY-MM-DD), startTime (HH:MM),
-//   endTime (HH:MM), attendees: [member names], description }
+//   endTime (HH:MM), attendees: [member names], guestEmails: [raw emails],
+//   brand, description }
 //
-// The created event isn't written into Firebase directly — the client
-// triggers a calendar-sync run right after this succeeds, which picks it up
-// through the normal read pipeline (same dedup/task/board logic as any other
-// meeting).
+// Writes calendarEvents/tasks/announcements/ledger entries for this one event
+// directly — same shape calendar-sync.js produces — instead of triggering a
+// full team-roster sync and waiting for it. A full sync has to sequentially
+// (well, now in parallel, but still) touch every member's calendar, so
+// piggybacking event creation on that was the reason a just-created meeting
+// took a while to show up on the Loona Board. The periodic calendar-sync
+// still runs as the general safety net for meetings created directly in
+// Google Calendar (not through Loona Hub), and its own dedup ledger means it
+// won't double up on what this function already wrote.
 // ============================================================================
 
 const crypto = require('crypto');
@@ -62,10 +68,36 @@ async function fbGet(path) {
   const resp = await fetch(FB + '/' + path + '.json');
   return resp.json().catch(() => null);
 }
+async function fbPatch(path, obj) {
+  return fetch(FB + '/' + path + '.json', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) });
+}
+
+// Firebase RTDB keys can't contain . # $ [ ] /
+function fbSafeKey(s) {
+  return String(s).replace(/[.#$[\]/]/g, '_');
+}
+
+function fmtIST(iso) {
+  if (!iso) return '';
+  if (iso.length <= 10) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  return d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+}
 
 function deriveEmail(member) {
   if (member.email) return member.email;
   return String(member.name || '').toLowerCase().replace(/\s+/g, '') + '@loona.in';
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// "priya.sharma+meet@clientco.com" -> "Priya" — just the first name, per the
+// ask, not an attempt at reconstructing a full name from the local-part.
+function deriveGuestFirstName(email) {
+  const local = String(email).split('@')[0] || email;
+  const first = local.split(/[._+-]+/)[0] || local;
+  return first ? first.charAt(0).toUpperCase() + first.slice(1).toLowerCase() : email;
 }
 
 exports.handler = async (event) => {
@@ -86,7 +118,7 @@ exports.handler = async (event) => {
     if (!sa.client_email || !sa.private_key) throw new Error('GOOGLE_CALENDAR_SERVICE_ACCOUNT is missing client_email/private_key');
 
     const body = JSON.parse(event.body || '{}');
-    const { creatorName, title, date, startTime, endTime, attendees, description } = body;
+    const { creatorName, title, date, startTime, endTime, attendees, guestEmails, brand, description } = body;
     if (!creatorName || !title || !date || !startTime || !endTime) {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Missing required fields (creatorName, title, date, startTime, endTime)' }) };
     }
@@ -100,11 +132,15 @@ exports.handler = async (event) => {
     if (!creator) throw new Error(`"${creatorName}" not found in the team roster`);
     const creatorEmail = deriveEmail(creator);
 
-    const attendeeEmails = (attendees || [])
+    const attendeeMembers = (attendees || [])
       .map(name => memberByName[String(name).toLowerCase()])
-      .filter(Boolean)
+      .filter(Boolean);
+    const attendeeEmails = attendeeMembers
       .map(deriveEmail)
       .filter(email => email.toLowerCase() !== creatorEmail.toLowerCase());
+
+    const validGuestEmails = [...new Set((guestEmails || []).map(e => String(e).trim().toLowerCase()).filter(e => EMAIL_RE.test(e)))]
+      .filter(e => e !== creatorEmail.toLowerCase() && !attendeeEmails.map(a => a.toLowerCase()).includes(e));
 
     const accessToken = await getAccessToken(creatorEmail, sa);
 
@@ -113,7 +149,7 @@ exports.handler = async (event) => {
       description: description || '',
       start: { dateTime: `${date}T${startTime}:00`, timeZone: 'Asia/Kolkata' },
       end: { dateTime: `${date}T${endTime}:00`, timeZone: 'Asia/Kolkata' },
-      attendees: attendeeEmails.map(email => ({ email })),
+      attendees: [...attendeeEmails, ...validGuestEmails].map(email => ({ email })),
       conferenceData: {
         createRequest: {
           requestId: 'loonahub_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2),
@@ -133,10 +169,97 @@ exports.handler = async (event) => {
     const data = await resp.json().catch(() => ({}));
     if (!resp.ok) throw new Error(`Calendar API ${resp.status}: ${JSON.stringify(data).slice(0, 300)}`);
 
+    // Same uid convention calendar-sync.js uses (iCalUID falling back to id) so a later
+    // periodic sync recognizes this as the same event instead of writing a duplicate.
+    const uid = data.iCalUID || data.id;
+    const videoEntry = data.conferenceData && data.conferenceData.entryPoints && data.conferenceData.entryPoints.find(e => e.entryPointType === 'video');
+    // Google can still be provisioning the Meet link at the moment insert() returns —
+    // conferenceData.createRequest.status may say "pending" rather than "success". If so
+    // this falls back to the calendar page link for now; the periodic sync will pick up
+    // the finished Meet link on a later pass since this event isn't ledger-locked for
+    // *that* — only the task/board creation is, the calendarEvents record itself still
+    // gets refreshed by every sync run.
+    const callLink = data.hangoutLink || (videoEntry && videoEntry.uri) || '';
+
+    const knownAttendees = [...new Set([creatorName, ...attendeeMembers.map(m => m.name)])];
+    const guestNames = validGuestEmails.map(deriveGuestFirstName);
+
+    // Built directly from our own known input (already IST, since that's the only
+    // timezone this form works in) rather than trusting data.start/data.end's exact
+    // shape back from Google — safer than assuming the response always embeds an
+    // explicit offset, and sidesteps any risk of double-converting the time.
+    const calendarEventEntry = {
+      title: data.summary || title,
+      start: `${date}T${startTime}:00+05:30`,
+      end: `${date}T${endTime}:00+05:30`,
+      attendeeCount: knownAttendees.length + guestNames.length,
+      knownAttendees,
+      guestNames,
+      brand: brand || '',
+      organizer: creatorName,
+      callLink,
+      htmlLink: data.htmlLink || '',
+      updatedAt: Date.now()
+    };
+    await fbPatch('calendarEvents', { [fbSafeKey(uid)]: calendarEventEntry });
+
+    // Per-attendee task — same is_auto/auto_calendar_event_id shape calendar-sync.js
+    // uses, and logged in the same ledger so the periodic sync doesn't duplicate it.
+    const startTimeLabel = fmtIST(calendarEventEntry.start);
+    const endTimeLabel = fmtIST(calendarEventEntry.end);
+    const timeRange = startTimeLabel ? (endTimeLabel && endTimeLabel !== startTimeLabel ? `${startTimeLabel} – ${endTimeLabel} IST` : `${startTimeLabel} IST`) : '';
+
+    const taskLog = await fbGet('calendarSyncLog/tasks') || {};
+    const newTasks = {};
+    const taskLogUpdate = {};
+    knownAttendees.forEach(name => {
+      const sig = uid + '|' + name;
+      const logKey = fbSafeKey(sig);
+      if (taskLog[logKey]) return;
+      const key = 'auto_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2) + '_' + fbSafeKey(name);
+      newTasks[key] = {
+        member: name,
+        brand: brand || '',
+        task: `Meeting: ${calendarEventEntry.title}${timeRange ? ` (${timeRange})` : ''}`,
+        priority: 'Medium',
+        status: 'Not Started',
+        due_date: date,
+        assigned_by: 'Google Calendar',
+        is_auto: true,
+        auto_calendar_event_id: uid,
+        meeting_link: callLink || calendarEventEntry.htmlLink || '',
+        created_at: new Date().toISOString()
+      };
+      taskLogUpdate[logKey] = true;
+    });
+    if (Object.keys(newTasks).length) await fbPatch('tasks', newTasks);
+    if (Object.keys(taskLogUpdate).length) await fbPatch('calendarSyncLog/tasks', taskLogUpdate);
+
+    // Loona Board post, scoped to the actual participants only.
+    const annLog = await fbGet('calendarSyncLog/announcements') || {};
+    const annLogKey = fbSafeKey(uid);
+    if (!annLog[annLogKey]) {
+      const allNames = [...knownAttendees, ...guestNames];
+      const annKey = 'auto_ann_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2);
+      await fbPatch('announcements', {
+        [annKey]: {
+          id: Date.now(),
+          text: `📅 ${calendarEventEntry.title}${timeRange ? ` — ${timeRange}` : ''}${brand ? ` · ${brand}` : ''} · ${allNames.join(', ')}`,
+          links: (callLink || calendarEventEntry.htmlLink) ? [callLink || calendarEventEntry.htmlLink] : [],
+          author: creatorName,
+          emoji: '📅',
+          timestamp: new Date().toISOString(),
+          calendar_event_id: uid,
+          visibleTo: knownAttendees
+        }
+      });
+      await fbPatch('calendarSyncLog/announcements', { [annLogKey]: true });
+    }
+
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ success: true, eventId: data.id, htmlLink: data.htmlLink || '', callLink: data.hangoutLink || '' })
+      body: JSON.stringify({ success: true, eventId: data.id, htmlLink: data.htmlLink || '', callLink })
     };
   } catch (err) {
     return { statusCode: 502, headers, body: JSON.stringify({ success: false, message: String((err && err.message) || err) }) };

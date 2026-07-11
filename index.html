@@ -3837,6 +3837,16 @@
         </div>
         <div class="form-row">
           <div class="form-group">
+            <label>Brand</label>
+            <select class="form-control" id="nm-brand" onchange="nmOnBrandChange()"></select>
+          </div>
+          <div class="form-group" id="nm-brand-other-wrap" style="display:none">
+            <label>Brand name</label>
+            <input class="form-control" type="text" id="nm-brand-other" placeholder="New / prospective brand name">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
             <label>Date *</label>
             <input class="form-control" type="date" id="nm-date">
           </div>
@@ -3854,6 +3864,14 @@
         <div class="form-group">
           <label>Attendees</label>
           <div id="nm-attendees" class="nm-attendee-list"></div>
+        </div>
+        <div class="form-group">
+          <label>Guests (external, by email)</label>
+          <div class="nm-guest-row">
+            <input class="form-control" type="email" id="nm-guest-email" placeholder="name@company.com" onkeydown="if(event.key==='Enter'){event.preventDefault();nmAddGuest();}">
+            <button type="button" class="btn btn-ghost" onclick="nmAddGuest()">+ Add</button>
+          </div>
+          <div id="nm-guest-list" class="nm-attendee-list" style="display:none"></div>
         </div>
         <div class="form-group">
           <label>Description</label>
@@ -9516,9 +9534,13 @@
 
     // ═══ New Meeting — creates a real Google Calendar event (with a Meet link)
     // via calendar-create.js, impersonating the logged-in user so it's a real
-    // invite from their own account, then pulls it back in immediately via the
-    // same sync used by "Sync now" instead of waiting on the 5-min schedule. ═══
+    // invite from their own account. calendar-create.js writes the
+    // calendarEvents/task/Loona Board records itself, directly — the existing
+    // Firebase .on('value') listeners pick that up immediately, no separate
+    // sync round-trip needed (that extra wait, on top of a full-roster sync,
+    // was why a just-created meeting used to take a while to show up). ═══
     let nmSelectedAttendees = new Set();
+    let nmGuestEmails = [];
 
     function nmToggleAttendee(name) {
       if (nmSelectedAttendees.has(name)) nmSelectedAttendees.delete(name);
@@ -9535,6 +9557,54 @@
       }).join('');
     }
 
+    function nmPopulateBrandSelect() {
+      const sel = document.getElementById('nm-brand');
+      if (!sel) return;
+      sel.innerHTML = '<option value="">— No specific brand (internal) —</option>' +
+        lnBrandOptionList().map(b => `<option value="${lnEsc(b)}">${lnEsc(b)}</option>`).join('') +
+        '<option value="__other__">Other (new / prospective brand)…</option>';
+    }
+
+    function nmOnBrandChange() {
+      const sel = document.getElementById('nm-brand');
+      const wrap = document.getElementById('nm-brand-other-wrap');
+      wrap.style.display = sel.value === '__other__' ? 'flex' : 'none';
+    }
+
+    function nmSelectedBrand() {
+      const sel = document.getElementById('nm-brand');
+      if (!sel) return '';
+      if (sel.value === '__other__') return document.getElementById('nm-brand-other').value.trim();
+      return sel.value;
+    }
+
+    function nmAddGuest() {
+      const input = document.getElementById('nm-guest-email');
+      const email = input.value.trim().toLowerCase();
+      if (!email) return;
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { nmShowError('That doesn\'t look like a valid email address.'); return; }
+      if (!nmGuestEmails.includes(email)) nmGuestEmails.push(email);
+      input.value = '';
+      document.getElementById('nm-error').style.display = 'none';
+      nmRenderGuests();
+    }
+
+    function nmRemoveGuest(email) {
+      nmGuestEmails = nmGuestEmails.filter(e => e !== email);
+      nmRenderGuests();
+    }
+
+    function nmRenderGuests() {
+      const cont = document.getElementById('nm-guest-list');
+      if (!cont) return;
+      cont.style.display = nmGuestEmails.length ? 'flex' : 'none';
+      cont.innerHTML = nmGuestEmails.map(email => {
+        const name = (email.split('@')[0].split(/[._+-]+/)[0] || email);
+        const label = name.charAt(0).toUpperCase() + name.slice(1);
+        return `<span class="nm-attendee-chip guest checked" title="${lnEsc(email)}">${lnEsc(label)}<span class="nm-chip-remove" onclick="nmRemoveGuest('${lnEsc(email)}')">✕</span></span>`;
+      }).join('');
+    }
+
     function openNewMeeting() {
       document.getElementById('nm-title').value = '';
       document.getElementById('nm-date').valueAsDate = calViewDate && calViewDate > new Date() ? calViewDate : new Date();
@@ -9543,7 +9613,13 @@
       document.getElementById('nm-desc').value = '';
       document.getElementById('nm-error').style.display = 'none';
       nmSelectedAttendees = new Set();
+      nmGuestEmails = [];
+      document.getElementById('nm-guest-email').value = '';
+      nmPopulateBrandSelect();
+      document.getElementById('nm-brand-other-wrap').style.display = 'none';
+      document.getElementById('nm-brand-other').value = '';
       nmRenderAttendees();
+      nmRenderGuests();
       document.getElementById('new-meeting-modal').classList.remove('hidden');
       setTimeout(() => document.getElementById('nm-title').focus(), 100);
     }
@@ -9564,6 +9640,7 @@
       const startTime = document.getElementById('nm-start').value;
       const endTime = document.getElementById('nm-end').value;
       const description = document.getElementById('nm-desc').value.trim();
+      const brand = nmSelectedBrand();
 
       if (!title) return nmShowError('Give the meeting a title.');
       if (!date || !startTime || !endTime) return nmShowError('Date, start time, and end time are all required.');
@@ -9579,17 +9656,15 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             creatorName: currentUser,
-            title, date, startTime, endTime, description,
-            attendees: [...nmSelectedAttendees]
+            title, date, startTime, endTime, description, brand,
+            attendees: [...nmSelectedAttendees],
+            guestEmails: nmGuestEmails
           })
         });
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok || !data.success) throw new Error(data.message || 'Could not create the meeting');
         closeNewMeeting();
-        // Pull the new event back into Firebase right away instead of waiting on
-        // the 5-min cron, same call the "Sync now" button makes.
-        fetch('/.netlify/functions/calendar-sync').catch(() => {});
-        alert('Meeting created! It\'ll appear on the calendar in a moment' + (data.callLink ? ' — Meet link: ' + data.callLink : '.'));
+        alert('Meeting created!' + (data.callLink ? ' Meet link: ' + data.callLink : ''));
       } catch (e) {
         nmShowError(e.message || String(e));
       } finally {
@@ -9620,6 +9695,14 @@
     // own IST-anchored event times instead of drifting near midnight.
     function calTodayIST() {
       return new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    }
+
+    // knownAttendees drives task creation and stays strictly real team members —
+    // guestNames (external, added by email when the meeting was created in Loona
+    // Hub) is display-only, so it's combined here rather than folded into
+    // knownAttendees itself.
+    function calAllAttendeeNames(e) {
+      return [...(e.knownAttendees || []), ...(e.guestNames || [])];
     }
 
     function calRenderMonth() {
@@ -9699,10 +9782,11 @@
         <div class="lb-list">${sorted.map(e => {
           const joinLink = e.callLink || e.htmlLink;
           const time = calEventRange(e.start, e.end);
+          const names = calAllAttendeeNames(e);
           return `<div class="lb-item">
-            <div class="lb-meta"><span>${lnEsc(time || '')}</span></div>
+            <div class="lb-meta"><span>${lnEsc(time || '')}</span>${e.brand ? `<span>· ${lnEsc(e.brand)}</span>` : ''}</div>
             <div class="lb-text">${joinLink ? `<a class="lb-link" href="${lnEsc(joinLink)}" target="_blank" rel="noopener">🔗 ${lnEsc(e.title)}</a>` : lnEsc(e.title)}</div>
-            ${e.knownAttendees && e.knownAttendees.length ? `<div class="ln-note-meta">${lnEsc(e.knownAttendees.join(', '))}</div>` : ''}
+            ${names.length ? `<div class="ln-note-meta">${lnEsc(names.join(', '))}</div>` : ''}
           </div>`;
         }).join('')}</div>
       </div>`;
@@ -9719,7 +9803,7 @@
           <div class="cal2-detail-title">${lnEsc(calSelectedPerson)} — ${niceDate}</div>
           <button class="btn btn-ghost" onclick="calCloseDayDetail()">Close</button>
         </div>
-        ${calEvents.length ? `<div class="ln-section-label">Google Calendar</div>${calEvents.map(e => { const joinLink = e.callLink || e.htmlLink; return `<div class="cal2-detail-row">📅 ${calEventRange(e.start, e.end) ? `<span class="cal2-detail-time">${lnEsc(calEventRange(e.start, e.end))}</span> · ` : ''}${joinLink ? `<a href="${lnEsc(joinLink)}" target="_blank" rel="noopener">${lnEsc(e.title)}</a>` : lnEsc(e.title)}${e.knownAttendees && e.knownAttendees.length ? ' · ' + lnEsc(e.knownAttendees.join(', ')) : ''}${e.callLink && e.htmlLink ? ` · <a href="${lnEsc(e.htmlLink)}" target="_blank" rel="noopener" style="color:var(--muted)">Calendar</a>` : ''}</div>`; }).join('')}` : ''}
+        ${calEvents.length ? `<div class="ln-section-label">Google Calendar</div>${calEvents.map(e => { const joinLink = e.callLink || e.htmlLink; const names = calAllAttendeeNames(e); return `<div class="cal2-detail-row">📅 ${calEventRange(e.start, e.end) ? `<span class="cal2-detail-time">${lnEsc(calEventRange(e.start, e.end))}</span> · ` : ''}${joinLink ? `<a href="${lnEsc(joinLink)}" target="_blank" rel="noopener">${lnEsc(e.title)}</a>` : lnEsc(e.title)}${e.brand ? ' · ' + lnEsc(e.brand) : ''}${names.length ? ' · ' + lnEsc(names.join(', ')) : ''}${e.callLink && e.htmlLink ? ` · <a href="${lnEsc(e.htmlLink)}" target="_blank" rel="noopener" style="color:var(--muted)">Calendar</a>` : ''}</div>`; }).join('')}` : ''}
         ${meetings.length ? `<div class="ln-section-label">Meeting Records</div>${meetings.map(n => `<div class="cal2-detail-row cal2-detail-row-clickable" onclick="calOpenMeeting('${n._key}')">🎙️ ${lnEsc(n.title)}${n.brand ? ' · ' + lnEsc(n.brand) : ''}</div>`).join('')}` : ''}
         ${completedTasks.length ? `<div class="ln-section-label">Completed</div>${completedTasks.map(t => `<div class="cal2-detail-row">✓ ${lnEsc(t.task)}${t.brand ? ' · ' + lnEsc(t.brand) : ''}</div>`).join('')}` : ''}
         ${dueTasks.length ? `<div class="ln-section-label">Due</div>${dueTasks.map(t => `<div class="cal2-detail-row">📌 ${lnEsc(t.task)}${t.brand ? ' · ' + lnEsc(t.brand) : ''} (${t.status})</div>`).join('')}` : ''}
@@ -9893,9 +9977,10 @@
             const joinLink = e.callLink || e.htmlLink;
             const range = calEventRange(e.start, e.end);
             const when = `${lnFmtEventWhen(e.start)}${range ? ' · ' + range : ''}`;
+            const names = calAllAttendeeNames(e);
             return `<div class="lb-item">
-              <div class="lb-meta"><span>${lnEsc(when)}</span></div>
-              <div class="lb-text">${lnEsc(e.title)}${e.knownAttendees && e.knownAttendees.length ? ' · ' + lnEsc(e.knownAttendees.join(', ')) : ''}</div>
+              <div class="lb-meta"><span>${lnEsc(when)}</span>${e.brand ? `<span>· ${lnEsc(e.brand)}</span>` : ''}</div>
+              <div class="lb-text">${lnEsc(e.title)}${names.length ? ' · ' + lnEsc(names.join(', ')) : ''}</div>
               <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
                 ${joinLink ? `<a class="btn btn-ghost" href="${lnEsc(joinLink)}" target="_blank" rel="noopener" style="padding:6px 12px;font-size:12px">Join call ↗</a>` : ''}
                 <button class="btn btn-primary" style="padding:6px 12px;font-size:12px" onclick="lnStartRecordingFor('${e._key}')">🎙️ Record this meeting</button>
@@ -11280,6 +11365,10 @@ ${brandLines}`;
 .nm-attendee-chip{display:flex;align-items:center;gap:5px;font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:5px 10px;cursor:pointer;user-select:none}
 .nm-attendee-chip.checked{background:rgba(255,109,41,.15);border-color:rgba(255,109,41,.4);color:var(--accent2)}
 .nm-attendee-chip input{display:none}
+.nm-attendee-chip.guest{border-style:dashed}
+.nm-attendee-chip .nm-chip-remove{margin-left:2px;opacity:.7;font-weight:700}
+.nm-guest-row{display:flex;gap:8px}
+.nm-guest-row .form-control{flex:1}
 .nm-note{font-size:12px;color:#e05c5c;margin-top:4px}
 .cal2-detail-panel{margin-top:18px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px}
 .cal2-detail-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
@@ -12456,10 +12545,12 @@ ${brandLines}`;
     }
     function showCallReminderPopup(ev, minsLeft){
       var joinLink = ev.callLink || ev.htmlLink;
-      // calendarEvents has no brand field of its own — best-effort match against known
-      // brand names in the title, same heuristic the recorder pre-fill uses.
-      var brand = (typeof lnBrandOptionList==="function") ? lnBrandOptionList().find(function(b){ return (ev.title||"").toLowerCase().includes(String(b).toLowerCase()); }) : null;
-      var who = (ev.knownAttendees||[]).filter(function(a){ return normName(a)!==normName(currentUser); }).join(", ");
+      // Meetings created via "New Meeting" carry a real brand field; events synced
+      // straight from Google (no brand of their own) fall back to a best-effort
+      // match against known brand names in the title.
+      var brand = ev.brand || ((typeof lnBrandOptionList==="function") ? lnBrandOptionList().find(function(b){ return (ev.title||"").toLowerCase().includes(String(b).toLowerCase()); }) : null);
+      var names = (typeof calAllAttendeeNames==="function") ? calAllAttendeeNames(ev) : (ev.knownAttendees||[]);
+      var who = names.filter(function(a){ return normName(a)!==normName(currentUser); }).join(", ");
       var body = "<b>"+lnEsc(ev.title)+"</b>"+(brand?" · "+lnEsc(brand):"")+(who?"<br>with "+lnEsc(who):"")+
         (joinLink?"<br><br><a href=\""+lnEsc(joinLink)+"\" target=\"_blank\" rel=\"noopener\" style=\"color:#5b9cf6;font-weight:600\">Join call now &#8594;</a>":"");
       popupBox("call-remind-pop","&#128222;","You have a call in "+minsLeft+" min"+(minsLeft===1?"":"s"), body, null);
