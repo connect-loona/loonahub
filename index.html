@@ -5840,6 +5840,7 @@
       if (window._wipTimer) clearInterval(window._wipTimer);
       if (window._missTimer) clearTimeout(window._missTimer);
       (window._taskRemindTimers || []).forEach(clearTimeout); window._taskRemindTimers = [];
+      if (window._callReminderInterval) clearInterval(window._callReminderInterval);
       window._attPopupShown = false;
     }
 
@@ -12292,8 +12293,59 @@ ${brandLines}`;
       startWipRotation();
       var di=document.getElementById("att-date");
       if(di) di.onchange=function(){ SEL=this.value||TODAY; window.renderAttendanceOverview(); };
-      if(!window._attPopupShown){ window._attPopupShown=true; setTimeout(function(){ _waitForBrandsThenRunPopups(name); },450); scheduleTaskReminders(name); schedulePerfReminders(name); }
+      if(!window._attPopupShown){ window._attPopupShown=true; setTimeout(function(){ _waitForBrandsThenRunPopups(name); },450); scheduleTaskReminders(name); schedulePerfReminders(name); startCallReminderWatcher(name); }
     };
+
+    // ===== Pre-call reminders (10 min + 5 min before a synced Google Calendar meeting) =====
+    function callReminderKey(name){ return "loona_callremind_"+name; }
+    function getShownCallReminders(name){
+      try{ return new Set(JSON.parse(localStorage.getItem(callReminderKey(name))||"[]")); }catch(e){ return new Set(); }
+    }
+    function markCallReminderShown(name, sig){
+      try{
+        var s=getShownCallReminders(name);
+        s.add(sig);
+        // Prune sigs whose event has fallen out of the synced window, so this doesn't grow forever.
+        var validKeys=new Set((window.CALENDAR_EVENTS||[]).map(function(e){ return e._key; }));
+        var pruned=[...s].filter(function(x){ return validKeys.has(x.split("|")[0]); });
+        localStorage.setItem(callReminderKey(name), JSON.stringify(pruned));
+      }catch(e){}
+    }
+    function showCallReminderPopup(ev, minsLeft){
+      var joinLink = ev.callLink || ev.htmlLink;
+      // calendarEvents has no brand field of its own — best-effort match against known
+      // brand names in the title, same heuristic the recorder pre-fill uses.
+      var brand = (typeof lnBrandOptionList==="function") ? lnBrandOptionList().find(function(b){ return (ev.title||"").toLowerCase().includes(String(b).toLowerCase()); }) : null;
+      var who = (ev.knownAttendees||[]).filter(function(a){ return normName(a)!==normName(currentUser); }).join(", ");
+      var body = "<b>"+lnEsc(ev.title)+"</b>"+(brand?" · "+lnEsc(brand):"")+(who?"<br>with "+lnEsc(who):"")+
+        (joinLink?"<br><br><a href=\""+lnEsc(joinLink)+"\" target=\"_blank\" rel=\"noopener\" style=\"color:#5b9cf6;font-weight:600\">Join call now &#8594;</a>":"");
+      popupBox("call-remind-pop","&#128222;","You have a call in "+minsLeft+" min"+(minsLeft===1?"":"s"), body, null);
+    }
+    function checkCallReminders(name){
+      if(!name || currentUser!==name || !window.CALENDAR_EVENTS) return;
+      var now=Date.now();
+      var shown=getShownCallReminders(name);
+      [10,5].forEach(function(threshold){
+        (window.CALENDAR_EVENTS||[]).forEach(function(ev){
+          if(!ev||!ev.start||ev.start.length<=10) return; // skip all-day entries — no meaningful "minutes before"
+          if(!(ev.knownAttendees||[]).some(function(a){ return normName(a)===normName(name); })) return;
+          var startMs=new Date(ev.start).getTime();
+          if(isNaN(startMs)) return;
+          var minsUntil=(startMs-now)/60000;
+          var sig=(ev._key||ev.start)+"|"+threshold;
+          if(minsUntil<=threshold && minsUntil>0 && !shown.has(sig)){
+            showCallReminderPopup(ev, Math.max(1,Math.round(minsUntil)));
+            markCallReminderShown(name, sig);
+            shown.add(sig);
+          }
+        });
+      });
+    }
+    function startCallReminderWatcher(name){
+      if(window._callReminderInterval) clearInterval(window._callReminderInterval);
+      checkCallReminders(name);
+      window._callReminderInterval=setInterval(function(){ checkCallReminders(currentUser); },30000);
+    }
 
     if(typeof showPage==="function"){ var _sp=showPage; showPage=function(id,btn){ if(id==="overview") SEL=TODAY; var _mn=document.querySelector(".topbar .nav"); if(_mn) _mn.classList.remove("nav-open"); _sp(id,btn); if(id==="overview") window.renderAttendanceOverview(); }; }
     if(typeof renderOverview==="function"){ var _ro=renderOverview; renderOverview=function(){ _ro.apply(this,arguments); window.renderAttendanceOverview(); }; }
