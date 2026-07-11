@@ -43,7 +43,7 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
         max_tokens: 500,
-        system: 'You are an AI assistant for a creative agency internal dashboard. Help the user with questions about their tasks, progress, team status, or general assistance.',
+        system: 'You are an AI assistant for a creative agency internal dashboard. The context includes the current user\'s own tasks in detail, plus a summary of every team member\'s task status and every brand\'s task progress. Use that data to answer questions about any team member or brand by name, not just the person currently logged in. If asked about a person or brand not present in the data, say you don\'t have that information rather than guessing. Keep answers concise and friendly.',
         messages: [
           {
             role: 'user',
@@ -55,7 +55,7 @@ exports.handler = async (event, context) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`LIVE-MARKER-777 ${response.status}: ${errorText}`);
+      throw new Error(`Claude API ${response.status}: ${errorText}`);
     }
 
     const data = await response.json();

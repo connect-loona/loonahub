@@ -10267,28 +10267,61 @@
 
     function buildContextPrompt() {
       const today = new Date().toISOString().slice(0, 10);
+      const isOverdue = t => t.status !== 'Completed' && t.status !== 'Deferred' && t.due_date && t.due_date < today;
+
       const myTasks = TASKS.filter(t => normName(t.member) === normName(currentUser));
       const pendingTasks = myTasks.filter(t => t.status !== 'Completed' && t.status !== 'Deferred');
       const completedTasks = myTasks.filter(t => t.status === 'Completed');
       const inProgressTasks = myTasks.filter(t => t.status === 'In Progress');
-      const overdueTasks = myTasks.filter(t => t.status !== 'Completed' && t.status !== 'Deferred' && t.due_date && t.due_date < today);
+      const overdueTasks = myTasks.filter(isOverdue);
+
+      // Per-member breakdown so questions about anyone on the team ("what's overdue for
+      // Anam") can be answered, not just questions about whoever's currently logged in.
+      const activeMembers = ALL_MEMBERS.filter(m => !INACTIVE_MEMBERS.has(m));
+      const memberLines = activeMembers.map(m => {
+        const mTasks = TASKS.filter(t => normName(t.member) === normName(m));
+        const mOverdue = mTasks.filter(isOverdue);
+        const mCompleted = mTasks.filter(t => t.status === 'Completed').length;
+        const mInProgress = mTasks.filter(t => t.status === 'In Progress').length;
+        const mPending = mTasks.filter(t => t.status !== 'Completed' && t.status !== 'Deferred').length;
+        const overdueNote = mOverdue.length ? ` — overdue: ${mOverdue.slice(0, 5).map(t => t.task).join('; ')}` : '';
+        return `- ${m}: ${mTasks.length} total, ${mCompleted} completed, ${mInProgress} in progress, ${mPending} pending, ${mOverdue.length} overdue${overdueNote}`;
+      }).join('\n');
+
+      // Per-brand breakdown so questions about any client/brand ("how is Red Beryl tracking")
+      // can be answered directly instead of just an aggregate brand count.
+      const brandTaskCounts = {};
+      TASKS.forEach(t => {
+        if (!t || !t.brand) return;
+        const canon = canonicalBrandName(t.brand);
+        if (!brandTaskCounts[canon]) brandTaskCounts[canon] = { total: 0, done: 0 };
+        brandTaskCounts[canon].total++;
+        if (t.status === 'Completed') brandTaskCounts[canon].done++;
+      });
+      const seenBrands = new Set();
+      const brandLines = BRANDS_ALLOC.filter(b => !b.inactive).map(b => canonicalBrandName(b.brand)).filter(b => {
+        const key = b.toLowerCase();
+        if (seenBrands.has(key)) return false;
+        seenBrands.add(key);
+        return true;
+      }).map(canon => {
+        const d = brandTaskCounts[canon] || { total: 0, done: 0 };
+        const pct = d.total > 0 ? Math.round(d.done / d.total * 100) : 0;
+        return `- ${canon}: ${d.done}/${d.total} tasks completed (${pct}%)`;
+      }).join('\n');
 
       const context = `Current user: ${currentUser}
-Total tasks: ${myTasks.length}
-Completed: ${completedTasks.length}
-In Progress: ${inProgressTasks.length}
-Pending: ${pendingTasks.length}
-Overdue: ${overdueTasks.length}
+Current date: ${today}
 
-Recent tasks:
+${currentUser}'s own tasks: ${myTasks.length} total, ${completedTasks.length} completed, ${inProgressTasks.length} in progress, ${pendingTasks.length} pending, ${overdueTasks.length} overdue
+Recent tasks for ${currentUser}:
 ${myTasks.slice(0, 10).map(t => `- ${t.task} (${t.status}, due: ${t.due_date || 'N/A'})`).join('\n')}
 
-Team overview:
-- Total team tasks: ${TASKS.length}
-- Active members: ${ALL_MEMBERS.filter(m => !INACTIVE_MEMBERS.has(m)).length}
-- Brands: ${BRANDS_ALLOC.filter(b => !b.inactive).length}
+Every team member's task status:
+${memberLines}
 
-Current date: ${today}`;
+Every brand's task progress:
+${brandLines}`;
 
       return context;
     }
