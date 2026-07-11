@@ -101,7 +101,10 @@ function deriveEmail(member) {
 }
 
 async function runSync() {
-  const saRaw = process.env.GOOGLE_CALENDAR_SERVICE_ACCOUNT;
+  // Also accepts the "CALENDER" misspelling — that's how it's actually named in
+  // the Netlify dashboard, and env var keys can't be renamed there without
+  // re-pasting the JSON key value, so we just read either.
+  const saRaw = process.env.GOOGLE_CALENDAR_SERVICE_ACCOUNT || process.env.GOOGLE_CALENDER_SERVICE_ACCOUNT;
   if (!saRaw) throw new Error('GOOGLE_CALENDAR_SERVICE_ACCOUNT not set');
   let sa;
   try { sa = JSON.parse(saRaw); } catch (e) { throw new Error('GOOGLE_CALENDAR_SERVICE_ACCOUNT is not valid JSON'); }

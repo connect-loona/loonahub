@@ -40,4 +40,6 @@
 #                             recorder — see netlify/functions/sarvam-*.js)
 #   GOOGLE_CALENDAR_SERVICE_ACCOUNT   (full JSON key contents for the service account
 #                             authorized for domain-wide delegation in Workspace Admin —
-#                             see netlify/functions/calendar-sync.js)
+#                             see netlify/functions/calendar-sync.js. Also accepts the
+#                             "GOOGLE_CALENDER_SERVICE_ACCOUNT" misspelling if that's
+#                             what's actually set in the Netlify dashboard.)
