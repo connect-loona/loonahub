@@ -5383,6 +5383,14 @@
           if (document.getElementById('page-loonanotes') && document.getElementById('page-loonanotes').classList.contains('active') && typeof lnRenderList === 'function') lnRenderList();
         });
 
+        // Synced by netlify/functions/calendar-sync.js from everyone's real Google Calendar
+        // (via Workspace domain-wide delegation) — see calDayData() in the Calendar tab.
+        _db.ref('calendarEvents').on('value', snap => {
+          const data = snap.val() || {};
+          window.CALENDAR_EVENTS = Object.entries(data).map(([k, v]) => ({ ...v, _key: k }));
+          if (document.getElementById('page-calendar') && document.getElementById('page-calendar').classList.contains('active') && typeof calRenderMonth === 'function') calRenderMonth();
+        });
+
         // Seed brands on first connect
         _db.ref('brands').once('value', snap => {
           if (!snap.val() && BRANDS_ALLOC.length > 0) {
@@ -9435,7 +9443,8 @@
       const meetings = (window.MEETING_NOTES || []).filter(n => n && normName(n.createdBy) === normName(person) && (n.date || '').slice(0, 10) === dateStr);
       const dueTasks = (TASKS || []).filter(t => t && normName(t.member) === normName(person) && t.due_date === dateStr);
       const completedTasks = (TASKS || []).filter(t => t && normName(t.member) === normName(person) && t.status === 'Completed' && (t.completed_at || '').slice(0, 10) === dateStr);
-      return { meetings, dueTasks, completedTasks };
+      const calEvents = (window.CALENDAR_EVENTS || []).filter(e => e && (e.start || '').slice(0, 10) === dateStr && (e.knownAttendees || []).some(a => normName(a) === normName(person)));
+      return { meetings, dueTasks, completedTasks, calEvents };
     }
 
     function calRenderMonth() {
@@ -9458,9 +9467,10 @@
       grid.innerHTML = cells.map(d => {
         if (!d) return '<div class="cal2-cell cal2-empty"></div>';
         const dateStr = calFmtDateStr(y, m, d);
-        const { meetings, dueTasks, completedTasks } = calDayData(dateStr);
+        const { meetings, dueTasks, completedTasks, calEvents } = calDayData(dateStr);
         const isToday = dateStr === todayStr;
         const badges = [];
+        if (calEvents.length) badges.push(`<span class="cal2-badge cal2-badge-sync">📅 ${calEvents.length}</span>`);
         if (meetings.length) badges.push(`<span class="cal2-badge cal2-badge-meeting">🎙️ ${meetings.length}</span>`);
         if (completedTasks.length) badges.push(`<span class="cal2-badge cal2-badge-done">✓ ${completedTasks.length}</span>`);
         if (dueTasks.length) badges.push(`<span class="cal2-badge cal2-badge-due">📌 ${dueTasks.length}</span>`);
@@ -9471,10 +9481,18 @@
       }).join('');
     }
 
+    function calEventTime(iso) {
+      if (!iso) return '';
+      if (iso.length <= 10) return 'All day';
+      const d = new Date(iso);
+      if (isNaN(d)) return '';
+      return d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+    }
+
     function calShowDayDetail(dateStr) {
       const panel = document.getElementById('cal2-detail-panel');
       if (!panel) return;
-      const { meetings, dueTasks, completedTasks } = calDayData(dateStr);
+      const { meetings, dueTasks, completedTasks, calEvents } = calDayData(dateStr);
       const niceDate = lnFmtDate(dateStr);
       panel.style.display = 'block';
       panel.innerHTML = `
@@ -9482,10 +9500,11 @@
           <div class="cal2-detail-title">${lnEsc(calSelectedPerson)} — ${niceDate}</div>
           <button class="btn btn-ghost" onclick="calCloseDayDetail()">Close</button>
         </div>
+        ${calEvents.length ? `<div class="ln-section-label">Google Calendar</div>${calEvents.map(e => `<div class="cal2-detail-row">📅 ${calEventTime(e.start) ? `<span class="cal2-detail-time">${lnEsc(calEventTime(e.start))}</span> · ` : ''}${e.htmlLink ? `<a href="${lnEsc(e.htmlLink)}" target="_blank" rel="noopener">${lnEsc(e.title)}</a>` : lnEsc(e.title)}${e.knownAttendees && e.knownAttendees.length ? ' · ' + lnEsc(e.knownAttendees.join(', ')) : ''}</div>`).join('')}` : ''}
         ${meetings.length ? `<div class="ln-section-label">Meeting Records</div>${meetings.map(n => `<div class="cal2-detail-row cal2-detail-row-clickable" onclick="calOpenMeeting('${n._key}')">🎙️ ${lnEsc(n.title)}${n.brand ? ' · ' + lnEsc(n.brand) : ''}</div>`).join('')}` : ''}
         ${completedTasks.length ? `<div class="ln-section-label">Completed</div>${completedTasks.map(t => `<div class="cal2-detail-row">✓ ${lnEsc(t.task)}${t.brand ? ' · ' + lnEsc(t.brand) : ''}</div>`).join('')}` : ''}
         ${dueTasks.length ? `<div class="ln-section-label">Due</div>${dueTasks.map(t => `<div class="cal2-detail-row">📌 ${lnEsc(t.task)}${t.brand ? ' · ' + lnEsc(t.brand) : ''} (${t.status})</div>`).join('')}` : ''}
-        ${(!meetings.length && !dueTasks.length && !completedTasks.length) ? '<div class="ln-note-meta">Nothing recorded for this day.</div>' : ''}
+        ${(!meetings.length && !dueTasks.length && !completedTasks.length && !calEvents.length) ? '<div class="ln-note-meta">Nothing recorded for this day.</div>' : ''}
       `;
     }
 
@@ -10968,10 +10987,14 @@ ${brandLines}`;
 .cal2-badge-meeting{background:rgba(255,109,41,.15);color:var(--accent2)}
 .cal2-badge-done{background:rgba(76,175,125,.15);color:var(--green)}
 .cal2-badge-due{background:rgba(91,156,246,.15);color:var(--blue)}
+.cal2-badge-sync{background:rgba(155,107,255,.15);color:#9b6bff}
 .cal2-detail-panel{margin-top:18px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px}
 .cal2-detail-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
 .cal2-detail-title{font-size:14px;font-weight:700;color:var(--text)}
 .cal2-detail-row{background:var(--surface2);border-radius:8px;padding:9px 12px;margin-bottom:6px;font-size:12.5px;color:var(--text);cursor:default}
+.cal2-detail-row a{color:var(--accent2);text-decoration:none;font-weight:600}
+.cal2-detail-row a:hover{text-decoration:underline}
+.cal2-detail-time{color:var(--muted);font-weight:600}
 .cal2-detail-row-clickable{cursor:pointer;transition:background .15s}
 .cal2-detail-row-clickable:hover{background:var(--surface)}
 @media(max-width:600px){
