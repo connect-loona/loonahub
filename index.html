@@ -5454,6 +5454,14 @@
           if (document.getElementById('page-loonanotes') && document.getElementById('page-loonanotes').classList.contains('active') && typeof lnRenderUpcomingMeetings === 'function') lnRenderUpcomingMeetings();
         });
 
+        // Who (if anyone) has already claimed recording a given synced meeting — keyed by
+        // the same calendarEvents key. Prevents two attendees both hitting "Start
+        // Recording" for the same call and ending up with two separate notes for it.
+        _db.ref('meetingRecordingClaims').on('value', snap => {
+          window.MEETING_RECORDING_CLAIMS = snap.val() || {};
+          if (document.getElementById('page-loonanotes') && document.getElementById('page-loonanotes').classList.contains('active') && typeof lnRenderUpcomingMeetings === 'function') lnRenderUpcomingMeetings();
+        });
+
         // Seed brands on first connect
         _db.ref('brands').once('value', snap => {
           if (!snap.val() && BRANDS_ALLOC.length > 0) {
@@ -9988,12 +9996,16 @@
             const range = calEventRange(e.start, e.end);
             const when = `${lnFmtEventWhen(e.start)}${range ? ' · ' + range : ''}`;
             const names = calAllAttendeeNames(e);
+            const claim = (window.MEETING_RECORDING_CLAIMS || {})[e._key];
+            const recordBtn = claim
+              ? `<span class="btn btn-ghost" style="padding:6px 12px;font-size:12px;opacity:.7;cursor:default" title="Claimed at ${lnEsc(new Date(claim.startedAt).toLocaleTimeString('en-IN'))}">🎙️ Being recorded by ${lnEsc(claim.by)}</span>`
+              : `<button class="btn btn-primary" style="padding:6px 12px;font-size:12px" onclick="lnStartRecordingFor('${e._key}')">🎙️ Record this meeting</button>`;
             return `<div class="lb-item">
               <div class="lb-meta"><span>${lnEsc(when)}</span>${e.brand ? `<span>· ${lnEsc(e.brand)}</span>` : ''}</div>
               <div class="lb-text">${lnEsc(e.title)}${names.length ? ' · ' + lnEsc(names.join(', ')) : ''}</div>
               <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
                 ${joinLink ? `<a class="btn btn-ghost" href="${lnEsc(joinLink)}" target="_blank" rel="noopener" style="padding:6px 12px;font-size:12px">Join call ↗</a>` : ''}
-                <button class="btn btn-primary" style="padding:6px 12px;font-size:12px" onclick="lnStartRecordingFor('${e._key}')">🎙️ Record this meeting</button>
+                ${recordBtn}
               </div>
             </div>`;
           }).join('')}
@@ -10001,17 +10013,58 @@
       </div>`;
     }
 
-    function lnStartRecordingFor(eventKey) {
+    // Set for the duration of a recording that's tied to a specific synced calendar
+    // meeting (via lnStartRecordingFor) — null for an unrelated "+ New Recording".
+    // Used to release the claim below if the recording gets cancelled/discarded
+    // instead of saved, so someone else isn't locked out of a meeting nobody
+    // actually ended up recording.
+    let lnActiveCalendarEventKey = null;
+
+    // Atomically claims the meeting before opening the recorder — a Firebase
+    // transaction only succeeds if the claim node is still empty when it runs,
+    // so if two attendees tap "Record this meeting" within moments of each
+    // other, exactly one of them wins and the other is told who's already on it
+    // instead of both silently starting their own separate recording.
+    async function lnStartRecordingFor(eventKey) {
       const ev = (window.CALENDAR_EVENTS || []).find(e => e._key === eventKey);
       if (!ev) return;
+      if (!_db) { alert('Recording claims need a live connection — try again in a moment.'); return; }
+
+      let claimedByMe = false;
+      try {
+        const result = await _db.ref('meetingRecordingClaims/' + eventKey).transaction(current => {
+          if (current) return; // already claimed — abort, leave it untouched
+          return { by: currentUser, startedAt: Date.now() };
+        });
+        claimedByMe = result.committed && result.snapshot.val() && result.snapshot.val().by === currentUser;
+        if (!claimedByMe) {
+          const claim = result.snapshot.val();
+          alert((claim && claim.by ? claim.by : 'Someone') + ' is already recording this meeting — no need to double up.');
+          return;
+        }
+      } catch (e) {
+        alert('Could not check the recording claim for this meeting: ' + (e.message || e));
+        return;
+      }
+
       lnStartNew();
+      lnActiveCalendarEventKey = eventKey;
       const titleEl = document.getElementById('ln-meeting-title');
       if (titleEl) titleEl.value = ev.title || '';
       const brandSel = document.getElementById('ln-meeting-brand');
       if (brandSel) {
-        const match = lnBrandOptionList().find(b => (ev.title || '').toLowerCase().includes(String(b).toLowerCase()));
-        if (match) brandSel.value = match;
+        const preset = ev.brand || lnBrandOptionList().find(b => (ev.title || '').toLowerCase().includes(String(b).toLowerCase()));
+        if (preset) brandSel.value = preset;
       }
+    }
+
+    // Frees up a claim this session made but never actually turned into a saved
+    // note — a claim from a note that WAS saved is left in place on purpose.
+    function lnReleaseRecordingClaim() {
+      if (lnActiveCalendarEventKey && _db) {
+        _db.ref('meetingRecordingClaims/' + lnActiveCalendarEventKey).remove().catch(() => {});
+      }
+      lnActiveCalendarEventKey = null;
     }
 
     // --- Recording (Mode A: mic capture via MediaRecorder, transcribed server-side via Sarvam) ---
@@ -10167,6 +10220,7 @@
     }
 
     function lnStartNew() {
+      lnActiveCalendarEventKey = null; // lnStartRecordingFor sets this again right after, if applicable
       lnShowView('record');
       document.getElementById('ln-meeting-title').value = '';
       document.getElementById('ln-manual-transcript').value = '';
@@ -10287,6 +10341,7 @@
 
     function lnCancelRecording() {
       if (lnRecording) lnStopRecording();
+      lnReleaseRecordingClaim();
       lnClearRecoverySession();
       lnShowView('list');
       lnCheckForRecoverableSession();
@@ -10631,6 +10686,7 @@
 
     function lnDiscardResult() {
       window._lnPending = null;
+      lnReleaseRecordingClaim();
       lnClearRecoverySession();
       lnShowView('list');
       lnRenderList();
@@ -10660,6 +10716,9 @@
         window.MEETING_NOTES.unshift(note);
       }
       window._lnPending = null;
+      // The Firebase claim itself is left in place on purpose — the meeting really was
+      // recorded, so it should stay locked against anyone else redundantly recording it.
+      lnActiveCalendarEventKey = null;
       lnClearRecoverySession();
       lnShowView('list');
       lnRenderList();
@@ -12566,11 +12625,38 @@ ${brandLines}`;
         (joinLink?"<br><br><a href=\""+lnEsc(joinLink)+"\" target=\"_blank\" rel=\"noopener\" style=\"color:#5b9cf6;font-weight:600\">Join call now &#8594;</a>":"");
       popupBox("call-remind-pop","&#128222;","You have a call in "+minsLeft+" min"+(minsLeft===1?"":"s"), body, null);
     }
+    // Navigates to Loona Notes and claims + opens the recorder for a specific synced
+    // meeting — the button inside showMeetingStartedPopup's body calls this directly.
+    function lnGoToRecordFor(eventKey){
+      var pop=document.getElementById("call-remind-pop"); if(pop) pop.remove();
+      document.querySelectorAll(".nav-btn").forEach(function(b){ b.classList.remove("active"); });
+      var lvBtn=document.querySelector('.nav-btn[onclick*="loonaverse"]');
+      if(lvBtn) lvBtn.classList.add("active");
+      openLoonaNotes();
+      lnStartRecordingFor(eventKey);
+    }
+    // Fires once, right at a meeting's start time — offers one-click "Start
+    // Recording" (pre-wired through lnStartRecordingFor's claim check), or if
+    // someone else already claimed it in the meantime, says so instead of
+    // inviting a second, redundant recording of the same call.
+    function showMeetingStartedPopup(ev){
+      var claim=(window.MEETING_RECORDING_CLAIMS||{})[ev._key];
+      var joinLink = ev.callLink || ev.htmlLink;
+      var brand = ev.brand || ((typeof lnBrandOptionList==="function") ? lnBrandOptionList().find(function(b){ return (ev.title||"").toLowerCase().includes(String(b).toLowerCase()); }) : null);
+      var names = (typeof calAllAttendeeNames==="function") ? calAllAttendeeNames(ev) : (ev.knownAttendees||[]);
+      var who = names.filter(function(a){ return normName(a)!==normName(currentUser); }).join(", ");
+      var head = "<b>"+lnEsc(ev.title)+"</b>"+(brand?" · "+lnEsc(brand):"")+(who?"<br>with "+lnEsc(who):"");
+      var joinBtn = joinLink ? "<br><br><a href=\""+lnEsc(joinLink)+"\" target=\"_blank\" rel=\"noopener\" style=\"color:#5b9cf6;font-weight:600\">Join call now &#8594;</a>" : "";
+      var body = claim
+        ? head+joinBtn+"<br><br><span style=\"color:var(--muted);font-size:12px\">&#127908; Already being recorded by "+lnEsc(claim.by)+" — no need to start your own.</span>"
+        : head+joinBtn+"<br><br><button onclick=\"lnGoToRecordFor('"+ev._key+"')\" style=\"background:var(--accent);border:none;color:#000;padding:9px 16px;border-radius:8px;font-weight:700;cursor:pointer;font-family:var(--font)\">&#127908; Start Recording</button>";
+      popupBox("call-remind-pop","&#9200;","Your meeting is starting", body, null);
+    }
     function checkCallReminders(name){
       if(!name || currentUser!==name || !window.CALENDAR_EVENTS) return;
       var now=Date.now();
       var shown=getShownCallReminders(name);
-      [10,5].forEach(function(threshold){
+      [10,5,0].forEach(function(threshold){
         (window.CALENDAR_EVENTS||[]).forEach(function(ev){
           if(!ev||!ev.start||ev.start.length<=10) return; // skip all-day entries — no meaningful "minutes before"
           if(!(ev.knownAttendees||[]).some(function(a){ return normName(a)===normName(name); })) return;
@@ -12578,7 +12664,18 @@ ${brandLines}`;
           if(isNaN(startMs)) return;
           var minsUntil=(startMs-now)/60000;
           var sig=(ev._key||ev.start)+"|"+threshold;
-          if(minsUntil<=threshold && minsUntil>0 && !shown.has(sig)){
+          if(shown.has(sig)) return;
+          if(threshold===0){
+            // Fires once, within the first 5 minutes after start — not "any time after",
+            // so reopening the app hours later doesn't dredge up a stale prompt.
+            if(minsUntil<=0 && minsUntil>-5){
+              showMeetingStartedPopup(ev);
+              markCallReminderShown(name, sig);
+              shown.add(sig);
+            }
+            return;
+          }
+          if(minsUntil<=threshold && minsUntil>0){
             showCallReminderPopup(ev, Math.max(1,Math.round(minsUntil)));
             markCallReminderShown(name, sig);
             shown.add(sig);
