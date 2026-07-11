@@ -22,10 +22,11 @@
 
 # Pulls each team member's calendar (via Workspace domain-wide delegation) into
 # Firebase and auto-creates a "Meeting: ..." task per known attendee. Runs every
-# 30 minutes — frequent enough to catch newly-scheduled meetings without being
-# wasteful (Calendar API's free quota is far higher than this could ever use).
+# 5 minutes as a background safety net (Calendar API's free quota is far higher
+# than this could ever use) — the Calendar tab's "Sync now" button triggers this
+# same function on demand for instant reflection right after creating a meeting.
 [functions."calendar-sync"]
-  schedule = "*/30 * * * *"
+  schedule = "*/5 * * * *"
 
 # Set these in Netlify → Site settings → Environment variables (NOT in code):
 #   PETPOOJA_CLIENT_ID

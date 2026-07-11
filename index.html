@@ -4651,6 +4651,7 @@
           <div class="cal2-month-label" id="cal2-month-label"></div>
           <button class="btn btn-ghost" onclick="calNextMonth()">›</button>
           <button class="btn btn-ghost" onclick="calGoToday()">Today</button>
+          <button class="btn btn-ghost" id="cal2-sync-btn" onclick="calSyncNow()">↻ Sync now</button>
         </div>
       </div>
       <div class="cal2-weekday-row">
@@ -9432,6 +9433,30 @@
       calViewDate = new Date();
       calCloseDayDetail();
       calRenderMonth();
+    }
+
+    // Background cron runs every 5 min, but this lets someone pull a just-created
+    // meeting in immediately instead of waiting on the schedule.
+    async function calSyncNow() {
+      const btn = document.getElementById('cal2-sync-btn');
+      if (!btn || btn.disabled) return;
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '↻ Syncing…';
+      try {
+        const resp = await fetch('/.netlify/functions/calendar-sync');
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok || !data.success) throw new Error(data.message || 'Sync failed');
+        btn.textContent = '✓ Synced';
+        // calendarEvents Firebase listener will re-render once the write lands;
+        // this covers the case where nothing changed and no listener fires.
+        calRenderMonth();
+      } catch (e) {
+        btn.textContent = '✕ Sync failed';
+        console.error('Calendar sync failed:', e);
+      } finally {
+        setTimeout(() => { btn.disabled = false; btn.textContent = original; }, 2200);
+      }
     }
 
     function calFmtDateStr(y, m, d) {
