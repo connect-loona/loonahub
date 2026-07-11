@@ -9605,7 +9605,9 @@
 
     async function lnPollJobStatus(jobId) {
       const started = Date.now();
-      const TIMEOUT_MS = 10 * 60 * 1000;
+      // Long meetings can take longer for Sarvam to process than they take to record —
+      // generous enough that a real 1-2hr meeting doesn't get falsely killed mid-processing.
+      const TIMEOUT_MS = 30 * 60 * 1000;
       while (Date.now() - started < TIMEOUT_MS) {
         const resp = await lnFetchStage('Checking transcription status', '/.netlify/functions/sarvam-job-status', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobId })
