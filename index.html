@@ -4707,6 +4707,7 @@
           </div>
           <button class="btn btn-primary" onclick="lnStartNew()">+ New Recording</button>
         </div>
+        <div id="ln-recovery-banner" style="display:none;margin-bottom:16px"></div>
         <div id="ln-notes-grid" class="ln-acc-list"></div>
       </div>
 
@@ -9360,6 +9361,7 @@
       lnShowView('list');
       lnPopulateFilterBrandSelect();
       lnRenderList();
+      lnCheckForRecoverableSession();
       window.scrollTo(0, 0);
     }
     function backToLoonaverse() {
@@ -9456,6 +9458,137 @@
     let lnWakeLock = null;
     let lnRecordStartTime = null;
     let lnTimerInterval = null;
+    // Tracks the current recording's local crash-recovery checkpoint (see lnIDB* below) —
+    // null whenever there's no in-progress recording worth protecting.
+    let lnRecoverySessionId = null;
+
+    // Long meetings mean a real cost if a crash/backgrounded-tab kills the page before the
+    // recording is uploaded — nothing survives today's flow until "Stop & Generate Notes" is
+    // pressed. This periodically snapshots audio captured so far into IndexedDB (which
+    // survives a tab crash or the app being killed, unlike plain JS memory) so an interrupted
+    // recording can be recovered and transcribed next time the page loads, instead of lost.
+    const LN_IDB_NAME = 'loonaNotesRecovery';
+    const LN_IDB_STORE = 'sessions';
+
+    function lnOpenIDB() {
+      return new Promise((resolve, reject) => {
+        if (!window.indexedDB) { reject(new Error('IndexedDB not available')); return; }
+        const req = indexedDB.open(LN_IDB_NAME, 1);
+        req.onupgradeneeded = () => { req.result.createObjectStore(LN_IDB_STORE, { keyPath: 'sessionId' }); };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function lnIDBPut(session) {
+      const db = await lnOpenIDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(LN_IDB_STORE, 'readwrite');
+        tx.objectStore(LN_IDB_STORE).put(session);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    async function lnIDBDelete(sessionId) {
+      const db = await lnOpenIDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(LN_IDB_STORE, 'readwrite');
+        tx.objectStore(LN_IDB_STORE).delete(sessionId);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    async function lnIDBGetAll() {
+      const db = await lnOpenIDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(LN_IDB_STORE, 'readonly');
+        const req = tx.objectStore(LN_IDB_STORE).getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function lnClearRecoverySession() {
+      if (!lnRecoverySessionId) return;
+      const id = lnRecoverySessionId;
+      lnRecoverySessionId = null;
+      try { await lnIDBDelete(id); } catch (e) { console.error('Failed to clear recording checkpoint', e); }
+    }
+
+    async function lnPersistRecoveryCheckpoint() {
+      if (!lnRecoverySessionId) return;
+      const titleEl = document.getElementById('ln-meeting-title');
+      const brandEl = document.getElementById('ln-meeting-brand');
+      try {
+        await lnIDBPut({
+          sessionId: lnRecoverySessionId,
+          title: titleEl ? titleEl.value : '',
+          brand: brandEl ? brandEl.value : '',
+          mimeType: lnMimeType,
+          startedAt: lnRecordStartTime || Date.now(),
+          chunks: lnAudioChunks.slice()
+        });
+      } catch (e) {
+        console.error('Failed to persist recording checkpoint', e);
+      }
+    }
+
+    // Any session still in IndexedDB when the page loads is by definition orphaned — a clean
+    // finish (save, discard, or cancel) always clears its own entry, so anything left over can
+    // only be here because the page never got the chance to (crash, killed tab, closed app).
+    async function lnCheckForRecoverableSession() {
+      const banner = document.getElementById('ln-recovery-banner');
+      if (!banner) return;
+      try {
+        const sessions = await lnIDBGetAll();
+        if (!sessions.length) { banner.style.display = 'none'; banner.innerHTML = ''; return; }
+        banner.style.display = 'block';
+        banner.innerHTML = sessions.map(s => `
+          <div class="ln-recovery-item">
+            <div>
+              <div class="ln-recovery-title">⚠️ Unfinished recording found${s.title ? ': ' + lnEsc(s.title) : ''}</div>
+              <div class="ln-note-meta">Started ${lnFmtDate(new Date(s.startedAt).toISOString())} — looks like the app closed before this was processed</div>
+            </div>
+            <div class="ln-recovery-actions">
+              <button class="btn btn-ghost" onclick="lnDiscardRecoverySession('${s.sessionId}')">Discard</button>
+              <button class="btn btn-primary" onclick="lnRecoverSession('${s.sessionId}')">Recover &amp; Transcribe</button>
+            </div>
+          </div>
+        `).join('');
+      } catch (e) {
+        console.error('Failed to check for recoverable recordings', e);
+      }
+    }
+
+    async function lnDiscardRecoverySession(sessionId) {
+      try { await lnIDBDelete(sessionId); } catch (e) { console.error('Failed to discard recovery session', e); }
+      lnCheckForRecoverableSession();
+    }
+
+    async function lnRecoverSession(sessionId) {
+      let session;
+      try {
+        const sessions = await lnIDBGetAll();
+        session = sessions.find(s => s.sessionId === sessionId);
+      } catch (e) {
+        alert('Could not read the saved recording. It may be corrupted.');
+        return;
+      }
+      if (!session || !session.chunks || !session.chunks.length) {
+        alert('Could not recover this recording — no audio data was saved.');
+        lnDiscardRecoverySession(sessionId);
+        return;
+      }
+      lnStartNew();
+      document.getElementById('ln-meeting-title').value = session.title || '';
+      if (session.brand) document.getElementById('ln-meeting-brand').value = session.brand;
+      lnAudioChunks = session.chunks.slice();
+      lnMimeType = session.mimeType || '';
+      lnRecoverySessionId = sessionId;
+      await lnGenerateNotes();
+    }
 
     function lnSetStatusLine(msg) {
       const el = document.getElementById('ln-rec-status-line');
@@ -9528,16 +9661,26 @@
       }
       lnMimeType = lnPickMimeType();
       lnAudioChunks = [];
+      lnRecoverySessionId = 'ln_' + Date.now() + '_' + Math.random().toString(36).slice(2);
       try {
         lnMediaRecorder = lnMimeType ? new MediaRecorder(lnStream, { mimeType: lnMimeType }) : new MediaRecorder(lnStream);
       } catch (e) {
         lnSetStatusLine('⚠️ Couldn’t start recording on this device. Type or paste the transcript manually below instead.');
         lnStream.getTracks().forEach(t => t.stop());
         lnStream = null;
+        lnRecoverySessionId = null;
         return;
       }
-      lnMediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) lnAudioChunks.push(e.data); };
-      lnMediaRecorder.start();
+      lnMediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          lnAudioChunks.push(e.data);
+          lnPersistRecoveryCheckpoint();
+        }
+      };
+      // 20s timeslice so ondataavailable (and the checkpoint it triggers) fires periodically
+      // through the recording, not just once at the end — a crash mid-recording loses at
+      // most the last ~20s instead of the whole thing.
+      lnMediaRecorder.start(20000);
       lnRecording = true;
       lnRecordStartTime = Date.now();
       document.getElementById('ln-rec-btn-label').textContent = 'Stop Recording';
@@ -9579,7 +9722,9 @@
 
     function lnCancelRecording() {
       if (lnRecording) lnStopRecording();
+      lnClearRecoverySession();
       lnShowView('list');
+      lnCheckForRecoverableSession();
     }
 
     function lnMimeToExt(mime) {
@@ -9915,8 +10060,10 @@
 
     function lnDiscardResult() {
       window._lnPending = null;
+      lnClearRecoverySession();
       lnShowView('list');
       lnRenderList();
+      lnCheckForRecoverableSession();
     }
 
     function lnSaveNote() {
@@ -9942,8 +10089,10 @@
         window.MEETING_NOTES.unshift(note);
       }
       window._lnPending = null;
+      lnClearRecoverySession();
       lnShowView('list');
       lnRenderList();
+      lnCheckForRecoverableSession();
     }
 
     function lnViewNote(key) {
@@ -10595,6 +10744,9 @@ Current date: ${today}`;
 .ln-safe-toggle{display:flex;gap:6px;margin-bottom:12px}
 .ln-safe-tab{background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:20px;padding:6px 14px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:var(--font)}
 .ln-safe-tab.active{background:var(--accent);color:#000;border-color:var(--accent)}
+.ln-recovery-item{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:rgba(245,200,66,.08);border:1px solid rgba(245,200,66,.3);border-radius:12px;padding:14px 16px;margin-bottom:10px}
+.ln-recovery-title{font-size:13px;font-weight:700;color:var(--yellow);margin-bottom:3px}
+.ln-recovery-actions{display:flex;gap:8px;flex-wrap:wrap}
 @media(max-width:820px){
   .ln-card{padding:16px}
 }
