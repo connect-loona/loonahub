@@ -10,7 +10,8 @@
 //
 // Firebase paths:
 //   /calendarEvents/{safeUid} = { title, start, end, attendeeCount,
-//     knownAttendees: [names], organizer, htmlLink, updatedAt }
+//     knownAttendees: [names], organizer, callLink (actual video join URL,
+//     if any), htmlLink (calendar event page), updatedAt }
 //   /tasks/{key} — auto-created, tagged is_auto + auto_calendar_event_id for dedup
 //   /announcements/{key} — one Loona Board post per meeting (not per attendee),
 //     tagged calendar_event_id for dedup and visibleTo: [names] so it only shows
@@ -146,6 +147,12 @@ async function runSync() {
         const knownAttendees = [...new Set([...allEmails].map(e => emailToName[e]).filter(Boolean))];
         const organizerEmail = (ev.organizer && ev.organizer.email || '').toLowerCase();
 
+        // hangoutLink / conferenceData is the actual join URL (Meet, or whatever
+        // conferencing add-on was used) — htmlLink is just the calendar event page,
+        // which makes people click through an extra screen to find the real link.
+        const videoEntry = ev.conferenceData && ev.conferenceData.entryPoints && ev.conferenceData.entryPoints.find(e => e.entryPointType === 'video');
+        const callLink = ev.hangoutLink || (videoEntry && videoEntry.uri) || '';
+
         eventsByUid.set(uid, {
           title: ev.summary || '(untitled meeting)',
           start: (ev.start && (ev.start.dateTime || ev.start.date)) || '',
@@ -153,6 +160,7 @@ async function runSync() {
           attendeeCount: allEmails.size,
           knownAttendees,
           organizer: emailToName[organizerEmail] || organizerEmail || '',
+          callLink,
           htmlLink: ev.htmlLink || '',
           updatedAt: Date.now()
         });
@@ -203,7 +211,7 @@ async function runSync() {
         assigned_by: 'Google Calendar',
         is_auto: true,
         auto_calendar_event_id: uid,
-        meeting_link: data.htmlLink || '',
+        meeting_link: data.callLink || data.htmlLink || '',
         created_at: new Date().toISOString()
         // no assigned_on here — the client already falls back to formatting
         // created_at with fmtStamp() when assigned_on is absent, which matches
@@ -235,7 +243,7 @@ async function runSync() {
     newAnnouncements[key] = {
       id: Date.now() + (idBump++),
       text: `📅 ${data.title}${timeRange ? ` — ${timeRange}` : ''} · ${data.knownAttendees.join(', ')}`,
-      links: data.htmlLink ? [data.htmlLink] : [],
+      links: (data.callLink || data.htmlLink) ? [data.callLink || data.htmlLink] : [],
       author: 'Google Calendar',
       emoji: '📅',
       timestamp: new Date().toISOString(),
