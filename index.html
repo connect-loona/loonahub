@@ -9853,6 +9853,12 @@
           followUps: Array.isArray(data.followUps) ? data.followUps : [],
           clientSafeSummary: data.clientSafeSummary || ''
         };
+        // The audio is now safely transcribed server-side, so the crash-recovery checkpoint
+        // has done its job — clear it here rather than waiting for Save/Discard, otherwise a
+        // recording that's already been successfully transcribed keeps nagging as "unfinished"
+        // if the user navigates away before explicitly saving the generated notes.
+        lnClearRecoverySession();
+        lnCheckForRecoverableSession();
         lnRenderResult(window._lnPending);
       } catch (e) {
         document.getElementById('ln-result-loading').style.display = 'none';
