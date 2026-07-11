@@ -5382,6 +5382,8 @@
             checkAndCreateAutoTasks(); // Re-run now that brands are loaded
             renderBrands(); renderMonthly(); renderOverview(); renderTeam(); renderTasks();
             refreshTaskBrandDropdown();
+            if (typeof lnPopulateBrandSelect === 'function') lnPopulateBrandSelect();
+            if (typeof lnPopulateFilterBrandSelect === 'function') lnPopulateFilterBrandSelect();
           }
         });
 
