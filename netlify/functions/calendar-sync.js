@@ -95,6 +95,14 @@ async function fbPatch(path, obj) {
   return fetch(FB + '/' + path + '.json', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) });
 }
 
+function fmtIST(iso) {
+  if (!iso) return '';
+  if (iso.length <= 10) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  return d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+}
+
 function deriveEmail(member) {
   if (member.email) return member.email;
   return String(member.name || '').toLowerCase().replace(/\s+/g, '') + '@loona.in';
@@ -179,16 +187,20 @@ async function runSync() {
       const sig = uid + '|' + attendeeName;
       if (existingSigs.has(sig)) continue;
       const key = 'auto_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2);
+      const startTime = fmtIST(data.start);
+      const endTime = fmtIST(data.end);
+      const timeRange = startTime ? (endTime && endTime !== startTime ? `${startTime} – ${endTime} IST` : `${startTime} IST`) : '';
       newTasks[key] = {
         member: attendeeName,
         brand: '',
-        task: `Meeting: ${data.title}`,
+        task: `Meeting: ${data.title}${timeRange ? ` (${timeRange})` : ''}`,
         priority: 'Medium',
         status: 'Not Started',
         due_date: (data.start || '').slice(0, 10),
         assigned_by: 'Google Calendar',
         is_auto: true,
         auto_calendar_event_id: uid,
+        meeting_link: data.htmlLink || '',
         created_at: new Date().toISOString(),
         assigned_on: new Date().toISOString()
       };

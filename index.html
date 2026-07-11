@@ -9512,7 +9512,17 @@
       if (iso.length <= 10) return 'All day';
       const d = new Date(iso);
       if (isNaN(d)) return '';
-      return d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+      // Explicit timeZone, not the viewing device's own zone — a phone/browser
+      // reporting a non-IST zone would otherwise silently shift every synced
+      // meeting time, and the whole team is on IST regardless of device settings.
+      return d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+    }
+
+    function calEventRange(startIso, endIso) {
+      const start = calEventTime(startIso);
+      if (start === 'All day') return start;
+      const end = calEventTime(endIso);
+      return end && end !== start ? `${start} – ${end}` : start;
     }
 
     function calShowDayDetail(dateStr) {
@@ -9526,7 +9536,7 @@
           <div class="cal2-detail-title">${lnEsc(calSelectedPerson)} — ${niceDate}</div>
           <button class="btn btn-ghost" onclick="calCloseDayDetail()">Close</button>
         </div>
-        ${calEvents.length ? `<div class="ln-section-label">Google Calendar</div>${calEvents.map(e => `<div class="cal2-detail-row">📅 ${calEventTime(e.start) ? `<span class="cal2-detail-time">${lnEsc(calEventTime(e.start))}</span> · ` : ''}${e.htmlLink ? `<a href="${lnEsc(e.htmlLink)}" target="_blank" rel="noopener">${lnEsc(e.title)}</a>` : lnEsc(e.title)}${e.knownAttendees && e.knownAttendees.length ? ' · ' + lnEsc(e.knownAttendees.join(', ')) : ''}</div>`).join('')}` : ''}
+        ${calEvents.length ? `<div class="ln-section-label">Google Calendar</div>${calEvents.map(e => `<div class="cal2-detail-row">📅 ${calEventRange(e.start, e.end) ? `<span class="cal2-detail-time">${lnEsc(calEventRange(e.start, e.end))}</span> · ` : ''}${e.htmlLink ? `<a href="${lnEsc(e.htmlLink)}" target="_blank" rel="noopener">${lnEsc(e.title)}</a>` : lnEsc(e.title)}${e.knownAttendees && e.knownAttendees.length ? ' · ' + lnEsc(e.knownAttendees.join(', ')) : ''}</div>`).join('')}` : ''}
         ${meetings.length ? `<div class="ln-section-label">Meeting Records</div>${meetings.map(n => `<div class="cal2-detail-row cal2-detail-row-clickable" onclick="calOpenMeeting('${n._key}')">🎙️ ${lnEsc(n.title)}${n.brand ? ' · ' + lnEsc(n.brand) : ''}</div>`).join('')}` : ''}
         ${completedTasks.length ? `<div class="ln-section-label">Completed</div>${completedTasks.map(t => `<div class="cal2-detail-row">✓ ${lnEsc(t.task)}${t.brand ? ' · ' + lnEsc(t.brand) : ''}</div>`).join('')}` : ''}
         ${dueTasks.length ? `<div class="ln-section-label">Due</div>${dueTasks.map(t => `<div class="cal2-detail-row">📌 ${lnEsc(t.task)}${t.brand ? ' · ' + lnEsc(t.brand) : ''} (${t.status})</div>`).join('')}` : ''}
@@ -12387,6 +12397,7 @@ ${brandLines}`;
         row("Assigned By", esc(t.assigned_by||"—"))+
         row("Assigned On", esc(t.assigned_on||(t.created_at?fmtStamp(new Date(t.created_at)):"—")))+
         row("Due Date", t.due_date?fmtDate(t.due_date):"—")+
+        (t.meeting_link?row("Call Link",'<a href="'+esc(t.meeting_link)+'" target="_blank" rel="noopener">Join call &#8599;</a>'):"")+
       '</div>';
       popupBox("info-pop","&#128203;",esc(t.member||"Task")+" · Task detail",html,null);
     };
