@@ -3255,6 +3255,7 @@
         <button class="nav-btn" onclick="showPage('monthly',this)">Monthly Plan</button>
         <button class="nav-btn" onclick="showPage('team',this)">Team</button>
         <button class="nav-btn" onclick="showPage('brands',this)">Brands</button>
+        <button class="nav-btn" onclick="showPage('calendar',this)">📅 Calendar</button>
         <button class="nav-btn" onclick="showPage('chat',this)">AI Chat</button>
         <button class="nav-btn" onclick="showPage('loonacode',this)">Loona Code</button>
         <button class="nav-btn" onclick="showPage('loonaverse',this)">Loonaverse</button>
@@ -4635,6 +4636,28 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- ======= CALENDAR ======= -->
+    <div class="page" id="page-calendar">
+      <div class="section-header" style="margin-top:0">
+        <div class="section-title">Calendar</div>
+        <div style="font-size:12px;color:var(--muted)">Meeting records and daily activity, per person</div>
+      </div>
+      <div class="cal2-toprow">
+        <select id="cal2-person-select" class="cal2-person-select" onchange="calOnPersonChange()"></select>
+        <div class="cal2-nav">
+          <button class="btn btn-ghost" onclick="calPrevMonth()">‹</button>
+          <div class="cal2-month-label" id="cal2-month-label"></div>
+          <button class="btn btn-ghost" onclick="calNextMonth()">›</button>
+          <button class="btn btn-ghost" onclick="calGoToday()">Today</button>
+        </div>
+      </div>
+      <div class="cal2-weekday-row">
+        <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+      </div>
+      <div class="cal2-grid" id="cal2-grid"></div>
+      <div class="cal2-detail-panel" id="cal2-detail-panel" style="display:none"></div>
     </div>
 
     <!-- ======= AI CHAT ======= -->
@@ -9351,6 +9374,132 @@
         if (typeof renderOrgChart === 'function') renderOrgChart();
         if (typeof initReimbForm === 'function') initReimbForm();
       }
+      if (id === 'calendar') {
+        openCalendarTab();
+      }
+    }
+
+    // ═══ CALENDAR (per-person meeting records + daily activity) ═══
+    // Reuses existing data only for now — Loona Notes meetings (by createdBy) and TASKS
+    // (due/completed by that person). A future Google Calendar sync can layer real synced
+    // events into the same day cells once domain-wide delegation is set up on the Workspace
+    // side; this tab and its data model don't need to wait on that.
+    let calSelectedPerson = null;
+    let calViewDate = new Date();
+
+    function calPopulatePersonSelect() {
+      const sel = document.getElementById('cal2-person-select');
+      if (!sel) return;
+      const current = calSelectedPerson || currentUser;
+      sel.innerHTML = ALL_MEMBERS.filter(m => !INACTIVE_MEMBERS.has(m)).map(m => `<option value="${lnEsc(m)}" ${m === current ? 'selected' : ''}>${lnEsc(m === currentUser ? m + ' (me)' : m)}</option>`).join('');
+      calSelectedPerson = sel.value || current;
+    }
+
+    function calOnPersonChange() {
+      const sel = document.getElementById('cal2-person-select');
+      calSelectedPerson = sel ? sel.value : currentUser;
+      calCloseDayDetail();
+      calRenderMonth();
+    }
+
+    function openCalendarTab() {
+      if (!calSelectedPerson) calSelectedPerson = currentUser;
+      calViewDate = new Date();
+      calPopulatePersonSelect();
+      calCloseDayDetail();
+      calRenderMonth();
+    }
+
+    function calPrevMonth() {
+      calViewDate = new Date(calViewDate.getFullYear(), calViewDate.getMonth() - 1, 1);
+      calCloseDayDetail();
+      calRenderMonth();
+    }
+    function calNextMonth() {
+      calViewDate = new Date(calViewDate.getFullYear(), calViewDate.getMonth() + 1, 1);
+      calCloseDayDetail();
+      calRenderMonth();
+    }
+    function calGoToday() {
+      calViewDate = new Date();
+      calCloseDayDetail();
+      calRenderMonth();
+    }
+
+    function calFmtDateStr(y, m, d) {
+      return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    }
+
+    function calDayData(dateStr) {
+      const person = calSelectedPerson;
+      const meetings = (window.MEETING_NOTES || []).filter(n => n && normName(n.createdBy) === normName(person) && (n.date || '').slice(0, 10) === dateStr);
+      const dueTasks = (TASKS || []).filter(t => t && normName(t.member) === normName(person) && t.due_date === dateStr);
+      const completedTasks = (TASKS || []).filter(t => t && normName(t.member) === normName(person) && t.status === 'Completed' && (t.completed_at || '').slice(0, 10) === dateStr);
+      return { meetings, dueTasks, completedTasks };
+    }
+
+    function calRenderMonth() {
+      const grid = document.getElementById('cal2-grid');
+      const label = document.getElementById('cal2-month-label');
+      if (!grid || !label) return;
+      const y = calViewDate.getFullYear(), m = calViewDate.getMonth();
+      label.textContent = calViewDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+
+      const firstDay = new Date(y, m, 1);
+      const startWeekday = firstDay.getDay();
+      const daysInMonth = new Date(y, m + 1, 0).getDate();
+      const todayStr = new Date().toISOString().slice(0, 10);
+
+      const cells = [];
+      for (let i = 0; i < startWeekday; i++) cells.push(null);
+      for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+      while (cells.length % 7 !== 0) cells.push(null);
+
+      grid.innerHTML = cells.map(d => {
+        if (!d) return '<div class="cal2-cell cal2-empty"></div>';
+        const dateStr = calFmtDateStr(y, m, d);
+        const { meetings, dueTasks, completedTasks } = calDayData(dateStr);
+        const isToday = dateStr === todayStr;
+        const badges = [];
+        if (meetings.length) badges.push(`<span class="cal2-badge cal2-badge-meeting">🎙️ ${meetings.length}</span>`);
+        if (completedTasks.length) badges.push(`<span class="cal2-badge cal2-badge-done">✓ ${completedTasks.length}</span>`);
+        if (dueTasks.length) badges.push(`<span class="cal2-badge cal2-badge-due">📌 ${dueTasks.length}</span>`);
+        return `<div class="cal2-cell${isToday ? ' today' : ''}" onclick="calShowDayDetail('${dateStr}')">
+          <div class="cal2-day-num">${d}</div>
+          <div class="cal2-badges">${badges.join('')}</div>
+        </div>`;
+      }).join('');
+    }
+
+    function calShowDayDetail(dateStr) {
+      const panel = document.getElementById('cal2-detail-panel');
+      if (!panel) return;
+      const { meetings, dueTasks, completedTasks } = calDayData(dateStr);
+      const niceDate = lnFmtDate(dateStr);
+      panel.style.display = 'block';
+      panel.innerHTML = `
+        <div class="cal2-detail-head">
+          <div class="cal2-detail-title">${lnEsc(calSelectedPerson)} — ${niceDate}</div>
+          <button class="btn btn-ghost" onclick="calCloseDayDetail()">Close</button>
+        </div>
+        ${meetings.length ? `<div class="ln-section-label">Meeting Records</div>${meetings.map(n => `<div class="cal2-detail-row cal2-detail-row-clickable" onclick="calOpenMeeting('${n._key}')">🎙️ ${lnEsc(n.title)}${n.brand ? ' · ' + lnEsc(n.brand) : ''}</div>`).join('')}` : ''}
+        ${completedTasks.length ? `<div class="ln-section-label">Completed</div>${completedTasks.map(t => `<div class="cal2-detail-row">✓ ${lnEsc(t.task)}${t.brand ? ' · ' + lnEsc(t.brand) : ''}</div>`).join('')}` : ''}
+        ${dueTasks.length ? `<div class="ln-section-label">Due</div>${dueTasks.map(t => `<div class="cal2-detail-row">📌 ${lnEsc(t.task)}${t.brand ? ' · ' + lnEsc(t.brand) : ''} (${t.status})</div>`).join('')}` : ''}
+        ${(!meetings.length && !dueTasks.length && !completedTasks.length) ? '<div class="ln-note-meta">Nothing recorded for this day.</div>' : ''}
+      `;
+    }
+
+    function calCloseDayDetail() {
+      const panel = document.getElementById('cal2-detail-panel');
+      if (panel) { panel.style.display = 'none'; panel.innerHTML = ''; }
+    }
+
+    function calOpenMeeting(key) {
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      const lvBtn = document.querySelector('.nav-btn[onclick*="loonaverse"]');
+      if (lvBtn) lvBtn.classList.add('active');
+      openLoonaNotes();
+      lnViewNote(key);
     }
 
     // ═══ LOONA NOTES ═══
@@ -10801,6 +10950,34 @@ ${brandLines}`;
 .ln-recovery-item{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:rgba(245,200,66,.08);border:1px solid rgba(245,200,66,.3);border-radius:12px;padding:14px 16px;margin-bottom:10px}
 .ln-recovery-title{font-size:13px;font-weight:700;color:var(--yellow);margin-bottom:3px}
 .ln-recovery-actions{display:flex;gap:8px;flex-wrap:wrap}
+.cal2-toprow{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px}
+.cal2-person-select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:13px;font-family:var(--font);font-weight:600}
+.cal2-nav{display:flex;align-items:center;gap:8px}
+.cal2-nav .btn{padding:7px 12px;font-size:13px}
+.cal2-month-label{font-size:14px;font-weight:700;color:var(--text);min-width:140px;text-align:center}
+.cal2-weekday-row{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px}
+.cal2-weekday-row div{text-align:center;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.cal2-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.cal2-cell{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 6px;min-height:64px;cursor:pointer;transition:border-color .15s}
+.cal2-cell:hover{border-color:var(--accent)}
+.cal2-cell.today{border-color:var(--accent);background:rgba(255,109,41,.06)}
+.cal2-cell.cal2-empty{background:none;border:none;cursor:default}
+.cal2-day-num{font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px}
+.cal2-badges{display:flex;flex-direction:column;gap:2px}
+.cal2-badge{font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:5px;display:inline-block;width:fit-content}
+.cal2-badge-meeting{background:rgba(255,109,41,.15);color:var(--accent2)}
+.cal2-badge-done{background:rgba(76,175,125,.15);color:var(--green)}
+.cal2-badge-due{background:rgba(91,156,246,.15);color:var(--blue)}
+.cal2-detail-panel{margin-top:18px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px}
+.cal2-detail-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.cal2-detail-title{font-size:14px;font-weight:700;color:var(--text)}
+.cal2-detail-row{background:var(--surface2);border-radius:8px;padding:9px 12px;margin-bottom:6px;font-size:12.5px;color:var(--text);cursor:default}
+.cal2-detail-row-clickable{cursor:pointer;transition:background .15s}
+.cal2-detail-row-clickable:hover{background:var(--surface)}
+@media(max-width:600px){
+  .cal2-cell{min-height:50px;padding:5px 4px}
+  .cal2-badge{font-size:8.5px}
+}
 @media(max-width:820px){
   .ln-card{padding:16px}
 }
