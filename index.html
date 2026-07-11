@@ -4658,6 +4658,7 @@
         <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
       </div>
       <div class="cal2-grid" id="cal2-grid"></div>
+      <div id="cal2-today-panel"></div>
       <div class="cal2-detail-panel" id="cal2-detail-panel" style="display:none"></div>
     </div>
 
@@ -9473,6 +9474,13 @@
       return { meetings, dueTasks, completedTasks, calEvents };
     }
 
+    // Server clock / device clock may not be IST — pin "today" explicitly so the
+    // month grid's highlight and the Your Day panel agree with the calendar's
+    // own IST-anchored event times instead of drifting near midnight.
+    function calTodayIST() {
+      return new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    }
+
     function calRenderMonth() {
       const grid = document.getElementById('cal2-grid');
       const label = document.getElementById('cal2-month-label');
@@ -9483,7 +9491,7 @@
       const firstDay = new Date(y, m, 1);
       const startWeekday = firstDay.getDay();
       const daysInMonth = new Date(y, m + 1, 0).getDate();
-      const todayStr = new Date().toISOString().slice(0, 10);
+      const todayStr = calTodayIST();
 
       const cells = [];
       for (let i = 0; i < startWeekday; i++) cells.push(null);
@@ -9505,6 +9513,8 @@
           <div class="cal2-badges">${badges.join('')}</div>
         </div>`;
       }).join('');
+
+      calRenderToday();
     }
 
     function calEventTime(iso) {
@@ -9523,6 +9533,38 @@
       if (start === 'All day') return start;
       const end = calEventTime(endIso);
       return end && end !== start ? `${start} – ${end}` : start;
+    }
+
+    // Always-visible "what's today look like" strip below the month grid — same
+    // flash-badge treatment as the Loona Board, so a synced call reads the same
+    // way a live team update does, without needing to click into a day cell.
+    function calRenderToday() {
+      const panel = document.getElementById('cal2-today-panel');
+      if (!panel) return;
+      const todayStr = calTodayIST();
+      const { calEvents } = calDayData(todayStr);
+      const sorted = [...calEvents].sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+
+      if (!sorted.length) {
+        panel.innerHTML = `<div class="loona-board-card cal2-today-card">
+          <div class="lb-head">📅 Your Day</div>
+          <div class="ln-note-meta">Nothing synced from Google Calendar for ${lnEsc(calSelectedPerson)} today.</div>
+        </div>`;
+        return;
+      }
+
+      panel.innerHTML = `<div class="loona-board-card cal2-today-card">
+        <div class="lb-head">📅 Your Day<span class="lb-flash" title="${sorted.length} call${sorted.length !== 1 ? 's' : ''} today"><span class="lb-flash-dot"></span>${sorted.length}</span></div>
+        <div class="lb-list">${sorted.map(e => {
+          const joinLink = e.callLink || e.htmlLink;
+          const time = calEventRange(e.start, e.end);
+          return `<div class="lb-item">
+            <div class="lb-meta"><span>${lnEsc(time || '')}</span></div>
+            <div class="lb-text">${joinLink ? `<a class="lb-link" href="${lnEsc(joinLink)}" target="_blank" rel="noopener">🔗 ${lnEsc(e.title)}</a>` : lnEsc(e.title)}</div>
+            ${e.knownAttendees && e.knownAttendees.length ? `<div class="ln-note-meta">${lnEsc(e.knownAttendees.join(', '))}</div>` : ''}
+          </div>`;
+        }).join('')}</div>
+      </div>`;
     }
 
     function calShowDayDetail(dateStr) {
@@ -11024,6 +11066,7 @@ ${brandLines}`;
 .cal2-badge-done{background:rgba(76,175,125,.15);color:var(--green)}
 .cal2-badge-due{background:rgba(91,156,246,.15);color:var(--blue)}
 .cal2-badge-sync{background:rgba(155,107,255,.15);color:#9b6bff}
+.cal2-today-card{margin-top:18px}
 .cal2-detail-panel{margin-top:18px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px}
 .cal2-detail-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
 .cal2-detail-title{font-size:14px;font-weight:700;color:var(--text)}
