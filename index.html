@@ -4733,6 +4733,7 @@
           <button class="btn btn-primary" onclick="lnStartNew()">+ New Recording</button>
         </div>
         <div id="ln-recovery-banner" style="display:none;margin-bottom:16px"></div>
+        <div id="ln-upcoming-panel" style="margin-bottom:16px"></div>
         <div id="ln-notes-grid" class="ln-acc-list"></div>
       </div>
 
@@ -5391,6 +5392,7 @@
           const data = snap.val() || {};
           window.CALENDAR_EVENTS = Object.entries(data).map(([k, v]) => ({ ...v, _key: k }));
           if (document.getElementById('page-calendar') && document.getElementById('page-calendar').classList.contains('active') && typeof calRenderMonth === 'function') calRenderMonth();
+          if (document.getElementById('page-loonanotes') && document.getElementById('page-loonanotes').classList.contains('active') && typeof lnRenderUpcomingMeetings === 'function') lnRenderUpcomingMeetings();
         });
 
         // Seed brands on first connect
@@ -9622,6 +9624,7 @@
       lnShowView('list');
       lnPopulateFilterBrandSelect();
       lnRenderList();
+      lnRenderUpcomingMeetings();
       lnCheckForRecoverableSession();
       window.scrollTo(0, 0);
     }
@@ -9708,6 +9711,73 @@
           </div>
         </div>
       `).join('');
+    }
+
+    // ═══ Upcoming Meetings accordion — synced Google Calendar events for the
+    // logged-in user, each with a one-tap "Record this meeting" that pre-fills
+    // the recorder so nobody has to retype the meeting title. Reuses the Loona
+    // Board's flash-badge card treatment for a consistent look. ═══
+    let lnUpcomingExpanded = true;
+    function lnToggleUpcoming() {
+      lnUpcomingExpanded = !lnUpcomingExpanded;
+      lnRenderUpcomingMeetings();
+    }
+
+    function lnFmtEventWhen(startIso) {
+      if (!startIso) return '';
+      const dateStr = startIso.slice(0, 10);
+      const todayStr = calTodayIST();
+      const tomorrowStr = new Date(new Date(todayStr + 'T00:00:00+05:30').getTime() + 86400000).toISOString().slice(0, 10);
+      if (dateStr === todayStr) return 'Today';
+      if (dateStr === tomorrowStr) return 'Tomorrow';
+      return new Date(dateStr + 'T00:00:00+05:30').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+    }
+
+    function lnRenderUpcomingMeetings() {
+      const panel = document.getElementById('ln-upcoming-panel');
+      if (!panel) return;
+      const todayStr = calTodayIST();
+      const upcoming = (window.CALENDAR_EVENTS || [])
+        .filter(e => e && (e.start || '').slice(0, 10) >= todayStr && (e.knownAttendees || []).some(a => normName(a) === normName(currentUser)))
+        .sort((a, b) => (a.start || '').localeCompare(b.start || ''))
+        .slice(0, 8);
+
+      if (!upcoming.length) { panel.innerHTML = ''; return; }
+
+      panel.innerHTML = `<div class="loona-board-card ln-upcoming-card">
+        <div class="lb-head" onclick="lnToggleUpcoming()" style="cursor:pointer;justify-content:space-between">
+          <span style="display:flex;align-items:center;gap:8px">📅 Upcoming Meetings<span class="lb-flash" title="${upcoming.length} upcoming"><span class="lb-flash-dot"></span>${upcoming.length}</span></span>
+          <span style="font-size:11px;color:var(--muted);text-transform:none;font-weight:600">${lnUpcomingExpanded ? '▾ Hide' : '▸ Show'}</span>
+        </div>
+        <div class="lb-list" style="display:${lnUpcomingExpanded ? 'flex' : 'none'}">
+          ${upcoming.map(e => {
+            const joinLink = e.callLink || e.htmlLink;
+            const range = calEventRange(e.start, e.end);
+            const when = `${lnFmtEventWhen(e.start)}${range ? ' · ' + range : ''}`;
+            return `<div class="lb-item">
+              <div class="lb-meta"><span>${lnEsc(when)}</span></div>
+              <div class="lb-text">${lnEsc(e.title)}${e.knownAttendees && e.knownAttendees.length ? ' · ' + lnEsc(e.knownAttendees.join(', ')) : ''}</div>
+              <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+                ${joinLink ? `<a class="btn btn-ghost" href="${lnEsc(joinLink)}" target="_blank" rel="noopener" style="padding:6px 12px;font-size:12px">Join call ↗</a>` : ''}
+                <button class="btn btn-primary" style="padding:6px 12px;font-size:12px" onclick="lnStartRecordingFor('${e._key}')">🎙️ Record this meeting</button>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    }
+
+    function lnStartRecordingFor(eventKey) {
+      const ev = (window.CALENDAR_EVENTS || []).find(e => e._key === eventKey);
+      if (!ev) return;
+      lnStartNew();
+      const titleEl = document.getElementById('ln-meeting-title');
+      if (titleEl) titleEl.value = ev.title || '';
+      const brandSel = document.getElementById('ln-meeting-brand');
+      if (brandSel) {
+        const match = lnBrandOptionList().find(b => (ev.title || '').toLowerCase().includes(String(b).toLowerCase()));
+        if (match) brandSel.value = match;
+      }
     }
 
     // --- Recording (Mode A: mic capture via MediaRecorder, transcribed server-side via Sarvam) ---
