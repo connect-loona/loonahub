@@ -10,7 +10,9 @@
 //
 // Firebase paths:
 //   /calendarEvents/{safeUid} = { title, start, end, attendeeCount,
-//     knownAttendees: [names], organizer, callLink (actual video join URL,
+//     knownAttendees: [names], organizer, organizerEmail, googleEventId (the
+//     raw Google event id — distinct from safeUid/iCalUID, needed to PATCH the
+//     event later — see calendar-update.js), callLink (actual video join URL,
 //     if any), htmlLink (calendar event page), updatedAt }
 //   /tasks/{key} — auto-created, tagged is_auto + auto_calendar_event_id for dedup
 //   /announcements/{key} — one Loona Board post per meeting (not per attendee),
@@ -165,12 +167,21 @@ async function runSync() {
         const callLink = ev.hangoutLink || (videoEntry && videoEntry.uri) || '';
 
         eventsByUid.set(uid, {
+          // fbSafeKey isn't reliably reversible (multiple distinct chars collapse to the
+          // same "_"), so the raw uid is stored explicitly rather than derived back from
+          // the Firebase key — calendar-update.js needs the exact original to match
+          // against auto_calendar_event_id on tasks/announcements.
+          uid,
           title: ev.summary || '(untitled meeting)',
           start: (ev.start && (ev.start.dateTime || ev.start.date)) || '',
           end: (ev.end && (ev.end.dateTime || ev.end.date)) || '',
           attendeeCount: allEmails.size,
           knownAttendees,
           organizer: emailToName[organizerEmail] || organizerEmail || '',
+          organizerEmail,
+          // Distinct from uid (iCalUID, used for the Firebase key/dedup) — this is the
+          // literal Google event id calendar-update.js needs for its PATCH URL.
+          googleEventId: ev.id || '',
           callLink,
           htmlLink: ev.htmlLink || '',
           updatedAt: Date.now()

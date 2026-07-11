@@ -3827,10 +3827,10 @@
       </div>
     </div>
 
-    <!-- NEW MEETING MODAL -->
+    <!-- NEW MEETING MODAL (also reused, in edit mode, for rescheduling an existing one) -->
     <div class="modal-overlay hidden" id="new-meeting-modal">
       <div class="modal">
-        <div class="modal-title">New <span>Meeting</span></div>
+        <div class="modal-title" id="nm-modal-title">New <span>Meeting</span></div>
         <div class="form-group">
           <label>Title *</label>
           <input class="form-control" type="text" id="nm-title" placeholder="e.g. Client Sync — Acme">
@@ -5460,6 +5460,8 @@
         _db.ref('meetingRecordingClaims').on('value', snap => {
           window.MEETING_RECORDING_CLAIMS = snap.val() || {};
           if (document.getElementById('page-loonanotes') && document.getElementById('page-loonanotes').classList.contains('active') && typeof lnRenderUpcomingMeetings === 'function') lnRenderUpcomingMeetings();
+          if (document.getElementById('page-tasks') && document.getElementById('page-tasks').classList.contains('active') && typeof renderLoonaBoard === 'function') renderLoonaBoard();
+          if (document.getElementById('page-calendar') && document.getElementById('page-calendar').classList.contains('active') && typeof calRenderMonth === 'function') calRenderMonth();
         });
 
         // Seed brands on first connect
@@ -7948,7 +7950,8 @@
         const when=a.timestamp?new Date(a.timestamp).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
         const av=(MEMBER_INFO[a.author]||{}).avatar;
         const authorIcon=av?`<img class="lb-avatar" src="${av}" alt="">`:(a.emoji||'📢');
-        return `<div class="lb-item"><div class="lb-meta">${authorIcon}<span class="lb-author">${a.author||'Team'}</span><span class="lb-time">${when}</span>${canDel?`<span class="lb-del" title="Remove" onclick="deleteAnnouncement(${a.id})">✕</span>`:''}</div>${a.text?`<div class="lb-text">${String(a.text).replace(/</g,'&lt;')}</div>`:''}${a.image?`<img class="lb-img" src="${a.image}" alt="">`:''}${(((a.links&&a.links.length)?a.links:(a.link?[a.link]:[]))||[]).map(L=>`<a class="lb-link" href="${L}" target="_blank" rel="noopener">🔗 ${L.length>50?L.slice(0,50)+'…':L}</a>`).join('')}</div>`;
+        const recordBtn = a.calendar_event_id && typeof calRecordActionHTML==='function' ? calRecordActionHTML(calSafeKey(a.calendar_event_id)) : '';
+        return `<div class="lb-item"><div class="lb-meta">${authorIcon}<span class="lb-author">${a.author||'Team'}</span><span class="lb-time">${when}</span>${canDel?`<span class="lb-del" title="Remove" onclick="deleteAnnouncement(${a.id})">✕</span>`:''}</div>${a.text?`<div class="lb-text">${String(a.text).replace(/</g,'&lt;')}</div>`:''}${a.image?`<img class="lb-img" src="${a.image}" alt="">`:''}<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px">${(((a.links&&a.links.length)?a.links:(a.link?[a.link]:[]))||[]).map(L=>`<a class="lb-link" style="margin-top:0" href="${L}" target="_blank" rel="noopener">🔗 ${L.length>50?L.slice(0,50)+'…':L}</a>`).join('')}${recordBtn}</div></div>`;
       }).join('')+`</div></div>`;
     }
     function postBroadcast() {
@@ -9559,6 +9562,9 @@
     // was why a just-created meeting used to take a while to show up). ═══
     let nmSelectedAttendees = new Set();
     let nmGuestEmails = [];
+    // Non-null while the modal is reused to reschedule an existing meeting instead
+    // of creating a new one — set by openEditMeeting(), read by submitNewMeeting().
+    let nmEditingEventKey = null;
 
     function nmToggleAttendee(name) {
       if (nmSelectedAttendees.has(name)) nmSelectedAttendees.delete(name);
@@ -9624,6 +9630,9 @@
     }
 
     function openNewMeeting() {
+      nmEditingEventKey = null;
+      document.getElementById('nm-modal-title').innerHTML = 'New <span>Meeting</span>';
+      document.getElementById('nm-submit-btn').textContent = 'Create Meeting';
       document.getElementById('nm-title').value = '';
       document.getElementById('nm-date').valueAsDate = calViewDate && calViewDate > new Date() ? calViewDate : new Date();
       document.getElementById('nm-start').value = '';
@@ -9640,6 +9649,44 @@
       nmRenderGuests();
       document.getElementById('new-meeting-modal').classList.remove('hidden');
       setTimeout(() => document.getElementById('nm-title').focus(), 100);
+    }
+
+    // Reuses the New Meeting modal to reschedule/edit an existing synced meeting —
+    // gated to the organizer or Gokul (server-side enforced too, in
+    // calendar-update.js, not just this button's visibility).
+    function openEditMeeting(eventKey) {
+      const ev = (window.CALENDAR_EVENTS || []).find(e => e._key === eventKey);
+      if (!ev) { alert('Could not find this meeting — try refreshing the Calendar tab.'); return; }
+      nmEditingEventKey = eventKey;
+      document.getElementById('nm-modal-title').innerHTML = 'Edit <span>Meeting</span>';
+      document.getElementById('nm-submit-btn').textContent = 'Save Changes';
+      document.getElementById('nm-title').value = ev.title || '';
+      document.getElementById('nm-date').value = (ev.start || '').slice(0, 10);
+      document.getElementById('nm-start').value = (ev.start || '').slice(11, 16);
+      document.getElementById('nm-end').value = (ev.end || '').slice(11, 16);
+      document.getElementById('nm-desc').value = '';
+      document.getElementById('nm-error').style.display = 'none';
+      nmSelectedAttendees = new Set((ev.knownAttendees || []).filter(n => normName(n) !== normName(ev.organizer)));
+      nmGuestEmails = [...(ev.guestEmails || [])];
+      document.getElementById('nm-guest-email').value = '';
+      nmPopulateBrandSelect();
+      const brandSel = document.getElementById('nm-brand');
+      const knownBrands = lnBrandOptionList();
+      if (ev.brand && knownBrands.includes(ev.brand)) {
+        brandSel.value = ev.brand;
+        document.getElementById('nm-brand-other-wrap').style.display = 'none';
+      } else if (ev.brand) {
+        brandSel.value = '__other__';
+        document.getElementById('nm-brand-other-wrap').style.display = 'flex';
+        document.getElementById('nm-brand-other').value = ev.brand;
+      } else {
+        brandSel.value = '';
+        document.getElementById('nm-brand-other-wrap').style.display = 'none';
+        document.getElementById('nm-brand-other').value = '';
+      }
+      nmRenderAttendees();
+      nmRenderGuests();
+      document.getElementById('new-meeting-modal').classList.remove('hidden');
     }
 
     function closeNewMeeting() {
@@ -9659,6 +9706,7 @@
       const endTime = document.getElementById('nm-end').value;
       const description = document.getElementById('nm-desc').value.trim();
       const brand = nmSelectedBrand();
+      const editing = !!nmEditingEventKey;
 
       if (!title) return nmShowError('Give the meeting a title.');
       if (!date || !startTime || !endTime) return nmShowError('Date, start time, and end time are all required.');
@@ -9667,12 +9715,17 @@
       const btn = document.getElementById('nm-submit-btn');
       const original = btn.textContent;
       btn.disabled = true;
-      btn.textContent = 'Creating…';
+      btn.textContent = editing ? 'Saving…' : 'Creating…';
       try {
-        const resp = await fetch('/.netlify/functions/calendar-create', {
+        const resp = await fetch('/.netlify/functions/' + (editing ? 'calendar-update' : 'calendar-create'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+          body: JSON.stringify(editing ? {
+            eventKey: nmEditingEventKey, requesterName: currentUser,
+            title, date, startTime, endTime, description, brand,
+            attendees: [...nmSelectedAttendees],
+            guestEmails: nmGuestEmails
+          } : {
             creatorName: currentUser,
             title, date, startTime, endTime, description, brand,
             attendees: [...nmSelectedAttendees],
@@ -9680,9 +9733,13 @@
           })
         });
         const data = await resp.json().catch(() => ({}));
-        if (!resp.ok || !data.success) throw new Error(data.message || 'Could not create the meeting');
+        if (!resp.ok || !data.success) throw new Error(data.message || (editing ? 'Could not save changes' : 'Could not create the meeting'));
         closeNewMeeting();
-        alert('Meeting created!' + (data.callLink ? ' Meet link: ' + data.callLink : ''));
+        if (editing) {
+          alert('Meeting updated!' + (data.tasksUpdated ? ` ${data.tasksUpdated} task(s) refreshed with the new time.` : ''));
+        } else {
+          alert('Meeting created!' + (data.callLink ? ' Meet link: ' + data.callLink : ''));
+        }
       } catch (e) {
         nmShowError(e.message || String(e));
       } finally {
@@ -9721,6 +9778,24 @@
     // knownAttendees itself.
     function calAllAttendeeNames(e) {
       return [...(e.knownAttendees || []), ...(e.guestNames || [])];
+    }
+
+    // Firebase RTDB keys can't contain . # $ [ ] / — mirrors fbSafeKey() in
+    // calendar-sync.js/calendar-create.js. Announcements store the raw uid
+    // (calendar_event_id), not the sanitized calendarEvents key, so this converts
+    // between them when wiring a Record button from a Loona Board post.
+    function calSafeKey(s) {
+      return String(s).replace(/[.#$[\]/]/g, '_');
+    }
+
+    // Same claim-aware "Record"/"Being recorded by X" toggle used everywhere a
+    // synced meeting can be recorded from (Loona Board, Calendar tab, Upcoming
+    // Meetings) — one place so they can't drift out of sync with each other.
+    function calRecordActionHTML(eventKey) {
+      if (!eventKey) return '';
+      const claim = (window.MEETING_RECORDING_CLAIMS || {})[eventKey];
+      if (claim) return `<span class="btn btn-ghost" style="padding:5px 10px;font-size:11px;opacity:.7;cursor:default" title="Claimed at ${lnEsc(new Date(claim.startedAt).toLocaleTimeString('en-IN'))}">🎙️ Being recorded by ${lnEsc(claim.by)}</span>`;
+      return `<button class="btn btn-primary" style="padding:5px 10px;font-size:11px" onclick="lnGoToRecordFor('${eventKey}')">🎙️ Record this meeting</button>`;
     }
 
     function calRenderMonth() {
@@ -9805,6 +9880,7 @@
             <div class="lb-meta"><span>${lnEsc(time || '')}</span>${e.brand ? `<span>· ${lnEsc(e.brand)}</span>` : ''}</div>
             <div class="lb-text">${joinLink ? `<a class="lb-link" href="${lnEsc(joinLink)}" target="_blank" rel="noopener">🔗 ${lnEsc(e.title)}</a>` : lnEsc(e.title)}</div>
             ${names.length ? `<div class="ln-note-meta">${lnEsc(names.join(', '))}</div>` : ''}
+            <div style="margin-top:6px">${calRecordActionHTML(e._key)}</div>
           </div>`;
         }).join('')}</div>
       </div>`;
@@ -9821,7 +9897,15 @@
           <div class="cal2-detail-title">${lnEsc(calSelectedPerson)} — ${niceDate}</div>
           <button class="btn btn-ghost" onclick="calCloseDayDetail()">Close</button>
         </div>
-        ${calEvents.length ? `<div class="ln-section-label">Google Calendar</div>${calEvents.map(e => { const joinLink = e.callLink || e.htmlLink; const names = calAllAttendeeNames(e); return `<div class="cal2-detail-row">📅 ${calEventRange(e.start, e.end) ? `<span class="cal2-detail-time">${lnEsc(calEventRange(e.start, e.end))}</span> · ` : ''}${joinLink ? `<a href="${lnEsc(joinLink)}" target="_blank" rel="noopener">${lnEsc(e.title)}</a>` : lnEsc(e.title)}${e.brand ? ' · ' + lnEsc(e.brand) : ''}${names.length ? ' · ' + lnEsc(names.join(', ')) : ''}${e.callLink && e.htmlLink ? ` · <a href="${lnEsc(e.htmlLink)}" target="_blank" rel="noopener" style="color:var(--muted)">Calendar</a>` : ''}</div>`; }).join('')}` : ''}
+        ${calEvents.length ? `<div class="ln-section-label">Google Calendar</div>${calEvents.map(e => {
+          const joinLink = e.callLink || e.htmlLink;
+          const names = calAllAttendeeNames(e);
+          const canEdit = normName(currentUser) === 'gokul' || normName(currentUser) === normName(e.organizer);
+          return `<div class="cal2-detail-row" style="display:block">
+            <div>📅 ${calEventRange(e.start, e.end) ? `<span class="cal2-detail-time">${lnEsc(calEventRange(e.start, e.end))}</span> · ` : ''}${joinLink ? `<a href="${lnEsc(joinLink)}" target="_blank" rel="noopener">${lnEsc(e.title)}</a>` : lnEsc(e.title)}${e.brand ? ' · ' + lnEsc(e.brand) : ''}${names.length ? ' · ' + lnEsc(names.join(', ')) : ''}${e.callLink && e.htmlLink ? ` · <a href="${lnEsc(e.htmlLink)}" target="_blank" rel="noopener" style="color:var(--muted)">Calendar</a>` : ''}</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${calRecordActionHTML(e._key)}${canEdit ? `<button class="btn btn-ghost" style="padding:5px 10px;font-size:11px" onclick="openEditMeeting('${e._key}')">✎ Edit</button>` : ''}</div>
+          </div>`;
+        }).join('')}` : ''}
         ${meetings.length ? `<div class="ln-section-label">Meeting Records</div>${meetings.map(n => `<div class="cal2-detail-row cal2-detail-row-clickable" onclick="calOpenMeeting('${n._key}')">🎙️ ${lnEsc(n.title)}${n.brand ? ' · ' + lnEsc(n.brand) : ''}</div>`).join('')}` : ''}
         ${completedTasks.length ? `<div class="ln-section-label">Completed</div>${completedTasks.map(t => `<div class="cal2-detail-row">✓ ${lnEsc(t.task)}${t.brand ? ' · ' + lnEsc(t.brand) : ''}</div>`).join('')}` : ''}
         ${dueTasks.length ? `<div class="ln-section-label">Due</div>${dueTasks.map(t => `<div class="cal2-detail-row">📌 ${lnEsc(t.task)}${t.brand ? ' · ' + lnEsc(t.brand) : ''} (${t.status})</div>`).join('')}` : ''}

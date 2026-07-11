@@ -189,14 +189,20 @@ exports.handler = async (event) => {
     // shape back from Google — safer than assuming the response always embeds an
     // explicit offset, and sidesteps any risk of double-converting the time.
     const calendarEventEntry = {
+      uid,
       title: data.summary || title,
       start: `${date}T${startTime}:00+05:30`,
       end: `${date}T${endTime}:00+05:30`,
       attendeeCount: knownAttendees.length + guestNames.length,
       knownAttendees,
       guestNames,
+      // The raw addresses, not just the derived display names — needed to pre-fill
+      // (and keep inviting) guests when this meeting is later edited/rescheduled.
+      guestEmails: validGuestEmails,
       brand: brand || '',
       organizer: creatorName,
+      organizerEmail: creatorEmail,
+      googleEventId: data.id || '',
       callLink,
       htmlLink: data.htmlLink || '',
       updatedAt: Date.now()
