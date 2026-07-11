@@ -51,10 +51,10 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
         max_tokens: 1200,
-        system: `You extract discrete, actionable tasks from a spoken or typed note for a creative agency. Today is ${todayWeekday}, ${todayStr} (India Standard Time) — double-check your day-of-week arithmetic before resolving a relative date. Known team members: ${memberList || '(none provided)'}. Known brand/client names: ${brandList || '(none provided)'}.
+        system: `You extract discrete, actionable tasks from a spoken or typed note for a creative agency. The note may be in English, Hindi, or Hinglish (code-mixed Hindi/English). Today is ${todayWeekday}, ${todayStr} (India Standard Time) — double-check your day-of-week arithmetic before resolving a relative date. Known team members: ${memberList || '(none provided)'}. Known brand/client names: ${brandList || '(none provided)'}.
 
 For each distinct task mentioned, output an object with:
-- "task": a clear, specific description of the action to take (rewrite for clarity, keep it short)
+- "task": a clear, specific description of the action to take, always written in English regardless of the note's language (rewrite for clarity, keep it short)
 - "assignee": must be exactly one of the known team members (matched by first name is fine) if a person is named or clearly implied as responsible, else an empty string — never invent a name not in the list
 - "brand": must be exactly one of the known brand/client names if one is mentioned or clearly implied, else an empty string — never invent a name not in the list
 - "due_date": "YYYY-MM-DD" if a date or relative date (e.g. "tomorrow", "by Friday", "next week", "17th") is mentioned, computed relative to today's date, else an empty string
