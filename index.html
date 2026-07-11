@@ -5719,6 +5719,14 @@
       }
     }
 
+    // Confirmation wrapper for the user-facing delete buttons — fbDeleteTaskByKey
+    // itself stays silent since it's also called by the automatic completed-task
+    // cleanup jobs, which must never pop a confirm dialog at someone mid-session.
+    function confirmDeleteTask(key, fallbackIdx) {
+      if (!confirm('Delete this task? This cannot be undone.')) return;
+      fbDeleteTaskByKey(key, fallbackIdx);
+    }
+
     function fbAddAnnouncement(ann) {
       const clean = Object.assign({}, ann);
       delete clean._key;
@@ -6618,7 +6626,7 @@
           </td>
           <td data-label="Time" style="color:var(--muted);font-size:12px;white-space:nowrap">${t.status_at || (t.completed_at?fmtStamp(new Date(t.completed_at)):'—')}</td>
           <td data-label="Due" style="white-space:nowrap;color:var(--muted)"><input type="date" value="${t.due_date || ''}" onchange="updateDueDate(${gi},this.value)" title="Shift due date" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px 7px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit"></td>
-          <td data-label="">${(normName(currentUser) === normName(t.assigned_by) || normName(currentUser) === normName(t.member) || normName(currentUser) === 'gokul') ? `<button onclick="fbDeleteTaskByKey('${t._key || ''}',${gi})" style="background:none;border:none;color:#555;cursor:pointer;font-size:16px;padding:0 4px" title="Remove task">×</button>` : ''}</td>
+          <td data-label="">${(normName(currentUser) === normName(t.assigned_by) || normName(currentUser) === normName(t.member) || normName(currentUser) === 'gokul') ? `<button onclick="confirmDeleteTask('${t._key || ''}',${gi})" style="background:none;border:none;color:#555;cursor:pointer;font-size:16px;padding:0 4px" title="Remove task">×</button>` : ''}</td>
         </tr>`;
         }).join('')
         : '<tr><td colspan="9"><div class="empty">No tasks found</div></td></tr>';
@@ -7844,7 +7852,7 @@
           <td style="color:var(--muted);font-size:12px;white-space:nowrap">${t.assigned_on || (t.created_at ? fmtStamp(new Date(t.created_at)) : '—')}</td>
           <td style="color:var(--muted);font-size:12px;white-space:nowrap">${t.status_at || '—'}</td>
           <td style="white-space:nowrap"><input type="date" value="${t.due_date || ''}" onchange="updateDueDate(TASKS.indexOf(TASKS.find(x=>x._key===''+t._key)||t),this.value)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px 7px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit"></td>
-          <td style="text-align:center"><span class="ao-del" title="Remove task" onclick="fbDeleteTaskByKey('${t._key || ''}', ${TASKS.indexOf(t)})" style="color:#666;cursor:pointer">✕</span></td>
+          <td style="text-align:center"><span class="ao-del" title="Remove task" onclick="confirmDeleteTask('${t._key || ''}', ${TASKS.indexOf(t)})" style="color:#666;cursor:pointer">✕</span></td>
         </tr>`).join('');
       cont.innerHTML = `
         <div class="assigned-out-banner">
@@ -7957,6 +7965,7 @@
     }
 
     function deleteAnnouncement(id) {
+      if (!confirm('Delete this Loona Board post for everyone? This cannot be undone.')) return;
       fbDeleteAnnouncement(id);
     }
 
@@ -8742,6 +8751,7 @@
     }
     function deleteDeckLinkModal() {
       if (!_deckEditOrigBrand) return;
+      if (!confirm(`Delete the work deck link for "${_deckEditOrigBrand}"? This cannot be undone.`)) return;
       delete DECK_LINKS[_deckEditOrigBrand];
       if (_db) { try { _db.ref('deck_links/' + fbSafeKey(_deckEditOrigBrand)).remove(); } catch (e) { console.error('Failed to remove deck link:', e); } }
       closeDeckLinkModal();
@@ -10660,7 +10670,7 @@
       const note = (window.MEETING_NOTES || []).find(n => n._key === key);
       if (!note) return;
       lnShowView('detail');
-      const canDelete = currentUser === 'Gokul' || currentUser === note.createdBy;
+      const canDelete = normName(currentUser) === 'gokul' || normName(currentUser) === normName(note.createdBy);
       const hasClientSafe = !!(note.clientSafeSummary && note.clientSafeSummary.trim());
       document.getElementById('ln-detail-content').innerHTML = `
         <div class="ln-toprow">
@@ -11919,6 +11929,7 @@ ${brandLines}`;
     };
     window.attRemoveHoliday=function(idx){
       var h=HOLIDAYS[idx]; if(!h) return;
+      if(!confirm('Remove "'+(h.name||"this holiday")+'" ('+h.date+')? This cannot be undone.')) return;
       if(_holRef && h.key && h.key.charAt(0)!=="l"){ _holRef.child(h.key).remove(); }
       else { HOLIDAYS.splice(idx,1); cacheHol(); window.renderAttendanceOverview(); }
     };
