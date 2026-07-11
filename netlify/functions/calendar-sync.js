@@ -16,6 +16,13 @@
 //   /announcements/{key} — one Loona Board post per meeting (not per attendee),
 //     tagged calendar_event_id for dedup and visibleTo: [names] so it only shows
 //     to the actual participants, not the whole team
+//   /calendarSyncLog/tasks/{safe(uid|attendee)} = true
+//   /calendarSyncLog/announcements/{safeUid} = true
+//     Permanent "already created this once" ledger, checked instead of scanning
+//     the live tasks/announcements nodes. Someone deleting a completed meeting
+//     task (or dismissing a Loona Board post) removes the live record, but the
+//     next sync run must NOT treat that as "never created" and recreate it —
+//     this ledger is what a deletion doesn't touch.
 //
 // Team roster + emails come from /members.json (already synced by the app) —
 // a member's email is guessed as "firstname@loona.in" unless that member's
@@ -184,19 +191,16 @@ async function runSync() {
   // Auto-task per known attendee — everything left in eventsByUid is already a real
   // meeting (2+ attendees) since solo blocks were dropped just above.
   let tasksCreated = 0;
-  const existingTasksData = await fbGet('tasks');
-  const existingTasks = Object.values(existingTasksData || {});
-  const existingSigs = new Set(
-    existingTasks.filter(t => t && t.is_auto && t.auto_calendar_event_id)
-      .map(t => t.auto_calendar_event_id + '|' + (t.member || ''))
-  );
+  const taskLog = await fbGet('calendarSyncLog/tasks') || {};
+  const taskLogUpdate = {};
 
   const newTasks = {};
   for (const [uid, data] of eventsByUid) {
     if (data.attendeeCount < 2 || !data.knownAttendees.length) continue;
     for (const attendeeName of data.knownAttendees) {
       const sig = uid + '|' + attendeeName;
-      if (existingSigs.has(sig)) continue;
+      const logKey = fbSafeKey(sig);
+      if (taskLog[logKey] || taskLogUpdate[logKey]) continue;
       const key = 'auto_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2);
       const startTime = fmtIST(data.start);
       const endTime = fmtIST(data.end);
@@ -218,24 +222,25 @@ async function runSync() {
         // how every other task in the app displays it. A raw ISO string here
         // (what this used to be) shows up looking wrong next to that format.
       };
-      existingSigs.add(sig);
+      taskLogUpdate[logKey] = true;
       tasksCreated++;
     }
   }
   if (Object.keys(newTasks).length) await fbPatch('tasks', newTasks);
+  if (Object.keys(taskLogUpdate).length) await fbPatch('calendarSyncLog/tasks', taskLogUpdate);
 
   // Loona Board post per meeting (not per attendee) — visible only to the actual
   // participants, in addition to (not instead of) each attendee's own task.
   let boardPosted = 0;
-  const existingAnnData = await fbGet('announcements');
-  const existingAnn = Object.values(existingAnnData || {});
-  const postedEventIds = new Set(existingAnn.filter(a => a && a.calendar_event_id).map(a => a.calendar_event_id));
+  const annLog = await fbGet('calendarSyncLog/announcements') || {};
+  const annLogUpdate = {};
 
   const newAnnouncements = {};
   let idBump = 0;
   for (const [uid, data] of eventsByUid) {
     if (data.attendeeCount < 2 || !data.knownAttendees.length) continue;
-    if (postedEventIds.has(uid)) continue;
+    const logKey = fbSafeKey(uid);
+    if (annLog[logKey] || annLogUpdate[logKey]) continue;
     const startTime = fmtIST(data.start);
     const endTime = fmtIST(data.end);
     const timeRange = startTime ? (endTime && endTime !== startTime ? `${startTime} – ${endTime} IST` : `${startTime} IST`) : '';
@@ -250,10 +255,11 @@ async function runSync() {
       calendar_event_id: uid,
       visibleTo: data.knownAttendees
     };
-    postedEventIds.add(uid);
+    annLogUpdate[logKey] = true;
     boardPosted++;
   }
   if (Object.keys(newAnnouncements).length) await fbPatch('announcements', newAnnouncements);
+  if (Object.keys(annLogUpdate).length) await fbPatch('calendarSyncLog/announcements', annLogUpdate);
 
   return { synced: eventsByUid.size, tasksCreated, boardPosted, errors: fetchErrors };
 }
