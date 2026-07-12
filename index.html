@@ -234,6 +234,45 @@
       color: var(--muted);
     }
 
+    .member-pill-add {
+      justify-content: center;
+      border-style: dashed;
+      color: var(--muted);
+    }
+
+    .member-pill-add:hover {
+      color: var(--accent);
+    }
+
+    .member-pill-add .pill-emoji {
+      font-size: 26px;
+    }
+
+    .login-pending-screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      max-width: 340px;
+      text-align: center;
+    }
+
+    .login-pending-icon {
+      font-size: 40px;
+    }
+
+    .login-pending-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .login-pending-msg {
+      font-size: 13.5px;
+      color: rgba(255,255,255,.65);
+      line-height: 1.5;
+    }
+
     /* ── NAV ── */
     .topbar {
       display: flex;
@@ -731,6 +770,114 @@
 
     .member-stat-row .k {
       color: var(--muted);
+    }
+
+    /* ── ADMIN PANEL ── */
+    .admin-pending-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .admin-pending-card {
+      background: var(--surface);
+      border: 1px solid var(--accent, #c8a96e);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .admin-pending-name {
+      font-weight: 600;
+      font-size: 15px;
+    }
+
+    .admin-pending-meta {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .admin-pending-actions {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .admin-directory-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .admin-directory-row {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+    }
+
+    .admin-directory-row:hover {
+      border-color: var(--accent, #c8a96e);
+    }
+
+    .admin-dir-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .admin-dir-info {
+      flex: 1;
+    }
+
+    .admin-dir-name {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .admin-dir-role {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .admin-dir-arrow {
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .admin-detail-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      max-width: 480px;
+    }
+
+    .admin-detail-head {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin: 14px 0 18px;
+    }
+
+    .admin-detail-name {
+      font-weight: 700;
+      font-size: 18px;
     }
 
     .brand-row {
@@ -3314,7 +3461,7 @@
           + '<div class="pill-name">' + m.name + '</div>'
           + '<div class="pill-role">' + role + '</div>'
           + '</div></button>';
-      }).join('');
+      }).join('') + '<button class="member-pill member-pill-add" onclick="openOnboardingForm()"><span class="pill-emoji">+</span><div class="pill-info"><div class="pill-name">New here?</div><div class="pill-role">Join the team</div></div></button>';
     } catch(e) {}
   })();
   // Login screen markup above is now fully parsed and in the DOM — safe to drop the splash.
@@ -3339,6 +3486,7 @@
         <button class="nav-btn" onclick="showPage('chat',this)">AI Chat</button>
         <button class="nav-btn" onclick="showPage('loonacode',this)">Loona Code</button>
         <button class="nav-btn" onclick="showPage('loonaverse',this)">Loonaverse</button>
+        <button class="nav-btn" id="nav-admin-btn" onclick="showPage('admin',this)" style="display:none">🛠 Admin</button>
       </nav>
       <div style="display:flex;align-items:center;gap:12px">
         <div class="user-chip" onclick="toggleProfile()">
@@ -4417,6 +4565,23 @@
         <div id="past-employees-cards"
           style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px"></div>
       </div>
+    </div>
+
+    <!-- ======= ADMIN (Gokul only) ======= -->
+    <div class="page" id="page-admin">
+      <div class="section-header" style="margin-top:0">
+        <div class="section-title">🛠 Admin <span>Panel</span></div>
+        <div style="font-size:12px;color:var(--muted)">Founder-only tools</div>
+      </div>
+
+      <div id="admin-pending-section" style="margin-bottom:28px"></div>
+
+      <div class="section-header">
+        <div class="section-title">Employee <span>Directory</span></div>
+      </div>
+      <div id="admin-directory-list" class="admin-directory-list"></div>
+
+      <div id="admin-employee-detail" style="display:none;margin-top:20px"></div>
     </div>
 
     <!-- ======= PRODUCTION ======= -->
@@ -5675,6 +5840,16 @@
           } catch(e) {}
         });
 
+        // Self-onboarded new employees (the "+" tile on the login picker) land here, not
+        // in members/ directly — they only become a real, pickable member once Gokul
+        // approves them from the Admin panel. onAuthStateChanged (see loginDeriveEmail's
+        // caller) also checks this node so a not-yet-approved person sees a clear
+        // "pending" message instead of silently getting bounced with no explanation.
+        _db.ref('members_pending').on('value', snap => {
+          window.MEMBERS_PENDING = snap.val() || {};
+          if (currentUser && normName(currentUser) === 'gokul' && document.getElementById('page-admin') && document.getElementById('page-admin').classList.contains('active') && typeof renderAdminPendingQueue === 'function') renderAdminPendingQueue();
+        });
+
         // Department/role category sync (for Add Team Member dropdowns)
         _db.ref('categories').on('value', snap => {
           const data = snap.val() || {};
@@ -5991,9 +6166,10 @@
       return String(name).toLowerCase().replace(/\s+/g, '') + '@loona.in';
     }
 
-    function loginPickName(name) {
+    function loginPickName(name, forceSignup) {
+      hidePendingApprovalScreen();
       loginSelectedName = name;
-      loginAuthMode = 'signin';
+      loginAuthMode = forceSignup ? 'signup' : 'signin';
       const prompt = document.getElementById('login-prompt');
       const picker = document.getElementById('member-picker');
       const tagline = document.getElementById('login-tagline');
@@ -6018,6 +6194,105 @@
       const show = document.getElementById('login-show-pw-check').checked;
       document.getElementById('login-password').type = show ? 'text' : 'password';
       document.getElementById('login-password-confirm').type = show ? 'text' : 'password';
+    }
+
+    // ═══ NEW EMPLOYEE ONBOARDING (the "+" tile on the login picker) ═══
+    function openOnboardingForm() {
+      document.getElementById('ob-name').value = '';
+      document.getElementById('ob-dept').value = '';
+      document.getElementById('ob-role').value = '';
+      document.getElementById('ob-joindate').value = '';
+      document.getElementById('ob-birthdate').value = '';
+      document.getElementById('ob-phone').value = '';
+      const nameErr = document.getElementById('ob-name-error');
+      nameErr.style.display = 'none';
+      document.getElementById('ob-name').style.borderColor = '';
+      document.getElementById('onboarding-modal').classList.remove('hidden');
+    }
+
+    function closeOnboardingForm() {
+      document.getElementById('onboarding-modal').classList.add('hidden');
+    }
+
+    function submitOnboardingForm() {
+      const nameInput = document.getElementById('ob-name');
+      const nameErr = document.getElementById('ob-name-error');
+      const name = nameInput.value.trim();
+      nameErr.style.display = 'none';
+      nameInput.style.borderColor = '';
+      if (!name) { nameInput.style.borderColor = 'var(--red)'; return; }
+
+      const nameLower = name.toLowerCase();
+      if ((typeof ALL_MEMBERS !== 'undefined' ? ALL_MEMBERS : []).some(n => n.toLowerCase() === nameLower)) {
+        nameErr.textContent = `"${name}" is already on the team — pick your name from the login screen instead.`;
+        nameErr.style.display = 'block';
+        nameInput.style.borderColor = 'var(--red)';
+        return;
+      }
+      if (Object.values(window.MEMBERS_PENDING || {}).some(p => p && p.name && p.name.toLowerCase() === nameLower)) {
+        nameErr.textContent = `Someone already submitted a request for "${name}" — ask Gokul to approve it.`;
+        nameErr.style.display = 'block';
+        nameInput.style.borderColor = 'var(--red)';
+        return;
+      }
+
+      const record = {
+        name,
+        department: document.getElementById('ob-dept').value.trim() || null,
+        role: document.getElementById('ob-role').value.trim() || null,
+        joinDate: document.getElementById('ob-joindate').value || null,
+        birthdate: document.getElementById('ob-birthdate').value || null,
+        phone: document.getElementById('ob-phone').value.trim() || null,
+        submittedAt: new Date().toISOString()
+      };
+      const key = fbMemberKey(name);
+      window.MEMBERS_PENDING = window.MEMBERS_PENDING || {};
+      window.MEMBERS_PENDING[key] = record;
+      if (_db) _db.ref('members_pending/' + key).set(record);
+
+      closeOnboardingForm();
+      // Hand off into the existing sign-up flow so they can set a password right
+      // away — onAuthStateChanged (below) shows a "pending approval" screen instead
+      // of logging them into the app until Gokul approves this request.
+      loginPickName(name, true);
+    }
+
+    function showPendingApprovalScreen(name) {
+      document.getElementById('login-auth-panel').style.display = 'none';
+      document.getElementById('member-picker').style.display = 'none';
+      const prompt = document.getElementById('login-prompt');
+      const tagline = document.getElementById('login-tagline');
+      if (prompt) prompt.style.display = 'none';
+      if (tagline) tagline.style.display = 'none';
+      let el = document.getElementById('login-pending-screen');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'login-pending-screen';
+        el.className = 'login-pending-screen';
+        document.getElementById('login-screen').appendChild(el);
+      }
+      el.style.display = 'flex';
+      el.innerHTML = `
+        <div class="login-pending-icon">⏳</div>
+        <div class="login-pending-title">Hey ${(name || '').split(' ')[0]}, you're all set!</div>
+        <div class="login-pending-msg">Your account is waiting for Gokul to approve it. You'll be able to log in the moment that happens — no need to sign up again.</div>
+        <button class="btn btn-ghost" onclick="pendingScreenLogout()">Log out</button>
+      `;
+    }
+
+    function hidePendingApprovalScreen() {
+      const el = document.getElementById('login-pending-screen');
+      if (el) el.style.display = 'none';
+      const prompt = document.getElementById('login-prompt');
+      const picker = document.getElementById('member-picker');
+      const tagline = document.getElementById('login-tagline');
+      if (prompt) prompt.style.display = '';
+      if (picker) picker.style.display = '';
+      if (tagline) tagline.style.display = '';
+    }
+
+    function pendingScreenLogout() {
+      firebase.auth().signOut().catch(() => {}).then(() => window.location.reload());
     }
 
     function loginBackToPicker() {
@@ -6115,9 +6390,15 @@
       const emailLower = user.email.toLowerCase();
       const matchedName = (typeof ALL_MEMBERS !== 'undefined' ? ALL_MEMBERS : []).find(n => loginDeriveEmail(n).toLowerCase() === emailLower);
       if (!matchedName) {
-        // Authenticated, but the email doesn't map to any known team member (e.g. a
-        // stale account for someone removed from the roster) — sign back out rather
-        // than leave them in limbo with no valid app identity.
+        // Not (yet) a real team member — check if they're a self-onboarded employee
+        // still awaiting Gokul's approval (members_pending), rather than assuming
+        // this is just a stale/removed account.
+        const pendingEntry = Object.values(window.MEMBERS_PENDING || {}).find(p => p && p.name && loginDeriveEmail(p.name).toLowerCase() === emailLower);
+        if (pendingEntry) { showPendingApprovalScreen(pendingEntry.name); return; }
+        // Authenticated, but the email doesn't map to any known team member or
+        // pending request (e.g. a stale account for someone removed from the
+        // roster) — sign back out rather than leave them in limbo with no valid
+        // app identity.
         firebase.auth().signOut();
         return;
       }
@@ -6135,6 +6416,8 @@
       const ovBtn = document.querySelector('.nav-btn[onclick*="overview"]'); if (ovBtn) ovBtn.classList.add('active');
       document.getElementById('topbar-name').textContent = name;
       updateTopbarAvatar();
+      const adminBtn = document.getElementById('nav-admin-btn');
+      if (adminBtn) adminBtn.style.display = normName(name) === 'gokul' ? '' : 'none';
       init();
     }
 
@@ -7996,6 +8279,143 @@
       setTimeout(() => toast.classList.remove('show'), 3000);
     }
 
+    // ═══ ADMIN PANEL (Gokul only) — pending onboarding approvals + employee directory ═══
+    function openAdminTab() {
+      renderAdminPendingQueue();
+      renderAdminDirectory();
+      const detail = document.getElementById('admin-employee-detail');
+      if (detail) { detail.style.display = 'none'; detail.innerHTML = ''; }
+    }
+
+    function renderAdminPendingQueue() {
+      const sec = document.getElementById('admin-pending-section');
+      if (!sec) return;
+      const pending = Object.entries(window.MEMBERS_PENDING || {});
+      if (!pending.length) { sec.innerHTML = ''; return; }
+      sec.innerHTML = `
+        <div class="section-header" style="margin-top:0">
+          <div class="section-title">Pending <span>Approvals</span></div>
+        </div>
+        <div class="admin-pending-list">
+          ${pending.map(([key, p]) => `
+            <div class="admin-pending-card">
+              <div class="admin-pending-info">
+                <div class="admin-pending-name">${p.name || '(unnamed)'}</div>
+                <div class="admin-pending-meta">${[p.role, p.department].filter(Boolean).join(' · ') || 'No role/department given'}</div>
+                ${p.joinDate ? `<div class="admin-pending-meta">Joining: ${fmtDate(p.joinDate)}</div>` : ''}
+                ${p.phone ? `<div class="admin-pending-meta">📞 ${p.phone}</div>` : ''}
+              </div>
+              <div class="admin-pending-actions">
+                <button class="btn btn-primary" onclick="approvePendingEmployee('${key}')">Approve</button>
+                <button class="btn btn-ghost" onclick="rejectPendingEmployee('${key}')">Reject</button>
+              </div>
+            </div>`).join('')}
+        </div>`;
+    }
+
+    function approvePendingEmployee(key) {
+      const p = (window.MEMBERS_PENDING || {})[key];
+      if (!p || !p.name) return;
+      const name = p.name;
+      if (ALL_MEMBERS.some(n => n.toLowerCase() === name.toLowerCase())) {
+        alert(`"${name}" is already a team member.`);
+        return;
+      }
+      if (!confirm(`Approve ${name} and add them to the team?`)) return;
+
+      const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+      const emoji = '👤';
+      const role = p.role || p.department || 'Team Member';
+      const memberRecord = { name, color, emoji, role, avatar: null, department: p.department || null, joinDate: p.joinDate || null, employeeId: null, birthdate: p.birthdate || null };
+
+      ALL_MEMBERS.push(name);
+      MEMBER_INFO[name] = { color, emoji, role, avatar: null, department: p.department || null, joinDate: p.joinDate || null, employeeId: null, birthdate: p.birthdate || null };
+
+      buildMemberTabs(currentUser);
+      renderTeam();
+      renderOverview();
+      rebuildLoginPicker();
+
+      if (_db) {
+        _db.ref('members/' + fbMemberKey(name)).set(memberRecord);
+        _db.ref('members_pending/' + key).remove();
+      }
+
+      renderAdminPendingQueue();
+      renderAdminDirectory();
+      document.getElementById('toast-emoji').textContent = '✅';
+      document.getElementById('toast-msg').textContent = `${name} approved!`;
+      document.getElementById('toast-sub').textContent = 'They can now log in with the password they set';
+      const toast = document.getElementById('completion-toast');
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    function rejectPendingEmployee(key) {
+      const p = (window.MEMBERS_PENDING || {})[key];
+      const name = (p && p.name) || 'this request';
+      if (!confirm(`Reject ${name}'s onboarding request? This can't be undone.`)) return;
+      if (_db) _db.ref('members_pending/' + key).remove();
+      renderAdminPendingQueue();
+    }
+
+    function renderAdminDirectory() {
+      const list = document.getElementById('admin-directory-list');
+      if (!list) return;
+      const mColor = m => (MEMBER_INFO[m] || {}).color || '#888';
+      const mEmoji = m => (MEMBER_INFO[m] || {}).emoji || '👤';
+      const mAvatar = m => { const info = MEMBER_INFO[m] || {}; return info.avatar ? `<img src="${info.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : mEmoji(m); };
+      const active = ALL_MEMBERS.filter(n => !INACTIVE_MEMBERS.has(n));
+      list.innerHTML = active.map(n => {
+        const info = MEMBER_INFO[n] || {};
+        return `<div class="admin-directory-row" onclick="showAdminEmployeeDetail('${n}')">
+          <div class="admin-dir-avatar" style="background:${mColor(n)}20;color:${mColor(n)};${info.avatar ? 'padding:0;' : ''}overflow:hidden">${mAvatar(n)}</div>
+          <div class="admin-dir-info">
+            <div class="admin-dir-name">${n}</div>
+            <div class="admin-dir-role">${info.role || 'Team Member'}${info.department ? ' · ' + info.department : ''}</div>
+          </div>
+          <div class="admin-dir-arrow">›</div>
+        </div>`;
+      }).join('');
+    }
+
+    function showAdminEmployeeDetail(name) {
+      const info = MEMBER_INFO[name] || {};
+      const stat = (window._teamDetail || {})[name] || { total: 0, done: 0, ip: 0, ns: 0, brands: new Set() };
+      const mAvatar = info.avatar ? `<img src="${info.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : (info.emoji || '👤');
+      const detail = document.getElementById('admin-employee-detail');
+      if (!detail) return;
+      detail.style.display = '';
+      detail.innerHTML = `
+        <div class="admin-detail-card">
+          <button class="btn btn-ghost" onclick="closeAdminEmployeeDetail()">← Back to Directory</button>
+          <div class="admin-detail-head">
+            <div class="admin-dir-avatar" style="width:64px;height:64px;font-size:26px;background:${info.color || '#888'}20;color:${info.color || '#888'};${info.avatar ? 'padding:0;' : ''}overflow:hidden">${mAvatar}</div>
+            <div>
+              <div class="admin-detail-name">${name}</div>
+              <div class="admin-dir-role">${info.role || 'Team Member'}${info.department ? ' · ' + info.department : ''}</div>
+            </div>
+          </div>
+          <div class="member-stat-row"><span class="k">Employee ID</span><span>${info.employeeId || '—'}</span></div>
+          <div class="member-stat-row"><span class="k">Joining Date</span><span>${info.joinDate ? fmtDate(info.joinDate) : '—'}</span></div>
+          <div class="member-stat-row"><span class="k">Birthdate</span><span>${info.birthdate ? fmtDate(info.birthdate) : '—'}</span></div>
+          <div class="member-stat-row"><span class="k">Total Tasks</span><span>${stat.total}</span></div>
+          <div class="member-stat-row"><span class="k">Completed</span><span style="color:var(--green)">${stat.done}</span></div>
+          <div class="member-stat-row"><span class="k">In Progress</span><span style="color:var(--blue)">${stat.ip}</span></div>
+          <div class="member-stat-row"><span class="k">Pending</span><span style="color:var(--yellow)">${stat.ns}</span></div>
+          <div class="member-stat-row"><span class="k">Brands</span><span>${stat.brands ? stat.brands.size : 0}</span></div>
+          ${normName(name) !== 'gokul' ? `<div style="margin-top:16px"><button onclick="removeMember('${name}')" style="background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);color:#e05c5c;padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer">Move to Past Employees</button></div>` : ''}
+        </div>`;
+    }
+
+    function closeAdminEmployeeDetail() {
+      const detail = document.getElementById('admin-employee-detail');
+      if (!detail) return;
+      detail.style.display = 'none';
+      detail.innerHTML = '';
+      renderAdminDirectory();
+    }
+
     // ═══ APPROVAL WORKFLOW ═══
     function showDeckConfirm(idx, type) {
       const t = TASKS[idx];
@@ -8478,7 +8898,7 @@
         const info = MEMBER_INFO[n] || { emoji: '👤', color: '#888', role: '' };
         const avatarHtml = info.avatar ? `<img class="pill-avatar" src="${info.avatar}">` : `<span class="pill-emoji">${info.emoji}</span>`;
         return `<button class="member-pill" onclick="loginPickName('${n}')" style="border-color:${info.color}40">${avatarHtml}<div class="pill-info"><div class="pill-name">${n}</div><div class="pill-role">${info.role}</div></div></button>`;
-      }).join('');
+      }).join('') + '<button class="member-pill member-pill-add" onclick="openOnboardingForm()"><span class="pill-emoji">+</span><div class="pill-info"><div class="pill-name">New here?</div><div class="pill-role">Join the team</div></div></button>';
     }
 
     function removeMember(name) {
@@ -9715,6 +10135,9 @@
       }
       if (id === 'calendar') {
         openCalendarTab();
+      }
+      if (id === 'admin') {
+        openAdminTab();
       }
     }
 
@@ -11428,6 +11851,47 @@ ${brandLines}`;
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="closeAddMember()">Cancel</button>
         <button class="btn btn-primary" onclick="submitAddMember()">Add Member</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- NEW EMPLOYEE ONBOARDING MODAL (self-service, from the login screen "+" tile) -->
+  <div class="modal-overlay hidden" id="onboarding-modal" style="z-index:10000" onclick="if(event.target===this)closeOnboardingForm()">
+    <div class="modal" style="max-width:480px">
+      <div class="modal-title">Welcome to <span>Loona</span></div>
+      <div style="font-size:12.5px;color:var(--muted);margin:-8px 0 16px">A few quick details, then you'll set up your Hub password. Gokul will review and approve your account before you can log in.</div>
+      <div class="form-group">
+        <label>Full Name *</label>
+        <input class="form-control" id="ob-name" placeholder="e.g. Priya">
+        <div id="ob-name-error" style="display:none;color:#ff8a8a;font-size:12px;margin-top:4px"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Department</label>
+          <input class="form-control" id="ob-dept" placeholder="e.g. Design">
+        </div>
+        <div class="form-group">
+          <label>Role / Title</label>
+          <input class="form-control" id="ob-role" placeholder="e.g. Video Editor">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Joining Date</label>
+          <input class="form-control" type="date" id="ob-joindate">
+        </div>
+        <div class="form-group">
+          <label>Birthdate</label>
+          <input class="form-control" type="date" id="ob-birthdate">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Phone</label>
+        <input class="form-control" id="ob-phone" placeholder="e.g. 98765 43210">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeOnboardingForm()">Cancel</button>
+        <button class="btn btn-primary" onclick="submitOnboardingForm()">Continue</button>
       </div>
     </div>
   </div>
