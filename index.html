@@ -1080,10 +1080,20 @@
     }
     .oracle-card-frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-    .oracle-reading { text-align: left; margin-top: 20px; }
+    .oracle-insight { font-size: 13px; font-style: italic; line-height: 1.6; text-align: center; margin-top: 18px; color: var(--muted); }
+    .oracle-reading { text-align: left; margin-top: 18px; }
     .tarot-line { font-size: 13px; line-height: 1.6; margin-bottom: 7px; }
     .tarot-line:last-child { margin-bottom: 0; }
     .tarot-line b { font-weight: 700; }
+    .oracle-section-title { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: 3px; }
+    .oracle-section-text { font-size: 13px; line-height: 1.6; margin-bottom: 14px; }
+    .oracle-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 4px 0 16px; }
+    .oracle-meta-box { background: rgba(255,255,255,.04); border-radius: 10px; padding: 10px 12px; }
+    .oracle-meta-label { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
+    .oracle-meta-value { font-size: 13px; font-weight: 600; }
+    .oracle-avoid-box { background: rgba(224,92,92,.08); border: 1px solid rgba(224,92,92,.2); border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; font-size: 12.5px; line-height: 1.5; }
+    .oracle-avoid-box b { color: var(--red); }
+    .oracle-note-box { font-size: 12.5px; font-style: italic; text-align: center; color: var(--muted); border-top: 1px dashed var(--border); padding-top: 12px; }
 
     /* ── Find Today's Co-Star popup — dark, circular avatar-halo reveal, matching
        the "Inspired People"-style reference exactly. ── */
@@ -6806,12 +6816,14 @@
         <div class="pending-profile-form">
           <div class="form-row">
             <div class="form-group"><label>Mobile Number</label><input class="form-control" id="pp-mobile" value="${rec.mobile || ''}"></div>
-            <div class="form-group"><label>Gender</label>
+            <div class="form-group"><label>How do you identify?</label>
               <select class="form-control" id="pp-gender">
                 <option value="">Select</option>
-                <option value="Male"${rec.gender === 'Male' ? ' selected' : ''}>Male</option>
-                <option value="Female"${rec.gender === 'Female' ? ' selected' : ''}>Female</option>
-                <option value="Other"${rec.gender === 'Other' ? ' selected' : ''}>Other</option>
+                <option value="Man"${rec.gender === 'Man' ? ' selected' : ''}>Man</option>
+                <option value="Woman"${rec.gender === 'Woman' ? ' selected' : ''}>Woman</option>
+                <option value="Non-binary"${rec.gender === 'Non-binary' ? ' selected' : ''}>Non-binary</option>
+                <option value="Self-describe"${rec.gender === 'Self-describe' ? ' selected' : ''}>Self-describe</option>
+                <option value="Prefer not to say"${rec.gender === 'Prefer not to say' ? ' selected' : ''}>Prefer not to say</option>
               </select>
             </div>
           </div>
@@ -8405,38 +8417,45 @@
       return hash;
     }
 
-    // ═══ Your Tarot for Today ═══ — one deterministic card per person per day,
-    // read blended across work/love/fun rather than the traditional single meaning.
+    // ═══ Your Tarot for Today ═══ — one deterministic card per person per day.
     // Full 22-card Major Arcana, illustrated (see /assets/tarot/*.jpg) — img is the
-    // filename (no extension) of that card's real artwork.
+    // filename (no extension) of that card's real artwork. Each card carries a full
+    // reading: an opening insight, Work/Fun/Love, an energy descriptor, a caution,
+    // and a closing "Oracle's note" — lucky hour is generated separately (per
+    // person per day) since a time of day isn't really a property of the card.
     const TAROT_CARDS = [
-      { img: 'the-fool', name: 'The Fool', work: 'Say yes to the weird project nobody else wants.', love: 'Someone new is about to slide into more than your DMs.', fun: 'Big main-character energy today — use it.' },
-      { img: 'the-magician', name: 'The Magician', work: 'That idea sitting in your Notes app? Ship it today.', love: 'Confidence is the whole game right now.', fun: "You're the plan-maker tonight." },
-      { img: 'the-high-priestess', name: 'The High Priestess', work: "Trust the instinct you can't quite explain yet.", love: 'Say less, notice more today.', fun: 'Quiet plans reveal more than loud ones.' },
-      { img: 'the-empress', name: 'The Empress', work: 'Your creative instincts are unusually sharp today.', love: 'Treat yourself, then treat someone else too.', fun: 'Good food, good company, no notes.' },
-      { img: 'the-emperor', name: 'The Emperor', work: 'Make the list, then go crush the list.', love: 'Be the one who initiates today.', fun: 'A little discipline now buys a lot of fun later.' },
-      { img: 'the-hierophant', name: 'The Hierophant', work: 'Ask the person who has done this before.', love: 'Old advice still applies today.', fun: "Do the thing your gut already knows the rules of." },
-      { img: 'the-lovers', name: 'The Lovers', work: 'Pick the collaborator over the solo grind today.', love: 'A real conversation is overdue.', fun: 'Two-person plans beat solo scrolling.' },
-      { img: 'the-chariot', name: 'The Chariot', work: "Momentum's on your side — keep moving, don't overthink.", love: 'Bold moves get rewarded today.', fun: "Say yes before you talk yourself out of it." },
-      { img: 'justice', name: 'Justice', work: "A decision you've been putting off is ready to be made.", love: 'Fair beats convenient today.', fun: 'Balance the scales — work hard, then actually stop.' },
-      { img: 'the-hermit', name: 'The Hermit', work: 'Your best ideas come from headphones-on, do-not-disturb time.', love: 'Give yourself the night off — no explanation needed.', fun: 'Solo plans are the good plans today.' },
-      { img: 'wheel-of-fortune', name: 'Wheel of Fortune', work: 'That random ping might be an actual opportunity.', love: 'Timing finally works out in your favor.', fun: 'Buy the lottery ticket. Or at least the good snack.' },
-      { img: 'strength', name: 'Strength', work: 'The annoying task gets easier the second you actually start it.', love: 'Gentle honesty wins today over silence.', fun: 'Low-key plans hit different tonight.' },
-      { img: 'the-hanged-man', name: 'The Hanged Man', work: 'Stepping back from the problem solves it faster than pushing through.', love: 'A different angle changes everything today.', fun: 'Do nothing on purpose for twenty minutes.' },
-      { img: 'temperance', name: 'Temperance', work: "Today's win is a team win, not a solo one.", love: "It's a soft, steady day for your people.", fun: "Mix things that normally don't go together." },
-      { img: 'death', name: 'Death', work: 'Let the old version of the plan go — the new one is better.', love: 'Closure or a fresh start, both good today.', fun: 'End something on purpose so something else can start.' },
-      { img: 'the-tower', name: 'The Tower', work: 'The plan changes last-minute — roll with it.', love: 'An unexpected message shakes things up, in a good way.', fun: 'Chaotic today, but the fun kind.' },
-      { img: 'the-devil', name: 'The Devil', work: "Notice the habit that's quietly running the show today.", love: 'Name the thing you keep avoiding saying.', fun: 'Indulge, on purpose, for once.' },
-      { img: 'the-star', name: 'The Star', work: 'A small idea today quietly becomes a big deal later.', love: 'Someone has been meaning to text back — nudge them.', fun: 'Say yes to the spontaneous plan.' },
-      { img: 'the-moon', name: 'The Moon', work: "Double-check before you hit send — details aren't fully clear yet.", love: 'Read between the lines today.', fun: 'Trust the vibe over the plan.' },
-      { img: 'the-sun', name: 'The Sun', work: 'Your presentation lands better than you think.', love: "It's a good day to be a little extra.", fun: 'Outdoor plans beat indoor plans today.' },
-      { img: 'judgement', name: 'Judgement', work: 'A fair self-review today reveals more than you expect.', love: 'A second chance is worth taking today.', fun: 'Revisit something you gave up on — differently this time.' },
-      { img: 'the-world', name: 'The World', work: 'That long project is closer to done than it feels.', love: 'Closure or a fresh start — both are good today.', fun: 'Celebrate a small win, on purpose.' }
+      { img: 'the-fool', name: 'The Fool', insight: "You're standing at the edge of something you haven't fully planned — and that's exactly the point today.", work: "Say yes to the project nobody's claimed yet. Momentum matters more than a perfect plan.", fun: "Let today be unscripted. The best story starts with \"so this wasn't the plan, but—\"", love: 'Someone new is worth the risk of a slightly awkward first move.', energy: 'Fearless, unfiltered, a little too online.', avoid: 'Overthinking the first step. There is no wrong first step today.', oracleNote: 'Jump. The net shows up after.' },
+      { img: 'the-magician', name: 'The Magician', insight: "Everything you need to pull this off is already in front of you. You just haven't used all of it yet.", work: "That idea sitting half-finished? You have every tool required — today's the day to actually use them.", fun: "Turn a boring errand into a small performance. You've got main character hands today.", love: 'Confidence reads as certainty today — say the thing you mean.', energy: 'Capable, resourceful, quietly unstoppable.', avoid: 'Waiting for better tools before starting. You have enough.', oracleNote: 'Stop gathering. Start making.' },
+      { img: 'the-high-priestess', name: 'The High Priestess', insight: "You already know the answer. You're just waiting for permission to trust it.", work: "The instinct you can't quite explain is worth more today than the data you're waiting for.", fun: 'A quiet night reveals more than a loud one.', love: 'Say less. Notice more. The subtext is doing the talking today.', energy: 'Intuitive, private, quietly certain.', avoid: 'Asking for a second opinion on something you already know.', oracleNote: 'Trust the quiet knowing over the loud doubt.' },
+      { img: 'the-empress', name: 'The Empress', insight: 'Today rewards comfort, taste, and doing things properly instead of quickly.', work: 'Your creative instincts are sharper than usual — let taste lead today, not deadlines.', fun: 'Good food, good company, zero rushing.', love: 'Generosity looks good on you today — give it freely.', energy: 'Warm, abundant, a little indulgent.', avoid: 'Rushing anything that deserves care.', oracleNote: 'Slow down. Make it beautiful, not just done.' },
+      { img: 'the-emperor', name: 'The Emperor', insight: 'Structure is the shortcut today, not the obstacle.', work: 'Make the list. The list is the whole strategy today.', fun: 'A little discipline now buys a lot of freedom tonight.', love: 'Be the one who makes the plan, not the one who waits for one.', energy: 'Commanding, organized, quietly in control.', avoid: 'Letting the day run you instead of the other way around.', oracleNote: 'Build the structure. Then let it hold you up.' },
+      { img: 'the-hierophant', name: 'The Hierophant', insight: "Someone's already solved this problem. Today's shortcut is asking them.", work: "Find the person who's done this before and ask the obvious question.", fun: 'Old traditions, old playlists, old friends — nostalgia hits right today.', love: 'The advice you were given months ago still applies.', energy: 'Grounded, respectful, a little old-school.', avoid: "Reinventing a wheel someone already built.", oracleNote: "You don't get points for figuring it out alone." },
+      { img: 'the-lovers', name: 'The Lovers', insight: "Today's biggest decision isn't what to do — it's who to do it with.", work: 'Pick the collaborator over the solo grind. Two brains beat one tab today.', fun: 'Two-person plans beat solo scrolling, decisively.', love: 'A real conversation is overdue — have it today, not eventually.', energy: 'Connected, decisive, a little smitten.', avoid: 'Choosing convenience over the person who actually gets it.', oracleNote: 'The right partner makes the hard thing easy.' },
+      { img: 'the-chariot', name: 'The Chariot', insight: "You have more momentum than you're giving yourself credit for. Use it before it fades.", work: "Momentum's on your side — keep moving, don't stop to overthink the direction.", fun: 'Say yes before you talk yourself out of it.', love: 'Bold moves get rewarded today, not cautious ones.', energy: 'Driven, fast, dangerously close to unstoppable.', avoid: 'Second-guessing a decision you already made.', oracleNote: "Steer. Don't stall." },
+      { img: 'justice', name: 'Justice', insight: "A decision you've been avoiding is more ready than you think — it's just waiting on you.", work: 'Weigh it once, fairly, then actually decide.', fun: 'Balance the scales — work hard, then actually stop for once.', love: "Fair beats convenient today, even if it's harder to say.", energy: 'Clear-headed, deliberate, quietly firm.', avoid: 'Making the easy call instead of the right one.', oracleNote: "You already know what's fair. Say it out loud." },
+      { img: 'the-hermit', name: 'The Hermit', insight: "Your best thinking today happens with the door closed, not the group chat open.", work: "Headphones on, do-not-disturb up — that's where today's real progress lives.", fun: 'Solo plans are the good plans tonight.', love: 'Give yourself the night off. No explanation required.', energy: 'Inward, focused, pleasantly unreachable.', avoid: 'Answering every message the second it arrives.', oracleNote: 'Close the door. The good idea is in there.' },
+      { img: 'wheel-of-fortune', name: 'Wheel of Fortune', insight: 'Something arriving today looks random. It isn\'t.', work: "That out-of-nowhere ping might be the actual opportunity — don't dismiss it.", fun: 'Buy the lottery ticket. Or at least the good snack.', love: 'Timing finally works out in your favor — notice it.', energy: 'Lucky, alert, pleasantly surprised.', avoid: 'Assuming today is just an ordinary day.', oracleNote: 'Say yes to the thing that showed up uninvited.' },
+      { img: 'strength', name: 'Strength', insight: 'The hard thing gets easier the moment you stop bracing for it.', work: 'The annoying task loosens up the second you actually start it.', fun: "Low-key plans hit different tonight — don't force big.", love: 'Gentle honesty wins today over staying quiet.', energy: 'Calm, patient, quietly powerful.', avoid: 'Forcing a solution instead of easing into one.', oracleNote: 'Soft does not mean weak. Go gently, go far.' },
+      { img: 'the-hanged-man', name: 'The Hanged Man', insight: "Stepping back from the problem is today's actual progress, not a delay.", work: 'Pause on it. The answer needs distance, not more hours.', fun: 'Do nothing on purpose for twenty minutes. It counts.', love: "A different angle changes how today's conversation lands.", energy: 'Suspended, reflective, oddly at peace.', avoid: 'Pushing through when stepping back would solve it faster.', oracleNote: 'Hang there a minute. The view changes.' },
+      { img: 'temperance', name: 'Temperance', insight: 'Today rewards blending things, not choosing one extreme.', work: "Today's win is a team win, not a solo sprint.", fun: "Mix two things that normally don't go together.", love: "It's a soft, steady day for your people — no drama needed.", energy: 'Balanced, patient, quietly harmonious.', avoid: 'Overcorrecting when a small adjustment would do.', oracleNote: 'A little of this, a little of that. That is the whole answer.' },
+      { img: 'death', name: 'Death', insight: 'Something needs to end today so something better can actually start.', work: 'Let the old version of the plan go. The new one already knows more.', fun: 'End something on purpose so something else can begin.', love: 'Closure or a fresh start — either is progress today.', energy: 'Transformative, unbothered, quietly renewed.', avoid: 'Keeping something out of habit instead of choice.', oracleNote: 'Endings are just beginnings wearing a disguise.' },
+      { img: 'the-tower', name: 'The Tower', insight: 'The plan is about to change without asking your permission. Let it.', work: "Something shifts last-minute — that's not a setback, that's today's plot twist.", fun: 'Chaotic today, but the fun kind.', love: 'An unexpected message shakes things up, in a good way.', energy: 'Unpredictable, alert, weirdly thrilled.', avoid: "Clinging to a plan that's already changed shape.", oracleNote: "Let it fall. You'll rebuild it better." },
+      { img: 'the-devil', name: 'The Devil', insight: "There's a habit quietly running your day today. Notice it before it runs you.", work: 'Name the thing you keep doing on autopilot — that\'s today\'s real task.', fun: 'Indulge, on purpose, for once. Guilt-free.', love: 'Say the thing you keep avoiding saying.', energy: 'Tempted, aware, one honest conversation from freedom.', avoid: "Pretending you don't notice the pattern.", oracleNote: "You're not stuck. You're just used to it." },
+      { img: 'the-star', name: 'The Star', insight: 'A small, quiet idea today is worth more than it looks like right now.', work: 'Something small today quietly becomes a big deal later — write it down.', fun: 'Say yes to the spontaneous plan.', love: "Someone's been meaning to text back — a small nudge helps.", energy: 'Hopeful, calm, quietly optimistic.', avoid: 'Dismissing an idea for being too small to matter.', oracleNote: 'Small today. Bigger later. Trust it.' },
+      { img: 'the-moon', name: 'The Moon', insight: "Not everything is clear today, and that's fine — you don't need full clarity to move.", work: "Double-check before you hit send. Details aren't fully lit yet.", fun: 'Trust the vibe over the plan tonight.', love: "Read between the lines — the real message isn't the literal one.", energy: 'Intuitive, a little foggy, quietly perceptive.', avoid: 'Making a final call on incomplete information.', oracleNote: 'You do not need to see the whole path. Just the next step.' },
+      { img: 'the-sun', name: 'The Sun', insight: "Today's just... good. Let it be good without overanalyzing why.", work: 'Your presentation lands better than you think it will.', fun: 'Outdoor plans beat indoor plans today.', love: "It's a good day to be a little extra.", energy: 'Warm, confident, easy to be around.', avoid: 'Underselling a genuinely good day.', oracleNote: 'Let today be easy. It is allowed.' },
+      { img: 'judgement', name: 'Judgement', insight: 'A fair, honest look back today reveals more than you expect.', work: "A quick self-review today shows real progress you've been discounting.", fun: 'Revisit something you gave up on — differently this time.', love: 'A second chance is worth taking today.', energy: 'Reflective, honest, quietly forgiving.', avoid: "Judging today's effort by yesterday's standard.", oracleNote: 'Look back kindly. You did more than you think.' },
+      { img: 'the-world', name: 'The World', insight: 'Something long-running is closer to finished than it feels from inside it.', work: "That long project is nearer to done than the to-do list makes it look.", fun: 'Celebrate a small win, on purpose, today.', love: 'Closure or a fresh start — both are good news today.', energy: 'Complete, satisfied, quietly proud.', avoid: 'Moving on before acknowledging you actually finished something.', oracleNote: 'This chapter is done. Let yourself notice.' }
     ];
     function tarotForToday(name) {
       if (!name) return null;
       const idx = dailyHash(name + '_' + todayISO() + '_tarot') % TAROT_CARDS.length;
       return TAROT_CARDS[idx];
+    }
+    const LUCKY_HOURS = ['9:14 AM', '10:07 AM', '11:32 AM', '12:48 PM', '1:15 PM', '2:26 PM', '3:42 PM', '4:09 PM', '5:18 PM', '6:33 PM', '7:05 PM', '8:21 PM'];
+    function luckyHourForToday(name) {
+      if (!name) return LUCKY_HOURS[0];
+      return LUCKY_HOURS[dailyHash(name + '_' + todayISO() + '_hour') % LUCKY_HOURS.length];
     }
 
     // ═══ Find Today's Co-Star ═══ — a different (deterministic, so stable all
@@ -8464,8 +8483,8 @@
     ];
     function pronounsFor(name) {
       const g = ((MEMBER_INFO[name] || {}).gender || '').toLowerCase();
-      if (g === 'male') return { Subj: 'He', obj: 'him', poss: 'his' };
-      if (g === 'female') return { Subj: 'She', obj: 'her', poss: 'her' };
+      if (g === 'man') return { Subj: 'He', obj: 'him', poss: 'his' };
+      if (g === 'woman') return { Subj: 'She', obj: 'her', poss: 'her' };
       return { Subj: 'They', obj: 'them', poss: 'their' };
     }
     function fillPronouns(str, p) {
@@ -8488,15 +8507,26 @@
       if (!currentUser) return;
       const card = tarotForToday(currentUser);
       if (!card) return;
+      const hour = luckyHourForToday(currentUser);
       document.getElementById('loona-oracle-content').innerHTML = `
         <div class="oracle-card-label">THE LOONA ORACLE</div>
         <div class="oracle-card-frame">
           <img src="/assets/tarot/${card.img}.jpg" alt="${card.name}">
         </div>
+        <div class="oracle-insight">${card.insight}</div>
         <div class="oracle-reading">
-          <div class="tarot-line"><b>💼 Work:</b> ${card.work}</div>
-          <div class="tarot-line"><b>❤️ Love:</b> ${card.love}</div>
-          <div class="tarot-line"><b>🎉 Fun:</b> ${card.fun}</div>
+          <div class="oracle-section-title">💼 Work</div>
+          <div class="oracle-section-text">${card.work}</div>
+          <div class="oracle-section-title">🎉 Fun</div>
+          <div class="oracle-section-text">${card.fun}</div>
+          <div class="oracle-section-title">❤️ Love</div>
+          <div class="oracle-section-text">${card.love}</div>
+          <div class="oracle-meta-grid">
+            <div class="oracle-meta-box"><div class="oracle-meta-label">Your Energy Today</div><div class="oracle-meta-value">${card.energy}</div></div>
+            <div class="oracle-meta-box"><div class="oracle-meta-label">Lucky Hour</div><div class="oracle-meta-value">${hour}</div></div>
+          </div>
+          <div class="oracle-avoid-box"><b>Avoid:</b> ${card.avoid}</div>
+          <div class="oracle-note-box">The Oracle's note: ${card.oracleNote}</div>
         </div>`;
       document.getElementById('loona-oracle-modal').classList.remove('hidden');
     }
@@ -13474,12 +13504,14 @@ ${brandLines}`;
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Gender</label>
+          <label>How do you identify?</label>
           <select class="form-control" id="eem-gender">
             <option value="">Select</option>
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-            <option value="Other">Other</option>
+            <option value="Man">Man</option>
+            <option value="Woman">Woman</option>
+            <option value="Non-binary">Non-binary</option>
+            <option value="Self-describe">Self-describe</option>
+            <option value="Prefer not to say">Prefer not to say</option>
           </select>
         </div>
         <div class="form-group">
