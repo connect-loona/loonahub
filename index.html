@@ -11769,8 +11769,13 @@ ${brandLines}`;
 .ln-recovery-actions{display:flex;gap:8px;flex-wrap:wrap}
 .cal2-toprow{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px}
 .cal2-person-select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:13px;font-family:var(--font);font-weight:600}
-.cal2-nav{display:flex;align-items:center;gap:8px}
+.cal2-nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .cal2-nav .btn{padding:7px 12px;font-size:13px}
+@media(max-width:600px){
+  .cal2-toprow{flex-direction:column;align-items:stretch}
+  .cal2-person-select{width:100%}
+  .cal2-nav{justify-content:center}
+}
 .cal2-month-label{font-size:14px;font-weight:700;color:var(--text);min-width:140px;text-align:center}
 .cal2-weekday-row{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px}
 .cal2-weekday-row div{text-align:center;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
