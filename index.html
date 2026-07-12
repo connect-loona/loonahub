@@ -732,7 +732,7 @@
     /* ── MEMBER CARDS ── */
     .member-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
       gap: 16px;
     }
 
@@ -892,15 +892,69 @@
       color: var(--muted);
     }
 
-    /* ── "Pass card" styling for Meet the Loonatics (editorial ID-card look) ── */
+    /* ── "Pass card" styling for Meet the Loonatics — a landscape ID/pass-card
+       layout (portrait photo panel on the left, stamped monospace field labels
+       on the right, corner-cut marks, footer ID tag + decorative barcode), rather
+       than a normal stacked app card. ── */
     .lc-card {
       position: relative;
+      border-style: dashed !important;
+      padding: 18px 20px !important;
+    }
+
+    .lc-card::before, .lc-card::after,
+    .lc-card .lc-corner-br::before, .lc-card .lc-corner-br::after {
+      content: '';
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      border-color: inherit;
+      opacity: .55;
+    }
+
+    .lc-card::before {
+      top: 6px; left: 6px;
+      border-top: 1px solid currentColor;
+      border-left: 1px solid currentColor;
+    }
+
+    .lc-card::after {
+      top: 6px; right: 6px;
+      border-top: 1px solid currentColor;
+      border-right: 1px solid currentColor;
+    }
+
+    .lc-corner-br {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .lc-corner-br::before {
+      bottom: 6px; left: 6px;
+      border-bottom: 1px solid currentColor;
+      border-left: 1px solid currentColor;
+    }
+
+    .lc-corner-br::after {
+      bottom: 6px; right: 6px;
+      border-bottom: 1px solid currentColor;
+      border-right: 1px solid currentColor;
+    }
+
+    .lc-eyebrow {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 9.5px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 26px;
     }
 
     .lc-seal {
-      position: absolute;
-      top: 14px;
-      right: 14px;
       width: 30px;
       height: 30px;
       border-radius: 50%;
@@ -909,32 +963,48 @@
       align-items: center;
       justify-content: center;
       font-size: 15px;
+      flex-shrink: 0;
     }
 
-    .lc-photo-row {
-      display: flex;
-      justify-content: center;
-      margin-bottom: 10px;
+    .lc-top {
+      display: grid;
+      grid-template-columns: 84px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .lc-photo-panel {
+      width: 84px;
+      height: 104px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .lc-photo-panel .avatar {
+      width: 100%;
+      height: 100%;
+      border-radius: 0;
+      font-size: 34px;
     }
 
     .lc-name {
-      text-align: center;
-      font-size: 17px;
+      font-size: 19px;
       font-weight: 700;
       letter-spacing: -0.01em;
+      line-height: 1.15;
     }
 
     .lc-tenure {
-      text-align: center;
       font-size: 11px;
       color: var(--muted);
       margin-top: 2px;
       margin-bottom: 10px;
     }
 
-    .lc-divider {
-      border-top: 1px dashed var(--border);
-      margin: 10px 0;
+    .lc-fields {
+      font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
     }
 
     .lc-row {
@@ -942,14 +1012,14 @@
       justify-content: space-between;
       align-items: baseline;
       gap: 10px;
-      margin-bottom: 7px;
-      font-size: 12px;
+      margin-bottom: 6px;
+      font-size: 11.5px;
     }
 
     .lc-label {
       text-transform: uppercase;
-      letter-spacing: 0.06em;
-      font-size: 9.5px;
+      letter-spacing: 0.08em;
+      font-size: 9px;
       color: var(--muted);
       flex-shrink: 0;
     }
@@ -958,15 +1028,45 @@
       text-align: right;
     }
 
-    .lc-id-tag {
-      margin-top: 12px;
-      display: inline-block;
-      font-size: 9.5px;
-      letter-spacing: 0.04em;
+    .lc-divider {
+      border-top: 1px dashed var(--border);
+      margin: 14px 0 10px;
+    }
+
+    .lc-section-label {
+      font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 9px;
       color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .lc-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .lc-id-tag {
+      display: inline-block;
+      font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 10px;
+      letter-spacing: 0.06em;
       border: 1px solid var(--border);
-      border-radius: 5px;
-      padding: 2px 8px;
+      border-radius: 4px;
+      padding: 3px 9px;
+      flex-shrink: 0;
+    }
+
+    .lc-barcode {
+      flex: 1;
+      height: 22px;
+      max-width: 160px;
+      opacity: .5;
+      background-image: repeating-linear-gradient(90deg, currentColor 0, currentColor 1px, transparent 1px, transparent 2px, currentColor 2px, currentColor 4px, transparent 4px, transparent 6px, currentColor 6px, currentColor 7px, transparent 7px, transparent 9px);
     }
 
     /* ── ADMIN PANEL ── */
@@ -8302,28 +8402,39 @@
         const realRole = m.asylum || info.role || 'Team Member';
         const fun = funRoleName(realRole);
         const buildingHTML = m.brands.size ? Array.from(m.brands).map(b => `<div class="lt-building-item">→ ${b}</div>`).join('') : '<div class="lt-building-item" style="color:var(--muted)">No active brands right now</div>';
-        const avatarHtml = `<div class="avatar" style="width:64px;height:64px;font-size:26px;background:${color}20;color:${color};${info.avatar ? 'padding:0;' : ''}overflow:hidden">${mAvatar(name)}</div>`;
+        const avatarHtml = `<div class="avatar" style="background:${color}20;color:${color};${info.avatar ? 'padding:0;' : ''}overflow:hidden">${mAvatar(name)}</div>`;
         return `
-    <div class="member-card lc-card" style="border-color:${color}22" onclick="window.showMemberDetail('${name}')">
-      <div class="lc-seal" style="color:${color}">${zodiac ? zodiac.emoji : '✦'}</div>
-      <div class="lc-photo-row">
+    <div class="member-card lc-card" style="border-color:${color}44;color:${color}" onclick="window.showMemberDetail('${name}')">
+      <div class="lc-corner-br"></div>
+      <div class="lc-eyebrow"><span>Loona Pass &middot; ${fbMemberKey(name)}</span><div class="lc-seal">${zodiac ? zodiac.emoji : '✦'}</div></div>
+      <div class="lc-top">
         <div class="lt-avatar-wrap">
           ${statusBubbleHTML(name)}
-          ${avatarHtml}
-          <label class="avatar-edit" title="Change photo" onclick="event.stopPropagation()">📷<input type="file" accept="image/*" style="display:none" onchange="uploadMemberPhoto(this,'${name}')"></label>
+          <div class="lc-photo-panel">${avatarHtml}</div>
+          <label class="avatar-edit" title="Change photo" style="position:absolute;bottom:2px;right:2px;z-index:3" onclick="event.stopPropagation()">📷<input type="file" accept="image/*" style="display:none" onchange="uploadMemberPhoto(this,'${name}')"></label>
+        </div>
+        <div style="color:var(--text)">
+          <div class="lc-name">${name}</div>
+          <div class="lc-tenure">${days != null ? `A Loonatic since ${days}d` : 'Loonatic'}</div>
+          <div class="lc-fields">
+            <div class="lc-row"><span class="lc-label">Role</span><span class="lc-val lt-fun-role" style="color:${color}">${fun}</span></div>
+            <div class="lc-row" style="margin-top:-2px"><span class="lc-label"></span><span class="lc-val lt-real-role">${realRole}</span></div>
+            ${zodiac ? `<div class="lc-row"><span class="lc-label">Zodiac</span><span class="lc-val">${zodiac.emoji} ${zodiac.name} · ${fmtDate(birthdate)}</span></div>` : ''}
+            ${spirit ? `<div class="lc-row"><span class="lc-label">Spirit Animal</span><span class="lc-val">${spirit.emoji} ${spirit.name}</span></div>` : ''}
+            ${moon ? `<div class="lc-row"><span class="lc-label">Moon Phase</span><span class="lc-val">${moon.emoji} ${moon.name}</span></div>` : ''}
+          </div>
         </div>
       </div>
-      <div class="lc-name">${name}</div>
-      <div class="lc-tenure">${days != null ? `A Loonatic since ${days}d` : 'Loonatic'}</div>
       <div class="lc-divider"></div>
-      <div class="lc-row"><span class="lc-label">Role</span><span class="lc-val lt-fun-role">${fun}</span></div>
-      <div class="lc-row" style="margin-top:-4px"><span class="lc-label"></span><span class="lc-val lt-real-role">${realRole}</span></div>
-      ${zodiac ? `<div class="lc-row"><span class="lc-label">Zodiac</span><span class="lc-val">${zodiac.emoji} ${zodiac.name} · ${fmtDate(birthdate)}</span></div>` : ''}
-      ${spirit ? `<div class="lc-row"><span class="lc-label">Spirit Animal</span><span class="lc-val">${spirit.emoji} ${spirit.name}</span></div>` : ''}
-      ${moon ? `<div class="lc-row"><span class="lc-label">Moon Phase</span><span class="lc-val">${moon.emoji} ${moon.name}</span></div>` : ''}
-      <div class="lt-building"><div class="lc-label">Currently Building</div>${buildingHTML}</div>
+      <div style="color:var(--text)">
+        <div class="lc-section-label">Currently Building</div>
+        ${buildingHTML}
+      </div>
       <div class="lt-known-for">${info.knownFor ? `"${info.knownFor}"` : 'Known for: still writing their legend.'}</div>
-      ${info.employeeId ? `<div class="lc-id-tag">№ ${info.employeeId}</div>` : ''}
+      <div class="lc-footer">
+        <div class="lc-id-tag">${info.employeeId ? `№ ${info.employeeId}` : 'UNASSIGNED'}</div>
+        <div class="lc-barcode"></div>
+      </div>
       <div class="member-actions" style="margin-top:12px;display:flex;gap:8px">
         <button onclick="event.stopPropagation();removeMember('${name}')" style="background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);color:#e05c5c;padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;font-family:var(--font);flex:1">Remove from Team</button>
       </div>
@@ -13534,11 +13645,14 @@ ${brandLines}`;
     /* ---- Team: 4 member cards per row, condensed to essentials, tap for full detail ---- */
     #member-cards{grid-template-columns:repeat(4,1fr)!important;gap:6px!important}
     #member-cards .member-card{padding:6px 4px!important;border-radius:9px!important;cursor:pointer!important}
-    #member-cards .avatar{width:26px!important;height:26px!important;font-size:11px!important}
-    #member-cards .avatar-edit{width:16px!important;height:16px!important;font-size:8px!important;margin-top:-6px!important}
-    #member-cards .lc-name{font-size:8px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:100%!important;margin-top:3px!important}
+    #member-cards .lc-top{grid-template-columns:1fr!important;justify-items:center!important;text-align:center!important;gap:2px!important}
+    #member-cards .lc-photo-panel{width:28px!important;height:28px!important;border-radius:50%!important;margin:0 auto!important}
+    #member-cards .lc-photo-panel .avatar{font-size:12px!important}
+    #member-cards .avatar-edit{display:none!important}
+    #member-cards .lc-name{font-size:8px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:100%!important;margin-top:3px!important;text-align:center!important}
     /* Condensed on mobile — photo, status bubble, and name only; tap the card for the full pass-card popup */
-    #member-cards .lc-seal,#member-cards .lc-tenure,#member-cards .lc-divider,#member-cards .lc-row,#member-cards .lt-building,#member-cards .lt-known-for,#member-cards .lc-id-tag,#member-cards .member-actions{display:none!important}
+    #member-cards .lc-eyebrow,#member-cards .lc-tenure,#member-cards .lc-divider,#member-cards .lc-fields,#member-cards .lc-section-label,#member-cards .lt-building-item,#member-cards .lt-known-for,#member-cards .lc-footer,#member-cards .member-actions,#member-cards .lc-corner-br{display:none!important}
+    #member-cards .lc-card::before,#member-cards .lc-card::after{display:none!important}
     #member-cards .status-bubble{font-size:7px!important;padding:2px 5px!important;margin-bottom:4px!important}
     /* ---- Past Employees: 6 per row, tiny cards, icon-only Restore ---- */
     #past-employees-cards{grid-template-columns:repeat(6,1fr)!important;gap:5px!important}
