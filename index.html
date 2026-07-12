@@ -975,7 +975,9 @@
     .lp-sticky-caption { font-family: cursive; font-size: 13px; text-align: center; padding: 0 8px; }
 
     .lp-now-playing { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
-    .lp-album-art { width: 58px; height: 58px; border-radius: 4px; background: #1a1206; color: #e8541e; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+    .lp-album-art { width: 58px; height: 58px; border-radius: 4px; background: #1a1206; color: #e8541e; display: flex; align-items: center; justify-content: center; font-size: 22px; position: relative; overflow: hidden; }
+    .lp-album-art img { width: 100%; height: 100%; object-fit: cover; }
+    .lp-album-art .avatar-edit { position: absolute; bottom: 2px; right: 2px; width: 16px; height: 16px; font-size: 8px; }
     .lp-waveform-bars { display: flex; align-items: flex-end; gap: 1.5px; height: 15px; }
     .lp-waveform-bars span { width: 2px; background: #1a1206; display: inline-block; }
     .lp-song { font-weight: 800; font-size: 13px; }
@@ -5795,7 +5797,7 @@
     const MEMBER_INFO = {"Gokul":{"color":"#c8a96e","emoji":"🚀","role":"Founder"},"Anam":{"color":"#38b2ac","emoji":"💼","role":"Head of Strategy"},"Ankita":{"color":"#f687b3","emoji":"⭐","role":"Sr. Strategy"},"Ricky":{"color":"#ed8936","emoji":"🎯","role":"Head of Design"},"Muskan":{"color":"#e84393","emoji":"✨","role":"Designer"},"Nishant":{"color":"#e05c5c","emoji":"🎨","role":"Designer"},"Karnik":{"color":"#68d391","emoji":"📐","role":"Web Designer"},"Chinmay":{"color":"#4caf7d","emoji":"✂️","role":"Video Editor"},"Majid":{"color":"#9f7aea","emoji":"🎞️","role":"Video Editor"},"Anurag":{"color":"#f6ad55","emoji":"🎬","role":"Video Editor"},"Vivaan":{"color":"#5b9cf6","emoji":"🌱","role":"Intern – Social & Strategy"},"Diya":{"color":"#b794f4","emoji":"📊","role":"Sr. Manager – Strategy/OPS"},"Ananya":{"color":"#f6e05e","emoji":"🖌️","role":"Intern – Design"}};
     const ALL_MEMBERS = ["Gokul", "Anam", "Ankita", "Ricky", "Muskan", "Nishant", "Karnik", "Chinmay", "Majid", "Anurag", "Vivaan", "Diya", "Ananya"];
     const INACTIVE_MEMBERS = new Set([]);
-    const FAV_IMG_KEYS = { movie: 'favMovieImg', snack: 'favSnackImg', book: 'favBookImg', destination: 'favDestinationImg' };
+    const FAV_IMG_KEYS = { movie: 'favMovieImg', snack: 'favSnackImg', book: 'favBookImg', destination: 'favDestinationImg', nowplaying: 'nowPlayingImg' };
 
     let currentUser = null;
     let boardIdx = 0;
@@ -6138,7 +6140,7 @@
             attachAvatarListener(m.name);
             attachFavoritesListener(m.name);
             const existing = MEMBER_INFO[m.name] || {};
-            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || null, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null, mobile: m.mobile || existing.mobile || null, gender: m.gender || existing.gender || null, personalEmail: m.personalEmail || existing.personalEmail || null, address: m.address || existing.address || null, lastName: m.lastName || existing.lastName || null, emergencyContactName: m.emergencyContactName || existing.emergencyContactName || null, emergencyContactPhone: m.emergencyContactPhone || existing.emergencyContactPhone || null, bloodGroup: m.bloodGroup || existing.bloodGroup || null, workEmail: m.workEmail || existing.workEmail || null, knownFor: m.knownFor || existing.knownFor || null, mbti: m.mbti || existing.mbti || null, style: m.style || existing.style || null, nowPlayingSong: m.nowPlayingSong || existing.nowPlayingSong || null, nowPlayingArtist: m.nowPlayingArtist || existing.nowPlayingArtist || null, funFacts: m.funFacts || existing.funFacts || null, favMovie: m.favMovie || existing.favMovie || null, favSnack: m.favSnack || existing.favSnack || null, favBook: m.favBook || existing.favBook || null, favDestination: m.favDestination || existing.favDestination || null, favMovieImg: existing.favMovieImg || null, favSnackImg: existing.favSnackImg || null, favBookImg: existing.favBookImg || null, favDestinationImg: existing.favDestinationImg || null };
+            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || null, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null, mobile: m.mobile || existing.mobile || null, gender: m.gender || existing.gender || null, personalEmail: m.personalEmail || existing.personalEmail || null, address: m.address || existing.address || null, lastName: m.lastName || existing.lastName || null, emergencyContactName: m.emergencyContactName || existing.emergencyContactName || null, emergencyContactPhone: m.emergencyContactPhone || existing.emergencyContactPhone || null, bloodGroup: m.bloodGroup || existing.bloodGroup || null, workEmail: m.workEmail || existing.workEmail || null, knownFor: m.knownFor || existing.knownFor || null, mbti: m.mbti || existing.mbti || null, style: m.style || existing.style || null, nowPlayingSong: m.nowPlayingSong || existing.nowPlayingSong || null, nowPlayingArtist: m.nowPlayingArtist || existing.nowPlayingArtist || null, funFacts: m.funFacts || existing.funFacts || null, favMovie: m.favMovie || existing.favMovie || null, favSnack: m.favSnack || existing.favSnack || null, favBook: m.favBook || existing.favBook || null, favDestination: m.favDestination || existing.favDestination || null, favMovieImg: existing.favMovieImg || null, favSnackImg: existing.favSnackImg || null, favBookImg: existing.favBookImg || null, favDestinationImg: existing.favDestinationImg || null, nowPlayingImg: existing.nowPlayingImg || null };
             // Older records still carry the avatar inline on this same node — use it right away,
             // then migrate it out to member_avatars/ so this node stays small for everyone from now on.
             if (m.avatar && m.avatar !== MEMBER_INFO[m.name].avatar) {
@@ -8443,7 +8445,7 @@
           <div class="lp-panel">
             <div class="lp-tag">PLAYING ON REPEAT</div>
             <div class="lp-now-playing">
-              <div class="lp-album-art">🎵</div>
+              <div class="lp-album-art">${info.nowPlayingImg ? `<img src="${info.nowPlayingImg}">` : '🎵'}${canEdit ? `<label class="avatar-edit" title="Add album art" onclick="event.stopPropagation()">📷<input type="file" accept="image/*" style="display:none" onchange="uploadFavoriteImage(this,'${name}','nowplaying')"></label>` : ''}</div>
               <div class="lp-waveform-bars">${[7,12,5,15,9,4,11,6].map(h => `<span style="height:${h}px"></span>`).join('')}</div>
               <div class="lp-song">${info.nowPlayingSong || '—'}</div>
               <div class="lp-artist">${info.nowPlayingArtist || ''}</div>
@@ -9375,6 +9377,7 @@
       renderEditFavThumb('snack', info.favSnackImg);
       renderEditFavThumb('book', info.favBookImg);
       renderEditFavThumb('destination', info.favDestinationImg);
+      renderEditFavThumb('nowplaying', info.nowPlayingImg);
       document.getElementById('eem-ec-name').value = info.emergencyContactName || '';
       document.getElementById('eem-ec-phone').value = info.emergencyContactPhone || '';
       document.getElementById('eem-pan').value = '';
@@ -13086,7 +13089,10 @@ ${brandLines}`;
       <div class="form-row">
         <div class="form-group">
           <label>Now Playing — Song</label>
-          <input class="form-control" id="eem-song" placeholder="e.g. Time">
+          <div style="display:flex;gap:8px;align-items:center">
+            <input class="form-control" id="eem-song" placeholder="e.g. Time" style="flex:1">
+            <label class="avatar-edit" id="eem-fav-nowplaying-thumb" style="width:32px;height:32px;background-size:cover;background-position:center;flex-shrink:0" title="Add album art">📷<input type="file" accept="image/*" style="display:none" onchange="uploadFavoriteImage(this,_eemEditingName,'nowplaying')"></label>
+          </div>
         </div>
         <div class="form-group">
           <label>Now Playing — Artist</label>
