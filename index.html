@@ -6282,6 +6282,7 @@
       document.getElementById('ob-lastname').value = '';
       populateCategorySelect('dept', 'ob-dept');
       populateCategorySelect('role', 'ob-role');
+      document.getElementById('ob-empid').value = '';
       document.getElementById('ob-joindate').value = '';
       document.getElementById('ob-birthdate').value = '';
       const nameErr = document.getElementById('ob-name-error');
@@ -6316,11 +6317,27 @@
         return;
       }
 
+      const empIdInput = document.getElementById('ob-empid');
+      const employeeId = empIdInput.value.trim();
+      empIdInput.style.borderColor = '';
+      if (employeeId) {
+        const empIdLower = employeeId.toLowerCase();
+        const takenBy = ALL_MEMBERS.map(n => [n, memberDisplayInfo(n)]).find(([n, i]) => i && i.employeeId && i.employeeId.toLowerCase() === empIdLower);
+        const pendingTakenBy = Object.values(window.MEMBERS_PENDING || {}).find(p => p && p.employeeId && p.employeeId.toLowerCase() === empIdLower);
+        if (takenBy || pendingTakenBy) {
+          nameErr.textContent = `Employee ID "${employeeId}" is already registered to ${(takenBy && takenBy[0]) || (pendingTakenBy && pendingTakenBy.name)} — check your PetPooja code and try again.`;
+          nameErr.style.display = 'block';
+          empIdInput.style.borderColor = 'var(--red)';
+          return;
+        }
+      }
+
       const record = {
         name,
         lastName: document.getElementById('ob-lastname').value.trim() || null,
         department: document.getElementById('ob-dept').value.trim() || null,
         role: document.getElementById('ob-role').value.trim() || null,
+        employeeId: employeeId || null,
         joinDate: document.getElementById('ob-joindate').value || null,
         birthdate: document.getElementById('ob-birthdate').value || null,
         submittedAt: new Date().toISOString()
@@ -8526,6 +8543,32 @@
         </div>`;
     }
 
+    // Wires a freshly-provided Employee ID (the code PetPooja issues at biometric
+    // registration — the step that happens BEFORE Hub sign-up in the real onboarding
+    // order) into the PetPooja attendance-matching system. That system runs on two
+    // structures that are otherwise completely disconnected from MEMBER_INFO: a
+    // hardcoded LIVE.empMap (code -> name) and a hardcoded ATT seed table (per-name
+    // attendance metadata) — both baked into a later <script> block. Without this,
+    // typing an Employee ID into Hub is purely cosmetic and PetPooja punches never
+    // match up for that person. Firebase-synced so it works without a code deploy.
+    function linkPetpoojaEmployeeId(name, employeeId, extra) {
+      if (!employeeId) return;
+      extra = extra || {};
+      if (_db) {
+        _db.ref('petpooja_emp_map/' + employeeId).set(name);
+        _db.ref('petpooja_att_seed/' + name).set({ code: employeeId, desg: extra.role || '', dept: extra.department || '', joinDate: extra.joinDate || null });
+      }
+      // Apply immediately in this tab too, rather than waiting for the Firebase
+      // listener round-trip (see the LIVE/ATT sync block further down the file).
+      // Both LIVE and ATT live inside that block's own IIFE and are only reachable
+      // from here because each is explicitly exposed as window.LIVE / window.ATT.
+      if (window.LIVE && window.LIVE.empMap) window.LIVE.empMap[employeeId] = name;
+      if (window.ATT && !window.ATT[name]) {
+        window.ATT[name] = { code: employeeId, desg: extra.role || '—', in: '—', hrs: '—', brk: '—', status: 'off', monthPresent: 0, monthLate: 0, monthAbsent: 0, dept: extra.department || '—', joinDate: extra.joinDate || null };
+      }
+      if (typeof window.attResync === 'function') window.attResync();
+    }
+
     async function approvePendingEmployee(key) {
       const p = (window.MEMBERS_PENDING || {})[key];
       if (!p || !p.name) return;
@@ -8539,11 +8582,12 @@
       const color = COLORS[Math.floor(Math.random() * COLORS.length)];
       const emoji = '👤';
       const role = p.role || p.department || 'Team Member';
-      const info = { color, emoji, role, avatar: null, department: p.department || null, joinDate: p.joinDate || null, employeeId: null, birthdate: p.birthdate || null, mobile: p.mobile || null, gender: p.gender || null, personalEmail: p.personalEmail || null, address: p.address || null, lastName: p.lastName || null, emergencyContactName: p.emergencyContactName || null, emergencyContactPhone: p.emergencyContactPhone || null, bloodGroup: p.bloodGroup || null, workEmail: loginDeriveEmail(name) };
+      const info = { color, emoji, role, avatar: null, department: p.department || null, joinDate: p.joinDate || null, employeeId: p.employeeId || null, birthdate: p.birthdate || null, mobile: p.mobile || null, gender: p.gender || null, personalEmail: p.personalEmail || null, address: p.address || null, lastName: p.lastName || null, emergencyContactName: p.emergencyContactName || null, emergencyContactPhone: p.emergencyContactPhone || null, bloodGroup: p.bloodGroup || null, workEmail: loginDeriveEmail(name) };
       const memberRecord = Object.assign({ name }, info);
 
       ALL_MEMBERS.push(name);
       MEMBER_INFO[name] = info;
+      linkPetpoojaEmployeeId(name, p.employeeId, { role, department: p.department, joinDate: p.joinDate });
 
       buildMemberTabs(currentUser);
       renderTeam();
@@ -8794,6 +8838,7 @@
         _db.ref('members/' + key).update(nonSensitive);
         _db.ref('members_sensitive/' + key).set(sensitiveRecord);
       }
+      if (employeeId && employeeId !== existing.employeeId) linkPetpoojaEmployeeId(name, employeeId, { role: nonSensitive.role, department, joinDate });
 
       renderTeam();
       renderOverview();
@@ -12289,6 +12334,11 @@ ${brandLines}`;
           </div>
         </div>
       </div>
+      <div class="form-group">
+        <label>Employee ID</label>
+        <input class="form-control" id="ob-empid" placeholder="e.g. LSPL014">
+        <div style="font-size:10.5px;color:var(--muted);margin-top:4px">The ID PetPooja issued you when you registered your biometrics.</div>
+      </div>
       <div class="form-row">
         <div class="form-group">
           <label>Joining Date</label>
@@ -14081,6 +14131,29 @@ ${brandLines}`;
         "LSPL013":"Ananya"
       }
     };
+    window.LIVE = LIVE; // exposed so linkPetpoojaEmployeeId (earlier script block) can update it instantly, same reason ATT is exposed above
+    // Extends the hardcoded empMap/ATT above with anyone whose Employee ID was
+    // registered through the Hub (onboarding form or Admin edit — see
+    // linkPetpoojaEmployeeId in the main script block) instead of hand-added to this
+    // file. Only fills gaps — never overwrites the hardcoded seed for existing team.
+    whenFirebaseReady(function(){
+      firebase.database().ref('petpooja_emp_map').on('value', function(snap){
+        var extra = snap.val() || {}; var changed = false;
+        Object.keys(extra).forEach(function(code){ if (LIVE.empMap[code] !== extra[code]) { LIVE.empMap[code] = extra[code]; changed = true; } });
+        if (changed && window.attResync) window.attResync();
+      });
+      firebase.database().ref('petpooja_att_seed').on('value', function(snap){
+        var extra = snap.val() || {}; var changed = false;
+        Object.keys(extra).forEach(function(name){
+          if (!ATT[name]) {
+            var s = extra[name] || {};
+            ATT[name] = { code: s.code || '—', desg: s.desg || '—', in: '—', hrs: '—', brk: '—', status: 'off', monthPresent: 0, monthLate: 0, monthAbsent: 0, dept: s.dept || '—', joinDate: s.joinDate || null };
+            changed = true;
+          }
+        });
+        if (changed && window.attResync) window.attResync();
+      });
+    });
     var LIVEDAYS = {};            // LIVEDAYS[hubName][date] = {status,in,hrs,brk}
     var LIVE_FROM = null, LIVE_SYNCED = null;
     function fmtISO(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
