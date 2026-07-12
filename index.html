@@ -142,6 +142,17 @@
     }
     .login-auth-links a { color: rgba(255,255,255,.6); text-decoration: none; }
     .login-auth-links a:hover { color: #fff; text-decoration: underline; }
+    .login-show-pw {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12.5px;
+      color: rgba(255,255,255,.6);
+      cursor: pointer;
+      margin-top: -4px;
+      user-select: none;
+    }
+    .login-show-pw input { cursor: pointer; }
 
     .member-picker {
       display: grid;
@@ -3257,6 +3268,7 @@
       <div id="login-password-confirm-wrap" style="display:none">
         <input type="password" id="login-password-confirm" class="login-password-input" placeholder="Confirm password" autocomplete="new-password" onkeydown="if(event.key==='Enter'){event.preventDefault();loginSubmitPassword();}">
       </div>
+      <label class="login-show-pw"><input type="checkbox" id="login-show-pw-check" onchange="loginToggleShowPassword()"> Show password</label>
       <div id="login-auth-error" class="login-auth-error" style="display:none"></div>
       <button class="btn btn-primary login-auth-submit" id="login-auth-submit-btn" onclick="loginSubmitPassword()" type="button">Log In</button>
       <div class="login-auth-links">
@@ -5991,8 +6003,19 @@
       document.getElementById('login-password').value = '';
       document.getElementById('login-password-confirm').value = '';
       document.getElementById('login-auth-error').style.display = 'none';
+      // Reset to hidden each time the panel opens — a "show password" state
+      // shouldn't carry over to the next person on a shared device.
+      document.getElementById('login-show-pw-check').checked = false;
+      document.getElementById('login-password').type = 'password';
+      document.getElementById('login-password-confirm').type = 'password';
       loginRenderAuthMode();
       setTimeout(() => { const p = document.getElementById('login-password'); if (p) p.focus(); }, 50);
+    }
+
+    function loginToggleShowPassword() {
+      const show = document.getElementById('login-show-pw-check').checked;
+      document.getElementById('login-password').type = show ? 'text' : 'password';
+      document.getElementById('login-password-confirm').type = show ? 'text' : 'password';
     }
 
     function loginBackToPicker() {
@@ -6115,16 +6138,22 @@
 
     function logout() {
       currentUser = null;
-      document.getElementById('app').style.display = 'none';
-      document.getElementById('login-screen').style.display = 'flex';
-      loginBackToPicker();
-      firebase.auth().signOut().catch(() => {});
       if (boardTimer) clearInterval(boardTimer);
       if (window._wipTimer) clearInterval(window._wipTimer);
       if (window._missTimer) clearTimeout(window._missTimer);
       (window._taskRemindTimers || []).forEach(clearTimeout); window._taskRemindTimers = [];
       if (window._callReminderInterval) clearInterval(window._callReminderInterval);
       window._attPopupShown = false;
+      // Reloading after sign-out (rather than just re-showing the picker in place)
+      // avoids a real race: signOut() is async, and immediately signing back in
+      // before it's actually finished internally could leave Firebase Auth's
+      // in-memory state inconsistent, silently breaking the next login attempt.
+      // A full reload guarantees the exact same clean slate as fully closing and
+      // reopening the app, which is the one thing confirmed to always work.
+      document.getElementById('login-prompt').textContent = 'Logging out…';
+      document.getElementById('app').style.display = 'none';
+      document.getElementById('login-screen').style.display = 'flex';
+      firebase.auth().signOut().catch(() => {}).then(() => { window.location.reload(); });
     }
 
     // ═══ INIT ═══
