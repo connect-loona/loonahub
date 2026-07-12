@@ -13,6 +13,12 @@
   <meta name="theme-color" content="#c8a96e">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon-v2.png">
   <meta name="mobile-web-app-capable" content="yes">
+  <!-- Loona Pass + roster "trading card" system uses this one serif everywhere
+       (title, labels, body) so both card surfaces read as one consistent design,
+       matching the vintage-editorial reference exactly. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;0,900;1,500&display=swap" rel="stylesheet">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Loona Hub">
@@ -36,6 +42,9 @@
       --blue: #5b9cf6;
       --purple: #9f7aea;
       --font: 'Neue Montreal','Inter','Segoe UI', system-ui, sans-serif;
+      /* Shared by every Loona Pass / roster "trading card" surface so they read
+         as one consistent design system, matching the vintage-editorial reference. */
+      --card-font: 'Playfair Display', Georgia, 'Times New Roman', serif;
     }
 
     * {
@@ -902,7 +911,7 @@
       border-radius: 6px;
       max-width: 860px;
       margin: 0 auto;
-      font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+      font-family: var(--card-font);
       overflow: hidden;
     }
 
@@ -943,7 +952,7 @@
     .lp-seal { position: absolute; top: 0; right: 0; width: 74px; height: 74px; }
 
     .lp-name-tag { display: inline-block; border: 1px solid #1a1206; border-radius: 3px; padding: 1px 8px; font-size: 9.5px; font-weight: 700; margin-bottom: 6px; }
-    .lp-name { font-family: var(--font); font-size: 46px; font-weight: 900; line-height: .95; letter-spacing: -0.01em; margin-bottom: 14px; word-break: break-word; }
+    .lp-name { font-family: var(--card-font); font-size: 46px; font-weight: 900; line-height: .95; letter-spacing: -0.01em; margin-bottom: 14px; word-break: break-word; }
     .lp-since-row { display: flex; align-items: center; margin-bottom: 18px; flex-wrap: wrap; }
     .lp-since-tag { background: #1a1206; color: #e8541e; font-size: 9.5px; font-weight: 700; letter-spacing: 0.03em; padding: 4px 10px; position: relative; z-index: 2; }
     .lp-since-badge { background: #fff; border: 2px solid #1a1206; padding: 3px 14px 3px 18px; font-size: 22px; font-weight: 800; margin-left: -8px; position: relative; z-index: 1; }
@@ -1005,15 +1014,17 @@
     .lp-footer-target { font-size: 15px; }
 
     /* ── ROSTER CARD: "Meet the Loonatics" grid tiles — a distinct cream/serif
-       "trading card" look (deliberately different from the orange/mono Loona
-       Pass detail page), matching the vintage-polaroid reference exactly. ── */
+       "trading card" look (deliberately different from the orange Loona Pass
+       detail page), matching the vintage-polaroid reference exactly — uses the
+       app's own font (var(--font)) rather than a separate one, so every fun-
+       profile surface reads as one consistent system. ── */
     .rc-card {
       background: #f0e7d4;
       border: 2px solid #1a1206;
       border-radius: 16px;
       overflow: hidden;
       cursor: pointer;
-      font-family: Georgia, 'Times New Roman', serif;
+      font-family: var(--card-font);
       color: #1a1206;
       display: flex;
       flex-direction: column;
@@ -1051,13 +1062,59 @@
     .rc-card .lt-avatar-wrap { display: block; width: 100%; }
     .rc-card .status-bubble { font-size: 8.5px; padding: 3px 7px; }
 
+    /* ── Your Tarot for Today + Work Companion of the Day — same cream/serif
+       fun-profile system as the roster cards, one deterministic pick per
+       person per day. ── */
+    .tarot-card {
+      background: #f0e7d4;
+      border: 2px solid #1a1206;
+      border-radius: 16px;
+      padding: 22px 26px;
+      max-width: 480px;
+      font-family: var(--card-font);
+      color: #1a1206;
+    }
+    .tarot-emoji { font-size: 38px; text-align: center; line-height: 1; }
+    .tarot-name { font-size: 21px; font-weight: 700; text-align: center; margin: 6px 0 14px; }
+    .tarot-line { font-size: 13px; line-height: 1.6; margin-bottom: 7px; }
+    .tarot-line:last-child { margin-bottom: 0; }
+    .tarot-line b { font-weight: 700; }
+
+    .buddy-card {
+      position: relative;
+      max-width: 320px;
+      min-height: 150px;
+      cursor: pointer;
+      border: 2px solid #1a1206;
+      border-radius: 16px;
+      background: #1a1206;
+      color: #e8541e;
+      font-family: var(--card-font);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 22px;
+      text-align: center;
+      transition: transform .2s, background .2s, color .2s;
+    }
+    .buddy-face { }
+    .buddy-front { font-size: 14px; }
+    .buddy-front-emoji { font-size: 36px; margin-bottom: 10px; }
+    .buddy-back { display: none; }
+    .buddy-back-label { font-size: 10px; font-weight: 700; letter-spacing: .05em; opacity: .7; }
+    .buddy-back-name { font-size: 22px; font-weight: 700; margin: 4px 0 8px; }
+    .buddy-back-reason { font-size: 13px; font-style: italic; line-height: 1.5; }
+    .buddy-card.buddy-revealed { background: #f0e7d4; color: #1a1206; cursor: default; transform: scale(1.02); }
+    .buddy-card.buddy-revealed .buddy-front { display: none; }
+    .buddy-card.buddy-revealed .buddy-back { display: block; }
+
     .lp-edit-btn {
       background: transparent;
       color: #1a1206;
       border: 2px solid #1a1206;
       border-radius: 4px;
       padding: 6px 16px;
-      font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+      font-family: var(--card-font);
       font-size: 11px;
       font-weight: 700;
       letter-spacing: 0.04em;
@@ -4916,6 +4973,16 @@
           <div id="past-employees-cards"
             style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px"></div>
         </div>
+        <!-- Personal, once-a-day, deterministic per person — not tied to any one
+             profile, so these live below the whole roster rather than on a card. -->
+        <div class="section-header" style="margin-top:28px">
+          <div class="section-title">Your <span>Tarot</span> for Today</div>
+        </div>
+        <div id="daily-tarot-card"></div>
+        <div class="section-header">
+          <div class="section-title">Work <span>Companion</span> of the Day</div>
+        </div>
+        <div id="daily-work-buddy"></div>
       </div>
       <!-- Clicking a Loonatic takes over the whole Team page with their pass card,
            rather than showing it as one tile among many. -->
@@ -8290,6 +8357,111 @@
       return (role.split(' ')[0] || 'Loona') + ' ' + suffixes[hash % suffixes.length];
     }
 
+    // Deterministic string hash — same technique as funRoleName's fallback, reused
+    // here so "today's" tarot card / work buddy is stable for a given person on a
+    // given day (same seed in → same pick out) without needing to store anything.
+    function dailyHash(str) {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+      return hash;
+    }
+
+    // ═══ Your Tarot for Today ═══ — one deterministic card per person per day,
+    // read blended across work/love/fun rather than the traditional single meaning.
+    const TAROT_CARDS = [
+      { emoji: '🃏', name: 'The Fool', work: 'Say yes to the weird project nobody else wants.', love: 'Someone new is about to slide into more than your DMs.', fun: 'Big main-character energy today — use it.' },
+      { emoji: '🎩', name: 'The Magician', work: 'That idea sitting in your Notes app? Ship it today.', love: 'Confidence is the whole game right now.', fun: "You're the plan-maker tonight." },
+      { emoji: '⭐', name: 'The Star', work: 'A small idea today quietly becomes a big deal later.', love: 'Someone has been meaning to text back — nudge them.', fun: 'Say yes to the spontaneous plan.' },
+      { emoji: '☀️', name: 'The Sun', work: 'Your presentation lands better than you think.', love: "It's a good day to be a little extra.", fun: 'Outdoor plans beat indoor plans today.' },
+      { emoji: '🌙', name: 'The Moon', work: "Double-check before you hit send — details aren't fully clear yet.", love: 'Read between the lines today.', fun: 'Trust the vibe over the plan.' },
+      { emoji: '💞', name: 'The Lovers', work: 'Pick the collaborator over the solo grind today.', love: 'A real conversation is overdue.', fun: 'Two-person plans beat solo scrolling.' },
+      { emoji: '🗼', name: 'The Tower', work: 'The plan changes last-minute — roll with it.', love: 'An unexpected message shakes things up, in a good way.', fun: 'Chaotic today, but the fun kind.' },
+      { emoji: '🎡', name: 'Wheel of Fortune', work: 'That random ping might be an actual opportunity.', love: 'Timing finally works out in your favor.', fun: 'Buy the lottery ticket. Or at least the good snack.' },
+      { emoji: '🏔️', name: 'The Hermit', work: 'Your best ideas come from headphones-on, do-not-disturb time.', love: 'Give yourself the night off — no explanation needed.', fun: 'Solo plans are the good plans today.' },
+      { emoji: '🦁', name: 'Strength', work: 'The annoying task gets easier the second you actually start it.', love: 'Gentle honesty wins today over silence.', fun: 'Low-key plans hit different tonight.' },
+      { emoji: '👑', name: 'The Empress', work: 'Your creative instincts are unusually sharp today.', love: 'Treat yourself, then treat someone else too.', fun: 'Good food, good company, no notes.' },
+      { emoji: '📜', name: 'The Emperor', work: 'Make the list, then go crush the list.', love: 'Be the one who initiates today.', fun: 'A little discipline now buys a lot of fun later.' },
+      { emoji: '🍷', name: 'Ten of Cups', work: "Today's win is a team win, not a solo one.", love: "It's a soft, happy day for your people.", fun: 'Group plans are the move tonight.' },
+      { emoji: '🥂', name: 'Three of Cups', work: 'Someone on the team deserves a shoutout today — maybe you.', love: 'Reconnect with someone you keep meaning to.', fun: 'Say yes to the group hang.' },
+      { emoji: '🌍', name: 'The World', work: 'That long project is closer to done than it feels.', love: 'Closure or a fresh start — both are good today.', fun: 'Celebrate a small win, on purpose.' },
+      { emoji: '🏎️', name: 'The Chariot', work: "Momentum's on your side — keep moving, don't overthink.", love: 'Bold moves get rewarded today.', fun: "Say yes before you talk yourself out of it." }
+    ];
+    function tarotForToday(name) {
+      if (!name) return null;
+      const idx = dailyHash(name + '_' + todayISO() + '_tarot') % TAROT_CARDS.length;
+      return TAROT_CARDS[idx];
+    }
+
+    // ═══ Work Companion of the Day ═══ — a different (deterministic, so stable
+    // all day) teammate each day, revealed as a tap-to-flip card rather than shown
+    // outright.
+    const WORK_BUDDY_REASONS = [
+      "You're both fueled by chaos and cold coffee. Team up today.",
+      'One of you has the ideas, the other has the follow-through. Perfect combo today.',
+      "You'd both rather fix it live than plan it twice.",
+      'Certified overthinkers — untangle today\'s problem together.',
+      "One's the accelerator, one's the brakes. Good balance for today.",
+      'You both secretly enjoy a good deadline crunch.',
+      'Two brains, one thread — get through today faster together.',
+      'You both say "quick call" and mean 45 minutes. Iconic.',
+      'Same chaotic energy, different departments. Let it collide today.',
+      'You both notice the details everyone else misses.',
+      'One of you needs a sounding board today — that\'s the other, unofficially.',
+      'Certified team players. Be each other\'s backup today.',
+      "You'd both rather ask a question than stay stuck.",
+      'Same taste in memes, different taste in music — bond over the former.',
+      'You both work best with someone checking in. Check in on each other today.',
+      'Opposite work styles, same deadline. Make it work.'
+    ];
+    function workBuddyForToday(name) {
+      if (!name) return null;
+      const others = ALL_MEMBERS.filter(m => m !== name && !INACTIVE_MEMBERS.has(m));
+      if (!others.length) return null;
+      const buddy = others[dailyHash(name + '_' + todayISO() + '_buddy') % others.length];
+      const reason = WORK_BUDDY_REASONS[dailyHash(name + '_' + todayISO() + '_reason') % WORK_BUDDY_REASONS.length];
+      return { name: buddy, reason };
+    }
+
+    function revealWorkBuddy() {
+      const card = document.getElementById('work-buddy-card');
+      if (card) card.classList.add('buddy-revealed');
+    }
+
+    function renderDailyExtras() {
+      const tarotEl = document.getElementById('daily-tarot-card');
+      const buddyEl = document.getElementById('daily-work-buddy');
+      if (!tarotEl || !buddyEl) return;
+
+      const card = tarotForToday(currentUser);
+      tarotEl.innerHTML = !card ? '' : `
+        <div class="tarot-card">
+          <div class="tarot-emoji">${card.emoji}</div>
+          <div class="tarot-name">${card.name}</div>
+          <div class="tarot-line"><b>💼 Work:</b> ${card.work}</div>
+          <div class="tarot-line"><b>❤️ Love:</b> ${card.love}</div>
+          <div class="tarot-line"><b>🎉 Fun:</b> ${card.fun}</div>
+        </div>`;
+
+      const buddy = workBuddyForToday(currentUser);
+      if (!buddy) { buddyEl.innerHTML = ''; return; }
+      const info = MEMBER_INFO[buddy.name] || {};
+      const color = info.color || '#888';
+      const avatarInner = info.avatar ? `<img src="${info.avatar}" style="width:100%;height:100%;object-fit:cover">` : (info.emoji || '👤');
+      buddyEl.innerHTML = `
+        <div class="buddy-card" id="work-buddy-card" onclick="revealWorkBuddy()">
+          <div class="buddy-face buddy-front">
+            <div class="buddy-front-emoji">🎴</div>
+            <div>Tap to reveal your Work Buddy for today</div>
+          </div>
+          <div class="buddy-face buddy-back">
+            <div class="avatar" style="width:64px;height:64px;font-size:26px;background:${color}25;color:${color};margin:0 auto 10px;${info.avatar ? 'padding:0;overflow:hidden' : ''}">${avatarInner}</div>
+            <div class="buddy-back-label">Your Work Buddy Today</div>
+            <div class="buddy-back-name">${buddy.name}</div>
+            <div class="buddy-back-reason">${buddy.reason}</div>
+          </div>
+        </div>`;
+    }
+
     // ═══ Daily mood/status ═══
     const STATUS_OPTIONS = [
       { emoji: '😁', text: 'Feeling Cute Today' },
@@ -8428,7 +8600,10 @@
       const funFacts = Array.isArray(info.funFacts) ? info.funFacts.filter(Boolean) : [];
       const factsHTML = funFacts.length ? `<ul class="lp-fact-list">${funFacts.map(f => `<li>${f}</li>`).join('')}</ul>` : `<div style="opacity:.6;font-size:12px">No fun facts on file yet.</div>`;
 
-      const canEdit = isSelf || (currentUser && normName(currentUser) === 'gokul');
+      // Edit access is deliberately self-only — this is someone's personal Loona
+      // Pass (mood, favorites, fun facts), not an HR record Gokul should be able
+      // to overwrite from here.
+      const canEdit = isSelf;
       const fav = (label, kind, icon, val, img) => `
         <div class="lp-fav-item">
           <div class="lp-fav-tag">${label}</div>
@@ -8498,7 +8673,7 @@
             </div>
             <div class="lp-fields" title="Actual title: ${realRole}">
               <div class="lp-field-row">${fieldIcon('✳', 'fill')}<div class="lp-field-label">ROLE:</div><div class="lp-field-val">${editMode ? `<input class="lp-inline-input" id="lp-edit-role" value="${escAttr(realRole)}">` : fun}</div></div>
-              <div class="lp-field-row">${fieldIcon(zodiac ? zodiac.emoji : '✦')}<div class="lp-field-label">ZODIAC SIGN:</div><div class="lp-field-val">${zodiac ? zodiac.name : '—'}</div>${editMode ? `<input type="date" class="lp-inline-input lp-field-extra" id="lp-edit-birthdate" value="${birthdate || ''}" style="max-width:130px">` : (birthdate ? `<div class="lp-field-extra">${fmtDate(birthdate)}</div>` : '')}</div>
+              <div class="lp-field-row">${fieldIcon(zodiac ? zodiac.emoji + '︎' : '✦')}<div class="lp-field-label">ZODIAC SIGN:</div><div class="lp-field-val">${zodiac ? zodiac.name : '—'}</div>${editMode ? `<input type="date" class="lp-inline-input lp-field-extra" id="lp-edit-birthdate" value="${birthdate || ''}" style="max-width:130px">` : (birthdate ? `<div class="lp-field-extra">${fmtDate(birthdate)}</div>` : '')}</div>
               <div class="lp-field-row">${fieldIcon(spirit ? spirit.emoji : '🐾', 'mono')}<div class="lp-field-label">SPIRIT ANIMAL:</div><div class="lp-field-val">${spirit ? spirit.name : '—'}</div>${editMode ? '<div class="lp-field-extra" style="opacity:.6">auto, from birthdate</div>' : ''}</div>
               <div class="lp-field-row">${fieldIcon(info.mbti ? info.mbti.split('-')[0] : 'MBTI', 'text')}<div class="lp-field-label">MBTI:</div><div class="lp-field-val">${editMode ? `<input class="lp-inline-input" id="lp-edit-mbti" value="${escAttr(info.mbti)}" placeholder="e.g. ENTP-A">` : (info.mbti || '—')}</div></div>
               <div class="lp-field-row">${fieldIcon(moon ? moon.emoji : '🌙', 'fill mono')}<div class="lp-field-label">MOON PHASE ON BIRTHDAY:</div><div class="lp-field-val">${moon ? moon.name : '—'}</div>${editMode ? '<div class="lp-field-extra" style="opacity:.6">auto, from birthdate</div>' : ''}</div>
@@ -8686,7 +8861,7 @@
     <div class="rc-card" onclick="openLoonaticProfile('${name}')">
       <div class="rc-top">
         <div class="rc-cell"><span class="rc-spark">✳</span><div class="rc-name">${escHtml(name)}</div></div>
-        <div class="rc-cell">${zodiac ? `<div class="rc-zodiac-sym">${zodiac.emoji}</div><div class="rc-zodiac-text">${zodiac.name.toUpperCase()}<br>${shortDate}</div>` : '<div class="rc-zodiac-text">—</div>'}</div>
+        <div class="rc-cell">${zodiac ? `<div class="rc-zodiac-sym">${zodiac.emoji}︎</div><div class="rc-zodiac-text">${zodiac.name.toUpperCase()}<br>${shortDate}</div>` : '<div class="rc-zodiac-text">—</div>'}</div>
         <div class="rc-cell"><div class="rc-role-text">ROLE:<br>${escHtml(fun.toUpperCase())}</div><span class="rc-spark">✳</span></div>
       </div>
       <div class="rc-photo-wrap">
@@ -8735,6 +8910,7 @@
 
       renderOrgChart();
       renderLcSignAvatar();
+      renderDailyExtras();
     }
 
     // ═══ PRODUCTION ═══
