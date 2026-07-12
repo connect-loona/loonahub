@@ -6154,7 +6154,7 @@
             attachAvatarListener(m.name);
             attachFavoritesListener(m.name);
             const existing = MEMBER_INFO[m.name] || {};
-            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || null, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null, mobile: m.mobile || existing.mobile || null, gender: m.gender || existing.gender || null, personalEmail: m.personalEmail || existing.personalEmail || null, address: m.address || existing.address || null, lastName: m.lastName || existing.lastName || null, emergencyContactName: m.emergencyContactName || existing.emergencyContactName || null, emergencyContactPhone: m.emergencyContactPhone || existing.emergencyContactPhone || null, bloodGroup: m.bloodGroup || existing.bloodGroup || null, workEmail: m.workEmail || existing.workEmail || null, knownFor: m.knownFor || existing.knownFor || null, mbti: m.mbti || existing.mbti || null, style: m.style || existing.style || null, nowPlayingSong: m.nowPlayingSong || existing.nowPlayingSong || null, nowPlayingArtist: m.nowPlayingArtist || existing.nowPlayingArtist || null, funFacts: m.funFacts || existing.funFacts || null, favMovie: m.favMovie || existing.favMovie || null, favSnack: m.favSnack || existing.favSnack || null, favBook: m.favBook || existing.favBook || null, favDestination: m.favDestination || existing.favDestination || null, favMovieImg: existing.favMovieImg || null, favSnackImg: existing.favSnackImg || null, favBookImg: existing.favBookImg || null, favDestinationImg: existing.favDestinationImg || null, nowPlayingImg: existing.nowPlayingImg || null };
+            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || null, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null, mobile: m.mobile || existing.mobile || null, gender: m.gender || existing.gender || null, personalEmail: m.personalEmail || existing.personalEmail || null, address: m.address || existing.address || null, lastName: m.lastName || existing.lastName || null, emergencyContactName: m.emergencyContactName || existing.emergencyContactName || null, emergencyContactPhone: m.emergencyContactPhone || existing.emergencyContactPhone || null, bloodGroup: m.bloodGroup || existing.bloodGroup || null, workEmail: m.workEmail || existing.workEmail || null, knownFor: m.knownFor || existing.knownFor || null, mbti: m.mbti || existing.mbti || null, style: m.style || existing.style || null, nowPlayingSong: m.nowPlayingSong || existing.nowPlayingSong || null, nowPlayingArtist: m.nowPlayingArtist || existing.nowPlayingArtist || null, funFacts: m.funFacts || existing.funFacts || null, favMovie: m.favMovie || existing.favMovie || null, favSnack: m.favSnack || existing.favSnack || null, favBook: m.favBook || existing.favBook || null, favDestination: m.favDestination || existing.favDestination || null, favMovieImg: existing.favMovieImg || null, favSnackImg: existing.favSnackImg || null, favBookImg: existing.favBookImg || null, favDestinationImg: existing.favDestinationImg || null, nowPlayingImg: existing.nowPlayingImg || null, profilePromptDismissed: m.profilePromptDismissed || existing.profilePromptDismissed || false };
             // Older records still carry the avatar inline on this same node — use it right away,
             // then migrate it out to member_avatars/ so this node stays small for everyone from now on.
             if (m.avatar && m.avatar !== MEMBER_INFO[m.name].avatar) {
@@ -8968,12 +8968,6 @@
       MEMBER_INFO[name][field] = compressed;
       if (_db) await _db.ref('member_favorites/' + fbMemberKey(name) + '/' + kind).set(compressed);
       if (window._openLoonaticProfileName === name) renderTeam();
-      if (document.getElementById('eem-fav-' + kind + '-thumb')) renderEditFavThumb(kind, compressed);
-    }
-
-    function renderEditFavThumb(kind, dataUrl) {
-      const el = document.getElementById('eem-fav-' + kind + '-thumb');
-      if (el) el.style.backgroundImage = dataUrl ? `url(${dataUrl})` : 'none';
     }
 
     async function uploadProfilePic(input) {
@@ -9447,21 +9441,6 @@
       document.getElementById('eem-gender').value = info.gender || '';
       document.getElementById('eem-bloodgroup').value = info.bloodGroup || '';
       document.getElementById('eem-address').value = info.address || '';
-      document.getElementById('eem-knownfor').value = info.knownFor || '';
-      document.getElementById('eem-mbti').value = info.mbti || '';
-      document.getElementById('eem-style').value = info.style || '';
-      document.getElementById('eem-song').value = info.nowPlayingSong || '';
-      document.getElementById('eem-artist').value = info.nowPlayingArtist || '';
-      document.getElementById('eem-funfacts').value = (info.funFacts || []).join('\n');
-      document.getElementById('eem-fav-movie').value = info.favMovie || '';
-      document.getElementById('eem-fav-snack').value = info.favSnack || '';
-      document.getElementById('eem-fav-book').value = info.favBook || '';
-      document.getElementById('eem-fav-destination').value = info.favDestination || '';
-      renderEditFavThumb('movie', info.favMovieImg);
-      renderEditFavThumb('snack', info.favSnackImg);
-      renderEditFavThumb('book', info.favBookImg);
-      renderEditFavThumb('destination', info.favDestinationImg);
-      renderEditFavThumb('nowplaying', info.nowPlayingImg);
       document.getElementById('eem-ec-name').value = info.emergencyContactName || '';
       document.getElementById('eem-ec-phone').value = info.emergencyContactPhone || '';
       document.getElementById('eem-pan').value = '';
@@ -9494,26 +9473,38 @@
     }
 
     // Existing team members (pre-dating the onboarding flow, so they're missing the
-    // newer HR fields entirely) get prompted once per session to fill their own
-    // profile in — reuses the same modal as My Profile / Admin edit, just with an
-    // explanatory banner and a "Remind Me Later" instead of "Cancel".
+    // newer HR fields entirely) get prompted ONCE, ever, to fill their own profile
+    // in — reuses the same modal as My Profile / Admin edit, just with an
+    // explanatory banner and a "Remind Me Later" instead of "Cancel". Dismissal is
+    // persisted to Firebase (not just sessionStorage, which reset every new
+    // browser session and made this nag on every single login) so it genuinely
+    // only shows once per person, across any day or device, until they dismiss or
+    // complete it — with a localStorage mirror so it doesn't even flash before the
+    // Firebase listener has a chance to load.
     function maybeShowProfileCompletionPrompt() {
       if (!currentUser || window._profilePromptShown) return;
-      if (sessionStorage.getItem('profile_prompt_dismissed_' + currentUser)) return;
+      if (localStorage.getItem('profile_prompt_dismissed_' + currentUser)) return;
+      const info = MEMBER_INFO[currentUser] || {};
+      if (info.profilePromptDismissed) return;
       // The status prompt takes priority if it's still up — its own close/submit
       // handler chains back into this function, so this just waits its turn rather
       // than popping a second full-screen modal on top of the first.
       const statusModal = document.getElementById('status-picker-modal');
       if (statusModal && !statusModal.classList.contains('hidden')) return;
-      const info = MEMBER_INFO[currentUser] || {};
       const incomplete = !info.lastName && !info.mobile && !info.bloodGroup && !info.emergencyContactName;
       if (!incomplete) return;
       window._profilePromptShown = true;
       openEditEmployeeModal(currentUser, 'backfill');
     }
 
+    function dismissProfileCompletionPrompt(name) {
+      localStorage.setItem('profile_prompt_dismissed_' + name, '1');
+      if (MEMBER_INFO[name]) MEMBER_INFO[name].profilePromptDismissed = true;
+      if (_db) _db.ref('members/' + fbMemberKey(name) + '/profilePromptDismissed').set(true);
+    }
+
     function closeEditEmployeeModal() {
-      if (_eemContext === 'backfill' && _eemEditingName) sessionStorage.setItem('profile_prompt_dismissed_' + _eemEditingName, '1');
+      if (_eemContext === 'backfill' && _eemEditingName) dismissProfileCompletionPrompt(_eemEditingName);
       document.getElementById('edit-employee-modal').classList.add('hidden');
       document.getElementById('eem-employeeid').disabled = false;
       _eemEditingName = null;
@@ -9534,16 +9525,6 @@
       const gender = document.getElementById('eem-gender').value;
       const bloodGroup = document.getElementById('eem-bloodgroup').value;
       const address = document.getElementById('eem-address').value.trim();
-      const knownFor = document.getElementById('eem-knownfor').value.trim();
-      const mbti = document.getElementById('eem-mbti').value.trim();
-      const style = document.getElementById('eem-style').value.trim();
-      const nowPlayingSong = document.getElementById('eem-song').value.trim();
-      const nowPlayingArtist = document.getElementById('eem-artist').value.trim();
-      const funFacts = document.getElementById('eem-funfacts').value.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 4);
-      const favMovie = document.getElementById('eem-fav-movie').value.trim();
-      const favSnack = document.getElementById('eem-fav-snack').value.trim();
-      const favBook = document.getElementById('eem-fav-book').value.trim();
-      const favDestination = document.getElementById('eem-fav-destination').value.trim();
       const emergencyContactName = document.getElementById('eem-ec-name').value.trim();
       const emergencyContactPhone = document.getElementById('eem-ec-phone').value.trim();
       const pan = document.getElementById('eem-pan').value.trim().toUpperCase();
@@ -9555,7 +9536,7 @@
       const bankIFSC = document.getElementById('eem-ifsc').value.trim().toUpperCase();
 
       const existing = MEMBER_INFO[name] || {};
-      const nonSensitive = { employeeId: employeeId || null, lastName: lastName || null, department: department || null, role: role || existing.role || 'Team Member', joinDate: joinDate || null, birthdate: birthdate || null, mobile: mobile || null, personalEmail: personalEmail || null, gender: gender || null, bloodGroup: bloodGroup || null, address: address || null, knownFor: knownFor || null, mbti: mbti || null, style: style || null, nowPlayingSong: nowPlayingSong || null, nowPlayingArtist: nowPlayingArtist || null, funFacts: funFacts.length ? funFacts : null, favMovie: favMovie || null, favSnack: favSnack || null, favBook: favBook || null, favDestination: favDestination || null, emergencyContactName: emergencyContactName || null, emergencyContactPhone: emergencyContactPhone || null, workEmail: loginDeriveEmail(name) };
+      const nonSensitive = { employeeId: employeeId || null, lastName: lastName || null, department: department || null, role: role || existing.role || 'Team Member', joinDate: joinDate || null, birthdate: birthdate || null, mobile: mobile || null, personalEmail: personalEmail || null, gender: gender || null, bloodGroup: bloodGroup || null, address: address || null, emergencyContactName: emergencyContactName || null, emergencyContactPhone: emergencyContactPhone || null, workEmail: loginDeriveEmail(name) };
       MEMBER_INFO[name] = Object.assign({}, existing, nonSensitive);
       const sensitiveRecord = { pan: pan || null, aadhar: aadhar || null, bankAccountName: bankAccountName || null, bankName: bankName || null, bankBranch: bankBranch || null, bankAccount: bankAccount || null, bankIFSC: bankIFSC || null };
 
@@ -9568,7 +9549,7 @@
       renderTeam();
       renderOverview();
       buildMemberTabs(currentUser);
-      if (name === currentUser) { renderProfilePanel(); sessionStorage.setItem('profile_prompt_dismissed_' + currentUser, '1'); }
+      if (name === currentUser) { renderProfilePanel(); dismissProfileCompletionPrompt(currentUser); }
       const wasProfileContext = _eemContext === 'profile';
       closeEditEmployeeModal();
       if (!wasProfileContext && document.getElementById('admin-employee-detail') && document.getElementById('admin-employee-detail').style.display !== 'none') showAdminEmployeeDetail(name);
@@ -13154,71 +13135,6 @@ ${brandLines}`;
       <div class="form-group">
         <label>Address</label>
         <textarea class="form-control" id="eem-address" rows="2"></textarea>
-      </div>
-      <div class="form-group">
-        <label>Known For <span style="font-weight:400;color:var(--muted)">(shows on their Loona Pass)</span></label>
-        <input class="form-control" id="eem-knownfor" placeholder="e.g. Turning impossible briefs into Pinterest boards.">
-      </div>
-      <div class="admin-detail-section-title" style="margin-top:12px">Loona Pass Extras</div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>MBTI</label>
-          <input class="form-control" id="eem-mbti" placeholder="e.g. ENTP-A">
-        </div>
-        <div class="form-group">
-          <label>Style</label>
-          <input class="form-control" id="eem-style" placeholder="e.g. All Black, Always">
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Now Playing — Song</label>
-          <div style="display:flex;gap:8px;align-items:center">
-            <input class="form-control" id="eem-song" placeholder="e.g. Time" style="flex:1">
-            <label class="avatar-edit" id="eem-fav-nowplaying-thumb" style="width:32px;height:32px;background-size:cover;background-position:center;flex-shrink:0" title="Add album art">📷<input type="file" accept="image/*" style="display:none" onchange="uploadFavoriteImage(this,_eemEditingName,'nowplaying')"></label>
-          </div>
-        </div>
-        <div class="form-group">
-          <label>Now Playing — Artist</label>
-          <input class="form-control" id="eem-artist" placeholder="e.g. Pink Floyd">
-        </div>
-      </div>
-      <div class="form-group">
-        <label>Fun Facts <span style="font-weight:400;color:var(--muted)">(one per line, up to 4 shown)</span></label>
-        <textarea class="form-control" id="eem-funfacts" rows="3" placeholder="Has watched Interstellar 17 times.
-Can identify fonts in public."></textarea>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Favorite Movie <span style="font-weight:400;color:var(--muted)">(+ photo)</span></label>
-          <div style="display:flex;gap:8px;align-items:center">
-            <input class="form-control" id="eem-fav-movie" placeholder="e.g. Inception" style="flex:1">
-            <label class="avatar-edit" id="eem-fav-movie-thumb" style="width:32px;height:32px;background-size:cover;background-position:center;flex-shrink:0" title="Add photo">📷<input type="file" accept="image/*" style="display:none" onchange="uploadFavoriteImage(this,_eemEditingName,'movie')"></label>
-          </div>
-        </div>
-        <div class="form-group">
-          <label>Favorite Snack <span style="font-weight:400;color:var(--muted)">(+ photo)</span></label>
-          <div style="display:flex;gap:8px;align-items:center">
-            <input class="form-control" id="eem-fav-snack" placeholder="e.g. Spicy Chips" style="flex:1">
-            <label class="avatar-edit" id="eem-fav-snack-thumb" style="width:32px;height:32px;background-size:cover;background-position:center;flex-shrink:0" title="Add photo">📷<input type="file" accept="image/*" style="display:none" onchange="uploadFavoriteImage(this,_eemEditingName,'snack')"></label>
-          </div>
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Favorite Book <span style="font-weight:400;color:var(--muted)">(+ photo)</span></label>
-          <div style="display:flex;gap:8px;align-items:center">
-            <input class="form-control" id="eem-fav-book" placeholder="e.g. Sapiens" style="flex:1">
-            <label class="avatar-edit" id="eem-fav-book-thumb" style="width:32px;height:32px;background-size:cover;background-position:center;flex-shrink:0" title="Add photo">📷<input type="file" accept="image/*" style="display:none" onchange="uploadFavoriteImage(this,_eemEditingName,'book')"></label>
-          </div>
-        </div>
-        <div class="form-group">
-          <label>Favorite Destination <span style="font-weight:400;color:var(--muted)">(+ photo)</span></label>
-          <div style="display:flex;gap:8px;align-items:center">
-            <input class="form-control" id="eem-fav-destination" placeholder="e.g. Iceland" style="flex:1">
-            <label class="avatar-edit" id="eem-fav-destination-thumb" style="width:32px;height:32px;background-size:cover;background-position:center;flex-shrink:0" title="Add photo">📷<input type="file" accept="image/*" style="display:none" onchange="uploadFavoriteImage(this,_eemEditingName,'destination')"></label>
-          </div>
-        </div>
       </div>
       <div class="form-row">
         <div class="form-group">
