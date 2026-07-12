@@ -892,221 +892,118 @@
       color: var(--muted);
     }
 
-    /* ── "Pass card" styling for Meet the Loonatics — a landscape ID/pass-card
-       layout (portrait photo panel on the left, stamped monospace field labels
-       on the right, corner-cut marks, footer ID tag + decorative barcode), rather
-       than a normal stacked app card. ── */
-    .lc-card {
-      position: relative;
-      border-style: dashed !important;
-      padding: 18px 20px !important;
-    }
-
-    .lc-card::before, .lc-card::after,
-    .lc-card .lc-corner-br::before, .lc-card .lc-corner-br::after {
-      content: '';
-      position: absolute;
-      width: 14px;
-      height: 14px;
-      border-color: inherit;
-      opacity: .55;
-    }
-
-    .lc-card::before {
-      top: 6px; left: 6px;
-      border-top: 1px solid currentColor;
-      border-left: 1px solid currentColor;
-    }
-
-    .lc-card::after {
-      top: 6px; right: 6px;
-      border-top: 1px solid currentColor;
-      border-right: 1px solid currentColor;
-    }
-
-    .lc-corner-br {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-    }
-
-    .lc-corner-br::before {
-      bottom: 6px; left: 6px;
-      border-bottom: 1px solid currentColor;
-      border-left: 1px solid currentColor;
-    }
-
-    .lc-corner-br::after {
-      bottom: 6px; right: 6px;
-      border-bottom: 1px solid currentColor;
-      border-right: 1px solid currentColor;
-    }
-
-    .lc-eyebrow {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    /* ── LOONA PASS: full-page zine-style team profile (deliberately fixed-palette —
+       orange/black — regardless of app light/dark theme, since this is meant to look
+       like a printed pass card, not a themed app panel). ── */
+    .lp-page {
+      background: #e8541e;
+      color: #1a1206;
+      border: 2px solid #1a1206;
+      border-radius: 6px;
+      max-width: 860px;
+      margin: 0 auto;
       font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-      font-size: 9.5px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 26px;
-    }
-
-    .lc-seal {
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      border: 1px dashed currentColor;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 15px;
-      flex-shrink: 0;
-    }
-
-    .lc-top {
-      display: grid;
-      grid-template-columns: 84px 1fr;
-      gap: 16px;
-      align-items: start;
-    }
-
-    .lc-photo-panel {
-      width: 84px;
-      height: 104px;
-      border-radius: 8px;
       overflow: hidden;
-      border: 1px solid var(--border);
-      flex-shrink: 0;
     }
 
-    .lc-photo-panel .avatar {
-      width: 100%;
-      height: 100%;
-      border-radius: 0;
-      font-size: 34px;
-    }
-
-    .lc-name {
-      font-size: 19px;
-      font-weight: 700;
-      letter-spacing: -0.01em;
-      line-height: 1.15;
-    }
-
-    .lc-tenure {
-      font-size: 11px;
-      color: var(--muted);
-      margin-top: 2px;
-      margin-bottom: 10px;
-    }
-
-    .lc-fields {
-      font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-    }
-
-    .lc-row {
+    .lp-header {
       display: flex;
+      align-items: center;
       justify-content: space-between;
-      align-items: baseline;
-      gap: 10px;
-      margin-bottom: 6px;
-      font-size: 11.5px;
+      gap: 16px;
+      padding: 14px 20px;
+      border-bottom: 2px solid #1a1206;
+      flex-wrap: wrap;
     }
 
-    .lc-label {
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-size: 9px;
-      color: var(--muted);
-      flex-shrink: 0;
+    .lp-header-left { display: flex; align-items: center; gap: 12px; }
+    .lp-logo { font-family: var(--font); font-weight: 800; font-size: 19px; letter-spacing: 0.03em; }
+    .lp-header-divider { opacity: .5; }
+    .lp-header-title { font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em; line-height: 1.3; }
+    .lp-header-icons { font-size: 13px; letter-spacing: 7px; }
+    .lp-header-tagline { font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; }
+
+    .lp-top { display: grid; grid-template-columns: 260px 1fr; gap: 22px; padding: 22px; position: relative; }
+
+    .lp-photo-frame { border: 2px solid #1a1206; border-radius: 4px; aspect-ratio: 3/4; overflow: hidden; background: #111; }
+    .lp-photo-frame .avatar { width: 100%; height: 100%; border-radius: 0; font-size: 74px; filter: grayscale(1) contrast(1.05); }
+    .lp-photo-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+    .lp-barcode-big {
+      flex: 1; height: 30px;
+      background-image: repeating-linear-gradient(90deg, #1a1206 0, #1a1206 1px, transparent 1px, transparent 3px, #1a1206 3px, #1a1206 4px, transparent 4px, transparent 7px, #1a1206 7px, #1a1206 8px, transparent 8px, transparent 9px);
+    }
+    .lp-photo-footer-label { font-size: 8.5px; font-weight: 700; text-align: center; line-height: 1.3; flex-shrink: 0; }
+    .lp-qr {
+      width: 30px; height: 30px; flex-shrink: 0; border: 1px solid #1a1206;
+      background-image: repeating-conic-gradient(#1a1206 0% 25%, transparent 0% 50%);
+      background-size: 6px 6px;
     }
 
-    .lc-val {
-      text-align: right;
-    }
+    .lp-info-col { position: relative; }
+    .lp-seal { position: absolute; top: 0; right: 0; width: 74px; height: 74px; }
 
-    .lc-divider {
-      border-top: 1px dashed var(--border);
-      margin: 14px 0 10px;
-    }
+    .lp-name-tag { display: inline-block; border: 1px solid #1a1206; border-radius: 3px; padding: 1px 8px; font-size: 9.5px; font-weight: 700; margin-bottom: 6px; }
+    .lp-name { font-family: var(--font); font-size: 46px; font-weight: 900; line-height: .95; letter-spacing: -0.01em; margin-bottom: 14px; word-break: break-word; }
+    .lp-since-row { display: flex; align-items: center; margin-bottom: 18px; flex-wrap: wrap; }
+    .lp-since-tag { background: #1a1206; color: #e8541e; font-size: 9.5px; font-weight: 700; letter-spacing: 0.03em; padding: 4px 10px; transform: rotate(-2deg); position: relative; z-index: 2; }
+    .lp-since-badge { background: #fff; border: 2px solid #1a1206; padding: 3px 14px 3px 18px; font-size: 22px; font-weight: 800; margin-left: -8px; position: relative; z-index: 1; }
+    .lp-since-badge span { font-size: 10px; font-weight: 700; margin-left: 4px; }
 
-    .lc-section-label {
-      font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-size: 9px;
-      color: var(--muted);
-      margin-bottom: 4px;
-    }
+    .lp-fields { border-top: 1px dashed #1a1206; }
+    .lp-field-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px dashed #1a1206; flex-wrap: wrap; }
+    .lp-field-icon { width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid #1a1206; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+    .lp-field-label { font-size: 10px; font-weight: 700; letter-spacing: 0.02em; flex-shrink: 0; }
+    .lp-field-val { font-weight: 700; font-size: 12.5px; }
+    .lp-field-extra { font-size: 11px; font-weight: 600; opacity: .75; margin-left: auto; }
 
-    .lc-footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-end;
-      gap: 12px;
-      margin-top: 14px;
-    }
+    .lp-mid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; border-top: 2px solid #1a1206; }
+    .lp-panel { padding: 16px; border-right: 2px solid #1a1206; position: relative; }
+    .lp-mid3 .lp-panel:last-child { border-right: none; }
+    .lp-tag { display: inline-block; background: #1a1206; color: #e8541e; font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; padding: 3px 8px; margin-bottom: 12px; }
+    .lp-building-item { font-size: 12.5px; font-weight: 700; margin-bottom: 5px; }
+    .lp-handwritten { font-family: cursive; font-size: 12px; margin-top: 12px; transform: rotate(-2deg); display: inline-block; border: 1px solid #1a1206; padding: 5px 9px; border-radius: 3px; }
 
-    .lc-id-tag {
-      display: inline-block;
-      font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-      font-size: 10px;
-      letter-spacing: 0.06em;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 3px 9px;
-      flex-shrink: 0;
-    }
+    .lp-sticky-note { position: relative; background: #1a1206; color: #fff; width: 140px; height: 140px; margin: 6px auto 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; transform: rotate(-2deg); box-shadow: 4px 6px 0 rgba(0,0,0,.25); }
+    .lp-tape { position: absolute; width: 40px; height: 15px; background: rgba(255,255,255,.55); top: -7px; }
+    .lp-tape-l { left: 6px; transform: rotate(-8deg); }
+    .lp-tape-r { right: 6px; transform: rotate(8deg); }
+    .lp-sticky-emoji { font-size: 30px; }
+    .lp-sticky-caption { font-family: cursive; font-size: 13px; text-align: center; padding: 0 8px; }
 
-    .lc-barcode {
-      flex: 1;
-      height: 22px;
-      max-width: 160px;
-      opacity: .5;
-      background-image: repeating-linear-gradient(90deg, currentColor 0, currentColor 1px, transparent 1px, transparent 2px, currentColor 2px, currentColor 4px, transparent 4px, transparent 6px, currentColor 6px, currentColor 7px, transparent 7px, transparent 9px);
-    }
+    .lp-now-playing { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+    .lp-album-art { width: 58px; height: 58px; border-radius: 4px; background: #1a1206; color: #e8541e; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+    .lp-waveform-bars { display: flex; align-items: flex-end; gap: 1.5px; height: 15px; }
+    .lp-waveform-bars span { width: 2px; background: #1a1206; display: inline-block; }
+    .lp-song { font-weight: 800; font-size: 13px; }
+    .lp-artist { font-size: 10.5px; font-weight: 600; opacity: .8; }
 
-    /* Scaled-up version for the dedicated Loonatic profile page */
-    .lc-card-big {
-      padding: 28px 32px !important;
-    }
+    .lp-mid2 { display: grid; grid-template-columns: 1fr 1fr; border-top: 2px solid #1a1206; }
+    .lp-mid2 .lp-panel:first-child { border-right: 2px solid #1a1206; }
+    .lp-fact-list { margin: 0; padding-left: 16px; font-size: 12px; font-weight: 600; line-height: 1.7; }
+    .lp-known-for-big { font-family: cursive; font-size: 20px; font-weight: 700; line-height: 1.3; margin-top: 4px; }
 
-    .lc-card-big .lc-photo-panel {
-      width: 120px;
-      height: 148px;
-    }
+    .lp-favorites { border-top: 2px solid #1a1206; padding: 16px; }
+    .lp-fav-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 10px; }
+    .lp-fav-item { text-align: center; }
+    .lp-fav-tag { display: inline-block; background: #1a1206; color: #e8541e; font-size: 8.5px; font-weight: 700; letter-spacing: 0.05em; padding: 2px 7px; margin-bottom: 6px; }
+    .lp-fav-img { aspect-ratio: 1/1; border: 1.5px solid #1a1206; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 26px; background: rgba(0,0,0,.06); }
+    .lp-fav-title { font-size: 11px; font-weight: 700; margin-top: 6px; }
 
-    .lc-card-big .lc-top {
-      grid-template-columns: 120px 1fr;
-      gap: 22px;
-    }
+    .lp-footer { display: flex; align-items: center; justify-content: space-between; gap: 14px; border-top: 2px solid #1a1206; padding: 12px 20px; flex-wrap: wrap; }
+    .lp-footer-logo { font-family: var(--font); font-weight: 900; font-size: 17px; }
+    .lp-footer-meta { font-size: 9px; font-weight: 700; letter-spacing: 0.03em; line-height: 1.5; }
+    .lp-footer-dna { border: 1px solid #1a1206; border-radius: 3px; padding: 5px 9px; font-size: 8.5px; font-weight: 700; line-height: 1.5; }
+    .lp-footer-target { font-size: 15px; }
 
-    .lc-card-big .lc-photo-panel .avatar {
-      font-size: 48px;
-    }
-
-    .lc-card-big .lc-name {
-      font-size: 26px;
-    }
-
-    .lc-card-big .lc-tenure {
-      font-size: 13px;
-      margin-bottom: 14px;
-    }
-
-    .lc-card-big .lc-fields .lc-row {
-      font-size: 13.5px;
-    }
-
-    .lc-card-big .lc-eyebrow {
-      font-size: 11px;
-    }
-
-    .lc-card-big .lt-known-for {
-      font-size: 14px;
+    @media (max-width: 720px) {
+      .lp-top { grid-template-columns: 1fr; }
+      .lp-seal { top: 8px; }
+      .lp-mid3 { grid-template-columns: 1fr; }
+      .lp-mid3 .lp-panel { border-right: none; border-bottom: 2px solid #1a1206; }
+      .lp-mid2 { grid-template-columns: 1fr; }
+      .lp-mid2 .lp-panel:first-child { border-right: none; border-bottom: 2px solid #1a1206; }
+      .lp-fav-grid { grid-template-columns: repeat(2, 1fr); }
+      .lp-name { font-size: 34px; }
     }
 
     /* ── ADMIN PANEL ── */
@@ -6212,7 +6109,7 @@
             if (isNew) { ALL_MEMBERS.push(m.name); pickerNeedsRebuild = true; teamNeedsRender = true; }
             attachAvatarListener(m.name);
             const existing = MEMBER_INFO[m.name] || {};
-            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || null, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null, mobile: m.mobile || existing.mobile || null, gender: m.gender || existing.gender || null, personalEmail: m.personalEmail || existing.personalEmail || null, address: m.address || existing.address || null, lastName: m.lastName || existing.lastName || null, emergencyContactName: m.emergencyContactName || existing.emergencyContactName || null, emergencyContactPhone: m.emergencyContactPhone || existing.emergencyContactPhone || null, bloodGroup: m.bloodGroup || existing.bloodGroup || null, workEmail: m.workEmail || existing.workEmail || null, knownFor: m.knownFor || existing.knownFor || null };
+            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || null, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null, mobile: m.mobile || existing.mobile || null, gender: m.gender || existing.gender || null, personalEmail: m.personalEmail || existing.personalEmail || null, address: m.address || existing.address || null, lastName: m.lastName || existing.lastName || null, emergencyContactName: m.emergencyContactName || existing.emergencyContactName || null, emergencyContactPhone: m.emergencyContactPhone || existing.emergencyContactPhone || null, bloodGroup: m.bloodGroup || existing.bloodGroup || null, workEmail: m.workEmail || existing.workEmail || null, knownFor: m.knownFor || existing.knownFor || null, mbti: m.mbti || existing.mbti || null, style: m.style || existing.style || null, nowPlayingSong: m.nowPlayingSong || existing.nowPlayingSong || null, nowPlayingArtist: m.nowPlayingArtist || existing.nowPlayingArtist || null, funFacts: m.funFacts || existing.funFacts || null, favMovie: m.favMovie || existing.favMovie || null, favSnack: m.favSnack || existing.favSnack || null, favBook: m.favBook || existing.favBook || null, favDestination: m.favDestination || existing.favDestination || null };
             // Older records still carry the avatar inline on this same node — use it right away,
             // then migrate it out to member_avatars/ so this node stays small for everyone from now on.
             if (m.avatar && m.avatar !== MEMBER_INFO[m.name].avatar) {
@@ -8398,9 +8295,12 @@
 
     // Builds the full "Loona Pass" graphic for one person — used only by the
     // dedicated profile page (openLoonaticProfile), not the Team roster tiles.
+    // Markup mirrors the zine-style "TEAM PROFILE" reference exactly: header bar,
+    // B&W photo w/ barcode+QR footer, name + tenure badge + verified seal, labeled
+    // field rows, a 3-col section (Building / Mood / Now Playing), a 2-col section
+    // (Fun Facts / Known For), a 4-col Favorites row, and a footer bar.
     function buildLoonaticPassCardHTML(name) {
       const info = MEMBER_INFO[name] || {};
-      const color = info.color || '#888';
       const a = (window.ATT || {})[name] || null;
       const joinDate = (a && a.joinDate) || info.joinDate;
       const days = joinDate && window.daysAt ? window.daysAt(joinDate) : null;
@@ -8411,41 +8311,132 @@
       const realRole = (window._teamDetail && window._teamDetail[name] && window._teamDetail[name].asylum) || info.role || 'Team Member';
       const fun = funRoleName(realRole);
       const brands = (window._teamDetail && window._teamDetail[name] && window._teamDetail[name].brands) || new Set();
-      const buildingHTML = brands.size ? Array.from(brands).map(b => `<div class="lt-building-item">→ ${b}</div>`).join('') : '<div class="lt-building-item" style="color:var(--muted)">No active brands right now</div>';
-      const avatarInner = info.avatar ? `<img src="${info.avatar}" style="width:100%;height:100%;object-fit:cover">` : (info.emoji || '👤');
-      const avatarHtml = `<div class="avatar" style="background:${color}20;color:${color};${info.avatar ? 'padding:0;' : ''}overflow:hidden">${avatarInner}</div>`;
+      const buildingHTML = brands.size ? Array.from(brands).map(b => `<div class="lp-building-item">→ ${b}</div>`).join('') : '<div class="lp-building-item" style="opacity:.6">No active brands right now</div>';
+      const avatarInner = info.avatar ? `<img src="${info.avatar}" style="width:100%;height:100%;object-fit:cover">` : `<div class="avatar" style="width:100%;height:100%;border-radius:0;background:#333;color:#e8541e;display:flex;align-items:center;justify-content:center;font-size:74px">${info.emoji || '👤'}</div>`;
+      const profileNum = String(ALL_MEMBERS.indexOf(name) + 1 || 1).padStart(2, '0');
+      const sealId = 'lpSeal' + fbMemberKey(name).replace(/[^a-zA-Z0-9]/g, '');
+
+      const status = (window.MEMBER_STATUS || {})[fbMemberKey(name)];
+      const isSelf = name === currentUser;
+      const stickyClick = isSelf ? ' onclick="openStatusPicker()" style="cursor:pointer"' : '';
+      const stickyHTML = `
+        <div class="lp-sticky-note"${stickyClick}>
+          <div class="lp-tape lp-tape-l"></div><div class="lp-tape lp-tape-r"></div>
+          <div class="lp-sticky-emoji">${status ? status.emoji : '🤷'}</div>
+          <div class="lp-sticky-caption">${status ? status.text : (isSelf ? 'Tap to set your mood' : 'Not set yet')}</div>
+        </div>`;
+
+      const funFacts = Array.isArray(info.funFacts) ? info.funFacts.filter(Boolean) : [];
+      const factsHTML = funFacts.length ? `<ul class="lp-fact-list">${funFacts.map(f => `<li>${f}</li>`).join('')}</ul>` : `<div style="opacity:.6;font-size:12px">No fun facts on file yet.</div>`;
+
+      const fav = (label, icon, val) => `
+        <div class="lp-fav-item">
+          <div class="lp-fav-tag">${label}</div>
+          <div class="lp-fav-img">${icon}</div>
+          <div class="lp-fav-title">${val || '—'}</div>
+        </div>`;
+
       return `
       <button class="btn btn-ghost" onclick="closeLoonaticProfile()" style="margin-bottom:16px">← Back to Team</button>
-      <div class="member-card lc-card lc-card-big" style="border-color:${color}44;color:${color};max-width:640px;margin:0 auto">
-        <div class="lc-corner-br"></div>
-        <div class="lc-eyebrow"><span>Loona Pass &middot; ${fbMemberKey(name)}</span><div class="lc-seal">${zodiac ? zodiac.emoji : '✦'}</div></div>
-        <div class="lc-top">
-          <div class="lt-avatar-wrap">
-            ${statusBubbleHTML(name)}
-            <div class="lc-photo-panel">${avatarHtml}</div>
-            <label class="avatar-edit" title="Change photo" style="position:absolute;bottom:2px;right:2px;z-index:3" onclick="event.stopPropagation()">📷<input type="file" accept="image/*" style="display:none" onchange="uploadMemberPhoto(this,'${name}')"></label>
+      <div class="lp-page" style="max-width:860px;margin:0 auto">
+        <div class="lp-header">
+          <div class="lp-header-left">
+            <div class="lp-logo">LOONA</div>
+            <div class="lp-header-divider">|</div>
+            <div class="lp-header-title">TEAM <br>PROFILE #${profileNum}</div>
           </div>
-          <div style="color:var(--text)">
-            <div class="lc-name">${name}</div>
-            <div class="lc-tenure">${days != null ? `A Loonatic since ${days}d` : 'Loonatic'}</div>
-            <div class="lc-fields">
-              <div class="lc-row"><span class="lc-label">Role</span><span class="lc-val lt-fun-role" style="color:${color}">${fun}</span></div>
-              <div class="lc-row" style="margin-top:-2px"><span class="lc-label"></span><span class="lc-val lt-real-role">${realRole}</span></div>
-              ${zodiac ? `<div class="lc-row"><span class="lc-label">Zodiac</span><span class="lc-val">${zodiac.emoji} ${zodiac.name} · ${fmtDate(birthdate)}</span></div>` : ''}
-              ${spirit ? `<div class="lc-row"><span class="lc-label">Spirit Animal</span><span class="lc-val">${spirit.emoji} ${spirit.name}</span></div>` : ''}
-              ${moon ? `<div class="lc-row"><span class="lc-label">Moon Phase</span><span class="lc-val">${moon.emoji} ${moon.name}</span></div>` : ''}
+          <div class="lp-header-icons">✳ ☾ ⚡ ✦</div>
+          <div class="lp-header-tagline">IN EVERY PHASE, REMAIN WHOLE</div>
+        </div>
+
+        <div class="lp-top">
+          <div>
+            <div class="lt-avatar-wrap" style="display:block;width:100%">
+              ${statusBubbleHTML(name)}
+              <div class="lp-photo-frame">${avatarInner}</div>
+              <label class="avatar-edit" title="Change photo" style="position:absolute;bottom:38px;right:6px;z-index:3" onclick="event.stopPropagation()">📷<input type="file" accept="image/*" style="display:none" onchange="uploadMemberPhoto(this,'${name}')"></label>
+            </div>
+            <div class="lp-photo-footer">
+              <div class="lp-barcode-big"></div>
+              <div class="lp-photo-footer-label">LOONA <br>CREW MEMBER</div>
+              <div class="lp-qr"></div>
+            </div>
+          </div>
+          <div class="lp-info-col">
+            <div class="lp-seal">
+              <svg viewBox="0 0 100 100" width="100%" height="100%">
+                <defs><path id="${sealId}" d="M 50,50 m -38,0 a 38,38 0 1,1 76,0 a 38,38 0 1,1 -76,0"/></defs>
+                <circle cx="50" cy="50" r="47" fill="none" stroke="#1a1206" stroke-width="2"/>
+                <circle cx="50" cy="50" r="29" fill="none" stroke="#1a1206" stroke-width="1"/>
+                <text font-size="8" font-weight="700" letter-spacing="1.5" fill="#1a1206">
+                  <textPath href="#${sealId}" startOffset="0%">★ LOONATIC VERIFIED ★ LOONATIC VERIFIED</textPath>
+                </text>
+                <text x="50" y="56" font-size="20" text-anchor="middle">${zodiac ? zodiac.emoji : '✦'}</text>
+              </svg>
+            </div>
+            <div class="lp-name-tag">${fbMemberKey(name)}</div>
+            <div class="lp-name">${name.toUpperCase()}</div>
+            <div class="lp-since-row">
+              <div class="lp-since-tag">A LOONATIC <br>SINCE</div>
+              <div class="lp-since-badge">${days != null ? days : '—'}<span>DAYS</span></div>
+            </div>
+            <div class="lp-fields">
+              <div class="lp-field-row"><div class="lp-field-icon">💼</div><div class="lp-field-label">ROLE</div><div class="lp-field-val">${fun}</div><div class="lp-field-extra">${realRole}</div></div>
+              <div class="lp-field-row"><div class="lp-field-icon">${zodiac ? zodiac.emoji : '✦'}</div><div class="lp-field-label">ZODIAC SIGN</div><div class="lp-field-val">${zodiac ? zodiac.name : '—'}</div>${birthdate ? `<div class="lp-field-extra">${fmtDate(birthdate)}</div>` : ''}</div>
+              <div class="lp-field-row"><div class="lp-field-icon">${spirit ? spirit.emoji : '🐾'}</div><div class="lp-field-label">SPIRIT ANIMAL</div><div class="lp-field-val">${spirit ? spirit.name : '—'}</div></div>
+              <div class="lp-field-row"><div class="lp-field-icon">🧠</div><div class="lp-field-label">MBTI</div><div class="lp-field-val">${info.mbti || '—'}</div></div>
+              <div class="lp-field-row"><div class="lp-field-icon">${moon ? moon.emoji : '🌙'}</div><div class="lp-field-label">MOON PHASE ON BIRTHDAY</div><div class="lp-field-val">${moon ? moon.name : '—'}</div></div>
+              <div class="lp-field-row"><div class="lp-field-icon">👕</div><div class="lp-field-label">STYLE</div><div class="lp-field-val">${info.style || '—'}</div></div>
             </div>
           </div>
         </div>
-        <div class="lc-divider"></div>
-        <div style="color:var(--text)">
-          <div class="lc-section-label">Currently Building</div>
-          ${buildingHTML}
+
+        <div class="lp-mid3">
+          <div class="lp-panel">
+            <div class="lp-tag">CURRENTLY BUILDING</div>
+            ${buildingHTML}
+          </div>
+          <div class="lp-panel" style="display:flex;flex-direction:column;align-items:center">
+            <div class="lp-tag" style="align-self:flex-start">MOOD RIGHT NOW</div>
+            ${stickyHTML}
+          </div>
+          <div class="lp-panel">
+            <div class="lp-tag">PLAYING ON REPEAT</div>
+            <div class="lp-now-playing">
+              <div class="lp-album-art">🎵</div>
+              <div class="lp-waveform-bars">${[7,12,5,15,9,4,11,6].map(h => `<span style="height:${h}px"></span>`).join('')}</div>
+              <div class="lp-song">${info.nowPlayingSong || '—'}</div>
+              <div class="lp-artist">${info.nowPlayingArtist || ''}</div>
+            </div>
+          </div>
         </div>
-        <div class="lt-known-for">${info.knownFor ? `"${info.knownFor}"` : 'Known for: still writing their legend.'}</div>
-        <div class="lc-footer">
-          <div class="lc-id-tag">${info.employeeId ? `№ ${info.employeeId}` : 'UNASSIGNED'}</div>
-          <div class="lc-barcode"></div>
+
+        <div class="lp-mid2">
+          <div class="lp-panel">
+            <div class="lp-tag">FUN FACTS</div>
+            ${factsHTML}
+          </div>
+          <div class="lp-panel">
+            <div class="lp-tag">KNOWN FOR</div>
+            <div class="lp-known-for-big">${info.knownFor ? `"${info.knownFor}"` : 'Still writing their legend.'}</div>
+          </div>
+        </div>
+
+        <div class="lp-favorites">
+          <div class="lp-tag">FAVORITES</div>
+          <div class="lp-fav-grid">
+            ${fav('MOVIE', '🎬', info.favMovie)}
+            ${fav('SNACK', '🍿', info.favSnack)}
+            ${fav('BOOK', '📖', info.favBook)}
+            ${fav('DESTINATION', '✈️', info.favDestination)}
+          </div>
+        </div>
+
+        <div class="lp-footer">
+          <div class="lp-footer-logo">LN</div>
+          <div class="lp-footer-meta">LOONA CREW &middot; VERSION 1.0<br>CONFIDENTIAL // DO NOT SHARE</div>
+          <div class="lp-footer-dna">CREATIVE DNA<br>${info.employeeId || 'UNASSIGNED'}</div>
+          <div class="lp-footer-target">⌖</div>
         </div>
       </div>`;
     }
@@ -9310,6 +9301,15 @@
       document.getElementById('eem-bloodgroup').value = info.bloodGroup || '';
       document.getElementById('eem-address').value = info.address || '';
       document.getElementById('eem-knownfor').value = info.knownFor || '';
+      document.getElementById('eem-mbti').value = info.mbti || '';
+      document.getElementById('eem-style').value = info.style || '';
+      document.getElementById('eem-song').value = info.nowPlayingSong || '';
+      document.getElementById('eem-artist').value = info.nowPlayingArtist || '';
+      document.getElementById('eem-funfacts').value = (info.funFacts || []).join('\n');
+      document.getElementById('eem-fav-movie').value = info.favMovie || '';
+      document.getElementById('eem-fav-snack').value = info.favSnack || '';
+      document.getElementById('eem-fav-book').value = info.favBook || '';
+      document.getElementById('eem-fav-destination').value = info.favDestination || '';
       document.getElementById('eem-ec-name').value = info.emergencyContactName || '';
       document.getElementById('eem-ec-phone').value = info.emergencyContactPhone || '';
       document.getElementById('eem-pan').value = '';
@@ -9383,6 +9383,15 @@
       const bloodGroup = document.getElementById('eem-bloodgroup').value;
       const address = document.getElementById('eem-address').value.trim();
       const knownFor = document.getElementById('eem-knownfor').value.trim();
+      const mbti = document.getElementById('eem-mbti').value.trim();
+      const style = document.getElementById('eem-style').value.trim();
+      const nowPlayingSong = document.getElementById('eem-song').value.trim();
+      const nowPlayingArtist = document.getElementById('eem-artist').value.trim();
+      const funFacts = document.getElementById('eem-funfacts').value.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 4);
+      const favMovie = document.getElementById('eem-fav-movie').value.trim();
+      const favSnack = document.getElementById('eem-fav-snack').value.trim();
+      const favBook = document.getElementById('eem-fav-book').value.trim();
+      const favDestination = document.getElementById('eem-fav-destination').value.trim();
       const emergencyContactName = document.getElementById('eem-ec-name').value.trim();
       const emergencyContactPhone = document.getElementById('eem-ec-phone').value.trim();
       const pan = document.getElementById('eem-pan').value.trim().toUpperCase();
@@ -9394,7 +9403,7 @@
       const bankIFSC = document.getElementById('eem-ifsc').value.trim().toUpperCase();
 
       const existing = MEMBER_INFO[name] || {};
-      const nonSensitive = { employeeId: employeeId || null, lastName: lastName || null, department: department || null, role: role || existing.role || 'Team Member', joinDate: joinDate || null, birthdate: birthdate || null, mobile: mobile || null, personalEmail: personalEmail || null, gender: gender || null, bloodGroup: bloodGroup || null, address: address || null, knownFor: knownFor || null, emergencyContactName: emergencyContactName || null, emergencyContactPhone: emergencyContactPhone || null, workEmail: loginDeriveEmail(name) };
+      const nonSensitive = { employeeId: employeeId || null, lastName: lastName || null, department: department || null, role: role || existing.role || 'Team Member', joinDate: joinDate || null, birthdate: birthdate || null, mobile: mobile || null, personalEmail: personalEmail || null, gender: gender || null, bloodGroup: bloodGroup || null, address: address || null, knownFor: knownFor || null, mbti: mbti || null, style: style || null, nowPlayingSong: nowPlayingSong || null, nowPlayingArtist: nowPlayingArtist || null, funFacts: funFacts.length ? funFacts : null, favMovie: favMovie || null, favSnack: favSnack || null, favBook: favBook || null, favDestination: favDestination || null, emergencyContactName: emergencyContactName || null, emergencyContactPhone: emergencyContactPhone || null, workEmail: loginDeriveEmail(name) };
       MEMBER_INFO[name] = Object.assign({}, existing, nonSensitive);
       const sensitiveRecord = { pan: pan || null, aadhar: aadhar || null, bankAccountName: bankAccountName || null, bankName: bankName || null, bankBranch: bankBranch || null, bankAccount: bankAccount || null, bankIFSC: bankIFSC || null };
 
@@ -12995,8 +13004,54 @@ ${brandLines}`;
         <textarea class="form-control" id="eem-address" rows="2"></textarea>
       </div>
       <div class="form-group">
-        <label>Known For <span style="font-weight:400;color:var(--muted)">(shows on their Meet the Loonatics card)</span></label>
+        <label>Known For <span style="font-weight:400;color:var(--muted)">(shows on their Loona Pass)</span></label>
         <input class="form-control" id="eem-knownfor" placeholder="e.g. Turning impossible briefs into Pinterest boards.">
+      </div>
+      <div class="admin-detail-section-title" style="margin-top:12px">Loona Pass Extras</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>MBTI</label>
+          <input class="form-control" id="eem-mbti" placeholder="e.g. ENTP-A">
+        </div>
+        <div class="form-group">
+          <label>Style</label>
+          <input class="form-control" id="eem-style" placeholder="e.g. All Black, Always">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Now Playing — Song</label>
+          <input class="form-control" id="eem-song" placeholder="e.g. Time">
+        </div>
+        <div class="form-group">
+          <label>Now Playing — Artist</label>
+          <input class="form-control" id="eem-artist" placeholder="e.g. Pink Floyd">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Fun Facts <span style="font-weight:400;color:var(--muted)">(one per line, up to 4 shown)</span></label>
+        <textarea class="form-control" id="eem-funfacts" rows="3" placeholder="Has watched Interstellar 17 times.
+Can identify fonts in public."></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Favorite Movie</label>
+          <input class="form-control" id="eem-fav-movie" placeholder="e.g. Inception">
+        </div>
+        <div class="form-group">
+          <label>Favorite Snack</label>
+          <input class="form-control" id="eem-fav-snack" placeholder="e.g. Spicy Chips">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Favorite Book</label>
+          <input class="form-control" id="eem-fav-book" placeholder="e.g. Sapiens">
+        </div>
+        <div class="form-group">
+          <label>Favorite Destination</label>
+          <input class="form-control" id="eem-fav-destination" placeholder="e.g. Iceland">
+        </div>
       </div>
       <div class="form-row">
         <div class="form-group">
