@@ -1219,6 +1219,8 @@
     .quiz-result-row-label { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); margin-bottom: 3px; }
     .quiz-result-row-val { font-size: 13px; line-height: 1.5; }
     .quiz-result-share { font-size: 12.5px; font-style: italic; color: var(--muted); text-align: center; margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--border); }
+    .quiz-result-poster { text-align: center; }
+    .quiz-result-poster img { width: 100%; max-width: 340px; border-radius: 10px; display: block; margin: 0 auto; box-shadow: 0 10px 28px rgba(0,0,0,.35); }
 
     .lp-edit-btn {
       background: transparent;
@@ -8668,7 +8670,7 @@
       worldbuilder: { emoji: '🎨', name: 'The World Builder', tagline: 'You make things feel complete, considered and impossible to scroll past.', paragraph: 'You care about the details people may never consciously notice — but they always feel them.', chose: 'craft, references, visual taste, detail and refinement.', traits: ['Taste', 'Patience', 'Precision'], weakness: 'You can always find one more thing to fix — the trick is knowing when it was already good.', collaborator: 'ignition', warning: 'Set a real finish line before the polish becomes the whole project.', line: '"Something still feels slightly off."' },
       ignition: { emoji: '🚀', name: 'The Ignition', tagline: 'You turn hesitation into momentum.', paragraph: 'You would rather begin, test and improve than spend forever planning the perfect first move.', chose: 'speed, action, experimentation and shipping work.', traits: ['Momentum', 'Decisiveness', 'Energy'], weakness: 'You are already three steps ahead before anyone else has finished reading the brief.', collaborator: 'worldbuilder', warning: 'Check who is still catching up before you sprint off again.', line: '"Let\'s just try it."' },
       orbitkeeper: { emoji: '🛰️', name: 'The Orbit Keeper', tagline: 'You are the reason the chaos still has a calendar.', paragraph: 'You instinctively organise people, timelines and loose ends without making creativity feel controlled.', chose: 'planning, reliability, collaboration and structure.', traits: ['Responsibility', 'Calm', 'Organisation'], weakness: 'You will quietly fix the plan five times before anyone notices it almost fell apart.', collaborator: 'moonwalker', warning: "Hand something back before you are holding the whole timeline alone.", line: '"Who is actually doing what?"' },
-      glitch: { emoji: '👽', name: 'The Glitch', tagline: 'Your brain takes the route no one else can see.', paragraph: 'Your ideas may sound strange at first. Then suddenly they become the concept everyone wants.', chose: 'unusual ideas, experimentation, curiosity and surprise.', traits: ['Originality', 'Humour', 'Imagination'], weakness: 'Sometimes the idea makes perfect sense in your head — and nowhere else.', collaborator: 'puzzlesolver', warning: 'Explain the idea before everyone assumes you have lost it.', line: '"Okay, this may sound weird…"' },
+      glitch: { emoji: '👽', name: 'The Glitch', tagline: 'Your brain takes the route no one else can see.', paragraph: 'Your ideas may sound strange at first. Then suddenly they become the concept everyone wants.', chose: 'unusual ideas, experimentation, curiosity and surprise.', traits: ['Originality', 'Humour', 'Imagination'], weakness: 'Sometimes the idea makes perfect sense in your head — and nowhere else.', collaborator: 'puzzlesolver', warning: 'Explain the idea before everyone assumes you have lost it.', line: '"Okay, this may sound weird…"', img: 'the-glitch' },
       deepdiver: { emoji: '🌊', name: 'The Deep Diver', tagline: 'You disappear into the work and return with something finished.', paragraph: 'Noise drains you. Space sharpens you. Your best work happens when you can focus without interruption.', chose: 'silence, flow, depth and independent working.', traits: ['Focus', 'Patience', 'Depth'], weakness: 'You can go so deep that no one remembers you are still in the room.', collaborator: 'spark', warning: 'Surface occasionally — the team needs to know the dive is going well.', line: '"Give me some time alone with it."' },
       spark: { emoji: '⚡', name: 'The Spark', tagline: 'You make people more excited about the work.', paragraph: 'Your energy moves through rooms, brainstorms and group chats. You make ideas feel possible.', chose: 'collaboration, humour, people and shared energy.', traits: ['Enthusiasm', 'Communication', 'Optimism'], weakness: 'You can talk yourself into loving five different directions before lunch.', collaborator: 'deepdiver', warning: 'Save some of that energy for the idea that actually needs it most.', line: '"Wait, I have an idea."' },
       puzzlesolver: { emoji: '🧩', name: 'The Puzzle Solver', tagline: 'Impossible briefs are your favourite kind.', paragraph: 'You naturally break confusion into smaller, solvable pieces. Where others see problems, you see patterns.', chose: 'logic, questions, systems and problem-solving.', traits: ['Clarity', 'Reasoning', 'Adaptability'], weakness: 'You will fix a problem so thoroughly, no one remembers it was ever broken — or that you fixed it.', collaborator: 'glitch', warning: 'Ask before you solve — not every puzzle wants solving.', line: '"There has to be a better way."' },
@@ -8764,7 +8766,15 @@
     function renderQuizResult(key) {
       const p = LOONA_PERSONALITIES[key];
       const partner = LOONA_PERSONALITIES[p.collaborator];
-      document.getElementById('loona-quiz-content').innerHTML = `
+      // Personalities with a designed poster (p.img) show that artwork as the
+      // result in full — it already contains every section (traits, warning,
+      // share line, etc). Personalities without one yet fall back to the
+      // plain-text card so the quiz still works while art is rolled out one
+      // personality at a time.
+      document.getElementById('loona-quiz-content').innerHTML = p.img ? `
+        <div class="quiz-result quiz-result-poster">
+          <img src="/assets/personalities/${p.img}.jpg" alt="${p.name}">
+        </div>` : `
         <div class="quiz-result">
           <div class="quiz-result-label">Your Loona Personality</div>
           <div class="quiz-result-emoji">${p.emoji}</div>
