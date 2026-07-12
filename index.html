@@ -4782,6 +4782,10 @@
         <div class="section-title">Calendar</div>
         <div style="font-size:12px;color:var(--muted)">Meeting records and daily activity, per person</div>
       </div>
+      <div class="cal2-actions-row">
+        <button class="btn btn-ghost" id="cal2-sync-btn" onclick="calSyncNow()">↻ Sync now</button>
+        <button class="btn btn-primary" onclick="openNewMeeting()">+ New Meeting</button>
+      </div>
       <div class="cal2-toprow">
         <select id="cal2-person-select" class="cal2-person-select" onchange="calOnPersonChange()"></select>
         <div class="cal2-nav">
@@ -4789,8 +4793,6 @@
           <div class="cal2-month-label" id="cal2-month-label"></div>
           <button class="btn btn-ghost" onclick="calNextMonth()">›</button>
           <button class="btn btn-ghost" onclick="calGoToday()">Today</button>
-          <button class="btn btn-ghost" id="cal2-sync-btn" onclick="calSyncNow()">↻ Sync now</button>
-          <button class="btn btn-primary" onclick="openNewMeeting()">+ New Meeting</button>
         </div>
       </div>
       <div class="cal2-weekday-row">
@@ -11767,6 +11769,7 @@ ${brandLines}`;
 .ln-recovery-item{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:rgba(245,200,66,.08);border:1px solid rgba(245,200,66,.3);border-radius:12px;padding:14px 16px;margin-bottom:10px}
 .ln-recovery-title{font-size:13px;font-weight:700;color:var(--yellow);margin-bottom:3px}
 .ln-recovery-actions{display:flex;gap:8px;flex-wrap:wrap}
+.cal2-actions-row{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-bottom:12px}
 .cal2-toprow{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px}
 .cal2-person-select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:13px;font-family:var(--font);font-weight:600}
 .cal2-nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
