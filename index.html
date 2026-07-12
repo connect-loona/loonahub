@@ -1062,20 +1062,34 @@
     .rc-card .lt-avatar-wrap { display: block; width: 100%; }
     .rc-card .status-bubble { font-size: 8.5px; padding: 3px 7px; }
 
-    /* ── Your Tarot for Today + Work Companion of the Day — same cream/serif
+    /* ── The Loona Oracle + Work Companion of the Day — same cream/serif
        fun-profile system as the roster cards, one deterministic pick per
        person per day. ── */
-    .tarot-card {
+    .oracle-intro { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+    .oracle-tagline { font-size: 13px; color: var(--muted); font-style: italic; max-width: 420px; }
+
+    .oracle-card {
+      position: relative;
       background: #f0e7d4;
       border: 2px solid #1a1206;
-      border-radius: 16px;
-      padding: 22px 26px;
-      max-width: 480px;
+      border-radius: 14px;
+      padding: 30px 20px 22px;
+      max-width: 260px;
+      margin: 0 auto;
       font-family: var(--card-font);
       color: #1a1206;
     }
-    .tarot-emoji { font-size: 38px; text-align: center; line-height: 1; }
-    .tarot-name { font-size: 21px; font-weight: 700; text-align: center; margin: 6px 0 14px; }
+    .oracle-card-corner { position: absolute; font-size: 12px; }
+    .oracle-card-corner-tl { top: 10px; left: 12px; }
+    .oracle-card-corner-tr { top: 10px; right: 12px; }
+    .oracle-card-corner-bl { bottom: 10px; left: 12px; }
+    .oracle-card-corner-br { bottom: 10px; right: 12px; }
+    .oracle-card-header { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-align: center; margin-bottom: 18px; }
+    .oracle-card-emoji { font-size: 52px; text-align: center; line-height: 1; }
+    .oracle-card-name { font-size: 20px; font-weight: 700; text-align: center; margin-top: 12px; }
+    .oracle-card-rule { width: 40px; height: 2px; background: #1a1206; opacity: .3; margin: 16px auto 0; }
+
+    .oracle-reading { text-align: left; margin-top: 20px; }
     .tarot-line { font-size: 13px; line-height: 1.6; margin-bottom: 7px; }
     .tarot-line:last-child { margin-bottom: 0; }
     .tarot-line b { font-weight: 700; }
@@ -4966,6 +4980,16 @@
             Member</button>
         </div>
         <div class="member-grid" id="member-cards"></div>
+        <!-- Personal, once-a-day, deterministic per person — not tied to any one
+             profile, so these live below the whole roster rather than on a card. -->
+        <div class="section-header" style="margin-top:28px">
+          <div class="section-title">The Loona <span>Oracle</span></div>
+        </div>
+        <div id="daily-tarot-card"></div>
+        <div class="section-header">
+          <div class="section-title">Work <span>Companion</span> of the Day</div>
+        </div>
+        <div id="daily-work-buddy"></div>
         <div id="past-employees-section" style="display: none; margin-top: 28px;">
           <div class="section-header">
             <div class="section-title">Past <span>Employees</span></div>
@@ -4973,16 +4997,6 @@
           <div id="past-employees-cards"
             style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px"></div>
         </div>
-        <!-- Personal, once-a-day, deterministic per person — not tied to any one
-             profile, so these live below the whole roster rather than on a card. -->
-        <div class="section-header" style="margin-top:28px">
-          <div class="section-title">Your <span>Tarot</span> for Today</div>
-        </div>
-        <div id="daily-tarot-card"></div>
-        <div class="section-header">
-          <div class="section-title">Work <span>Companion</span> of the Day</div>
-        </div>
-        <div id="daily-work-buddy"></div>
       </div>
       <!-- Clicking a Loonatic takes over the whole Team page with their pass card,
            rather than showing it as one tile among many. -->
@@ -8427,19 +8441,42 @@
       if (card) card.classList.add('buddy-revealed');
     }
 
+    function openLoonaOracle() {
+      if (!currentUser) return;
+      const card = tarotForToday(currentUser);
+      if (!card) return;
+      document.getElementById('loona-oracle-content').innerHTML = `
+        <div class="oracle-card">
+          <div class="oracle-card-corner oracle-card-corner-tl">✦</div>
+          <div class="oracle-card-corner oracle-card-corner-tr">✦</div>
+          <div class="oracle-card-header">THE LOONA ORACLE</div>
+          <div class="oracle-card-emoji">${card.emoji}</div>
+          <div class="oracle-card-name">${card.name}</div>
+          <div class="oracle-card-rule"></div>
+          <div class="oracle-card-corner oracle-card-corner-bl">✦</div>
+          <div class="oracle-card-corner oracle-card-corner-br">✦</div>
+        </div>
+        <div class="oracle-reading">
+          <div class="tarot-line"><b>💼 Work:</b> ${card.work}</div>
+          <div class="tarot-line"><b>❤️ Love:</b> ${card.love}</div>
+          <div class="tarot-line"><b>🎉 Fun:</b> ${card.fun}</div>
+        </div>`;
+      document.getElementById('loona-oracle-modal').classList.remove('hidden');
+    }
+
+    function closeLoonaOracle() {
+      document.getElementById('loona-oracle-modal').classList.add('hidden');
+    }
+
     function renderDailyExtras() {
       const tarotEl = document.getElementById('daily-tarot-card');
       const buddyEl = document.getElementById('daily-work-buddy');
       if (!tarotEl || !buddyEl) return;
 
-      const card = tarotForToday(currentUser);
-      tarotEl.innerHTML = !card ? '' : `
-        <div class="tarot-card">
-          <div class="tarot-emoji">${card.emoji}</div>
-          <div class="tarot-name">${card.name}</div>
-          <div class="tarot-line"><b>💼 Work:</b> ${card.work}</div>
-          <div class="tarot-line"><b>❤️ Love:</b> ${card.love}</div>
-          <div class="tarot-line"><b>🎉 Fun:</b> ${card.fun}</div>
+      tarotEl.innerHTML = `
+        <div class="oracle-intro">
+          <div class="oracle-tagline">A little guidance from somewhere beyond the brief.</div>
+          <button class="btn btn-primary" onclick="openLoonaOracle()">🔮 Draw My Card</button>
         </div>`;
 
       const buddy = workBuddyForToday(currentUser);
@@ -13429,6 +13466,16 @@ ${brandLines}`;
   </div>
 
   <!-- STATUS PICKER MODAL (Meet the Loonatics — daily mood) -->
+  <!-- LOONA ORACLE MODAL -->
+  <div class="modal-overlay hidden" id="loona-oracle-modal" onclick="if(event.target===this)closeLoonaOracle()">
+    <div class="modal" style="max-width:380px;text-align:center">
+      <div id="loona-oracle-content"></div>
+      <div class="modal-actions" style="justify-content:center;margin-top:18px">
+        <button class="btn btn-ghost" onclick="closeLoonaOracle()">Close</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay hidden" id="status-picker-modal" onclick="if(event.target===this)closeStatusPicker()">
     <div class="modal" style="max-width:400px">
       <div class="modal-title">What's your <span>vibe today?</span></div>
