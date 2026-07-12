@@ -945,13 +945,17 @@
     .lp-name-tag { display: inline-block; border: 1px solid #1a1206; border-radius: 3px; padding: 1px 8px; font-size: 9.5px; font-weight: 700; margin-bottom: 6px; }
     .lp-name { font-family: var(--font); font-size: 46px; font-weight: 900; line-height: .95; letter-spacing: -0.01em; margin-bottom: 14px; word-break: break-word; }
     .lp-since-row { display: flex; align-items: center; margin-bottom: 18px; flex-wrap: wrap; }
-    .lp-since-tag { background: #1a1206; color: #e8541e; font-size: 9.5px; font-weight: 700; letter-spacing: 0.03em; padding: 4px 10px; transform: rotate(-2deg); position: relative; z-index: 2; }
+    .lp-since-tag { background: #1a1206; color: #e8541e; font-size: 9.5px; font-weight: 700; letter-spacing: 0.03em; padding: 4px 10px; position: relative; z-index: 2; }
     .lp-since-badge { background: #fff; border: 2px solid #1a1206; padding: 3px 14px 3px 18px; font-size: 22px; font-weight: 800; margin-left: -8px; position: relative; z-index: 1; }
     .lp-since-badge span { font-size: 10px; font-weight: 700; margin-left: 4px; }
+    .lp-since-badge::after { content: ''; position: absolute; top: -2px; right: -2px; width: 0; height: 0; border-style: solid; border-width: 0 11px 11px 0; border-color: transparent #e8541e transparent transparent; }
 
     .lp-fields { border-top: 1px dashed #1a1206; }
     .lp-field-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px dashed #1a1206; flex-wrap: wrap; }
     .lp-field-icon { width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid #1a1206; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+    .lp-field-icon.lp-icon-fill { background: #1a1206; color: #e8541e; border-color: #1a1206; }
+    .lp-field-icon.lp-icon-text { font-size: 6.5px; font-weight: 800; letter-spacing: -0.3px; }
+    .lp-field-icon.lp-icon-mono { filter: grayscale(1) contrast(1.3); }
     .lp-field-label { font-size: 10px; font-weight: 700; letter-spacing: 0.02em; flex-shrink: 0; }
     .lp-field-val { font-weight: 700; font-size: 12.5px; }
     .lp-field-extra { font-size: 11px; font-weight: 600; opacity: .75; margin-left: auto; }
@@ -986,7 +990,10 @@
     .lp-fav-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 10px; }
     .lp-fav-item { text-align: center; }
     .lp-fav-tag { display: inline-block; background: #1a1206; color: #e8541e; font-size: 8.5px; font-weight: 700; letter-spacing: 0.05em; padding: 2px 7px; margin-bottom: 6px; }
-    .lp-fav-img { aspect-ratio: 1/1; border: 1.5px solid #1a1206; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 26px; background: rgba(0,0,0,.06); }
+    .lp-fav-img { aspect-ratio: 1/1; border: 1.5px solid #1a1206; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 26px; background: rgba(0,0,0,.06); overflow: hidden; }
+    .lp-fav-img img { width: 100%; height: 100%; object-fit: cover; }
+    .lp-fav-upload { position: relative; }
+    .lp-fav-upload .avatar-edit { position: absolute; bottom: 3px; right: 3px; width: 18px; height: 18px; font-size: 9px; z-index: 2; }
     .lp-fav-title { font-size: 11px; font-weight: 700; margin-top: 6px; }
 
     .lp-footer { display: flex; align-items: center; justify-content: space-between; gap: 14px; border-top: 2px solid #1a1206; padding: 12px 20px; flex-wrap: wrap; }
@@ -5788,6 +5795,7 @@
     const MEMBER_INFO = {"Gokul":{"color":"#c8a96e","emoji":"🚀","role":"Founder"},"Anam":{"color":"#38b2ac","emoji":"💼","role":"Head of Strategy"},"Ankita":{"color":"#f687b3","emoji":"⭐","role":"Sr. Strategy"},"Ricky":{"color":"#ed8936","emoji":"🎯","role":"Head of Design"},"Muskan":{"color":"#e84393","emoji":"✨","role":"Designer"},"Nishant":{"color":"#e05c5c","emoji":"🎨","role":"Designer"},"Karnik":{"color":"#68d391","emoji":"📐","role":"Web Designer"},"Chinmay":{"color":"#4caf7d","emoji":"✂️","role":"Video Editor"},"Majid":{"color":"#9f7aea","emoji":"🎞️","role":"Video Editor"},"Anurag":{"color":"#f6ad55","emoji":"🎬","role":"Video Editor"},"Vivaan":{"color":"#5b9cf6","emoji":"🌱","role":"Intern – Social & Strategy"},"Diya":{"color":"#b794f4","emoji":"📊","role":"Sr. Manager – Strategy/OPS"},"Ananya":{"color":"#f6e05e","emoji":"🖌️","role":"Intern – Design"}};
     const ALL_MEMBERS = ["Gokul", "Anam", "Ankita", "Ricky", "Muskan", "Nishant", "Karnik", "Chinmay", "Majid", "Anurag", "Vivaan", "Diya", "Ananya"];
     const INACTIVE_MEMBERS = new Set([]);
+    const FAV_IMG_KEYS = { movie: 'favMovieImg', snack: 'favSnackImg', book: 'favBookImg', destination: 'favDestinationImg' };
 
     let currentUser = null;
     let boardIdx = 0;
@@ -6096,6 +6104,26 @@
         }
         ALL_MEMBERS.forEach(attachAvatarListener);
 
+        // Favorite images (Movie/Snack/Book/Destination on the Loona Pass) — same
+        // per-member, own-node pattern as avatars, so these optional photos never
+        // block or bloat the members/ metadata sync.
+        const _favoritesListenersAttached = new Set();
+        function attachFavoritesListener(name) {
+          if (_favoritesListenersAttached.has(name)) return;
+          _favoritesListenersAttached.add(name);
+          _db.ref('member_favorites/' + fbMemberKey(name)).on('value', snap => {
+            const favs = snap.val() || {};
+            if (!MEMBER_INFO[name]) MEMBER_INFO[name] = { color: '#888', emoji: '👤', role: 'Team Member' };
+            let changed = false;
+            Object.keys(FAV_IMG_KEYS).forEach(kind => {
+              const field = FAV_IMG_KEYS[kind];
+              if (MEMBER_INFO[name][field] !== (favs[kind] || null)) { MEMBER_INFO[name][field] = favs[kind] || null; changed = true; }
+            });
+            if (changed && window._openLoonaticProfileName === name) renderTeam();
+          });
+        }
+        ALL_MEMBERS.forEach(attachFavoritesListener);
+
         // Members metadata — kept deliberately small (no photos), so this fires fast even on a
         // slow connection and new members/names show up right away. Avatars sync separately
         // above via member_avatars/, so a big photo download never blocks that.
@@ -6108,8 +6136,9 @@
             const isNew = !ALL_MEMBERS.includes(m.name);
             if (isNew) { ALL_MEMBERS.push(m.name); pickerNeedsRebuild = true; teamNeedsRender = true; }
             attachAvatarListener(m.name);
+            attachFavoritesListener(m.name);
             const existing = MEMBER_INFO[m.name] || {};
-            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || null, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null, mobile: m.mobile || existing.mobile || null, gender: m.gender || existing.gender || null, personalEmail: m.personalEmail || existing.personalEmail || null, address: m.address || existing.address || null, lastName: m.lastName || existing.lastName || null, emergencyContactName: m.emergencyContactName || existing.emergencyContactName || null, emergencyContactPhone: m.emergencyContactPhone || existing.emergencyContactPhone || null, bloodGroup: m.bloodGroup || existing.bloodGroup || null, workEmail: m.workEmail || existing.workEmail || null, knownFor: m.knownFor || existing.knownFor || null, mbti: m.mbti || existing.mbti || null, style: m.style || existing.style || null, nowPlayingSong: m.nowPlayingSong || existing.nowPlayingSong || null, nowPlayingArtist: m.nowPlayingArtist || existing.nowPlayingArtist || null, funFacts: m.funFacts || existing.funFacts || null, favMovie: m.favMovie || existing.favMovie || null, favSnack: m.favSnack || existing.favSnack || null, favBook: m.favBook || existing.favBook || null, favDestination: m.favDestination || existing.favDestination || null };
+            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || null, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null, mobile: m.mobile || existing.mobile || null, gender: m.gender || existing.gender || null, personalEmail: m.personalEmail || existing.personalEmail || null, address: m.address || existing.address || null, lastName: m.lastName || existing.lastName || null, emergencyContactName: m.emergencyContactName || existing.emergencyContactName || null, emergencyContactPhone: m.emergencyContactPhone || existing.emergencyContactPhone || null, bloodGroup: m.bloodGroup || existing.bloodGroup || null, workEmail: m.workEmail || existing.workEmail || null, knownFor: m.knownFor || existing.knownFor || null, mbti: m.mbti || existing.mbti || null, style: m.style || existing.style || null, nowPlayingSong: m.nowPlayingSong || existing.nowPlayingSong || null, nowPlayingArtist: m.nowPlayingArtist || existing.nowPlayingArtist || null, funFacts: m.funFacts || existing.funFacts || null, favMovie: m.favMovie || existing.favMovie || null, favSnack: m.favSnack || existing.favSnack || null, favBook: m.favBook || existing.favBook || null, favDestination: m.favDestination || existing.favDestination || null, favMovieImg: existing.favMovieImg || null, favSnackImg: existing.favSnackImg || null, favBookImg: existing.favBookImg || null, favDestinationImg: existing.favDestinationImg || null };
             // Older records still carry the avatar inline on this same node — use it right away,
             // then migrate it out to member_avatars/ so this node stays small for everyone from now on.
             if (m.avatar && m.avatar !== MEMBER_INFO[m.name].avatar) {
@@ -8329,12 +8358,22 @@
       const funFacts = Array.isArray(info.funFacts) ? info.funFacts.filter(Boolean) : [];
       const factsHTML = funFacts.length ? `<ul class="lp-fact-list">${funFacts.map(f => `<li>${f}</li>`).join('')}</ul>` : `<div style="opacity:.6;font-size:12px">No fun facts on file yet.</div>`;
 
-      const fav = (label, icon, val) => `
+      const canEdit = isSelf || (currentUser && normName(currentUser) === 'gokul');
+      const fav = (label, kind, icon, val, img) => `
         <div class="lp-fav-item">
           <div class="lp-fav-tag">${label}</div>
-          <div class="lp-fav-img">${icon}</div>
+          <div class="lp-fav-img lp-fav-upload">${img ? `<img src="${img}">` : icon}${canEdit ? `<label class="avatar-edit" title="Add photo" onclick="event.stopPropagation()">📷<input type="file" accept="image/*" style="display:none" onchange="uploadFavoriteImage(this,'${name}','${kind}')"></label>` : ''}</div>
           <div class="lp-fav-title">${val || '—'}</div>
         </div>`;
+
+      // Icon helper: 'fill' = black circle (matches reference's Role/Moon/Style icons),
+      // 'text' = the value's own short text set directly inside the circle (MBTI, like
+      // the reference does with "ENTP"), 'mono' = grayscale-filtered so a colorful emoji
+      // (spirit animal) reads as a flat monochrome sketch instead of a cartoon glyph.
+      const fieldIcon = (content, variant) => {
+        const v = variant || '';
+        return `<div class="lp-field-icon${v.includes('fill') ? ' lp-icon-fill' : ''}${v.includes('text') ? ' lp-icon-text' : ''}${v.includes('mono') ? ' lp-icon-mono' : ''}">${content}</div>`;
+      };
 
       return `
       <button class="btn btn-ghost" onclick="closeLoonaticProfile()" style="margin-bottom:16px">← Back to Team</button>
@@ -8346,7 +8385,7 @@
             <div class="lp-header-title">TEAM <br>PROFILE #${profileNum}</div>
           </div>
           <div class="lp-header-icons">✳ ☾ ⚡ ✦</div>
-          <div class="lp-header-tagline">IN EVERY PHASE, REMAIN WHOLE</div>
+          <div class="lp-header-tagline">WE DON'T DO VANILLA</div>
         </div>
 
         <div class="lp-top">
@@ -8371,22 +8410,22 @@
                 <text font-size="8" font-weight="700" letter-spacing="1.5" fill="#1a1206">
                   <textPath href="#${sealId}" startOffset="0%">★ LOONATIC VERIFIED ★ LOONATIC VERIFIED</textPath>
                 </text>
-                <text x="50" y="56" font-size="20" text-anchor="middle">${zodiac ? zodiac.emoji : '✦'}</text>
+                <text x="50" y="56" font-size="15" font-weight="900" text-anchor="middle" fill="#1a1206">LN</text>
               </svg>
             </div>
-            <div class="lp-name-tag">${fbMemberKey(name)}</div>
+            <div class="lp-name-tag">NAME:</div>
             <div class="lp-name">${name.toUpperCase()}</div>
             <div class="lp-since-row">
               <div class="lp-since-tag">A LOONATIC <br>SINCE</div>
               <div class="lp-since-badge">${days != null ? days : '—'}<span>DAYS</span></div>
             </div>
-            <div class="lp-fields">
-              <div class="lp-field-row"><div class="lp-field-icon">💼</div><div class="lp-field-label">ROLE</div><div class="lp-field-val">${fun}</div><div class="lp-field-extra">${realRole}</div></div>
-              <div class="lp-field-row"><div class="lp-field-icon">${zodiac ? zodiac.emoji : '✦'}</div><div class="lp-field-label">ZODIAC SIGN</div><div class="lp-field-val">${zodiac ? zodiac.name : '—'}</div>${birthdate ? `<div class="lp-field-extra">${fmtDate(birthdate)}</div>` : ''}</div>
-              <div class="lp-field-row"><div class="lp-field-icon">${spirit ? spirit.emoji : '🐾'}</div><div class="lp-field-label">SPIRIT ANIMAL</div><div class="lp-field-val">${spirit ? spirit.name : '—'}</div></div>
-              <div class="lp-field-row"><div class="lp-field-icon">🧠</div><div class="lp-field-label">MBTI</div><div class="lp-field-val">${info.mbti || '—'}</div></div>
-              <div class="lp-field-row"><div class="lp-field-icon">${moon ? moon.emoji : '🌙'}</div><div class="lp-field-label">MOON PHASE ON BIRTHDAY</div><div class="lp-field-val">${moon ? moon.name : '—'}</div></div>
-              <div class="lp-field-row"><div class="lp-field-icon">👕</div><div class="lp-field-label">STYLE</div><div class="lp-field-val">${info.style || '—'}</div></div>
+            <div class="lp-fields" title="Actual title: ${realRole}">
+              <div class="lp-field-row">${fieldIcon('✳', 'fill')}<div class="lp-field-label">ROLE:</div><div class="lp-field-val">${fun}</div></div>
+              <div class="lp-field-row">${fieldIcon(zodiac ? zodiac.emoji : '✦')}<div class="lp-field-label">ZODIAC SIGN:</div><div class="lp-field-val">${zodiac ? zodiac.name : '—'}</div>${birthdate ? `<div class="lp-field-extra">${fmtDate(birthdate)}</div>` : ''}</div>
+              <div class="lp-field-row">${fieldIcon(spirit ? spirit.emoji : '🐾', 'mono')}<div class="lp-field-label">SPIRIT ANIMAL:</div><div class="lp-field-val">${spirit ? spirit.name : '—'}</div></div>
+              <div class="lp-field-row">${fieldIcon(info.mbti ? info.mbti.split('-')[0] : 'MBTI', 'text')}<div class="lp-field-label">MBTI:</div><div class="lp-field-val">${info.mbti || '—'}</div></div>
+              <div class="lp-field-row">${fieldIcon(moon ? moon.emoji : '🌙', 'fill mono')}<div class="lp-field-label">MOON PHASE ON BIRTHDAY:</div><div class="lp-field-val">${moon ? moon.name : '—'}</div></div>
+              <div class="lp-field-row">${fieldIcon('<svg viewBox="0 0 24 24" width="13" height="13"><path d="M12 3c-1.1 0-2 .9-2 2 0 .8.5 1.5 1.2 1.8L12 7.2l.8-.4C13.5 6.5 14 5.8 14 5c0-1.1-.9-2-2-2z" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M12 7l9 6.5c.8.6.3 1.9-.7 1.9H3.7c-1 0-1.5-1.3-.7-1.9L12 7z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>', 'fill')}<div class="lp-field-label">STYLE:</div><div class="lp-field-val">${info.style || '—'}</div></div>
             </div>
           </div>
         </div>
@@ -8395,6 +8434,7 @@
           <div class="lp-panel">
             <div class="lp-tag">CURRENTLY BUILDING</div>
             ${buildingHTML}
+            <div class="lp-handwritten">BUILDING COOL SHIT ONLY. →</div>
           </div>
           <div class="lp-panel" style="display:flex;flex-direction:column;align-items:center">
             <div class="lp-tag" style="align-self:flex-start">MOOD RIGHT NOW</div>
@@ -8425,10 +8465,10 @@
         <div class="lp-favorites">
           <div class="lp-tag">FAVORITES</div>
           <div class="lp-fav-grid">
-            ${fav('MOVIE', '🎬', info.favMovie)}
-            ${fav('SNACK', '🍿', info.favSnack)}
-            ${fav('BOOK', '📖', info.favBook)}
-            ${fav('DESTINATION', '✈️', info.favDestination)}
+            ${fav('MOVIE', 'movie', '🎬', info.favMovie, info.favMovieImg)}
+            ${fav('SNACK', 'snack', '🍿', info.favSnack, info.favSnackImg)}
+            ${fav('BOOK', 'book', '📖', info.favBook, info.favBookImg)}
+            ${fav('DESTINATION', 'destination', '✈️', info.favDestination, info.favDestinationImg)}
           </div>
         </div>
 
@@ -8827,6 +8867,27 @@
       renderTeam();
       rebuildLoginPicker();
       buildMemberTabs(currentUser);
+    }
+
+    // Favorite photos (Movie/Snack/Book/Destination on the Loona Pass) — same own-node
+    // pattern as avatars (see member_favorites listener above), so these stay optional
+    // extras that never block the core members/ sync.
+    async function uploadFavoriteImage(input, name, kind) {
+      const file = input.files[0];
+      if (!file) return;
+      const compressed = await compressImageFile(file, 300);
+      const field = FAV_IMG_KEYS[kind];
+      if (!field) return;
+      if (!MEMBER_INFO[name]) MEMBER_INFO[name] = { color: '#888', emoji: '👤', role: 'Team Member' };
+      MEMBER_INFO[name][field] = compressed;
+      if (_db) await _db.ref('member_favorites/' + fbMemberKey(name) + '/' + kind).set(compressed);
+      if (window._openLoonaticProfileName === name) renderTeam();
+      if (document.getElementById('eem-fav-' + kind + '-thumb')) renderEditFavThumb(kind, compressed);
+    }
+
+    function renderEditFavThumb(kind, dataUrl) {
+      const el = document.getElementById('eem-fav-' + kind + '-thumb');
+      if (el) el.style.backgroundImage = dataUrl ? `url(${dataUrl})` : 'none';
     }
 
     async function uploadProfilePic(input) {
@@ -9310,6 +9371,10 @@
       document.getElementById('eem-fav-snack').value = info.favSnack || '';
       document.getElementById('eem-fav-book').value = info.favBook || '';
       document.getElementById('eem-fav-destination').value = info.favDestination || '';
+      renderEditFavThumb('movie', info.favMovieImg);
+      renderEditFavThumb('snack', info.favSnackImg);
+      renderEditFavThumb('book', info.favBookImg);
+      renderEditFavThumb('destination', info.favDestinationImg);
       document.getElementById('eem-ec-name').value = info.emergencyContactName || '';
       document.getElementById('eem-ec-phone').value = info.emergencyContactPhone || '';
       document.getElementById('eem-pan').value = '';
@@ -13035,22 +13100,34 @@ Can identify fonts in public."></textarea>
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Favorite Movie</label>
-          <input class="form-control" id="eem-fav-movie" placeholder="e.g. Inception">
+          <label>Favorite Movie <span style="font-weight:400;color:var(--muted)">(+ photo)</span></label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input class="form-control" id="eem-fav-movie" placeholder="e.g. Inception" style="flex:1">
+            <label class="avatar-edit" id="eem-fav-movie-thumb" style="width:32px;height:32px;background-size:cover;background-position:center;flex-shrink:0" title="Add photo">📷<input type="file" accept="image/*" style="display:none" onchange="uploadFavoriteImage(this,_eemEditingName,'movie')"></label>
+          </div>
         </div>
         <div class="form-group">
-          <label>Favorite Snack</label>
-          <input class="form-control" id="eem-fav-snack" placeholder="e.g. Spicy Chips">
+          <label>Favorite Snack <span style="font-weight:400;color:var(--muted)">(+ photo)</span></label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input class="form-control" id="eem-fav-snack" placeholder="e.g. Spicy Chips" style="flex:1">
+            <label class="avatar-edit" id="eem-fav-snack-thumb" style="width:32px;height:32px;background-size:cover;background-position:center;flex-shrink:0" title="Add photo">📷<input type="file" accept="image/*" style="display:none" onchange="uploadFavoriteImage(this,_eemEditingName,'snack')"></label>
+          </div>
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Favorite Book</label>
-          <input class="form-control" id="eem-fav-book" placeholder="e.g. Sapiens">
+          <label>Favorite Book <span style="font-weight:400;color:var(--muted)">(+ photo)</span></label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input class="form-control" id="eem-fav-book" placeholder="e.g. Sapiens" style="flex:1">
+            <label class="avatar-edit" id="eem-fav-book-thumb" style="width:32px;height:32px;background-size:cover;background-position:center;flex-shrink:0" title="Add photo">📷<input type="file" accept="image/*" style="display:none" onchange="uploadFavoriteImage(this,_eemEditingName,'book')"></label>
+          </div>
         </div>
         <div class="form-group">
-          <label>Favorite Destination</label>
-          <input class="form-control" id="eem-fav-destination" placeholder="e.g. Iceland">
+          <label>Favorite Destination <span style="font-weight:400;color:var(--muted)">(+ photo)</span></label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input class="form-control" id="eem-fav-destination" placeholder="e.g. Iceland" style="flex:1">
+            <label class="avatar-edit" id="eem-fav-destination-thumb" style="width:32px;height:32px;background-size:cover;background-position:center;flex-shrink:0" title="Add photo">📷<input type="file" accept="image/*" style="display:none" onchange="uploadFavoriteImage(this,_eemEditingName,'destination')"></label>
+          </div>
         </div>
       </div>
       <div class="form-row">
