@@ -800,6 +800,175 @@
       color: var(--muted);
     }
 
+    /* ── MEET THE LOONATICS: fun-profile card + status bubble ── */
+    .lt-avatar-wrap {
+      position: relative;
+      display: inline-flex;
+      flex-shrink: 0;
+    }
+
+    .status-bubble {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      margin-bottom: 8px;
+      background: #1a1a1a;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 10.5px;
+      font-weight: 600;
+      white-space: nowrap;
+      padding: 5px 10px;
+      border-radius: 14px;
+      cursor: pointer;
+      z-index: 2;
+      box-shadow: 0 4px 14px rgba(0,0,0,.35);
+    }
+
+    .status-bubble::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 5px solid transparent;
+      border-top-color: #1a1a1a;
+    }
+
+    .status-bubble.status-bubble-self {
+      border-color: var(--accent, #c8a96e);
+    }
+
+    .lt-fun-role {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent, #c8a96e);
+    }
+
+    .lt-real-role {
+      font-size: 10.5px;
+      color: var(--muted);
+    }
+
+    .lt-fact-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      margin-top: 8px;
+      font-size: 12px;
+    }
+
+    .lt-fact-row .k {
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .lt-fact-row .v {
+      text-align: right;
+    }
+
+    .lt-building {
+      margin-top: 8px;
+      font-size: 12px;
+    }
+
+    .lt-building .k {
+      color: var(--muted);
+      margin-bottom: 3px;
+    }
+
+    .lt-building-item {
+      color: var(--text);
+    }
+
+    .lt-known-for {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      font-style: italic;
+      color: var(--muted);
+    }
+
+    /* ── "Pass card" styling for Meet the Loonatics (editorial ID-card look) ── */
+    .lc-card {
+      position: relative;
+    }
+
+    .lc-seal {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 1px dashed currentColor;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+    }
+
+    .lc-photo-row {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+
+    .lc-name {
+      text-align: center;
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .lc-tenure {
+      text-align: center;
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+      margin-bottom: 10px;
+    }
+
+    .lc-divider {
+      border-top: 1px dashed var(--border);
+      margin: 10px 0;
+    }
+
+    .lc-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 7px;
+      font-size: 12px;
+    }
+
+    .lc-label {
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 9.5px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .lc-val {
+      text-align: right;
+    }
+
+    .lc-id-tag {
+      margin-top: 12px;
+      display: inline-block;
+      font-size: 9.5px;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 2px 8px;
+    }
+
     /* ── ADMIN PANEL ── */
     .admin-pending-list {
       display: flex;
@@ -4608,7 +4777,7 @@
     <!-- ======= TEAM ======= -->
     <div class="page" id="page-team">
       <div class="section-header" style="margin-top:0">
-        <div class="section-title">Team <span>Progress</span></div>
+        <div class="section-title">Meet the <span>Loonatics</span></div>
         <button class="btn btn-primary" onclick="openAddMember()" style="padding:7px 16px;font-size:12px">+ Add
           Member</button>
       </div>
@@ -5898,7 +6067,7 @@
             if (isNew) { ALL_MEMBERS.push(m.name); pickerNeedsRebuild = true; teamNeedsRender = true; }
             attachAvatarListener(m.name);
             const existing = MEMBER_INFO[m.name] || {};
-            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || null, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null, mobile: m.mobile || existing.mobile || null, gender: m.gender || existing.gender || null, personalEmail: m.personalEmail || existing.personalEmail || null, address: m.address || existing.address || null, lastName: m.lastName || existing.lastName || null, emergencyContactName: m.emergencyContactName || existing.emergencyContactName || null, emergencyContactPhone: m.emergencyContactPhone || existing.emergencyContactPhone || null, bloodGroup: m.bloodGroup || existing.bloodGroup || null, workEmail: m.workEmail || existing.workEmail || null };
+            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || null, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null, mobile: m.mobile || existing.mobile || null, gender: m.gender || existing.gender || null, personalEmail: m.personalEmail || existing.personalEmail || null, address: m.address || existing.address || null, lastName: m.lastName || existing.lastName || null, emergencyContactName: m.emergencyContactName || existing.emergencyContactName || null, emergencyContactPhone: m.emergencyContactPhone || existing.emergencyContactPhone || null, bloodGroup: m.bloodGroup || existing.bloodGroup || null, workEmail: m.workEmail || existing.workEmail || null, knownFor: m.knownFor || existing.knownFor || null };
             // Older records still carry the avatar inline on this same node — use it right away,
             // then migrate it out to member_avatars/ so this node stays small for everyone from now on.
             if (m.avatar && m.avatar !== MEMBER_INFO[m.name].avatar) {
@@ -5928,6 +6097,13 @@
         _db.ref('members_pending').on('value', snap => {
           window.MEMBERS_PENDING = snap.val() || {};
           if (currentUser && normName(currentUser) === 'gokul' && document.getElementById('page-admin') && document.getElementById('page-admin').classList.contains('active') && typeof renderAdminPendingQueue === 'function') renderAdminPendingQueue();
+        });
+
+        // Daily mood/status (Meet the Loonatics) — keyed by fbMemberKey, shown as a
+        // speech-bubble above each person's avatar on Team + Overview.
+        _db.ref('member_status').on('value', snap => {
+          window.MEMBER_STATUS = snap.val() || {};
+          if (currentUser) { renderTeam(); renderOverview(); }
         });
 
         // Department/role category sync (for Add Team Member dropdowns)
@@ -6659,7 +6835,11 @@
       // (pending tasks, check-ins) — catches the case where MEMBER_INFO was already
       // fully loaded (e.g. from the localStorage cache) before this session's
       // members listener callback ever fired.
-      setTimeout(() => { if (typeof maybeShowProfileCompletionPrompt === 'function') maybeShowProfileCompletionPrompt(); }, 1500);
+      setTimeout(() => { if (typeof maybeShowProfileCompletionPrompt === 'function') maybeShowProfileCompletionPrompt(); }, 2500);
+      // Fires first (shortest delay of the post-login popups) since it's meant to be
+      // quick and frequent — the profile-completion backfill prompt above is deferred
+      // later so the two don't stack on top of each other.
+      setTimeout(() => { if (typeof maybeShowStatusPrompt === 'function') maybeShowStatusPrompt(); }, 700);
     }
 
     function buildEveningUpdateText() {
@@ -7892,6 +8072,185 @@
       var el=document.getElementById("lc-org-chart");
       if(el && el.offsetParent!==null) refreshOrgLayout(el);
     });
+    // ═══ "MEET THE LOONATICS" fun-profile calculators ═══
+    const ZODIAC_SIGNS = [
+      { name: 'Capricorn', emoji: '♑', start: [12, 22], end: [1, 19] },
+      { name: 'Aquarius', emoji: '♒', start: [1, 20], end: [2, 18] },
+      { name: 'Pisces', emoji: '♓', start: [2, 19], end: [3, 20] },
+      { name: 'Aries', emoji: '♈', start: [3, 21], end: [4, 19] },
+      { name: 'Taurus', emoji: '♉', start: [4, 20], end: [5, 20] },
+      { name: 'Gemini', emoji: '♊', start: [5, 21], end: [6, 20] },
+      { name: 'Cancer', emoji: '♋', start: [6, 21], end: [7, 22] },
+      { name: 'Leo', emoji: '♌', start: [7, 23], end: [8, 22] },
+      { name: 'Virgo', emoji: '♍', start: [8, 23], end: [9, 22] },
+      { name: 'Libra', emoji: '♎', start: [9, 23], end: [10, 22] },
+      { name: 'Scorpio', emoji: '♏', start: [10, 23], end: [11, 21] },
+      { name: 'Sagittarius', emoji: '♐', start: [11, 22], end: [12, 21] }
+    ];
+    function dateSpanContains(m, d, sm, sd, em, ed) {
+      const val = m * 100 + d, startVal = sm * 100 + sd, endVal = em * 100 + ed;
+      return startVal <= endVal ? (val >= startVal && val <= endVal) : (val >= startVal || val <= endVal);
+    }
+    function zodiacSign(birthdateISO) {
+      if (!birthdateISO) return null;
+      const d = new Date(birthdateISO + 'T00:00:00');
+      if (isNaN(d)) return null;
+      const m = d.getMonth() + 1, day = d.getDate();
+      return ZODIAC_SIGNS.find(z => dateSpanContains(m, day, z.start[0], z.start[1], z.end[0], z.end[1])) || null;
+    }
+
+    // Spirit animal — the 12-year Chinese zodiac cycle keyed off birth year (simplified:
+    // ignores the exact Lunar New Year cutoff date, which shifts Jan/early-Feb births in
+    // real Chinese astrology; close enough for a fun profile field).
+    const SPIRIT_ANIMALS = [
+      { name: 'Monkey', emoji: '🐒' }, { name: 'Rooster', emoji: '🐓' }, { name: 'Dog', emoji: '🐕' }, { name: 'Pig', emoji: '🐖' },
+      { name: 'Rat', emoji: '🐀' }, { name: 'Ox', emoji: '🐂' }, { name: 'Tiger', emoji: '🐅' }, { name: 'Rabbit', emoji: '🐇' },
+      { name: 'Dragon', emoji: '🐉' }, { name: 'Snake', emoji: '🐍' }, { name: 'Horse', emoji: '🐎' }, { name: 'Goat', emoji: '🐐' }
+    ];
+    function spiritAnimal(birthdateISO) {
+      if (!birthdateISO) return null;
+      const year = new Date(birthdateISO + 'T00:00:00').getFullYear();
+      if (isNaN(year)) return null;
+      return SPIRIT_ANIMALS[((year % 12) + 12) % 12];
+    }
+
+    // Moon phase on the exact birthdate — computed from the synodic month length
+    // relative to a known new moon reference (2000-01-06), no external API needed.
+    function moonPhaseOnDate(dateISO) {
+      if (!dateISO) return null;
+      const known = new Date('2000-01-06T18:14:00Z').getTime();
+      const target = new Date(dateISO + 'T12:00:00Z').getTime();
+      if (isNaN(target)) return null;
+      const synodic = 29.530588853 * 86400000;
+      let diff = (target - known) % synodic;
+      if (diff < 0) diff += synodic;
+      const frac = diff / synodic;
+      const phases = [
+        { name: 'New Moon', emoji: '🌑', max: 0.03 }, { name: 'Waxing Crescent', emoji: '🌒', max: 0.22 },
+        { name: 'First Quarter', emoji: '🌓', max: 0.28 }, { name: 'Waxing Gibbous', emoji: '🌔', max: 0.47 },
+        { name: 'Full Moon', emoji: '🌕', max: 0.53 }, { name: 'Waning Gibbous', emoji: '🌖', max: 0.72 },
+        { name: 'Last Quarter', emoji: '🌗', max: 0.78 }, { name: 'Waning Crescent', emoji: '🌘', max: 0.97 }
+      ];
+      return phases.find(p => frac <= p.max) || { name: 'New Moon', emoji: '🌑' };
+    }
+
+    // Fun job-title alter-egos — falls back to a deterministic (not random-per-render)
+    // generic pairing for any role not in the table, so a newly added role/department
+    // still gets a stable nickname instead of showing nothing.
+    const FUN_ROLE_MAP = {
+      'founder': 'Grand Loonatic', 'head of strategy': 'Strategy Sorcerer', 'sr. strategy': 'Strategy Ninja',
+      'sr. manager – strategy/ops': 'Chaos Coordinator', 'senior manager – strategy/ops': 'Chaos Coordinator',
+      'head of design': 'Design Overlord', 'designer': 'Pixel Whisperer', 'junior designer': 'Pixel Padawan',
+      'junior designer – website/graphic': 'Pixel Padawan', 'senior designer': 'Pixel Overlord',
+      'web designer': 'Code & Pixel Alchemist', 'video editor': 'Frame Whisperer', 'junior video editor': 'Frame Apprentice',
+      'sr. videographer/editor': 'Frame Sorcerer', 'editor – video vertical': 'Frame Sorcerer',
+      'social media manager': 'Meme Marshal', 'performance marketing lead': 'Ad Alchemist', 'performance marketing': 'Ad Alchemist',
+      'copywriter': 'Word Wizard', 'intern – design': 'Design Padawan', 'intern – social & strategy': 'Vibe Trainee'
+    };
+    function funRoleName(role) {
+      if (!role) return 'Certified Loonatic';
+      const key = role.toLowerCase().trim();
+      if (FUN_ROLE_MAP[key]) return FUN_ROLE_MAP[key];
+      const suffixes = ['Extraordinaire', 'Whisperer', 'Wizard', 'Ninja', 'Overlord', 'Alchemist', 'Sorcerer'];
+      let hash = 0; for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+      return (role.split(' ')[0] || 'Loona') + ' ' + suffixes[hash % suffixes.length];
+    }
+
+    // ═══ Daily mood/status ═══
+    const STATUS_OPTIONS = [
+      { emoji: '😁', text: 'Feeling Cute Today' },
+      { emoji: '🤨', text: 'Something Feels Off' },
+      { emoji: '🥳', text: 'In A Fucking Good Mood' },
+      { emoji: '🤯', text: 'Brain Is Exploding' },
+      { emoji: '🤬', text: 'Fuck Off, Everybody' },
+      { emoji: '🤫', text: "Don't Disturb, I'm Cooking" },
+      { emoji: '🤐', text: 'Not Talking To Anyone' },
+      { emoji: '🤮', text: 'Hate Everything Today' },
+      { emoji: '❤️‍🔥', text: 'Feeling Hot And Dangerous' },
+      { emoji: '👼🏻', text: 'On My Best Behaviour' },
+      { emoji: '🤪', text: 'Fully Unhinged Today' },
+      { emoji: '🥱', text: 'Too Tired To Function' },
+      { emoji: '😵‍💫', text: "I Have No Idea What's Happening" },
+      { emoji: '👽', text: 'Not Mentally On Earth' },
+      { emoji: '🙂‍↔️', text: 'Nope. Not Today.' },
+      { emoji: '😈', text: 'Choosing Violence Today' },
+      { emoji: '😭', text: 'One Email Away From Crying' },
+      { emoji: '🫠', text: 'Barely Holding It Together' },
+      { emoji: '😌', text: 'Unbothered And Offline' },
+      { emoji: '💀', text: 'Dead Inside, Still Working' },
+      { emoji: '🫡', text: 'Doing It Against My Will' },
+      { emoji: '🤡', text: 'Clown Shift Activated' },
+      { emoji: '🧘🏻', text: 'Protecting My Peace' },
+      { emoji: '🚬', text: 'Need Five Minutes Alone' },
+      { emoji: '🫥', text: "Pretend I'm Not Here" }
+    ];
+
+    // Wraps an avatar's HTML with the person's current status speech-bubble above it
+    // (Instagram-story style). Own bubble is always shown (prompting to set one if
+    // empty) and clickable; other people's bubble only shows once they've set one,
+    // and isn't clickable.
+    function statusBubbleHTML(name) {
+      const s = (window.MEMBER_STATUS || {})[fbMemberKey(name)];
+      const isSelf = name === currentUser;
+      if (!s && !isSelf) return '';
+      const label = s ? `${s.emoji} ${s.text}` : '+ Set status';
+      return `<div class="status-bubble${isSelf ? ' status-bubble-self' : ''}"${isSelf ? ' onclick="event.stopPropagation();openStatusPicker()"' : ''}>${label}</div>`;
+    }
+    function avatarWithStatusHTML(name, avatarHtml) {
+      return `<div class="lt-avatar-wrap">${statusBubbleHTML(name)}${avatarHtml}</div>`;
+    }
+
+    function openStatusPicker() {
+      if (!currentUser) return;
+      const sel = document.getElementById('status-picker-select');
+      sel.innerHTML = STATUS_OPTIONS.map((s, i) => `<option value="${i}">${s.emoji} ${s.text}</option>`).join('');
+      const current = (window.MEMBER_STATUS || {})[fbMemberKey(currentUser)];
+      if (current) {
+        const idx = STATUS_OPTIONS.findIndex(s => s.text === current.text);
+        if (idx >= 0) sel.selectedIndex = idx;
+      }
+      document.getElementById('status-picker-modal').classList.remove('hidden');
+    }
+    // If this close/submit followed the auto-shown prompt (not a manual reopen via
+    // the status bubble), chain straight into the profile-completion check — two
+    // full-screen modal overlays with the same z-index can't both be usefully open
+    // at once (whichever is later in the DOM silently blocks clicks on the other),
+    // so these two post-login prompts take turns instead of racing on independent timers.
+    function afterStatusPickerClosed() {
+      if (window._statusPromptWasAuto) {
+        window._statusPromptWasAuto = false;
+        if (typeof maybeShowProfileCompletionPrompt === 'function') maybeShowProfileCompletionPrompt();
+      }
+    }
+    function closeStatusPicker() {
+      document.getElementById('status-picker-modal').classList.add('hidden');
+      sessionStorage.setItem('status_prompt_dismissed_' + currentUser, '1');
+      afterStatusPickerClosed();
+    }
+    function submitStatusPicker() {
+      const sel = document.getElementById('status-picker-select');
+      const chosen = STATUS_OPTIONS[parseInt(sel.value, 10)];
+      if (!chosen || !currentUser) return;
+      const record = { emoji: chosen.emoji, text: chosen.text, ts: Date.now() };
+      window.MEMBER_STATUS = window.MEMBER_STATUS || {};
+      window.MEMBER_STATUS[fbMemberKey(currentUser)] = record;
+      if (_db) _db.ref('member_status/' + fbMemberKey(currentUser)).set(record);
+      document.getElementById('status-picker-modal').classList.add('hidden');
+      sessionStorage.setItem('status_prompt_dismissed_' + currentUser, '1');
+      renderTeam();
+      renderOverview();
+      afterStatusPickerClosed();
+    }
+    // Shown once per login (not gated by day — moods change through the day, and
+    // reopening it manually via the status bubble covers "change it any time").
+    function maybeShowStatusPrompt() {
+      if (!currentUser || window._statusPromptShown) return;
+      if (sessionStorage.getItem('status_prompt_dismissed_' + currentUser)) return;
+      window._statusPromptShown = true;
+      window._statusPromptWasAuto = true;
+      openStatusPicker();
+    }
+
     function renderTeam() {
       const tMap = {};
       TASKS.forEach(t => { if (!t.member) return; if (!tMap[t.member]) tMap[t.member] = { member: t.member, asylum: t.asylum, total: 0, done: 0, ip: 0, ns: 0, brands: new Set() }; const m = tMap[t.member]; m.total++; if (t.status === 'Completed') m.done++; else if (t.status === 'In Progress') m.ip++; else m.ns++; if (t.brand) m.brands.add(t.brand); });
@@ -7915,25 +8274,6 @@
       const mEmoji = m => (MEMBER_INFO[m] || {}).emoji || '👤';
       const mAvatar = m => { const info = (MEMBER_INFO[m] || {}); return info.avatar ? `<img src="${info.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : mEmoji(m); };
       const mAtt = m => (window.ATT || {})[m] || null;
-      const mPerf = m => { try { return window.perfCompute ? window.perfCompute(m) : null; } catch (e) { return null; } };
-      const perfRowHTML = m => {
-        const p = mPerf(m);
-        if (!p) return '';
-        return `<div class="member-stat-row"><span class="k">Performance (this month)</span><span style="color:${p.band.c};font-weight:700">${p.score}% · ${p.band.l}</span></div>`;
-      };
-      const tenureRowHTML = m => {
-        const a = mAtt(m);
-        const joinDate = (a && a.joinDate) || (MEMBER_INFO[m] || {}).joinDate;
-        if (!joinDate) return '';
-        const days = window.daysAt ? window.daysAt(joinDate) : '';
-        return `<div class="member-stat-row"><span class="k">Loonatic since</span><span>${fmtDate(joinDate)}${days !== '' ? ` · ${days}d` : ''}</span></div>`;
-      };
-      const deptRowHTML = m => {
-        const a = mAtt(m);
-        const dept = (a && a.dept) || (MEMBER_INFO[m] || {}).department;
-        if (!dept) return '';
-        return `<div class="member-stat-row"><span class="k">Department</span><span style="color:var(--muted)">${dept}</span></div>`;
-      };
 
       // Active members
       // ALL_MEMBERS is the final source of truth for who's currently employed — anyone with historical
@@ -7945,25 +8285,50 @@
       window._teamDetail = {};
       activeMembers.concat(inactiveMembers).forEach(m => { window._teamDetail[m.member] = m; });
 
-      document.getElementById('member-cards').innerHTML = activeMembers.map(m => `
-    <div class="member-card" style="border-color:${mColor(m.member)}22" onclick="window.showMemberDetail('${m.member}')">
-      <div class="member-header">
-        <div class="avatar" style="background:${mColor(m.member)}20;color:${mColor(m.member)};${(MEMBER_INFO[m.member] || {}).avatar ? 'padding:0;' : ''}overflow:hidden">${mAvatar(m.member)}</div>
-        <label class="avatar-edit" title="Change photo" onclick="event.stopPropagation()">📷<input type="file" accept="image/*" style="display:none" onchange="uploadMemberPhoto(this,'${m.member}')"></label>
-        <div><div class="member-name">${m.member}</div><div class="member-role">${m.asylum || (MEMBER_INFO[m.member] || {}).role || 'Team'} · ${m.brands.size} brands</div></div>
+      // "Meet the Loonatics" fun-profile card — a Loona ID/pass-card look rather than
+      // a task tracker (that data still lives in the Full Breakdown table below, and
+      // on the Task Board itself).
+      document.getElementById('member-cards').innerHTML = activeMembers.map(m => {
+        const name = m.member;
+        const info = MEMBER_INFO[name] || {};
+        const a = mAtt(name);
+        const color = mColor(name);
+        const joinDate = (a && a.joinDate) || info.joinDate;
+        const days = joinDate && window.daysAt ? window.daysAt(joinDate) : null;
+        const birthdate = info.birthdate;
+        const zodiac = zodiacSign(birthdate);
+        const spirit = spiritAnimal(birthdate);
+        const moon = moonPhaseOnDate(birthdate);
+        const realRole = m.asylum || info.role || 'Team Member';
+        const fun = funRoleName(realRole);
+        const buildingHTML = m.brands.size ? Array.from(m.brands).map(b => `<div class="lt-building-item">→ ${b}</div>`).join('') : '<div class="lt-building-item" style="color:var(--muted)">No active brands right now</div>';
+        const avatarHtml = `<div class="avatar" style="width:64px;height:64px;font-size:26px;background:${color}20;color:${color};${info.avatar ? 'padding:0;' : ''}overflow:hidden">${mAvatar(name)}</div>`;
+        return `
+    <div class="member-card lc-card" style="border-color:${color}22" onclick="window.showMemberDetail('${name}')">
+      <div class="lc-seal" style="color:${color}">${zodiac ? zodiac.emoji : '✦'}</div>
+      <div class="lc-photo-row">
+        <div class="lt-avatar-wrap">
+          ${statusBubbleHTML(name)}
+          ${avatarHtml}
+          <label class="avatar-edit" title="Change photo" onclick="event.stopPropagation()">📷<input type="file" accept="image/*" style="display:none" onchange="uploadMemberPhoto(this,'${name}')"></label>
+        </div>
       </div>
-      ${perfRowHTML(m.member)}
-      ${deptRowHTML(m.member)}
-      ${tenureRowHTML(m.member)}
-      <div class="member-stat-row"><span class="k">Total Tasks</span><span>${m.total}</span></div>
-      <div class="member-stat-row"><span class="k">Completed</span><span style="color:var(--green)">${m.done}</span></div>
-      <div class="member-stat-row"><span class="k">In Progress</span><span style="color:var(--blue)">${m.ip}</span></div>
-      <div class="member-stat-row"><span class="k">Pending</span><span style="color:var(--yellow)">${m.ns}</span></div>
-      <div class="member-progress" style="margin-top:12px">${progressBar(m.done, m.total)}</div>
+      <div class="lc-name">${name}</div>
+      <div class="lc-tenure">${days != null ? `A Loonatic since ${days}d` : 'Loonatic'}</div>
+      <div class="lc-divider"></div>
+      <div class="lc-row"><span class="lc-label">Role</span><span class="lc-val lt-fun-role">${fun}</span></div>
+      <div class="lc-row" style="margin-top:-4px"><span class="lc-label"></span><span class="lc-val lt-real-role">${realRole}</span></div>
+      ${zodiac ? `<div class="lc-row"><span class="lc-label">Zodiac</span><span class="lc-val">${zodiac.emoji} ${zodiac.name} · ${fmtDate(birthdate)}</span></div>` : ''}
+      ${spirit ? `<div class="lc-row"><span class="lc-label">Spirit Animal</span><span class="lc-val">${spirit.emoji} ${spirit.name}</span></div>` : ''}
+      ${moon ? `<div class="lc-row"><span class="lc-label">Moon Phase</span><span class="lc-val">${moon.emoji} ${moon.name}</span></div>` : ''}
+      <div class="lt-building"><div class="lc-label">Currently Building</div>${buildingHTML}</div>
+      <div class="lt-known-for">${info.knownFor ? `"${info.knownFor}"` : 'Known for: still writing their legend.'}</div>
+      ${info.employeeId ? `<div class="lc-id-tag">№ ${info.employeeId}</div>` : ''}
       <div class="member-actions" style="margin-top:12px;display:flex;gap:8px">
-        <button onclick="event.stopPropagation();removeMember('${m.member}')" style="background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);color:#e05c5c;padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;font-family:var(--font);flex:1">Remove from Team</button>
+        <button onclick="event.stopPropagation();removeMember('${name}')" style="background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);color:#e05c5c;padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;font-family:var(--font);flex:1">Remove from Team</button>
       </div>
-    </div>`).join('');
+    </div>`;
+      }).join('');
 
       // Past employees section
       const pastSec = document.getElementById('past-employees-section') || (() => {
@@ -8752,6 +9117,7 @@
       document.getElementById('eem-gender').value = info.gender || '';
       document.getElementById('eem-bloodgroup').value = info.bloodGroup || '';
       document.getElementById('eem-address').value = info.address || '';
+      document.getElementById('eem-knownfor').value = info.knownFor || '';
       document.getElementById('eem-ec-name').value = info.emergencyContactName || '';
       document.getElementById('eem-ec-phone').value = info.emergencyContactPhone || '';
       document.getElementById('eem-pan').value = '';
@@ -8790,6 +9156,11 @@
     function maybeShowProfileCompletionPrompt() {
       if (!currentUser || window._profilePromptShown) return;
       if (sessionStorage.getItem('profile_prompt_dismissed_' + currentUser)) return;
+      // The status prompt takes priority if it's still up — its own close/submit
+      // handler chains back into this function, so this just waits its turn rather
+      // than popping a second full-screen modal on top of the first.
+      const statusModal = document.getElementById('status-picker-modal');
+      if (statusModal && !statusModal.classList.contains('hidden')) return;
       const info = MEMBER_INFO[currentUser] || {};
       const incomplete = !info.lastName && !info.mobile && !info.bloodGroup && !info.emergencyContactName;
       if (!incomplete) return;
@@ -8819,6 +9190,7 @@
       const gender = document.getElementById('eem-gender').value;
       const bloodGroup = document.getElementById('eem-bloodgroup').value;
       const address = document.getElementById('eem-address').value.trim();
+      const knownFor = document.getElementById('eem-knownfor').value.trim();
       const emergencyContactName = document.getElementById('eem-ec-name').value.trim();
       const emergencyContactPhone = document.getElementById('eem-ec-phone').value.trim();
       const pan = document.getElementById('eem-pan').value.trim().toUpperCase();
@@ -8830,7 +9202,7 @@
       const bankIFSC = document.getElementById('eem-ifsc').value.trim().toUpperCase();
 
       const existing = MEMBER_INFO[name] || {};
-      const nonSensitive = { employeeId: employeeId || null, lastName: lastName || null, department: department || null, role: role || existing.role || 'Team Member', joinDate: joinDate || null, birthdate: birthdate || null, mobile: mobile || null, personalEmail: personalEmail || null, gender: gender || null, bloodGroup: bloodGroup || null, address: address || null, emergencyContactName: emergencyContactName || null, emergencyContactPhone: emergencyContactPhone || null, workEmail: loginDeriveEmail(name) };
+      const nonSensitive = { employeeId: employeeId || null, lastName: lastName || null, department: department || null, role: role || existing.role || 'Team Member', joinDate: joinDate || null, birthdate: birthdate || null, mobile: mobile || null, personalEmail: personalEmail || null, gender: gender || null, bloodGroup: bloodGroup || null, address: address || null, knownFor: knownFor || null, emergencyContactName: emergencyContactName || null, emergencyContactPhone: emergencyContactPhone || null, workEmail: loginDeriveEmail(name) };
       MEMBER_INFO[name] = Object.assign({}, existing, nonSensitive);
       const sensitiveRecord = { pan: pan || null, aadhar: aadhar || null, bankAccountName: bankAccountName || null, bankName: bankName || null, bankBranch: bankBranch || null, bankAccount: bankAccount || null, bankIFSC: bankIFSC || null };
 
@@ -12430,6 +12802,10 @@ ${brandLines}`;
         <label>Address</label>
         <textarea class="form-control" id="eem-address" rows="2"></textarea>
       </div>
+      <div class="form-group">
+        <label>Known For <span style="font-weight:400;color:var(--muted)">(shows on their Meet the Loonatics card)</span></label>
+        <input class="form-control" id="eem-knownfor" placeholder="e.g. Turning impossible briefs into Pinterest boards.">
+      </div>
       <div class="form-row">
         <div class="form-group">
           <label>Emergency Contact Name</label>
@@ -12478,6 +12854,20 @@ ${brandLines}`;
       <div class="modal-actions">
         <button class="btn btn-ghost" id="eem-cancel-btn" onclick="closeEditEmployeeModal()">Cancel</button>
         <button class="btn btn-primary" onclick="submitEditEmployeeModal()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATUS PICKER MODAL (Meet the Loonatics — daily mood) -->
+  <div class="modal-overlay hidden" id="status-picker-modal" onclick="if(event.target===this)closeStatusPicker()">
+    <div class="modal" style="max-width:400px">
+      <div class="modal-title">What's your <span>vibe today?</span></div>
+      <div class="form-group">
+        <select class="form-control" id="status-picker-select"></select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeStatusPicker()">Skip</button>
+        <button class="btn btn-primary" onclick="submitStatusPicker()">Set Status</button>
       </div>
     </div>
   </div>
@@ -13144,14 +13534,12 @@ ${brandLines}`;
     /* ---- Team: 4 member cards per row, condensed to essentials, tap for full detail ---- */
     #member-cards{grid-template-columns:repeat(4,1fr)!important;gap:6px!important}
     #member-cards .member-card{padding:6px 4px!important;border-radius:9px!important;cursor:pointer!important}
-    #member-cards .member-header{flex-direction:column!important;text-align:center!important;gap:3px!important;margin-bottom:5px!important}
     #member-cards .avatar{width:26px!important;height:26px!important;font-size:11px!important}
     #member-cards .avatar-edit{width:16px!important;height:16px!important;font-size:8px!important;margin-top:-6px!important}
-    #member-cards .member-name{font-size:8px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:100%!important}
-    #member-cards .member-role{font-size:6.3px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:100%!important}
-    #member-cards .member-stat-row,#member-cards .member-actions{display:none!important}
-    #member-cards .member-progress{margin-top:5px!important}
-    #member-cards .member-progress .progress-pct{font-size:6.3px!important;margin-top:2px!important}
+    #member-cards .lc-name{font-size:8px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:100%!important;margin-top:3px!important}
+    /* Condensed on mobile — photo, status bubble, and name only; tap the card for the full pass-card popup */
+    #member-cards .lc-seal,#member-cards .lc-tenure,#member-cards .lc-divider,#member-cards .lc-row,#member-cards .lt-building,#member-cards .lt-known-for,#member-cards .lc-id-tag,#member-cards .member-actions{display:none!important}
+    #member-cards .status-bubble{font-size:7px!important;padding:2px 5px!important;margin-bottom:4px!important}
     /* ---- Past Employees: 6 per row, tiny cards, icon-only Restore ---- */
     #past-employees-cards{grid-template-columns:repeat(6,1fr)!important;gap:5px!important}
     #past-employees-cards .member-card{padding:5px 2px!important;border-radius:8px!important;cursor:pointer!important}
@@ -13677,7 +14065,7 @@ ${brandLines}`;
       var dailyCards=teamNames.map(function(n){
         var a=ATT[n], p=perfCompute(n), rec=dayRecord(n,DAILY_SEL);
         return '<div class="att-daily-card" onclick="window.attShowDailyCardDetail(&quot;'+n+'&quot;)" style="cursor:pointer">'+
-          '<div class="adc-head"><div style="display:flex;gap:8px;align-items:center">'+memberAvatarHTML(n)+'<div><strong>'+esc(n)+'</strong><span class="sub">'+esc(a.code)+' · '+esc(a.desg)+'</span></div></div>'+pill(rec.status)+'</div>'+
+          '<div class="adc-head"><div style="display:flex;gap:8px;align-items:center"><div class="lt-avatar-wrap">'+(typeof statusBubbleHTML==="function"?statusBubbleHTML(n):"")+memberAvatarHTML(n)+'</div><div><strong>'+esc(n)+'</strong><span class="sub">'+esc(a.code)+' · '+esc(a.desg)+'</span></div></div>'+pill(rec.status)+'</div>'+
           '<div class="adc-meta">Joined '+fmtDate(a.joinDate)+' &middot; '+daysAt(a.joinDate)+' days &middot; '+esc(a.dept)+'</div>'+
           '<div class="adc-rows">'+
             '<div class="adc-row"><span>First Punch</span><span class="v">'+esc(rec.in)+'</span></div>'+
@@ -14349,23 +14737,25 @@ ${brandLines}`;
       var isInactive=(typeof INACTIVE_MEMBERS!=="undefined")&&INACTIVE_MEMBERS.has(name);
       var info=(typeof MEMBER_INFO!=="undefined"&&MEMBER_INFO[name])||{};
       var row=function(label,val){ return '<div class="pf-absrow"><span>'+label+'</span><span>'+val+'</span></div>'; };
-      var html='<div style="text-align:left">';
-      html+=row("Role", esc(m.asylum||info.role||"Team"));
-      var perf=null; try{ perf=window.perfCompute?window.perfCompute(name):null; }catch(e){}
-      if(perf) html+=row("Performance (this month)", '<span style="color:'+perf.band.c+';font-weight:700">'+perf.score+'% &middot; '+esc(perf.band.l)+'</span>');
+      var realRole=m.asylum||info.role||"Team Member";
       var a=(window.ATT||{})[name];
-      var dept=(a&&a.dept)||info.department;
-      if(dept) html+=row("Department", esc(dept));
       var joinDate=(a&&a.joinDate)||info.joinDate;
-      if(joinDate) html+=row("Loonatic since", fmtDate(joinDate)+(window.daysAt?(' &middot; '+window.daysAt(joinDate)+'d'):''));
-      html+=row("Brands", (m.brands?m.brands.size:0));
-      if(!isInactive){
-        html+=row("Total Tasks", m.total);
-        html+=row("Completed", '<span style="color:var(--green)">'+m.done+'</span>');
-        html+=row("In Progress", '<span style="color:var(--blue)">'+m.ip+'</span>');
-        html+=row("Pending", '<span style="color:var(--yellow)">'+m.ns+'</span>');
-      }
-      html+='</div><div style="margin-top:12px">'+progressBar(m.done,m.total)+'</div>';
+      var days=joinDate&&window.daysAt?window.daysAt(joinDate):null;
+      var zodiac=typeof zodiacSign==="function"?zodiacSign(info.birthdate):null;
+      var spirit=typeof spiritAnimal==="function"?spiritAnimal(info.birthdate):null;
+      var moon=typeof moonPhaseOnDate==="function"?moonPhaseOnDate(info.birthdate):null;
+      var fun=typeof funRoleName==="function"?funRoleName(realRole):realRole;
+      var html='<div style="text-align:left">';
+      html+=row("A Loonatic since", days!=null?(days+"d"):"—");
+      html+=row("Role", esc(fun)+' <span style="color:var(--muted);font-size:11px">('+esc(realRole)+')</span>');
+      if(zodiac) html+=row("Zodiac", zodiac.emoji+' '+esc(zodiac.name)+' &middot; '+fmtDate(info.birthdate));
+      if(spirit) html+=row("Spirit Animal", spirit.emoji+' '+esc(spirit.name));
+      if(moon) html+=row("Moon Phase", moon.emoji+' '+esc(moon.name));
+      html+='</div>';
+      html+='<div style="margin-top:10px;font-size:12px"><div style="color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-size:9.5px;margin-bottom:4px">Currently Building</div>';
+      html+=(m.brands&&m.brands.size)?Array.from(m.brands).map(function(b){return '<div>&rarr; '+esc(b)+'</div>';}).join(""):'<div style="color:var(--muted)">No active brands right now</div>';
+      html+='</div>';
+      html+='<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:12px;font-style:italic;color:var(--muted)">'+(info.knownFor?('"'+esc(info.knownFor)+'"'):"Known for: still writing their legend.")+'</div>';
       html+='<div style="margin-top:14px;display:flex;gap:8px">';
       if(isInactive){
         html+='<button onclick="document.getElementById(&quot;info-pop&quot;).remove();restoreMember(&quot;'+name+'&quot;)" style="background:rgba(76,175,125,.1);border:1px solid rgba(76,175,125,.3);color:#4caf7d;padding:7px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;font-family:var(--font);flex:1">Restore</button>';
