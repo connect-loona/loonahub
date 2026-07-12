@@ -1068,59 +1068,83 @@
     .oracle-intro { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
     .oracle-tagline { font-size: 13px; color: var(--muted); font-style: italic; max-width: 420px; }
 
-    .oracle-card {
-      position: relative;
-      background: #f0e7d4;
-      border: 2px solid #1a1206;
-      border-radius: 14px;
-      padding: 30px 20px 22px;
-      max-width: 260px;
+    .oracle-card-label { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-align: center; margin-bottom: 12px; color: var(--muted); }
+    .oracle-card-frame {
+      max-width: 200px;
       margin: 0 auto;
-      font-family: var(--card-font);
-      color: #1a1206;
+      border: 2px solid #1a1206;
+      border-radius: 12px;
+      overflow: hidden;
+      aspect-ratio: 400 / 704;
+      box-shadow: 0 10px 28px rgba(0,0,0,.35);
     }
-    .oracle-card-corner { position: absolute; font-size: 12px; }
-    .oracle-card-corner-tl { top: 10px; left: 12px; }
-    .oracle-card-corner-tr { top: 10px; right: 12px; }
-    .oracle-card-corner-bl { bottom: 10px; left: 12px; }
-    .oracle-card-corner-br { bottom: 10px; right: 12px; }
-    .oracle-card-header { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-align: center; margin-bottom: 18px; }
-    .oracle-card-emoji { font-size: 52px; text-align: center; line-height: 1; }
-    .oracle-card-name { font-size: 20px; font-weight: 700; text-align: center; margin-top: 12px; }
-    .oracle-card-rule { width: 40px; height: 2px; background: #1a1206; opacity: .3; margin: 16px auto 0; }
+    .oracle-card-frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
     .oracle-reading { text-align: left; margin-top: 20px; }
     .tarot-line { font-size: 13px; line-height: 1.6; margin-bottom: 7px; }
     .tarot-line:last-child { margin-bottom: 0; }
     .tarot-line b { font-weight: 700; }
 
-    .buddy-card {
-      position: relative;
-      max-width: 320px;
-      min-height: 150px;
-      cursor: pointer;
-      border: 2px solid #1a1206;
-      border-radius: 16px;
-      background: #1a1206;
-      color: #e8541e;
-      font-family: var(--card-font);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 22px;
+    /* ── Find Today's Co-Star popup — dark, circular avatar-halo reveal, matching
+       the "Inspired People"-style reference exactly. ── */
+    .costar-modal-card {
+      background: #1e1e1e;
+      border-radius: 28px;
+      padding: 34px 26px 26px;
+      max-width: 340px;
+      margin: 0 auto;
       text-align: center;
-      transition: transform .2s, background .2s, color .2s;
+      color: #fff;
+      font-family: var(--font);
     }
-    .buddy-face { }
-    .buddy-front { font-size: 14px; }
-    .buddy-front-emoji { font-size: 36px; margin-bottom: 10px; }
-    .buddy-back { display: none; }
-    .buddy-back-label { font-size: 10px; font-weight: 700; letter-spacing: .05em; opacity: .7; }
-    .buddy-back-name { font-size: 22px; font-weight: 700; margin: 4px 0 8px; }
-    .buddy-back-reason { font-size: 13px; font-style: italic; line-height: 1.5; }
-    .buddy-card.buddy-revealed { background: #f0e7d4; color: #1a1206; cursor: default; transform: scale(1.02); }
-    .buddy-card.buddy-revealed .buddy-front { display: none; }
-    .buddy-card.buddy-revealed .buddy-back { display: block; }
+    .costar-orbit { position: relative; width: 260px; height: 260px; margin: 0 auto 22px; }
+    .costar-orbit-ring { position: absolute; inset: 0; }
+    .costar-ring-avatar {
+      position: absolute;
+      border-radius: 50%;
+      overflow: hidden;
+      box-shadow: 0 4px 14px rgba(0,0,0,.4);
+      background: #333;
+    }
+    .costar-ring-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .costar-emoji-fallback { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 60%; }
+    .costar-center {
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 112px; height: 112px;
+      margin: -56px 0 0 -56px;
+      border-radius: 26px;
+      overflow: hidden;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      box-shadow: 0 8px 24px rgba(0,0,0,.5);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 44px;
+      z-index: 2;
+    }
+    .costar-center img { width: 100%; height: 100%; object-fit: cover; }
+    .costar-center.costar-spinning { animation: costarPulse .12s infinite alternate; }
+    @keyframes costarPulse { from { transform: scale(1); } to { transform: scale(1.04); } }
+    .costar-title { font-size: 19px; font-weight: 700; line-height: 1.3; margin-bottom: 10px; }
+    .costar-subtitle { font-size: 13px; color: #b8b8b8; line-height: 1.6; }
+    .costar-line { margin-bottom: 8px; }
+    .costar-line:last-child { margin-bottom: 0; }
+    .costar-mission b { color: #fff; }
+    .costar-cool-btn {
+      display: block;
+      width: 100%;
+      margin-top: 24px;
+      padding: 13px;
+      border: none;
+      border-radius: 16px;
+      background: #333;
+      color: #ff8a5c;
+      font-family: var(--font);
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: .04em;
+      cursor: pointer;
+    }
+    .costar-cool-btn:hover { background: #3d3d3d; }
 
     .lp-edit-btn {
       background: transparent;
@@ -4987,9 +5011,10 @@
         </div>
         <div id="daily-tarot-card"></div>
         <div class="section-header">
-          <div class="section-title">Work <span>Companion</span> of the Day</div>
+          <div class="section-title">Find Today's <span>Co-Star</span></div>
+          <button class="btn btn-primary" onclick="openCostarModal()" style="padding:7px 16px;font-size:12px">Reveal</button>
         </div>
-        <div id="daily-work-buddy"></div>
+        <div class="oracle-tagline">A different scene partner every day — tap Reveal to find out who's in it with you.</div>
         <div id="past-employees-section" style="display: none; margin-top: 28px;">
           <div class="section-header">
             <div class="section-title">Past <span>Employees</span></div>
@@ -8382,23 +8407,31 @@
 
     // ═══ Your Tarot for Today ═══ — one deterministic card per person per day,
     // read blended across work/love/fun rather than the traditional single meaning.
+    // Full 22-card Major Arcana, illustrated (see /assets/tarot/*.jpg) — img is the
+    // filename (no extension) of that card's real artwork.
     const TAROT_CARDS = [
-      { emoji: '🃏', name: 'The Fool', work: 'Say yes to the weird project nobody else wants.', love: 'Someone new is about to slide into more than your DMs.', fun: 'Big main-character energy today — use it.' },
-      { emoji: '🎩', name: 'The Magician', work: 'That idea sitting in your Notes app? Ship it today.', love: 'Confidence is the whole game right now.', fun: "You're the plan-maker tonight." },
-      { emoji: '⭐', name: 'The Star', work: 'A small idea today quietly becomes a big deal later.', love: 'Someone has been meaning to text back — nudge them.', fun: 'Say yes to the spontaneous plan.' },
-      { emoji: '☀️', name: 'The Sun', work: 'Your presentation lands better than you think.', love: "It's a good day to be a little extra.", fun: 'Outdoor plans beat indoor plans today.' },
-      { emoji: '🌙', name: 'The Moon', work: "Double-check before you hit send — details aren't fully clear yet.", love: 'Read between the lines today.', fun: 'Trust the vibe over the plan.' },
-      { emoji: '💞', name: 'The Lovers', work: 'Pick the collaborator over the solo grind today.', love: 'A real conversation is overdue.', fun: 'Two-person plans beat solo scrolling.' },
-      { emoji: '🗼', name: 'The Tower', work: 'The plan changes last-minute — roll with it.', love: 'An unexpected message shakes things up, in a good way.', fun: 'Chaotic today, but the fun kind.' },
-      { emoji: '🎡', name: 'Wheel of Fortune', work: 'That random ping might be an actual opportunity.', love: 'Timing finally works out in your favor.', fun: 'Buy the lottery ticket. Or at least the good snack.' },
-      { emoji: '🏔️', name: 'The Hermit', work: 'Your best ideas come from headphones-on, do-not-disturb time.', love: 'Give yourself the night off — no explanation needed.', fun: 'Solo plans are the good plans today.' },
-      { emoji: '🦁', name: 'Strength', work: 'The annoying task gets easier the second you actually start it.', love: 'Gentle honesty wins today over silence.', fun: 'Low-key plans hit different tonight.' },
-      { emoji: '👑', name: 'The Empress', work: 'Your creative instincts are unusually sharp today.', love: 'Treat yourself, then treat someone else too.', fun: 'Good food, good company, no notes.' },
-      { emoji: '📜', name: 'The Emperor', work: 'Make the list, then go crush the list.', love: 'Be the one who initiates today.', fun: 'A little discipline now buys a lot of fun later.' },
-      { emoji: '🍷', name: 'Ten of Cups', work: "Today's win is a team win, not a solo one.", love: "It's a soft, happy day for your people.", fun: 'Group plans are the move tonight.' },
-      { emoji: '🥂', name: 'Three of Cups', work: 'Someone on the team deserves a shoutout today — maybe you.', love: 'Reconnect with someone you keep meaning to.', fun: 'Say yes to the group hang.' },
-      { emoji: '🌍', name: 'The World', work: 'That long project is closer to done than it feels.', love: 'Closure or a fresh start — both are good today.', fun: 'Celebrate a small win, on purpose.' },
-      { emoji: '🏎️', name: 'The Chariot', work: "Momentum's on your side — keep moving, don't overthink.", love: 'Bold moves get rewarded today.', fun: "Say yes before you talk yourself out of it." }
+      { img: 'the-fool', name: 'The Fool', work: 'Say yes to the weird project nobody else wants.', love: 'Someone new is about to slide into more than your DMs.', fun: 'Big main-character energy today — use it.' },
+      { img: 'the-magician', name: 'The Magician', work: 'That idea sitting in your Notes app? Ship it today.', love: 'Confidence is the whole game right now.', fun: "You're the plan-maker tonight." },
+      { img: 'the-high-priestess', name: 'The High Priestess', work: "Trust the instinct you can't quite explain yet.", love: 'Say less, notice more today.', fun: 'Quiet plans reveal more than loud ones.' },
+      { img: 'the-empress', name: 'The Empress', work: 'Your creative instincts are unusually sharp today.', love: 'Treat yourself, then treat someone else too.', fun: 'Good food, good company, no notes.' },
+      { img: 'the-emperor', name: 'The Emperor', work: 'Make the list, then go crush the list.', love: 'Be the one who initiates today.', fun: 'A little discipline now buys a lot of fun later.' },
+      { img: 'the-hierophant', name: 'The Hierophant', work: 'Ask the person who has done this before.', love: 'Old advice still applies today.', fun: "Do the thing your gut already knows the rules of." },
+      { img: 'the-lovers', name: 'The Lovers', work: 'Pick the collaborator over the solo grind today.', love: 'A real conversation is overdue.', fun: 'Two-person plans beat solo scrolling.' },
+      { img: 'the-chariot', name: 'The Chariot', work: "Momentum's on your side — keep moving, don't overthink.", love: 'Bold moves get rewarded today.', fun: "Say yes before you talk yourself out of it." },
+      { img: 'justice', name: 'Justice', work: "A decision you've been putting off is ready to be made.", love: 'Fair beats convenient today.', fun: 'Balance the scales — work hard, then actually stop.' },
+      { img: 'the-hermit', name: 'The Hermit', work: 'Your best ideas come from headphones-on, do-not-disturb time.', love: 'Give yourself the night off — no explanation needed.', fun: 'Solo plans are the good plans today.' },
+      { img: 'wheel-of-fortune', name: 'Wheel of Fortune', work: 'That random ping might be an actual opportunity.', love: 'Timing finally works out in your favor.', fun: 'Buy the lottery ticket. Or at least the good snack.' },
+      { img: 'strength', name: 'Strength', work: 'The annoying task gets easier the second you actually start it.', love: 'Gentle honesty wins today over silence.', fun: 'Low-key plans hit different tonight.' },
+      { img: 'the-hanged-man', name: 'The Hanged Man', work: 'Stepping back from the problem solves it faster than pushing through.', love: 'A different angle changes everything today.', fun: 'Do nothing on purpose for twenty minutes.' },
+      { img: 'temperance', name: 'Temperance', work: "Today's win is a team win, not a solo one.", love: "It's a soft, steady day for your people.", fun: "Mix things that normally don't go together." },
+      { img: 'death', name: 'Death', work: 'Let the old version of the plan go — the new one is better.', love: 'Closure or a fresh start, both good today.', fun: 'End something on purpose so something else can start.' },
+      { img: 'the-tower', name: 'The Tower', work: 'The plan changes last-minute — roll with it.', love: 'An unexpected message shakes things up, in a good way.', fun: 'Chaotic today, but the fun kind.' },
+      { img: 'the-devil', name: 'The Devil', work: "Notice the habit that's quietly running the show today.", love: 'Name the thing you keep avoiding saying.', fun: 'Indulge, on purpose, for once.' },
+      { img: 'the-star', name: 'The Star', work: 'A small idea today quietly becomes a big deal later.', love: 'Someone has been meaning to text back — nudge them.', fun: 'Say yes to the spontaneous plan.' },
+      { img: 'the-moon', name: 'The Moon', work: "Double-check before you hit send — details aren't fully clear yet.", love: 'Read between the lines today.', fun: 'Trust the vibe over the plan.' },
+      { img: 'the-sun', name: 'The Sun', work: 'Your presentation lands better than you think.', love: "It's a good day to be a little extra.", fun: 'Outdoor plans beat indoor plans today.' },
+      { img: 'judgement', name: 'Judgement', work: 'A fair self-review today reveals more than you expect.', love: 'A second chance is worth taking today.', fun: 'Revisit something you gave up on — differently this time.' },
+      { img: 'the-world', name: 'The World', work: 'That long project is closer to done than it feels.', love: 'Closure or a fresh start — both are good today.', fun: 'Celebrate a small win, on purpose.' }
     ];
     function tarotForToday(name) {
       if (!name) return null;
@@ -8406,39 +8439,49 @@
       return TAROT_CARDS[idx];
     }
 
-    // ═══ Work Companion of the Day ═══ — a different (deterministic, so stable
-    // all day) teammate each day, revealed as a tap-to-flip card rather than shown
-    // outright.
+    // ═══ Find Today's Co-Star ═══ — a different (deterministic, so stable all
+    // day) teammate each day, revealed via a slot-machine-style popup rather than
+    // shown outright. {Subj}/{obj}/{poss} are filled in from the co-star's own
+    // gender field (He/him/his, She/her/her, or a They/them/their default).
+    // "their" lines use {plural/singular} verb tokens (e.g. {know/knows}) so
+    // "They know…" and "He knows…" both come out grammatically correct — plain
+    // {Subj} would otherwise pair "They" with a singular verb ("They knows").
     const WORK_BUDDY_REASONS = [
-      "You're both fueled by chaos and cold coffee. Team up today.",
-      'One of you has the ideas, the other has the follow-through. Perfect combo today.',
-      "You'd both rather fix it live than plan it twice.",
-      'Certified overthinkers — untangle today\'s problem together.',
-      "One's the accelerator, one's the brakes. Good balance for today.",
-      'You both secretly enjoy a good deadline crunch.',
-      'Two brains, one thread — get through today faster together.',
-      'You both say "quick call" and mean 45 minutes. Iconic.',
-      'Same chaotic energy, different departments. Let it collide today.',
-      'You both notice the details everyone else misses.',
-      'One of you needs a sounding board today — that\'s the other, unofficially.',
-      'Certified team players. Be each other\'s backup today.',
-      "You'd both rather ask a question than stay stuck.",
-      'Same taste in memes, different taste in music — bond over the former.',
-      'You both work best with someone checking in. Check in on each other today.',
-      'Opposite work styles, same deadline. Make it work.'
+      { your: 'You bring the wild ideas.', their: '{Subj} {know/knows} how to make them move.', mission: 'Pull {obj} into one unfinished thought and see where it goes.' },
+      { your: 'You spot the details everyone else misses.', their: '{Subj} {spot/spots} the bigger picture.', mission: 'Compare notes before either of you finalizes anything today.' },
+      { your: "You move fast and figure it out later.", their: '{Subj} {plan/plans} three steps ahead.', mission: 'Let {obj} slow you down, just once, today.' },
+      { your: "You're the one who says ‘let's just ship it.’", their: '{Subj} {are/is} the one who says ‘wait, one more pass.’', mission: 'Meet in the middle on something today.' },
+      { your: 'You bring the chaos.', their: '{Subj} {bring/brings} the calm.', mission: "Borrow some of {poss} energy before your next deadline." },
+      { your: 'You ask the questions no one else will.', their: '{Subj} actually {have/has} the answers.', mission: 'Corner {obj} with your weirdest question today.' },
+      { your: "You're allergic to boring.", their: '{Subj} {are/is} allergic to sloppy.', mission: "Build something today that's neither." },
+      { your: 'You think out loud.', their: '{Subj} {listen/listens} better than anyone on this team.', mission: 'Think out loud near {obj} today.' },
+      { your: 'You start ten things.', their: '{Subj} {finish/finishes} the one that matters.', mission: 'Hand {obj} your most promising unfinished thing.' },
+      { your: "You're the vibe.", their: '{Subj} {are/is} the execution.', mission: "Combine forces on today's biggest task." },
+      { your: 'You see what could be.', their: '{Subj} {see/sees} what actually works.', mission: 'Pitch {obj} your wildest idea before lunch.' },
+      { your: "You're early to every idea.", their: '{Subj} {are/is} early to every deadline.', mission: 'Sync up before either of you runs off solo.' },
+      { your: 'You bring the energy.', their: '{Subj} {bring/brings} the focus.', mission: 'Feed off each other for the next hour.' },
+      { your: "You're great at starting conversations.", their: '{Subj} {are/is} great at finishing them.', mission: 'Start one with {obj} today and see where it lands.' }
     ];
+    function pronounsFor(name) {
+      const g = ((MEMBER_INFO[name] || {}).gender || '').toLowerCase();
+      if (g === 'male') return { Subj: 'He', obj: 'him', poss: 'his' };
+      if (g === 'female') return { Subj: 'She', obj: 'her', poss: 'her' };
+      return { Subj: 'They', obj: 'them', poss: 'their' };
+    }
+    function fillPronouns(str, p) {
+      const isPlural = p.Subj === 'They';
+      return str
+        .replace(/\{(\w+)\/(\w+)\}/g, (_, plural, singular) => isPlural ? plural : singular)
+        .replace(/\{Subj\}/g, p.Subj).replace(/\{obj\}/g, p.obj).replace(/\{poss\}/g, p.poss);
+    }
     function workBuddyForToday(name) {
       if (!name) return null;
       const others = ALL_MEMBERS.filter(m => m !== name && !INACTIVE_MEMBERS.has(m));
       if (!others.length) return null;
       const buddy = others[dailyHash(name + '_' + todayISO() + '_buddy') % others.length];
-      const reason = WORK_BUDDY_REASONS[dailyHash(name + '_' + todayISO() + '_reason') % WORK_BUDDY_REASONS.length];
-      return { name: buddy, reason };
-    }
-
-    function revealWorkBuddy() {
-      const card = document.getElementById('work-buddy-card');
-      if (card) card.classList.add('buddy-revealed');
+      const t = WORK_BUDDY_REASONS[dailyHash(name + '_' + todayISO() + '_reason') % WORK_BUDDY_REASONS.length];
+      const p = pronounsFor(buddy);
+      return { name: buddy, your: t.your, their: fillPronouns(t.their, p), mission: fillPronouns(t.mission, p) };
     }
 
     function openLoonaOracle() {
@@ -8446,15 +8489,9 @@
       const card = tarotForToday(currentUser);
       if (!card) return;
       document.getElementById('loona-oracle-content').innerHTML = `
-        <div class="oracle-card">
-          <div class="oracle-card-corner oracle-card-corner-tl">✦</div>
-          <div class="oracle-card-corner oracle-card-corner-tr">✦</div>
-          <div class="oracle-card-header">THE LOONA ORACLE</div>
-          <div class="oracle-card-emoji">${card.emoji}</div>
-          <div class="oracle-card-name">${card.name}</div>
-          <div class="oracle-card-rule"></div>
-          <div class="oracle-card-corner oracle-card-corner-bl">✦</div>
-          <div class="oracle-card-corner oracle-card-corner-br">✦</div>
+        <div class="oracle-card-label">THE LOONA ORACLE</div>
+        <div class="oracle-card-frame">
+          <img src="/assets/tarot/${card.img}.jpg" alt="${card.name}">
         </div>
         <div class="oracle-reading">
           <div class="tarot-line"><b>💼 Work:</b> ${card.work}</div>
@@ -8468,34 +8505,79 @@
       document.getElementById('loona-oracle-modal').classList.add('hidden');
     }
 
+    function memberAvatarHTML(name) {
+      const info = MEMBER_INFO[name] || {};
+      return info.avatar ? `<img src="${info.avatar}">` : `<div class="costar-emoji-fallback" style="background:${(info.color || '#888')}30">${info.emoji || '👤'}</div>`;
+    }
+
+    // Decorative halo of teammate avatars around the center spinner, positioned in
+    // two rings by simple trigonometry — purely visual, doesn't affect the pick.
+    function costarOrbitHTML(excludeName) {
+      const pool = ALL_MEMBERS.filter(m => m !== excludeName);
+      const shuffled = pool.map(m => [dailyHash(m + todayISO() + Math.random()), m]).sort((a, b) => a[0] - b[0]).map(x => x[1]);
+      const outer = shuffled.slice(0, 8);
+      const inner = shuffled.slice(8, 14);
+      const ring = (list, radius, size) => list.map((m, i) => {
+        const angle = (i / list.length) * 2 * Math.PI - Math.PI / 2;
+        const x = 50 + radius * Math.cos(angle);
+        const y = 50 + radius * Math.sin(angle);
+        return `<div class="costar-ring-avatar" style="left:${x}%;top:${y}%;width:${size}px;height:${size}px;margin:-${size / 2}px 0 0 -${size / 2}px">${memberAvatarHTML(m)}</div>`;
+      }).join('');
+      return ring(outer, 46, 44) + ring(inner, 28, 36);
+    }
+
+    function openCostarModal() {
+      if (!currentUser) return;
+      const result = workBuddyForToday(currentUser);
+      if (!result) return;
+      const modal = document.getElementById('costar-modal');
+      const center = document.getElementById('costar-center-avatar');
+      const title = document.getElementById('costar-title');
+      const subtitle = document.getElementById('costar-subtitle');
+      const coolBtn = document.getElementById('costar-cool-btn');
+
+      document.getElementById('costar-orbit-ring').innerHTML = costarOrbitHTML(currentUser);
+      title.textContent = 'Finding your co-star…';
+      subtitle.innerHTML = '';
+      coolBtn.style.visibility = 'hidden';
+      modal.classList.remove('hidden');
+
+      // Slot-machine style spin: cycle through random teammates at increasing
+      // intervals (deceleration), then land on the real pick for today.
+      const others = ALL_MEMBERS.filter(m => m !== currentUser);
+      const delays = [70, 70, 80, 90, 100, 120, 150, 190, 240, 300, 380];
+      let step = 0;
+      function spin() {
+        if (step < delays.length) {
+          const rand = others[Math.floor(Math.random() * others.length)];
+          center.innerHTML = memberAvatarHTML(rand);
+          center.classList.add('costar-spinning');
+          window._costarSpinTimeout = setTimeout(spin, delays[step]);
+          step++;
+        } else {
+          center.classList.remove('costar-spinning');
+          center.innerHTML = memberAvatarHTML(result.name);
+          title.textContent = `Today, you're orbiting with ${result.name}`;
+          subtitle.innerHTML = `<div class="costar-line">${result.your} ${result.their}</div><div class="costar-line costar-mission"><b>Today's mission:</b> ${result.mission}</div>`;
+          coolBtn.style.visibility = 'visible';
+        }
+      }
+      spin();
+    }
+
+    function closeCostarModal() {
+      clearTimeout(window._costarSpinTimeout);
+      document.getElementById('costar-modal').classList.add('hidden');
+    }
+
     function renderDailyExtras() {
       const tarotEl = document.getElementById('daily-tarot-card');
-      const buddyEl = document.getElementById('daily-work-buddy');
-      if (!tarotEl || !buddyEl) return;
+      if (!tarotEl) return;
 
       tarotEl.innerHTML = `
         <div class="oracle-intro">
           <div class="oracle-tagline">A little guidance from somewhere beyond the brief.</div>
           <button class="btn btn-primary" onclick="openLoonaOracle()">🔮 Draw My Card</button>
-        </div>`;
-
-      const buddy = workBuddyForToday(currentUser);
-      if (!buddy) { buddyEl.innerHTML = ''; return; }
-      const info = MEMBER_INFO[buddy.name] || {};
-      const color = info.color || '#888';
-      const avatarInner = info.avatar ? `<img src="${info.avatar}" style="width:100%;height:100%;object-fit:cover">` : (info.emoji || '👤');
-      buddyEl.innerHTML = `
-        <div class="buddy-card" id="work-buddy-card" onclick="revealWorkBuddy()">
-          <div class="buddy-face buddy-front">
-            <div class="buddy-front-emoji">🎴</div>
-            <div>Tap to reveal your Work Buddy for today</div>
-          </div>
-          <div class="buddy-face buddy-back">
-            <div class="avatar" style="width:64px;height:64px;font-size:26px;background:${color}25;color:${color};margin:0 auto 10px;${info.avatar ? 'padding:0;overflow:hidden' : ''}">${avatarInner}</div>
-            <div class="buddy-back-label">Your Work Buddy Today</div>
-            <div class="buddy-back-name">${buddy.name}</div>
-            <div class="buddy-back-reason">${buddy.reason}</div>
-          </div>
         </div>`;
     }
 
@@ -13466,6 +13548,19 @@ ${brandLines}`;
   </div>
 
   <!-- STATUS PICKER MODAL (Meet the Loonatics — daily mood) -->
+  <!-- FIND TODAY'S CO-STAR MODAL -->
+  <div class="modal-overlay hidden" id="costar-modal" onclick="if(event.target===this)closeCostarModal()">
+    <div class="costar-modal-card">
+      <div class="costar-orbit">
+        <div class="costar-orbit-ring" id="costar-orbit-ring"></div>
+        <div class="costar-center" id="costar-center-avatar"></div>
+      </div>
+      <div class="costar-title" id="costar-title"></div>
+      <div class="costar-subtitle" id="costar-subtitle"></div>
+      <button class="costar-cool-btn" id="costar-cool-btn" onclick="closeCostarModal()">COOL!</button>
+    </div>
+  </div>
+
   <!-- LOONA ORACLE MODAL -->
   <div class="modal-overlay hidden" id="loona-oracle-modal" onclick="if(event.target===this)closeLoonaOracle()">
     <div class="modal" style="max-width:380px;text-align:center">
