@@ -63,6 +63,9 @@
       align-items: center;
       justify-content: center;
       gap: 32px;
+      overflow-y: auto;
+      padding: 40px 16px;
+      box-sizing: border-box;
     }
 
     .login-logo {
@@ -3583,7 +3586,8 @@
         <div style="font-size:15px;font-weight:700" id="pp-name"></div>
         <div style="font-size:11px;color:var(--muted)" id="pp-role"></div>
       </div>
-      <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-ghost" style="width:100%;font-size:12px;margin-top:4px" onclick="toggleProfile();openMyProfileModal()">👤 My Profile</button>
+      <div style="display:flex;gap:8px;margin-top:8px">
         <button class="btn btn-ghost" style="flex:1;font-size:12px" onclick="toggleProfile()">Close</button>
         <button class="btn btn-primary" style="flex:1;font-size:12px" onclick="logout()">Switch User</button>
       </div>
@@ -5842,11 +5846,16 @@
             const key = fbMemberKey(name);
             if (!existingKeys.has(key)) {
               const info = MEMBER_INFO[name] || {};
-              updates[key] = { name, color: info.color || '#888', emoji: info.emoji || '👤', role: info.role || 'Team Member' };
+              updates[key] = { name, color: info.color || '#888', emoji: info.emoji || '👤', role: info.role || 'Team Member', workEmail: loginDeriveEmail(name) };
               if (info.department) updates[key].department = info.department;
               if (info.joinDate) updates[key].joinDate = info.joinDate;
               if (info.employeeId) updates[key].employeeId = info.employeeId;
               if (info.birthdate) updates[key].birthdate = info.birthdate;
+            } else if (!data[key].workEmail) {
+              // Backfill for records created before workEmail existed — needed so the
+              // Firebase rule for members_sensitive can match "is this person reading
+              // their own record" without a case-folding lookup in the rule itself.
+              updates[key + '/workEmail'] = loginDeriveEmail(name);
             }
           });
           if (Object.keys(updates).length > 0) _db.ref('members').update(updates);
@@ -5889,7 +5898,7 @@
             if (isNew) { ALL_MEMBERS.push(m.name); pickerNeedsRebuild = true; teamNeedsRender = true; }
             attachAvatarListener(m.name);
             const existing = MEMBER_INFO[m.name] || {};
-            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || null, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null, mobile: m.mobile || existing.mobile || null, gender: m.gender || existing.gender || null, personalEmail: m.personalEmail || existing.personalEmail || null, address: m.address || existing.address || null };
+            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || null, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null, mobile: m.mobile || existing.mobile || null, gender: m.gender || existing.gender || null, personalEmail: m.personalEmail || existing.personalEmail || null, address: m.address || existing.address || null, lastName: m.lastName || existing.lastName || null, emergencyContactName: m.emergencyContactName || existing.emergencyContactName || null, emergencyContactPhone: m.emergencyContactPhone || existing.emergencyContactPhone || null, bloodGroup: m.bloodGroup || existing.bloodGroup || null, workEmail: m.workEmail || existing.workEmail || null };
             // Older records still carry the avatar inline on this same node — use it right away,
             // then migrate it out to member_avatars/ so this node stays small for everyone from now on.
             if (m.avatar && m.avatar !== MEMBER_INFO[m.name].avatar) {
@@ -5899,6 +5908,7 @@
               _db.ref('member_avatars/' + key).set(m.avatar).then(() => _db.ref('members/' + key + '/avatar').remove()).catch(() => {});
             }
           });
+          if (currentUser) maybeShowProfileCompletionPrompt();
           if (!pickerNeedsRebuild) return; // nothing changed, skip all re-renders
           // Rebuild login picker to reflect new members
           rebuildLoginPicker();
@@ -6269,6 +6279,7 @@
     // ═══ NEW EMPLOYEE ONBOARDING (the "+" tile on the login picker) ═══
     function openOnboardingForm() {
       document.getElementById('ob-name').value = '';
+      document.getElementById('ob-lastname').value = '';
       document.getElementById('ob-dept').value = '';
       document.getElementById('ob-role').value = '';
       document.getElementById('ob-joindate').value = '';
@@ -6307,6 +6318,7 @@
 
       const record = {
         name,
+        lastName: document.getElementById('ob-lastname').value.trim() || null,
         department: document.getElementById('ob-dept').value.trim() || null,
         role: document.getElementById('ob-role').value.trim() || null,
         joinDate: document.getElementById('ob-joindate').value || null,
@@ -6370,12 +6382,25 @@
               </select>
             </div>
           </div>
-          <div class="form-group"><label>Personal Email</label><input class="form-control" type="email" id="pp-email" value="${rec.personalEmail || ''}"></div>
+          <div class="form-row">
+            <div class="form-group"><label>Personal Email</label><input class="form-control" type="email" id="pp-email" value="${rec.personalEmail || ''}"></div>
+            <div class="form-group"><label>Blood Group</label>
+              <select class="form-control" id="pp-bloodgroup">
+                <option value="">Select</option>
+                ${['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(bg => `<option value="${bg}"${rec.bloodGroup === bg ? ' selected' : ''}>${bg}</option>`).join('')}
+              </select>
+            </div>
+          </div>
           <div class="form-group"><label>Address</label><textarea class="form-control" id="pp-address" rows="2">${rec.address || ''}</textarea></div>
+          <div class="form-row">
+            <div class="form-group"><label>Emergency Contact Name</label><input class="form-control" id="pp-ec-name" value="${rec.emergencyContactName || ''}"></div>
+            <div class="form-group"><label>Emergency Contact Phone</label><input class="form-control" id="pp-ec-phone" value="${rec.emergencyContactPhone || ''}"></div>
+          </div>
           <div class="form-row">
             <div class="form-group"><label>PAN Number</label><input class="form-control" id="pp-pan" style="text-transform:uppercase"></div>
             <div class="form-group"><label>Aadhar Number</label><input class="form-control" id="pp-aadhar"></div>
           </div>
+          <div class="form-group"><label>Account Holder Name</label><input class="form-control" id="pp-holdername"></div>
           <div class="form-row">
             <div class="form-group"><label>Bank Name</label><input class="form-control" id="pp-bankname"></div>
             <div class="form-group"><label>Branch Name</label><input class="form-control" id="pp-branch"></div>
@@ -6397,16 +6422,20 @@
       const mobile = document.getElementById('pp-mobile').value.trim();
       const gender = document.getElementById('pp-gender').value;
       const personalEmail = document.getElementById('pp-email').value.trim();
+      const bloodGroup = document.getElementById('pp-bloodgroup').value;
       const address = document.getElementById('pp-address').value.trim();
+      const emergencyContactName = document.getElementById('pp-ec-name').value.trim();
+      const emergencyContactPhone = document.getElementById('pp-ec-phone').value.trim();
       const pan = document.getElementById('pp-pan').value.trim().toUpperCase();
       const aadhar = document.getElementById('pp-aadhar').value.trim();
+      const bankAccountName = document.getElementById('pp-holdername').value.trim();
       const bankName = document.getElementById('pp-bankname').value.trim();
       const bankBranch = document.getElementById('pp-branch').value.trim();
       const bankAccount = document.getElementById('pp-account').value.trim();
       const bankIFSC = document.getElementById('pp-ifsc').value.trim().toUpperCase();
 
       const existing = (window.MEMBERS_PENDING || {})[key] || {};
-      const profileUpdate = { mobile: mobile || null, gender: gender || null, personalEmail: personalEmail || null, address: address || null, profileCompleted: true };
+      const profileUpdate = { mobile: mobile || null, gender: gender || null, personalEmail: personalEmail || null, bloodGroup: bloodGroup || null, address: address || null, emergencyContactName: emergencyContactName || null, emergencyContactPhone: emergencyContactPhone || null, profileCompleted: true };
       window.MEMBERS_PENDING = window.MEMBERS_PENDING || {};
       window.MEMBERS_PENDING[key] = Object.assign({}, existing, profileUpdate);
 
@@ -6416,7 +6445,7 @@
         // and only on demand (see showAdminEmployeeDetail / renderAdminPendingQueue),
         // so a not-yet-approved person's PAN/Aadhar/bank details never sit in every
         // logged-in employee's browser the way regular member fields do.
-        _db.ref('members_pending_sensitive/' + key).set({ pan: pan || null, aadhar: aadhar || null, bankName: bankName || null, bankBranch: bankBranch || null, bankAccount: bankAccount || null, bankIFSC: bankIFSC || null });
+        _db.ref('members_pending_sensitive/' + key).set({ pan: pan || null, aadhar: aadhar || null, bankAccountName: bankAccountName || null, bankName: bankName || null, bankBranch: bankBranch || null, bankAccount: bankAccount || null, bankIFSC: bankIFSC || null });
       }
 
       showPendingApprovalScreen(existing.name || loginSelectedName);
@@ -6608,6 +6637,12 @@
       setInterval(() => {
         if (currentUser) renderOverview();
       }, 60 * 60 * 1000);
+
+      // Delayed so it doesn't visually collide with the other post-login popups
+      // (pending tasks, check-ins) — catches the case where MEMBER_INFO was already
+      // fully loaded (e.g. from the localStorage cache) before this session's
+      // members listener callback ever fired.
+      setTimeout(() => { if (typeof maybeShowProfileCompletionPrompt === 'function') maybeShowProfileCompletionPrompt(); }, 1500);
     }
 
     function buildEveningUpdateText() {
@@ -8369,6 +8404,7 @@
         `<span class="amp-emoji-opt" onclick="selectAmpEmoji(this,'${e}')">${e}</span>`
       ).join('');
       document.getElementById('amp-name').value = '';
+      document.getElementById('amp-lastname').value = '';
       document.getElementById('amp-empid').value = '';
       populateAmpSelect('dept');
       populateAmpSelect('role');
@@ -8390,6 +8426,7 @@
     function submitAddMember() {
       const name = document.getElementById('amp-name').value.trim();
       if (!name) { document.getElementById('amp-name').style.borderColor = 'var(--red)'; return; }
+      const lastName = document.getElementById('amp-lastname').value.trim();
       const dept = document.getElementById('amp-dept').value.trim();
       const role = document.getElementById('amp-role').value.trim();
       const employeeId = document.getElementById('amp-empid').value.trim();
@@ -8401,7 +8438,7 @@
 
       const memberRole = role || dept || 'Team Member';
       if (!ALL_MEMBERS.includes(name)) ALL_MEMBERS.push(name);
-      MEMBER_INFO[name] = { color, emoji, role: memberRole, avatar: avatar || null, department: dept || null, joinDate: joinDate || null, employeeId: employeeId || null, birthdate: birthdate || null };
+      MEMBER_INFO[name] = { color, emoji, role: memberRole, avatar: avatar || null, department: dept || null, joinDate: joinDate || null, employeeId: employeeId || null, birthdate: birthdate || null, lastName: lastName || null, workEmail: loginDeriveEmail(name) };
 
       // Update UI instantly — don't wait for Firebase round-trip
       buildMemberTabs(currentUser);
@@ -8410,7 +8447,7 @@
       rebuildLoginPicker();
 
       // Persist to Firebase in the background
-      if (_db) _db.ref('members/' + fbMemberKey(name)).set({ name, color, emoji, role: memberRole, avatar: avatar || null, department: dept || null, joinDate: joinDate || null, employeeId: employeeId || null, birthdate: birthdate || null });
+      if (_db) _db.ref('members/' + fbMemberKey(name)).set({ name, color, emoji, role: memberRole, avatar: avatar || null, department: dept || null, joinDate: joinDate || null, employeeId: employeeId || null, birthdate: birthdate || null, lastName: lastName || null, workEmail: loginDeriveEmail(name) });
 
       closeAddMember();
       document.getElementById('toast-emoji').textContent = '🎉';
@@ -8459,15 +8496,16 @@
             return `
             <div class="admin-pending-card">
               <div class="admin-pending-info">
-                <div class="admin-pending-name">${p.name || '(unnamed)'} <span class="admin-pending-badge${p.profileCompleted ? ' admin-pending-badge-ok' : ''}">${p.profileCompleted ? 'Profile complete' : 'Profile incomplete'}</span></div>
+                <div class="admin-pending-name">${p.name || '(unnamed)'}${p.lastName ? ' ' + p.lastName : ''} <span class="admin-pending-badge${p.profileCompleted ? ' admin-pending-badge-ok' : ''}">${p.profileCompleted ? 'Profile complete' : 'Profile incomplete'}</span></div>
                 <div class="admin-pending-meta">${[p.role, p.department].filter(Boolean).join(' · ') || 'No role/department given'}</div>
                 ${p.joinDate ? `<div class="admin-pending-meta">Joining: ${fmtDate(p.joinDate)}</div>` : ''}
                 ${p.mobile ? `<div class="admin-pending-meta">📞 ${p.mobile}</div>` : ''}
                 ${p.personalEmail ? `<div class="admin-pending-meta">✉️ ${p.personalEmail}</div>` : ''}
-                ${p.gender ? `<div class="admin-pending-meta">${p.gender}</div>` : ''}
+                ${p.gender ? `<div class="admin-pending-meta">${p.gender}${p.bloodGroup ? ' · ' + p.bloodGroup : ''}</div>` : ''}
                 ${p.address ? `<div class="admin-pending-meta">📍 ${p.address}</div>` : ''}
+                ${p.emergencyContactName ? `<div class="admin-pending-meta">🆘 ${p.emergencyContactName}${p.emergencyContactPhone ? ' · ' + p.emergencyContactPhone : ''}</div>` : ''}
                 ${hasSensitive ? `<div class="admin-pending-meta" style="margin-top:6px;color:var(--text)">
-                  ${s.pan ? `PAN: ${s.pan}<br>` : ''}${s.aadhar ? `Aadhar: ${s.aadhar}<br>` : ''}${s.bankName ? `${s.bankName}${s.bankBranch ? ' · ' + s.bankBranch : ''}<br>` : ''}${s.bankAccount ? `A/C: ${s.bankAccount}${s.bankIFSC ? ' · ' + s.bankIFSC : ''}` : ''}
+                  ${s.pan ? `PAN: ${s.pan}<br>` : ''}${s.aadhar ? `Aadhar: ${s.aadhar}<br>` : ''}${s.bankAccountName ? `Holder: ${s.bankAccountName}<br>` : ''}${s.bankName ? `${s.bankName}${s.bankBranch ? ' · ' + s.bankBranch : ''}<br>` : ''}${s.bankAccount ? `A/C: ${s.bankAccount}${s.bankIFSC ? ' · ' + s.bankIFSC : ''}` : ''}
                 </div>` : ''}
               </div>
               <div class="admin-pending-actions">
@@ -8492,7 +8530,7 @@
       const color = COLORS[Math.floor(Math.random() * COLORS.length)];
       const emoji = '👤';
       const role = p.role || p.department || 'Team Member';
-      const info = { color, emoji, role, avatar: null, department: p.department || null, joinDate: p.joinDate || null, employeeId: null, birthdate: p.birthdate || null, mobile: p.mobile || null, gender: p.gender || null, personalEmail: p.personalEmail || null, address: p.address || null };
+      const info = { color, emoji, role, avatar: null, department: p.department || null, joinDate: p.joinDate || null, employeeId: null, birthdate: p.birthdate || null, mobile: p.mobile || null, gender: p.gender || null, personalEmail: p.personalEmail || null, address: p.address || null, lastName: p.lastName || null, emergencyContactName: p.emergencyContactName || null, emergencyContactPhone: p.emergencyContactPhone || null, bloodGroup: p.bloodGroup || null, workEmail: loginDeriveEmail(name) };
       const memberRecord = Object.assign({ name }, info);
 
       ALL_MEMBERS.push(name);
@@ -8576,19 +8614,22 @@
           <div class="admin-detail-head">
             <div class="admin-dir-avatar" style="width:64px;height:64px;font-size:26px;background:${info.color || '#888'}20;color:${info.color || '#888'};${info.avatar ? 'padding:0;' : ''}overflow:hidden">${mAvatarHtml}</div>
             <div>
-              <div class="admin-detail-name">${name}</div>
+              <div class="admin-detail-name">${name}${info.lastName ? ' ' + info.lastName : ''}</div>
               <div class="admin-dir-role">${info.role || 'Team Member'}${info.department ? ' · ' + info.department : ''}</div>
             </div>
           </div>
 
           <div class="admin-detail-section-title">Identity</div>
           <div class="member-stat-row"><span class="k">Employee ID</span><span>${info.employeeId || '—'}</span></div>
+          <div class="member-stat-row"><span class="k">Full Name</span><span>${name}${info.lastName ? ' ' + info.lastName : ''}</span></div>
           <div class="member-stat-row"><span class="k">Work Email</span><span>${workEmail}</span></div>
           <div class="member-stat-row"><span class="k">Personal Email</span><span>${info.personalEmail || '—'}</span></div>
           <div class="member-stat-row"><span class="k">Mobile</span><span>${info.mobile || '—'}</span></div>
           <div class="member-stat-row"><span class="k">Gender</span><span>${info.gender || '—'}</span></div>
+          <div class="member-stat-row"><span class="k">Blood Group</span><span>${info.bloodGroup || '—'}</span></div>
           <div class="member-stat-row"><span class="k">Date of Birth</span><span>${info.birthdate ? fmtDate(info.birthdate) : '—'}</span></div>
           <div class="member-stat-row"><span class="k">Address</span><span style="text-align:right;max-width:60%">${info.address || '—'}</span></div>
+          <div class="member-stat-row"><span class="k">Emergency Contact</span><span>${info.emergencyContactName ? `${info.emergencyContactName}${info.emergencyContactPhone ? ' · ' + info.emergencyContactPhone : ''}` : '—'}</span></div>
 
           <div class="admin-detail-section-title">Professional</div>
           <div class="member-stat-row"><span class="k">Department</span><span>${info.department || '—'}</span></div>
@@ -8598,6 +8639,7 @@
           <div class="admin-detail-section-title">🔒 Financial &amp; ID <span class="admin-detail-section-note">visible only to Gokul</span></div>
           <div class="member-stat-row"><span class="k">PAN Number</span><span>${sensitive.pan || '—'}</span></div>
           <div class="member-stat-row"><span class="k">Aadhar Number</span><span>${sensitive.aadhar || '—'}</span></div>
+          <div class="member-stat-row"><span class="k">Account Holder Name</span><span>${sensitive.bankAccountName || '—'}</span></div>
           <div class="member-stat-row"><span class="k">Bank Name</span><span>${sensitive.bankName || '—'}</span></div>
           <div class="member-stat-row"><span class="k">Branch</span><span>${sensitive.bankBranch || '—'}</span></div>
           <div class="member-stat-row"><span class="k">Account Number</span><span>${sensitive.bankAccount || '—'}</span></div>
@@ -8620,11 +8662,19 @@
 
     let _eemEditingName = null;
 
-    async function openEditEmployeeModal(name) {
+    let _eemContext = 'admin'; // 'admin' (opened from Admin directory) or 'profile' (self-service / backfill prompt)
+
+    async function openEditEmployeeModal(name, context) {
       _eemEditingName = name;
+      _eemContext = context || 'admin';
       const info = MEMBER_INFO[name] || {};
-      document.getElementById('eem-title-name').textContent = name;
+      const isSelf = name === currentUser;
+      document.getElementById('eem-title-name').textContent = isSelf ? 'My Profile' : name;
+      document.getElementById('eem-backfill-banner').style.display = _eemContext === 'backfill' ? 'block' : 'none';
+      document.getElementById('eem-cancel-btn').textContent = _eemContext === 'backfill' ? 'Remind Me Later' : 'Cancel';
       document.getElementById('eem-employeeid').value = info.employeeId || '';
+      document.getElementById('eem-employeeid').disabled = isSelf && normName(currentUser) !== 'gokul';
+      document.getElementById('eem-lastname').value = info.lastName || '';
       document.getElementById('eem-dept').value = info.department || '';
       document.getElementById('eem-role').value = info.role || '';
       document.getElementById('eem-joindate').value = info.joinDate || '';
@@ -8632,9 +8682,13 @@
       document.getElementById('eem-mobile').value = info.mobile || '';
       document.getElementById('eem-email').value = info.personalEmail || '';
       document.getElementById('eem-gender').value = info.gender || '';
+      document.getElementById('eem-bloodgroup').value = info.bloodGroup || '';
       document.getElementById('eem-address').value = info.address || '';
+      document.getElementById('eem-ec-name').value = info.emergencyContactName || '';
+      document.getElementById('eem-ec-phone').value = info.emergencyContactPhone || '';
       document.getElementById('eem-pan').value = '';
       document.getElementById('eem-aadhar').value = '';
+      document.getElementById('eem-holdername').value = '';
       document.getElementById('eem-bankname').value = '';
       document.getElementById('eem-branch').value = '';
       document.getElementById('eem-account').value = '';
@@ -8647,6 +8701,7 @@
           const s = snap.val() || {};
           document.getElementById('eem-pan').value = s.pan || '';
           document.getElementById('eem-aadhar').value = s.aadhar || '';
+          document.getElementById('eem-holdername').value = s.bankAccountName || '';
           document.getElementById('eem-bankname').value = s.bankName || '';
           document.getElementById('eem-branch').value = s.bankBranch || '';
           document.getElementById('eem-account').value = s.bankAccount || '';
@@ -8655,8 +8710,29 @@
       }
     }
 
+    function openMyProfileModal() {
+      if (!currentUser) return;
+      openEditEmployeeModal(currentUser, 'profile');
+    }
+
+    // Existing team members (pre-dating the onboarding flow, so they're missing the
+    // newer HR fields entirely) get prompted once per session to fill their own
+    // profile in — reuses the same modal as My Profile / Admin edit, just with an
+    // explanatory banner and a "Remind Me Later" instead of "Cancel".
+    function maybeShowProfileCompletionPrompt() {
+      if (!currentUser || window._profilePromptShown) return;
+      if (sessionStorage.getItem('profile_prompt_dismissed_' + currentUser)) return;
+      const info = MEMBER_INFO[currentUser] || {};
+      const incomplete = !info.lastName && !info.mobile && !info.bloodGroup && !info.emergencyContactName;
+      if (!incomplete) return;
+      window._profilePromptShown = true;
+      openEditEmployeeModal(currentUser, 'backfill');
+    }
+
     function closeEditEmployeeModal() {
+      if (_eemContext === 'backfill' && _eemEditingName) sessionStorage.setItem('profile_prompt_dismissed_' + _eemEditingName, '1');
       document.getElementById('edit-employee-modal').classList.add('hidden');
+      document.getElementById('eem-employeeid').disabled = false;
       _eemEditingName = null;
     }
 
@@ -8665,6 +8741,7 @@
       if (!name) return;
       const key = fbMemberKey(name);
       const employeeId = document.getElementById('eem-employeeid').value.trim();
+      const lastName = document.getElementById('eem-lastname').value.trim();
       const department = document.getElementById('eem-dept').value.trim();
       const role = document.getElementById('eem-role').value.trim();
       const joinDate = document.getElementById('eem-joindate').value;
@@ -8672,18 +8749,22 @@
       const mobile = document.getElementById('eem-mobile').value.trim();
       const personalEmail = document.getElementById('eem-email').value.trim();
       const gender = document.getElementById('eem-gender').value;
+      const bloodGroup = document.getElementById('eem-bloodgroup').value;
       const address = document.getElementById('eem-address').value.trim();
+      const emergencyContactName = document.getElementById('eem-ec-name').value.trim();
+      const emergencyContactPhone = document.getElementById('eem-ec-phone').value.trim();
       const pan = document.getElementById('eem-pan').value.trim().toUpperCase();
       const aadhar = document.getElementById('eem-aadhar').value.trim();
+      const bankAccountName = document.getElementById('eem-holdername').value.trim();
       const bankName = document.getElementById('eem-bankname').value.trim();
       const bankBranch = document.getElementById('eem-branch').value.trim();
       const bankAccount = document.getElementById('eem-account').value.trim();
       const bankIFSC = document.getElementById('eem-ifsc').value.trim().toUpperCase();
 
       const existing = MEMBER_INFO[name] || {};
-      const nonSensitive = { employeeId: employeeId || null, department: department || null, role: role || existing.role || 'Team Member', joinDate: joinDate || null, birthdate: birthdate || null, mobile: mobile || null, personalEmail: personalEmail || null, gender: gender || null, address: address || null };
+      const nonSensitive = { employeeId: employeeId || null, lastName: lastName || null, department: department || null, role: role || existing.role || 'Team Member', joinDate: joinDate || null, birthdate: birthdate || null, mobile: mobile || null, personalEmail: personalEmail || null, gender: gender || null, bloodGroup: bloodGroup || null, address: address || null, emergencyContactName: emergencyContactName || null, emergencyContactPhone: emergencyContactPhone || null, workEmail: loginDeriveEmail(name) };
       MEMBER_INFO[name] = Object.assign({}, existing, nonSensitive);
-      const sensitiveRecord = { pan: pan || null, aadhar: aadhar || null, bankName: bankName || null, bankBranch: bankBranch || null, bankAccount: bankAccount || null, bankIFSC: bankIFSC || null };
+      const sensitiveRecord = { pan: pan || null, aadhar: aadhar || null, bankAccountName: bankAccountName || null, bankName: bankName || null, bankBranch: bankBranch || null, bankAccount: bankAccount || null, bankIFSC: bankIFSC || null };
 
       if (_db) {
         _db.ref('members/' + key).update(nonSensitive);
@@ -8693,11 +8774,13 @@
       renderTeam();
       renderOverview();
       buildMemberTabs(currentUser);
+      if (name === currentUser) { renderProfilePanel(); sessionStorage.setItem('profile_prompt_dismissed_' + currentUser, '1'); }
+      const wasProfileContext = _eemContext === 'profile';
       closeEditEmployeeModal();
-      showAdminEmployeeDetail(name);
+      if (!wasProfileContext && document.getElementById('admin-employee-detail') && document.getElementById('admin-employee-detail').style.display !== 'none') showAdminEmployeeDetail(name);
 
       document.getElementById('toast-emoji').textContent = '💾';
-      document.getElementById('toast-msg').textContent = `${name}'s details updated`;
+      document.getElementById('toast-msg').textContent = wasProfileContext ? 'Your profile was updated' : `${name}'s details updated`;
       document.getElementById('toast-sub').textContent = '';
       const toast = document.getElementById('completion-toast');
       toast.classList.add('show');
@@ -12096,9 +12179,15 @@ ${brandLines}`;
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Full Name *</label>
+          <label>First Name *</label>
           <input class="form-control" id="amp-name" placeholder="e.g. Priya">
         </div>
+        <div class="form-group">
+          <label>Last Name</label>
+          <input class="form-control" id="amp-lastname" placeholder="e.g. Sharma">
+        </div>
+      </div>
+      <div class="form-row">
         <div class="form-group">
           <label>Employee ID</label>
           <input class="form-control" id="amp-empid" placeholder="e.g. LSPL014">
@@ -12148,11 +12237,18 @@ ${brandLines}`;
     <div class="modal" style="max-width:480px">
       <div class="modal-title">Welcome to <span>Loona</span></div>
       <div style="font-size:12.5px;color:var(--muted);margin:-8px 0 16px">A few quick details, then you'll set up your Hub password. Gokul will review and approve your account before you can log in.</div>
-      <div class="form-group">
-        <label>Full Name *</label>
-        <input class="form-control" id="ob-name" placeholder="e.g. Priya">
-        <div id="ob-name-error" style="display:none;color:#ff8a8a;font-size:12px;margin-top:4px"></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>First Name *</label>
+          <input class="form-control" id="ob-name" placeholder="e.g. Priya">
+          <div id="ob-name-error" style="display:none;color:#ff8a8a;font-size:12px;margin-top:4px"></div>
+        </div>
+        <div class="form-group">
+          <label>Last Name</label>
+          <input class="form-control" id="ob-lastname" placeholder="e.g. Sharma">
+        </div>
       </div>
+      <div style="font-size:11px;color:var(--muted);margin:-8px 0 4px">The dashboard uses first names only — that's what everyone will see and search by.</div>
       <div class="form-row">
         <div class="form-group">
           <label>Department</label>
@@ -12184,19 +12280,15 @@ ${brandLines}`;
   <div class="modal-overlay hidden" id="edit-employee-modal" onclick="if(event.target===this)closeEditEmployeeModal()">
     <div class="modal" style="max-width:520px">
       <div class="modal-title">Edit <span id="eem-title-name">Employee</span></div>
+      <div id="eem-backfill-banner" style="display:none;font-size:12px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin:-8px 0 16px">We're bringing everyone's HR records up to date — a couple of minutes to fill this in helps a lot. You can pick "Remind Me Later" if now's not a good time.</div>
       <div class="form-row">
         <div class="form-group">
           <label>Employee ID</label>
           <input class="form-control" id="eem-employeeid" placeholder="e.g. LSPL014">
         </div>
         <div class="form-group">
-          <label>Gender</label>
-          <select class="form-control" id="eem-gender">
-            <option value="">Select</option>
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-            <option value="Other">Other</option>
-          </select>
+          <label>Last Name</label>
+          <input class="form-control" id="eem-lastname" placeholder="e.g. Sharma">
         </div>
       </div>
       <div class="form-row">
@@ -12229,9 +12321,38 @@ ${brandLines}`;
           <input class="form-control" type="email" id="eem-email">
         </div>
       </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Gender</label>
+          <select class="form-control" id="eem-gender">
+            <option value="">Select</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Blood Group</label>
+          <select class="form-control" id="eem-bloodgroup">
+            <option value="">Select</option>
+            <option>A+</option><option>A-</option><option>B+</option><option>B-</option>
+            <option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
+          </select>
+        </div>
+      </div>
       <div class="form-group">
         <label>Address</label>
         <textarea class="form-control" id="eem-address" rows="2"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Emergency Contact Name</label>
+          <input class="form-control" id="eem-ec-name">
+        </div>
+        <div class="form-group">
+          <label>Emergency Contact Phone</label>
+          <input class="form-control" id="eem-ec-phone">
+        </div>
       </div>
       <div class="admin-detail-section-title" style="margin-top:12px">🔒 Financial &amp; ID</div>
       <div class="form-row">
@@ -12243,6 +12364,10 @@ ${brandLines}`;
           <label>Aadhar Number</label>
           <input class="form-control" id="eem-aadhar">
         </div>
+      </div>
+      <div class="form-group">
+        <label>Account Holder Name</label>
+        <input class="form-control" id="eem-holdername">
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -12265,7 +12390,7 @@ ${brandLines}`;
         </div>
       </div>
       <div class="modal-actions">
-        <button class="btn btn-ghost" onclick="closeEditEmployeeModal()">Cancel</button>
+        <button class="btn btn-ghost" id="eem-cancel-btn" onclick="closeEditEmployeeModal()">Cancel</button>
         <button class="btn btn-primary" onclick="submitEditEmployeeModal()">Save Changes</button>
       </div>
     </div>
