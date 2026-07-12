@@ -1068,6 +1068,11 @@
     .oracle-intro { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
     .oracle-tagline { font-size: 13px; color: var(--muted); font-style: italic; max-width: 420px; }
 
+    .loona-extras-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: stretch; }
+    .loona-extra-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; }
+    .loona-extra-title { font-size: 14px; font-weight: 700; margin-bottom: 12px; }
+    @media(max-width:820px){ .loona-extras-grid { grid-template-columns: 1fr; } }
+
     .oracle-card-label { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-align: center; margin-bottom: 12px; color: var(--muted); }
     .oracle-card-frame {
       max-width: 200px;
@@ -5074,20 +5079,28 @@
         </div>
         <div class="member-grid" id="member-cards"></div>
         <!-- Personal, once-a-day, deterministic per person — not tied to any one
-             profile, so these live below the whole roster rather than on a card. -->
+             profile, so these live below the whole roster as one grouped set of
+             "daily extras" rather than as three separate stacked sections. -->
         <div class="section-header" style="margin-top:28px">
-          <div class="section-title">The Loona <span>Oracle</span></div>
+          <div class="section-title">Your Daily <span>Loona Extras</span></div>
         </div>
-        <div id="daily-tarot-card"></div>
-        <div class="section-header">
-          <div class="section-title">Find Today's <span>Co-Star</span></div>
-          <button class="btn btn-primary" onclick="openCostarModal()" style="padding:7px 16px;font-size:12px">Reveal</button>
+        <div class="loona-extras-grid">
+          <div class="loona-extra-card">
+            <div class="loona-extra-title">🔮 The Loona Oracle</div>
+            <div id="daily-tarot-card"></div>
+          </div>
+          <div class="loona-extra-card">
+            <div class="loona-extra-title">🎬 Find Today's Co-Star</div>
+            <div class="oracle-intro">
+              <div class="oracle-tagline">A different scene partner every day — tap Reveal to find out who's in it with you.</div>
+              <button class="btn btn-primary" onclick="openCostarModal()" style="padding:7px 16px;font-size:12px">Reveal</button>
+            </div>
+          </div>
+          <div class="loona-extra-card">
+            <div class="loona-extra-title">🧭 Find Your Loona Personality</div>
+            <div id="loona-quiz-entry"></div>
+          </div>
         </div>
-        <div class="oracle-tagline">A different scene partner every day — tap Reveal to find out who's in it with you.</div>
-        <div class="section-header">
-          <div class="section-title">Find Your <span>Loona Personality</span></div>
-        </div>
-        <div id="loona-quiz-entry"></div>
         <div id="past-employees-section" style="display: none; margin-top: 28px;">
           <div class="section-header">
             <div class="section-title">Past <span>Employees</span></div>
