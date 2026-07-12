@@ -10837,9 +10837,47 @@
           <button class="btn btn-ghost" onclick="lnShowView('list')">Back to all notes</button>
           ${(note.actionItems || []).length > 1 ? `<button class="btn btn-ghost" onclick="lnAddAllDetailActionsToTasks()">+ Push All to Tasks</button>` : ''}
           <button class="btn btn-ghost" onclick="lnDownloadNoteMOM()">⬇ Download MOM</button>
+          ${hasClientSafe ? `<button class="btn btn-primary" id="ln-export-doc-btn" onclick="lnExportClientDoc()">📄 Export as Doc</button>` : ''}
         </div>
       `;
       window._lnDetailNote = note;
+    }
+
+    // Turns the client-safe summary into a real, link-shareable Google Doc —
+    // built for pasting into WhatsApp (where most client conversations actually
+    // happen), not for emailing, so this returns a link rather than sending anything.
+    async function lnExportClientDoc() {
+      const note = window._lnDetailNote;
+      if (!note || !note.clientSafeSummary) return;
+      const btn = document.getElementById('ln-export-doc-btn');
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Exporting…';
+      try {
+        const resp = await fetch('/.netlify/functions/docs-export', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            requesterName: currentUser,
+            title: note.title,
+            brand: note.brand || '',
+            date: note.date,
+            clientSafeSummary: note.clientSafeSummary,
+            decisions: note.decisions || [],
+            actionItems: note.actionItems || []
+          })
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok || !data.success) throw new Error(data.message || 'Could not export this as a Doc');
+        try { await navigator.clipboard.writeText(data.url); } catch (e) { /* clipboard may be unavailable — link is still shown below */ }
+        window.open(data.url, '_blank', 'noopener');
+        alert('Doc created and link copied — paste it straight into WhatsApp.\n\n' + data.url);
+      } catch (e) {
+        alert('Could not export this as a Doc: ' + (e.message || e));
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
     }
 
     function lnDetailActionRow(a, i) {

@@ -43,11 +43,16 @@
 #                             see netlify/functions/calendar-sync.js. Also accepts the
 #                             "GOOGLE_CALENDER_SERVICE_ACCOUNT" misspelling if that's
 #                             what's actually set in the Netlify dashboard.
-#                             Needs BOTH of these scopes authorized for its Client ID in
-#                             Workspace Admin > Security > API Controls > Domain-wide
-#                             Delegation (add the second one alongside the first, don't
-#                             replace it):
+#                             Needs ALL FOUR of these scopes authorized for its Client ID
+#                             in Workspace Admin > Security > API Controls > Domain-wide
+#                             Delegation (add each one alongside the others, don't replace
+#                             any of them):
 #                               https://www.googleapis.com/auth/calendar.readonly
 #                               https://www.googleapis.com/auth/calendar.events
-#                             The second one is only needed for "+ New Meeting" (creating
-#                             events from the Calendar tab) — see calendar-create.js.)
+#                               https://www.googleapis.com/auth/documents
+#                               https://www.googleapis.com/auth/drive.file
+#                             calendar.events is only needed for "+ New Meeting" / editing
+#                             (calendar-create.js / calendar-update.js). documents +
+#                             drive.file are only needed for Loona Notes' "Export as Doc"
+#                             (calendar-sync.js is read-only and works with just the first
+#                             scope) — see docs-export.js.)
