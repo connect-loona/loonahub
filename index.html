@@ -1018,6 +1018,24 @@
       transition: background .15s, color .15s;
     }
     .lp-edit-btn:hover { background: #1a1206; color: #e8541e; }
+    .lp-edit-btn.lp-save-btn { background: #1a1206; color: #e8541e; }
+
+    .lp-inline-input {
+      background: rgba(255,255,255,.35);
+      border: none;
+      border-bottom: 1.5px dashed #1a1206;
+      border-radius: 2px 2px 0 0;
+      color: #1a1206;
+      font-family: inherit;
+      font-weight: 700;
+      font-size: inherit;
+      padding: 2px 4px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .lp-inline-input:focus { outline: none; background: rgba(255,255,255,.6); }
+    .lp-inline-input.lp-inline-textarea { resize: vertical; font-weight: 600; line-height: 1.5; }
+    .lp-field-row .lp-inline-input { max-width: 220px; }
 
     @media (max-width: 720px) {
       .lp-top { grid-template-columns: 1fr; }
@@ -8326,7 +8344,14 @@
     // B&W photo w/ barcode+QR footer, name + tenure badge + verified seal, labeled
     // field rows, a 3-col section (Building / Mood / Now Playing), a 2-col section
     // (Fun Facts / Known For), a 4-col Favorites row, and a footer bar.
-    function buildLoonaticPassCardHTML(name) {
+    function escAttr(s) {
+      return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    }
+    function escHtml(s) {
+      return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function buildLoonaticPassCardHTML(name, editMode) {
       const info = MEMBER_INFO[name] || {};
       const a = (window.ATT || {})[name] || null;
       const joinDate = (a && a.joinDate) || info.joinDate;
@@ -8361,7 +8386,7 @@
         <div class="lp-fav-item">
           <div class="lp-fav-tag">${label}</div>
           <div class="lp-fav-img lp-fav-upload">${img ? `<img src="${img}">` : icon}${canEdit ? `<label class="avatar-edit" title="Add photo" onclick="event.stopPropagation()">📷<input type="file" accept="image/*" style="display:none" onchange="uploadFavoriteImage(this,'${name}','${kind}')"></label>` : ''}</div>
-          <div class="lp-fav-title">${val || '—'}</div>
+          ${editMode ? `<input class="lp-inline-input" id="lp-edit-fav-${kind}" value="${escAttr(val)}" placeholder="${label.charAt(0) + label.slice(1).toLowerCase()}" style="text-align:center;margin-top:6px">` : `<div class="lp-fav-title">${val || '—'}</div>`}
         </div>`;
 
       // Icon helper: 'fill' = black circle (matches reference's Role/Moon/Style icons),
@@ -8373,10 +8398,14 @@
         return `<div class="lp-field-icon${v.includes('fill') ? ' lp-icon-fill' : ''}${v.includes('text') ? ' lp-icon-text' : ''}${v.includes('mono') ? ' lp-icon-mono' : ''}">${content}</div>`;
       };
 
+      const editButtons = !canEdit ? '' : editMode
+        ? `<div style="display:flex;gap:8px"><button class="lp-edit-btn lp-save-btn" onclick="saveLoonaticEdit('${name}')">💾 Save</button><button class="lp-edit-btn" onclick="cancelLoonaticEdit('${name}')">✕ Cancel</button></div>`
+        : `<button class="lp-edit-btn" onclick="startLoonaticEdit('${name}')">✎ Edit Profile</button>`;
+
       return `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
         <button class="btn btn-ghost" onclick="closeLoonaticProfile()">← Back to Team</button>
-        ${canEdit ? `<button class="lp-edit-btn" onclick="${isSelf ? 'openMyProfileModal()' : `openEditEmployeeModal('${name}')`}">✎ Edit Profile</button>` : ''}
+        ${editButtons}
       </div>
       <div class="lp-page" style="max-width:860px;margin:0 auto">
         <div class="lp-header">
@@ -8421,12 +8450,12 @@
               <div class="lp-since-badge">${days != null ? days : '—'}<span>DAYS</span></div>
             </div>
             <div class="lp-fields" title="Actual title: ${realRole}">
-              <div class="lp-field-row">${fieldIcon('✳', 'fill')}<div class="lp-field-label">ROLE:</div><div class="lp-field-val">${fun}</div></div>
-              <div class="lp-field-row">${fieldIcon(zodiac ? zodiac.emoji : '✦')}<div class="lp-field-label">ZODIAC SIGN:</div><div class="lp-field-val">${zodiac ? zodiac.name : '—'}</div>${birthdate ? `<div class="lp-field-extra">${fmtDate(birthdate)}</div>` : ''}</div>
-              <div class="lp-field-row">${fieldIcon(spirit ? spirit.emoji : '🐾', 'mono')}<div class="lp-field-label">SPIRIT ANIMAL:</div><div class="lp-field-val">${spirit ? spirit.name : '—'}</div></div>
-              <div class="lp-field-row">${fieldIcon(info.mbti ? info.mbti.split('-')[0] : 'MBTI', 'text')}<div class="lp-field-label">MBTI:</div><div class="lp-field-val">${info.mbti || '—'}</div></div>
-              <div class="lp-field-row">${fieldIcon(moon ? moon.emoji : '🌙', 'fill mono')}<div class="lp-field-label">MOON PHASE ON BIRTHDAY:</div><div class="lp-field-val">${moon ? moon.name : '—'}</div></div>
-              <div class="lp-field-row">${fieldIcon('<svg viewBox="0 0 24 24" width="13" height="13"><path d="M12 3c-1.1 0-2 .9-2 2 0 .8.5 1.5 1.2 1.8L12 7.2l.8-.4C13.5 6.5 14 5.8 14 5c0-1.1-.9-2-2-2z" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M12 7l9 6.5c.8.6.3 1.9-.7 1.9H3.7c-1 0-1.5-1.3-.7-1.9L12 7z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>', 'fill')}<div class="lp-field-label">STYLE:</div><div class="lp-field-val">${info.style || '—'}</div></div>
+              <div class="lp-field-row">${fieldIcon('✳', 'fill')}<div class="lp-field-label">ROLE:</div><div class="lp-field-val">${editMode ? `<input class="lp-inline-input" id="lp-edit-role" value="${escAttr(realRole)}">` : fun}</div></div>
+              <div class="lp-field-row">${fieldIcon(zodiac ? zodiac.emoji : '✦')}<div class="lp-field-label">ZODIAC SIGN:</div><div class="lp-field-val">${zodiac ? zodiac.name : '—'}</div>${editMode ? `<input type="date" class="lp-inline-input lp-field-extra" id="lp-edit-birthdate" value="${birthdate || ''}" style="max-width:130px">` : (birthdate ? `<div class="lp-field-extra">${fmtDate(birthdate)}</div>` : '')}</div>
+              <div class="lp-field-row">${fieldIcon(spirit ? spirit.emoji : '🐾', 'mono')}<div class="lp-field-label">SPIRIT ANIMAL:</div><div class="lp-field-val">${spirit ? spirit.name : '—'}</div>${editMode ? '<div class="lp-field-extra" style="opacity:.6">auto, from birthdate</div>' : ''}</div>
+              <div class="lp-field-row">${fieldIcon(info.mbti ? info.mbti.split('-')[0] : 'MBTI', 'text')}<div class="lp-field-label">MBTI:</div><div class="lp-field-val">${editMode ? `<input class="lp-inline-input" id="lp-edit-mbti" value="${escAttr(info.mbti)}" placeholder="e.g. ENTP-A">` : (info.mbti || '—')}</div></div>
+              <div class="lp-field-row">${fieldIcon(moon ? moon.emoji : '🌙', 'fill mono')}<div class="lp-field-label">MOON PHASE ON BIRTHDAY:</div><div class="lp-field-val">${moon ? moon.name : '—'}</div>${editMode ? '<div class="lp-field-extra" style="opacity:.6">auto, from birthdate</div>' : ''}</div>
+              <div class="lp-field-row">${fieldIcon('<svg viewBox="0 0 24 24" width="13" height="13"><path d="M12 3c-1.1 0-2 .9-2 2 0 .8.5 1.5 1.2 1.8L12 7.2l.8-.4C13.5 6.5 14 5.8 14 5c0-1.1-.9-2-2-2z" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M12 7l9 6.5c.8.6.3 1.9-.7 1.9H3.7c-1 0-1.5-1.3-.7-1.9L12 7z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>', 'fill')}<div class="lp-field-label">STYLE:</div><div class="lp-field-val">${editMode ? `<input class="lp-inline-input" id="lp-edit-style" value="${escAttr(info.style)}" placeholder="e.g. All Black, Always">` : (info.style || '—')}</div></div>
             </div>
           </div>
         </div>
@@ -8446,8 +8475,13 @@
             <div class="lp-now-playing">
               <div class="lp-album-art">${info.nowPlayingImg ? `<img src="${info.nowPlayingImg}">` : '🎵'}${canEdit ? `<label class="avatar-edit" title="Add album art" onclick="event.stopPropagation()">📷<input type="file" accept="image/*" style="display:none" onchange="uploadFavoriteImage(this,'${name}','nowplaying')"></label>` : ''}</div>
               <div class="lp-waveform-bars">${[7,12,5,15,9,4,11,6].map(h => `<span style="height:${h}px"></span>`).join('')}</div>
-              <div class="lp-song">${info.nowPlayingSong || '—'}</div>
-              <div class="lp-artist">${info.nowPlayingArtist || ''}</div>
+              ${editMode ? `
+                <input class="lp-inline-input" id="lp-edit-song" value="${escAttr(info.nowPlayingSong)}" placeholder="Song">
+                <input class="lp-inline-input" id="lp-edit-artist" value="${escAttr(info.nowPlayingArtist)}" placeholder="Artist" style="margin-top:4px">
+              ` : `
+                <div class="lp-song">${info.nowPlayingSong || '—'}</div>
+                <div class="lp-artist">${info.nowPlayingArtist || ''}</div>
+              `}
             </div>
           </div>
         </div>
@@ -8455,11 +8489,11 @@
         <div class="lp-mid2">
           <div class="lp-panel">
             <div class="lp-tag">FUN FACTS</div>
-            ${factsHTML}
+            ${editMode ? `<textarea class="lp-inline-input lp-inline-textarea" id="lp-edit-funfacts" rows="4" placeholder="One per line, up to 4 shown">${escHtml(funFacts.join('\n'))}</textarea>` : factsHTML}
           </div>
           <div class="lp-panel">
             <div class="lp-tag">KNOWN FOR</div>
-            <div class="lp-known-for-big">${info.knownFor ? `"${info.knownFor}"` : 'Still writing their legend.'}</div>
+            ${editMode ? `<input class="lp-inline-input" id="lp-edit-knownfor" value="${escAttr(info.knownFor)}" placeholder="A quirky line about them">` : `<div class="lp-known-for-big">${info.knownFor ? `"${info.knownFor}"` : 'Still writing their legend.'}</div>`}
           </div>
         </div>
 
@@ -8484,17 +8518,72 @@
 
     function openLoonaticProfile(name) {
       window._openLoonaticProfileName = name;
+      window._loonaticEditMode = null;
       document.getElementById('team-roster-view').style.display = 'none';
       const view = document.getElementById('loonatic-profile-view');
       view.style.display = '';
-      view.innerHTML = buildLoonaticPassCardHTML(name);
+      view.innerHTML = buildLoonaticPassCardHTML(name, false);
       window.scrollTo(0, 0);
     }
 
     function closeLoonaticProfile() {
       window._openLoonaticProfileName = null;
+      window._loonaticEditMode = null;
       document.getElementById('loonatic-profile-view').style.display = 'none';
       document.getElementById('team-roster-view').style.display = '';
+    }
+
+    // Inline editing directly on the Loona Pass page — Edit Profile turns the
+    // relevant sections into form fields in place, rather than opening a
+    // separate modal. Zodiac/Spirit/Moon stay read-only (derived from
+    // birthdate); everything else shown on the page is editable here.
+    function startLoonaticEdit(name) {
+      window._loonaticEditMode = name;
+      document.getElementById('loonatic-profile-view').innerHTML = buildLoonaticPassCardHTML(name, true);
+      window.scrollTo(0, 0);
+    }
+
+    function cancelLoonaticEdit(name) {
+      window._loonaticEditMode = null;
+      document.getElementById('loonatic-profile-view').innerHTML = buildLoonaticPassCardHTML(name, false);
+    }
+
+    function saveLoonaticEdit(name) {
+      const val = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+      const role = val('lp-edit-role');
+      const birthdate = val('lp-edit-birthdate');
+      const mbti = val('lp-edit-mbti');
+      const style = val('lp-edit-style');
+      const nowPlayingSong = val('lp-edit-song');
+      const nowPlayingArtist = val('lp-edit-artist');
+      const funFactsEl = document.getElementById('lp-edit-funfacts');
+      const funFacts = funFactsEl ? funFactsEl.value.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 4) : [];
+      const knownFor = val('lp-edit-knownfor');
+      const favMovie = val('lp-edit-fav-movie');
+      const favSnack = val('lp-edit-fav-snack');
+      const favBook = val('lp-edit-fav-book');
+      const favDestination = val('lp-edit-fav-destination');
+
+      const existing = MEMBER_INFO[name] || {};
+      const nonSensitive = {
+        role: role || existing.role || 'Team Member', birthdate: birthdate || null, mbti: mbti || null, style: style || null,
+        nowPlayingSong: nowPlayingSong || null, nowPlayingArtist: nowPlayingArtist || null, funFacts: funFacts.length ? funFacts : null,
+        knownFor: knownFor || null, favMovie: favMovie || null, favSnack: favSnack || null, favBook: favBook || null, favDestination: favDestination || null
+      };
+      MEMBER_INFO[name] = Object.assign({}, existing, nonSensitive);
+      if (_db) _db.ref('members/' + fbMemberKey(name)).update(nonSensitive);
+
+      window._loonaticEditMode = null;
+      renderTeam();
+      renderOverview();
+      document.getElementById('loonatic-profile-view').innerHTML = buildLoonaticPassCardHTML(name, false);
+
+      document.getElementById('toast-emoji').textContent = '💾';
+      document.getElementById('toast-msg').textContent = 'Loona Pass updated!';
+      document.getElementById('toast-sub').textContent = '';
+      const toast = document.getElementById('completion-toast');
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3000);
     }
 
     function renderTeam() {
@@ -8550,8 +8639,10 @@
     </div>`;
       }).join('');
 
-      if (window._openLoonaticProfileName && ALL_MEMBERS.includes(window._openLoonaticProfileName)) {
-        document.getElementById('loonatic-profile-view').innerHTML = buildLoonaticPassCardHTML(window._openLoonaticProfileName);
+      // Skip re-rendering while someone's actively editing — a full innerHTML
+      // rebuild would wipe out whatever they've typed but not saved yet.
+      if (window._openLoonaticProfileName && ALL_MEMBERS.includes(window._openLoonaticProfileName) && window._loonaticEditMode !== window._openLoonaticProfileName) {
+        document.getElementById('loonatic-profile-view').innerHTML = buildLoonaticPassCardHTML(window._openLoonaticProfileName, false);
       }
 
       // Past employees section
