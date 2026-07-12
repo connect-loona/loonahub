@@ -732,7 +732,7 @@
     /* ── MEMBER CARDS ── */
     .member-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      grid-template-columns: repeat(5, 1fr);
       gap: 14px;
     }
 
@@ -1003,6 +1003,53 @@
     .lp-footer-meta { font-size: 9px; font-weight: 700; letter-spacing: 0.03em; line-height: 1.5; }
     .lp-footer-dna { border: 1px solid #1a1206; border-radius: 3px; padding: 5px 9px; font-size: 8.5px; font-weight: 700; line-height: 1.5; }
     .lp-footer-target { font-size: 15px; }
+
+    /* ── ROSTER CARD: "Meet the Loonatics" grid tiles — a distinct cream/serif
+       "trading card" look (deliberately different from the orange/mono Loona
+       Pass detail page), matching the vintage-polaroid reference exactly. ── */
+    .rc-card {
+      background: #f0e7d4;
+      border: 2px solid #1a1206;
+      border-radius: 16px;
+      overflow: hidden;
+      cursor: pointer;
+      font-family: Georgia, 'Times New Roman', serif;
+      color: #1a1206;
+      display: flex;
+      flex-direction: column;
+      transition: transform .15s, box-shadow .15s;
+    }
+    .rc-card:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0,0,0,.25); }
+    .rc-top, .rc-bottom { display: grid; grid-template-columns: 1fr 1fr 1fr; }
+    .rc-top { border-bottom: 2px solid #1a1206; }
+    .rc-bottom { border-top: 2px solid #1a1206; }
+    .rc-cell {
+      padding: 8px 4px;
+      text-align: center;
+      border-right: 1px dashed #1a1206;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      min-width: 0;
+    }
+    .rc-cell:last-child { border-right: none; }
+    .rc-name { font-size: 14px; font-weight: 700; letter-spacing: .01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+    .rc-spark { font-size: 9px; }
+    .rc-zodiac-sym { font-size: 15px; line-height: 1; }
+    .rc-zodiac-text, .rc-role-text { font-size: 8px; font-weight: 600; line-height: 1.3; letter-spacing: .02em; }
+    .rc-photo-wrap { position: relative; margin: 8px; }
+    .rc-photo { aspect-ratio: 3/4; border-radius: 8px; overflow: hidden; background: #111; }
+    .rc-photo img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(1) contrast(1.05); }
+    .rc-photo .avatar { width: 100%; height: 100%; border-radius: 0; display: flex; align-items: center; justify-content: center; font-size: clamp(20px, 15vw, 48px); }
+    .rc-label { font-size: 7px; font-weight: 700; letter-spacing: .04em; }
+    .rc-since-days { font-size: 11px; font-weight: 700; margin-top: 1px; }
+    .rc-moon-icon { font-size: 18px; margin-top: 2px; filter: grayscale(1) contrast(1.2); }
+    .rc-known-text { font-size: 8px; font-style: italic; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+    .rc-card .lt-avatar-wrap { display: block; width: 100%; }
+    .rc-card .status-bubble { font-size: 8.5px; padding: 3px 7px; }
 
     .lp-edit-btn {
       background: transparent;
@@ -8620,22 +8667,37 @@
       window._teamDetail = {};
       activeMembers.concat(inactiveMembers).forEach(m => { window._teamDetail[m.member] = m; });
 
-      // Team page shows a simple roster to pick from — clicking someone opens their
-      // full Loona Pass as its own page (see openLoonaticProfile), rather than
-      // cramming the whole card into every grid tile.
+      // Team page shows a roster of vintage-polaroid "trading cards" to pick from
+      // — clicking someone opens their full Loona Pass as its own page (see
+      // openLoonaticProfile), rather than cramming the whole thing into every tile.
       document.getElementById('member-cards').innerHTML = activeMembers.map(m => {
         const name = m.member;
         const info = MEMBER_INFO[name] || {};
-        const color = mColor(name);
         const realRole = m.asylum || info.role || 'Team Member';
+        const fun = funRoleName(realRole);
+        const birthdate = info.birthdate;
+        const zodiac = zodiacSign(birthdate);
+        const moon = moonPhaseOnDate(birthdate);
+        const joinDate = ((window.ATT || {})[name] || {}).joinDate || info.joinDate;
+        const days = joinDate && window.daysAt ? window.daysAt(joinDate) : null;
+        const shortDate = birthdate ? new Date(birthdate + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }).toUpperCase() : '';
+        const avatarInner = info.avatar ? `<img src="${info.avatar}">` : `<div class="avatar" style="background:${mColor(name)}20;color:${mColor(name)}">${mEmoji(name)}</div>`;
         return `
-    <div class="admin-emp-card" style="border-color:${color}22" onclick="openLoonaticProfile('${name}')">
-      <div class="lt-avatar-wrap">
-        ${statusBubbleHTML(name)}
-        <div class="admin-emp-avatar" style="background:${color}20;color:${color};${info.avatar ? 'padding:0;' : ''}overflow:hidden">${mAvatar(name)}</div>
+    <div class="rc-card" onclick="openLoonaticProfile('${name}')">
+      <div class="rc-top">
+        <div class="rc-cell"><span class="rc-spark">✳</span><div class="rc-name">${escHtml(name)}</div></div>
+        <div class="rc-cell">${zodiac ? `<div class="rc-zodiac-sym">${zodiac.emoji}</div><div class="rc-zodiac-text">${zodiac.name.toUpperCase()}<br>${shortDate}</div>` : '<div class="rc-zodiac-text">—</div>'}</div>
+        <div class="rc-cell"><div class="rc-role-text">ROLE:<br>${escHtml(fun.toUpperCase())}</div><span class="rc-spark">✳</span></div>
       </div>
-      <div class="admin-emp-name">${name}</div>
-      <div class="admin-emp-role">${realRole}</div>
+      <div class="rc-photo-wrap">
+        ${statusBubbleHTML(name)}
+        <div class="rc-photo">${avatarInner}</div>
+      </div>
+      <div class="rc-bottom">
+        <div class="rc-cell"><div class="rc-label">LOONATIC SINCE</div><div class="rc-since-days">${days != null ? days + ' DAYS' : '—'}</div></div>
+        <div class="rc-cell"><div class="rc-label">${moon ? moon.name.toUpperCase() : '—'}</div><div class="rc-moon-icon">${moon ? moon.emoji : '🌙'}</div></div>
+        <div class="rc-cell"><div class="rc-label">KNOWN FOR:</div><div class="rc-known-text">${info.knownFor ? escHtml(info.knownFor) : 'Still writing their legend.'}</div></div>
+      </div>
     </div>`;
       }).join('');
 
@@ -8973,9 +9035,11 @@
     async function uploadProfilePic(input) {
       const file = input.files[0];
       if (!file || !currentUser) return;
-      // 160px is plenty for the biggest avatar spot on screen (a 72px circle, even at 2x retina)
-      // — keeping this small is what makes the members sync fast for everyone.
-      const compressed = await compressImageFile(file, 160);
+      // The Loona Pass photo frame and roster cards show this at several hundred
+      // px wide, so a small compressed size blurs badly once upscaled — 640px
+      // keeps it sharp there while still staying well under a size that would
+      // slow down the members sync for everyone.
+      const compressed = await compressImageFile(file, 640);
       await setMemberAvatar(currentUser, compressed);
       document.getElementById('toast-emoji').textContent = '📸';
       document.getElementById('toast-msg').textContent = 'Profile photo updated!';
@@ -8988,7 +9052,7 @@
     async function uploadMemberPhoto(input, name) {
       const file = input.files[0];
       if (!file) return;
-      const compressed = await compressImageFile(file, 160);
+      const compressed = await compressImageFile(file, 640);
       await setMemberAvatar(name, compressed);
       document.getElementById('toast-emoji').textContent = '📸';
       document.getElementById('toast-msg').textContent = `${name}'s photo updated!`;
@@ -13861,13 +13925,21 @@ ${brandLines}`;
     #phase-grid .phase-card-meta{display:none!important}
     #phase-grid .phase-status-sel{font-size:7.5px!important;padding:3px 2px!important;margin-bottom:4px!important}
     #phase-grid .phase-items{display:none!important}
-    /* ---- Team: 4 member cards per row, condensed to essentials, tap for full detail ---- */
-    /* Team roster tiles reuse .admin-emp-card, which already has its own 5-per-row
-       mobile treatment (see Admin Employee Directory rules below) — nothing extra
-       needed here. The big pass-card profile page (#loonatic-profile-view) is
-       outside #member-cards entirely, so none of this affects it. */
-    #member-cards{grid-template-columns:repeat(4,1fr)!important;gap:6px!important}
-    #member-cards .status-bubble{font-size:7px!important;padding:2px 5px!important;margin-bottom:4px!important}
+    /* ---- Team: 5 roster cards per row on phone, same as desktop, just shrunk ---- */
+    #member-cards{grid-template-columns:repeat(5,1fr)!important;gap:5px!important}
+    #member-cards .rc-card{border-radius:9px!important;border-width:1.5px!important}
+    #member-cards .rc-cell{padding:3px 1px!important;gap:0!important}
+    #member-cards .rc-name{font-size:7px!important}
+    #member-cards .rc-spark{font-size:5px!important}
+    #member-cards .rc-zodiac-sym{font-size:9px!important}
+    #member-cards .rc-zodiac-text,#member-cards .rc-role-text{font-size:4.5px!important;line-height:1.15!important}
+    #member-cards .rc-photo-wrap{margin:3px!important}
+    #member-cards .rc-photo{border-radius:5px!important}
+    #member-cards .rc-label{font-size:4px!important}
+    #member-cards .rc-since-days{font-size:6px!important}
+    #member-cards .rc-moon-icon{font-size:11px!important}
+    #member-cards .rc-known-text{font-size:4.5px!important;-webkit-line-clamp:2!important}
+    #member-cards .status-bubble{font-size:6px!important;padding:2px 4px!important;margin-bottom:3px!important}
     /* ---- Past Employees: 6 per row, tiny cards, icon-only Restore ---- */
     #past-employees-cards{grid-template-columns:repeat(6,1fr)!important;gap:5px!important}
     #past-employees-cards .member-card{padding:5px 2px!important;border-radius:8px!important;cursor:pointer!important}
