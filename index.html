@@ -253,7 +253,8 @@
       flex-direction: column;
       align-items: center;
       gap: 10px;
-      max-width: 340px;
+      max-width: 420px;
+      width: 100%;
       text-align: center;
     }
 
@@ -271,6 +272,30 @@
       font-size: 13.5px;
       color: rgba(255,255,255,.65);
       line-height: 1.5;
+    }
+
+    .pending-profile-form {
+      width: 100%;
+      text-align: left;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 4px;
+    }
+
+    .pending-profile-form textarea.form-control {
+      resize: vertical;
+      font-family: var(--font);
+    }
+
+    .pending-profile-lock {
+      font-size: 11.5px;
+      color: var(--muted);
+      margin-top: -4px;
     }
 
     /* ── NAV ── */
@@ -809,55 +834,77 @@
     }
 
     .admin-directory-list {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 14px;
     }
 
-    .admin-directory-row {
+    .admin-emp-card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px 16px;
+      border-radius: 16px;
+      padding: 20px 14px;
       display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 12px;
+      text-align: center;
+      gap: 4px;
       cursor: pointer;
+      transition: transform .15s, border-color .15s;
     }
 
-    .admin-directory-row:hover {
+    .admin-emp-card:hover {
+      transform: translateY(-3px);
       border-color: var(--accent, #c8a96e);
     }
 
-    .admin-dir-avatar {
-      width: 40px;
-      height: 40px;
+    .admin-emp-avatar {
+      width: 56px;
+      height: 56px;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 16px;
+      font-size: 22px;
       font-weight: 700;
       flex-shrink: 0;
+      margin-bottom: 8px;
     }
 
-    .admin-dir-info {
-      flex: 1;
-    }
-
-    .admin-dir-name {
+    .admin-emp-name {
       font-weight: 600;
       font-size: 14px;
     }
 
-    .admin-dir-role {
+    .admin-emp-role {
       font-size: 11px;
       color: var(--muted);
     }
 
-    .admin-dir-arrow {
+    .admin-emp-dept {
+      font-size: 10.5px;
       color: var(--muted);
-      font-size: 18px;
+      opacity: .75;
+    }
+
+    .admin-pending-badge {
+      display: inline-block;
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: .02em;
+      color: #ffb84d;
+      background: rgba(255,184,77,.12);
+      border: 1px solid rgba(255,184,77,.3);
+      border-radius: 5px;
+      padding: 2px 6px;
+      vertical-align: middle;
+      margin-left: 4px;
+    }
+
+    .admin-pending-badge-ok {
+      color: #4caf7d;
+      background: rgba(76,175,125,.12);
+      border-color: rgba(76,175,125,.3);
     }
 
     .admin-detail-card {
@@ -878,6 +925,29 @@
     .admin-detail-name {
       font-weight: 700;
       font-size: 18px;
+    }
+
+    .admin-detail-section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: var(--muted);
+      margin: 18px 0 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .admin-detail-section-title:first-of-type {
+      margin-top: 4px;
+    }
+
+    .admin-detail-section-note {
+      font-weight: 400;
+      text-transform: none;
+      letter-spacing: normal;
+      font-size: 10.5px;
+      margin-left: 6px;
     }
 
     .brand-row {
@@ -5819,7 +5889,7 @@
             if (isNew) { ALL_MEMBERS.push(m.name); pickerNeedsRebuild = true; teamNeedsRender = true; }
             attachAvatarListener(m.name);
             const existing = MEMBER_INFO[m.name] || {};
-            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || null, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null };
+            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || null, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null, mobile: m.mobile || existing.mobile || null, gender: m.gender || existing.gender || null, personalEmail: m.personalEmail || existing.personalEmail || null, address: m.address || existing.address || null };
             // Older records still carry the avatar inline on this same node — use it right away,
             // then migrate it out to member_avatars/ so this node stays small for everyone from now on.
             if (m.avatar && m.avatar !== MEMBER_INFO[m.name].avatar) {
@@ -6203,7 +6273,6 @@
       document.getElementById('ob-role').value = '';
       document.getElementById('ob-joindate').value = '';
       document.getElementById('ob-birthdate').value = '';
-      document.getElementById('ob-phone').value = '';
       const nameErr = document.getElementById('ob-name-error');
       nameErr.style.display = 'none';
       document.getElementById('ob-name').style.borderColor = '';
@@ -6242,7 +6311,6 @@
         role: document.getElementById('ob-role').value.trim() || null,
         joinDate: document.getElementById('ob-joindate').value || null,
         birthdate: document.getElementById('ob-birthdate').value || null,
-        phone: document.getElementById('ob-phone').value.trim() || null,
         submittedAt: new Date().toISOString()
       };
       const key = fbMemberKey(name);
@@ -6272,12 +6340,86 @@
         document.getElementById('login-screen').appendChild(el);
       }
       el.style.display = 'flex';
+      const key = fbMemberKey(name);
+      const rec = (window.MEMBERS_PENDING || {})[key] || { name };
+      const firstName = (name || '').split(' ')[0];
+
+      if (rec.profileCompleted) {
+        el.innerHTML = `
+          <div class="login-pending-icon">⏳</div>
+          <div class="login-pending-title">Hey ${firstName}, you're all set!</div>
+          <div class="login-pending-msg">Your account and profile are waiting for Gokul to approve. You'll be able to log in the moment that happens.</div>
+          <button class="btn btn-ghost" onclick="pendingScreenLogout()">Log out</button>
+        `;
+        return;
+      }
+
       el.innerHTML = `
-        <div class="login-pending-icon">⏳</div>
-        <div class="login-pending-title">Hey ${(name || '').split(' ')[0]}, you're all set!</div>
-        <div class="login-pending-msg">Your account is waiting for Gokul to approve it. You'll be able to log in the moment that happens — no need to sign up again.</div>
-        <button class="btn btn-ghost" onclick="pendingScreenLogout()">Log out</button>
+        <div class="login-pending-icon">📝</div>
+        <div class="login-pending-title">Hey ${firstName}, one more step</div>
+        <div class="login-pending-msg">Finish your profile below — Gokul reviews everything together before approving your account.</div>
+        <div class="pending-profile-form">
+          <div class="form-row">
+            <div class="form-group"><label>Mobile Number</label><input class="form-control" id="pp-mobile" value="${rec.mobile || ''}"></div>
+            <div class="form-group"><label>Gender</label>
+              <select class="form-control" id="pp-gender">
+                <option value="">Select</option>
+                <option value="Male"${rec.gender === 'Male' ? ' selected' : ''}>Male</option>
+                <option value="Female"${rec.gender === 'Female' ? ' selected' : ''}>Female</option>
+                <option value="Other"${rec.gender === 'Other' ? ' selected' : ''}>Other</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group"><label>Personal Email</label><input class="form-control" type="email" id="pp-email" value="${rec.personalEmail || ''}"></div>
+          <div class="form-group"><label>Address</label><textarea class="form-control" id="pp-address" rows="2">${rec.address || ''}</textarea></div>
+          <div class="form-row">
+            <div class="form-group"><label>PAN Number</label><input class="form-control" id="pp-pan" style="text-transform:uppercase"></div>
+            <div class="form-group"><label>Aadhar Number</label><input class="form-control" id="pp-aadhar"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Bank Name</label><input class="form-control" id="pp-bankname"></div>
+            <div class="form-group"><label>Branch Name</label><input class="form-control" id="pp-branch"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Account Number</label><input class="form-control" id="pp-account"></div>
+            <div class="form-group"><label>IFSC Code</label><input class="form-control" id="pp-ifsc" style="text-transform:uppercase"></div>
+          </div>
+          <div class="pending-profile-lock">🔒 Only Gokul can see your PAN, Aadhar, and bank details.</div>
+          <div class="modal-actions" style="justify-content:flex-end">
+            <button class="btn btn-ghost" onclick="pendingScreenLogout()">Log out</button>
+            <button class="btn btn-primary" onclick="submitPendingProfile('${key}')">Submit for Approval</button>
+          </div>
+        </div>
       `;
+    }
+
+    function submitPendingProfile(key) {
+      const mobile = document.getElementById('pp-mobile').value.trim();
+      const gender = document.getElementById('pp-gender').value;
+      const personalEmail = document.getElementById('pp-email').value.trim();
+      const address = document.getElementById('pp-address').value.trim();
+      const pan = document.getElementById('pp-pan').value.trim().toUpperCase();
+      const aadhar = document.getElementById('pp-aadhar').value.trim();
+      const bankName = document.getElementById('pp-bankname').value.trim();
+      const bankBranch = document.getElementById('pp-branch').value.trim();
+      const bankAccount = document.getElementById('pp-account').value.trim();
+      const bankIFSC = document.getElementById('pp-ifsc').value.trim().toUpperCase();
+
+      const existing = (window.MEMBERS_PENDING || {})[key] || {};
+      const profileUpdate = { mobile: mobile || null, gender: gender || null, personalEmail: personalEmail || null, address: address || null, profileCompleted: true };
+      window.MEMBERS_PENDING = window.MEMBERS_PENDING || {};
+      window.MEMBERS_PENDING[key] = Object.assign({}, existing, profileUpdate);
+
+      if (_db) {
+        _db.ref('members_pending/' + key).update(profileUpdate);
+        // Separate node, never globally listened to — only Gokul's session fetches it,
+        // and only on demand (see showAdminEmployeeDetail / renderAdminPendingQueue),
+        // so a not-yet-approved person's PAN/Aadhar/bank details never sit in every
+        // logged-in employee's browser the way regular member fields do.
+        _db.ref('members_pending_sensitive/' + key).set({ pan: pan || null, aadhar: aadhar || null, bankName: bankName || null, bankBranch: bankBranch || null, bankAccount: bankAccount || null, bankIFSC: bankIFSC || null });
+      }
+
+      showPendingApprovalScreen(existing.name || loginSelectedName);
     }
 
     function hidePendingApprovalScreen() {
@@ -8287,33 +8429,57 @@
       if (detail) { detail.style.display = 'none'; detail.innerHTML = ''; }
     }
 
-    function renderAdminPendingQueue() {
+    async function renderAdminPendingQueue() {
       const sec = document.getElementById('admin-pending-section');
       if (!sec) return;
       const pending = Object.entries(window.MEMBERS_PENDING || {});
       if (!pending.length) { sec.innerHTML = ''; return; }
+
+      // Bank/ID details live in a separate, Gokul-only node — never part of the global
+      // members_pending broadcast every logged-in employee's session receives. Fetched
+      // on demand here, only while Gokul actually has the Admin tab open.
+      const sensitiveByKey = {};
+      if (_db) {
+        await Promise.all(pending.map(async ([key]) => {
+          try {
+            const snap = await _db.ref('members_pending_sensitive/' + key).once('value');
+            sensitiveByKey[key] = snap.val() || {};
+          } catch (e) { sensitiveByKey[key] = {}; }
+        }));
+      }
+
       sec.innerHTML = `
         <div class="section-header" style="margin-top:0">
           <div class="section-title">Pending <span>Approvals</span></div>
         </div>
         <div class="admin-pending-list">
-          ${pending.map(([key, p]) => `
+          ${pending.map(([key, p]) => {
+            const s = sensitiveByKey[key] || {};
+            const hasSensitive = s.pan || s.aadhar || s.bankName || s.bankAccount;
+            return `
             <div class="admin-pending-card">
               <div class="admin-pending-info">
-                <div class="admin-pending-name">${p.name || '(unnamed)'}</div>
+                <div class="admin-pending-name">${p.name || '(unnamed)'} <span class="admin-pending-badge${p.profileCompleted ? ' admin-pending-badge-ok' : ''}">${p.profileCompleted ? 'Profile complete' : 'Profile incomplete'}</span></div>
                 <div class="admin-pending-meta">${[p.role, p.department].filter(Boolean).join(' · ') || 'No role/department given'}</div>
                 ${p.joinDate ? `<div class="admin-pending-meta">Joining: ${fmtDate(p.joinDate)}</div>` : ''}
-                ${p.phone ? `<div class="admin-pending-meta">📞 ${p.phone}</div>` : ''}
+                ${p.mobile ? `<div class="admin-pending-meta">📞 ${p.mobile}</div>` : ''}
+                ${p.personalEmail ? `<div class="admin-pending-meta">✉️ ${p.personalEmail}</div>` : ''}
+                ${p.gender ? `<div class="admin-pending-meta">${p.gender}</div>` : ''}
+                ${p.address ? `<div class="admin-pending-meta">📍 ${p.address}</div>` : ''}
+                ${hasSensitive ? `<div class="admin-pending-meta" style="margin-top:6px;color:var(--text)">
+                  ${s.pan ? `PAN: ${s.pan}<br>` : ''}${s.aadhar ? `Aadhar: ${s.aadhar}<br>` : ''}${s.bankName ? `${s.bankName}${s.bankBranch ? ' · ' + s.bankBranch : ''}<br>` : ''}${s.bankAccount ? `A/C: ${s.bankAccount}${s.bankIFSC ? ' · ' + s.bankIFSC : ''}` : ''}
+                </div>` : ''}
               </div>
               <div class="admin-pending-actions">
                 <button class="btn btn-primary" onclick="approvePendingEmployee('${key}')">Approve</button>
                 <button class="btn btn-ghost" onclick="rejectPendingEmployee('${key}')">Reject</button>
               </div>
-            </div>`).join('')}
+            </div>`;
+          }).join('')}
         </div>`;
     }
 
-    function approvePendingEmployee(key) {
+    async function approvePendingEmployee(key) {
       const p = (window.MEMBERS_PENDING || {})[key];
       if (!p || !p.name) return;
       const name = p.name;
@@ -8326,10 +8492,11 @@
       const color = COLORS[Math.floor(Math.random() * COLORS.length)];
       const emoji = '👤';
       const role = p.role || p.department || 'Team Member';
-      const memberRecord = { name, color, emoji, role, avatar: null, department: p.department || null, joinDate: p.joinDate || null, employeeId: null, birthdate: p.birthdate || null };
+      const info = { color, emoji, role, avatar: null, department: p.department || null, joinDate: p.joinDate || null, employeeId: null, birthdate: p.birthdate || null, mobile: p.mobile || null, gender: p.gender || null, personalEmail: p.personalEmail || null, address: p.address || null };
+      const memberRecord = Object.assign({ name }, info);
 
       ALL_MEMBERS.push(name);
-      MEMBER_INFO[name] = { color, emoji, role, avatar: null, department: p.department || null, joinDate: p.joinDate || null, employeeId: null, birthdate: p.birthdate || null };
+      MEMBER_INFO[name] = info;
 
       buildMemberTabs(currentUser);
       renderTeam();
@@ -8338,7 +8505,13 @@
 
       if (_db) {
         _db.ref('members/' + fbMemberKey(name)).set(memberRecord);
+        try {
+          const snap = await _db.ref('members_pending_sensitive/' + key).once('value');
+          const sensitive = snap.val();
+          if (sensitive) _db.ref('members_sensitive/' + fbMemberKey(name)).set(sensitive);
+        } catch (e) {}
         _db.ref('members_pending/' + key).remove();
+        _db.ref('members_pending_sensitive/' + key).remove();
       }
 
       renderAdminPendingQueue();
@@ -8355,7 +8528,7 @@
       const p = (window.MEMBERS_PENDING || {})[key];
       const name = (p && p.name) || 'this request';
       if (!confirm(`Reject ${name}'s onboarding request? This can't be undone.`)) return;
-      if (_db) _db.ref('members_pending/' + key).remove();
+      if (_db) { _db.ref('members_pending/' + key).remove(); _db.ref('members_pending_sensitive/' + key).remove(); }
       renderAdminPendingQueue();
     }
 
@@ -8368,43 +8541,72 @@
       const active = ALL_MEMBERS.filter(n => !INACTIVE_MEMBERS.has(n));
       list.innerHTML = active.map(n => {
         const info = MEMBER_INFO[n] || {};
-        return `<div class="admin-directory-row" onclick="showAdminEmployeeDetail('${n}')">
-          <div class="admin-dir-avatar" style="background:${mColor(n)}20;color:${mColor(n)};${info.avatar ? 'padding:0;' : ''}overflow:hidden">${mAvatar(n)}</div>
-          <div class="admin-dir-info">
-            <div class="admin-dir-name">${n}</div>
-            <div class="admin-dir-role">${info.role || 'Team Member'}${info.department ? ' · ' + info.department : ''}</div>
-          </div>
-          <div class="admin-dir-arrow">›</div>
+        return `<div class="admin-emp-card" onclick="showAdminEmployeeDetail('${n}')">
+          <div class="admin-emp-avatar" style="background:${mColor(n)}20;color:${mColor(n)};${info.avatar ? 'padding:0;' : ''}overflow:hidden">${mAvatar(n)}</div>
+          <div class="admin-emp-name">${n}</div>
+          <div class="admin-emp-role">${info.role || 'Team Member'}</div>
+          ${info.department ? `<div class="admin-emp-dept">${info.department}</div>` : ''}
         </div>`;
       }).join('');
     }
 
-    function showAdminEmployeeDetail(name) {
+    async function showAdminEmployeeDetail(name) {
       const info = MEMBER_INFO[name] || {};
-      const stat = (window._teamDetail || {})[name] || { total: 0, done: 0, ip: 0, ns: 0, brands: new Set() };
-      const mAvatar = info.avatar ? `<img src="${info.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : (info.emoji || '👤');
+      const key = fbMemberKey(name);
+      const mAvatarHtml = info.avatar ? `<img src="${info.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : (info.emoji || '👤');
       const detail = document.getElementById('admin-employee-detail');
       if (!detail) return;
       detail.style.display = '';
+      detail.innerHTML = `<div class="admin-detail-card"><button class="btn btn-ghost" onclick="closeAdminEmployeeDetail()">← Back to Directory</button><div style="padding:30px 0;text-align:center;color:var(--muted)">Loading…</div></div>`;
+
+      // Financial/ID details live in a separate, Gokul-only node — fetched on demand
+      // here (not a standing listener), only while Gokul has this specific
+      // employee's detail view open.
+      let sensitive = {};
+      if (_db) {
+        try { const snap = await _db.ref('members_sensitive/' + key).once('value'); sensitive = snap.val() || {}; } catch (e) {}
+      }
+      // Bail if Gokul navigated away from this employee's detail while the fetch was in flight.
+      if (document.getElementById('admin-employee-detail').style.display === 'none') return;
+
+      const workEmail = loginDeriveEmail(name);
       detail.innerHTML = `
         <div class="admin-detail-card">
           <button class="btn btn-ghost" onclick="closeAdminEmployeeDetail()">← Back to Directory</button>
           <div class="admin-detail-head">
-            <div class="admin-dir-avatar" style="width:64px;height:64px;font-size:26px;background:${info.color || '#888'}20;color:${info.color || '#888'};${info.avatar ? 'padding:0;' : ''}overflow:hidden">${mAvatar}</div>
+            <div class="admin-dir-avatar" style="width:64px;height:64px;font-size:26px;background:${info.color || '#888'}20;color:${info.color || '#888'};${info.avatar ? 'padding:0;' : ''}overflow:hidden">${mAvatarHtml}</div>
             <div>
               <div class="admin-detail-name">${name}</div>
               <div class="admin-dir-role">${info.role || 'Team Member'}${info.department ? ' · ' + info.department : ''}</div>
             </div>
           </div>
+
+          <div class="admin-detail-section-title">Identity</div>
           <div class="member-stat-row"><span class="k">Employee ID</span><span>${info.employeeId || '—'}</span></div>
+          <div class="member-stat-row"><span class="k">Work Email</span><span>${workEmail}</span></div>
+          <div class="member-stat-row"><span class="k">Personal Email</span><span>${info.personalEmail || '—'}</span></div>
+          <div class="member-stat-row"><span class="k">Mobile</span><span>${info.mobile || '—'}</span></div>
+          <div class="member-stat-row"><span class="k">Gender</span><span>${info.gender || '—'}</span></div>
+          <div class="member-stat-row"><span class="k">Date of Birth</span><span>${info.birthdate ? fmtDate(info.birthdate) : '—'}</span></div>
+          <div class="member-stat-row"><span class="k">Address</span><span style="text-align:right;max-width:60%">${info.address || '—'}</span></div>
+
+          <div class="admin-detail-section-title">Professional</div>
+          <div class="member-stat-row"><span class="k">Department</span><span>${info.department || '—'}</span></div>
+          <div class="member-stat-row"><span class="k">Role / Title</span><span>${info.role || '—'}</span></div>
           <div class="member-stat-row"><span class="k">Joining Date</span><span>${info.joinDate ? fmtDate(info.joinDate) : '—'}</span></div>
-          <div class="member-stat-row"><span class="k">Birthdate</span><span>${info.birthdate ? fmtDate(info.birthdate) : '—'}</span></div>
-          <div class="member-stat-row"><span class="k">Total Tasks</span><span>${stat.total}</span></div>
-          <div class="member-stat-row"><span class="k">Completed</span><span style="color:var(--green)">${stat.done}</span></div>
-          <div class="member-stat-row"><span class="k">In Progress</span><span style="color:var(--blue)">${stat.ip}</span></div>
-          <div class="member-stat-row"><span class="k">Pending</span><span style="color:var(--yellow)">${stat.ns}</span></div>
-          <div class="member-stat-row"><span class="k">Brands</span><span>${stat.brands ? stat.brands.size : 0}</span></div>
-          ${normName(name) !== 'gokul' ? `<div style="margin-top:16px"><button onclick="removeMember('${name}')" style="background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);color:#e05c5c;padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer">Move to Past Employees</button></div>` : ''}
+
+          <div class="admin-detail-section-title">🔒 Financial &amp; ID <span class="admin-detail-section-note">visible only to Gokul</span></div>
+          <div class="member-stat-row"><span class="k">PAN Number</span><span>${sensitive.pan || '—'}</span></div>
+          <div class="member-stat-row"><span class="k">Aadhar Number</span><span>${sensitive.aadhar || '—'}</span></div>
+          <div class="member-stat-row"><span class="k">Bank Name</span><span>${sensitive.bankName || '—'}</span></div>
+          <div class="member-stat-row"><span class="k">Branch</span><span>${sensitive.bankBranch || '—'}</span></div>
+          <div class="member-stat-row"><span class="k">Account Number</span><span>${sensitive.bankAccount || '—'}</span></div>
+          <div class="member-stat-row"><span class="k">IFSC Code</span><span>${sensitive.bankIFSC || '—'}</span></div>
+
+          <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="openEditEmployeeModal('${name}')">✎ Edit Details</button>
+            ${normName(name) !== 'gokul' ? `<button onclick="removeMember('${name}')" style="background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);color:#e05c5c;padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer">Move to Past Employees</button>` : ''}
+          </div>
         </div>`;
     }
 
@@ -8414,6 +8616,92 @@
       detail.style.display = 'none';
       detail.innerHTML = '';
       renderAdminDirectory();
+    }
+
+    let _eemEditingName = null;
+
+    async function openEditEmployeeModal(name) {
+      _eemEditingName = name;
+      const info = MEMBER_INFO[name] || {};
+      document.getElementById('eem-title-name').textContent = name;
+      document.getElementById('eem-employeeid').value = info.employeeId || '';
+      document.getElementById('eem-dept').value = info.department || '';
+      document.getElementById('eem-role').value = info.role || '';
+      document.getElementById('eem-joindate').value = info.joinDate || '';
+      document.getElementById('eem-birthdate').value = info.birthdate || '';
+      document.getElementById('eem-mobile').value = info.mobile || '';
+      document.getElementById('eem-email').value = info.personalEmail || '';
+      document.getElementById('eem-gender').value = info.gender || '';
+      document.getElementById('eem-address').value = info.address || '';
+      document.getElementById('eem-pan').value = '';
+      document.getElementById('eem-aadhar').value = '';
+      document.getElementById('eem-bankname').value = '';
+      document.getElementById('eem-branch').value = '';
+      document.getElementById('eem-account').value = '';
+      document.getElementById('eem-ifsc').value = '';
+      document.getElementById('edit-employee-modal').classList.remove('hidden');
+
+      if (_db) {
+        try {
+          const snap = await _db.ref('members_sensitive/' + fbMemberKey(name)).once('value');
+          const s = snap.val() || {};
+          document.getElementById('eem-pan').value = s.pan || '';
+          document.getElementById('eem-aadhar').value = s.aadhar || '';
+          document.getElementById('eem-bankname').value = s.bankName || '';
+          document.getElementById('eem-branch').value = s.bankBranch || '';
+          document.getElementById('eem-account').value = s.bankAccount || '';
+          document.getElementById('eem-ifsc').value = s.bankIFSC || '';
+        } catch (e) {}
+      }
+    }
+
+    function closeEditEmployeeModal() {
+      document.getElementById('edit-employee-modal').classList.add('hidden');
+      _eemEditingName = null;
+    }
+
+    function submitEditEmployeeModal() {
+      const name = _eemEditingName;
+      if (!name) return;
+      const key = fbMemberKey(name);
+      const employeeId = document.getElementById('eem-employeeid').value.trim();
+      const department = document.getElementById('eem-dept').value.trim();
+      const role = document.getElementById('eem-role').value.trim();
+      const joinDate = document.getElementById('eem-joindate').value;
+      const birthdate = document.getElementById('eem-birthdate').value;
+      const mobile = document.getElementById('eem-mobile').value.trim();
+      const personalEmail = document.getElementById('eem-email').value.trim();
+      const gender = document.getElementById('eem-gender').value;
+      const address = document.getElementById('eem-address').value.trim();
+      const pan = document.getElementById('eem-pan').value.trim().toUpperCase();
+      const aadhar = document.getElementById('eem-aadhar').value.trim();
+      const bankName = document.getElementById('eem-bankname').value.trim();
+      const bankBranch = document.getElementById('eem-branch').value.trim();
+      const bankAccount = document.getElementById('eem-account').value.trim();
+      const bankIFSC = document.getElementById('eem-ifsc').value.trim().toUpperCase();
+
+      const existing = MEMBER_INFO[name] || {};
+      const nonSensitive = { employeeId: employeeId || null, department: department || null, role: role || existing.role || 'Team Member', joinDate: joinDate || null, birthdate: birthdate || null, mobile: mobile || null, personalEmail: personalEmail || null, gender: gender || null, address: address || null };
+      MEMBER_INFO[name] = Object.assign({}, existing, nonSensitive);
+      const sensitiveRecord = { pan: pan || null, aadhar: aadhar || null, bankName: bankName || null, bankBranch: bankBranch || null, bankAccount: bankAccount || null, bankIFSC: bankIFSC || null };
+
+      if (_db) {
+        _db.ref('members/' + key).update(nonSensitive);
+        _db.ref('members_sensitive/' + key).set(sensitiveRecord);
+      }
+
+      renderTeam();
+      renderOverview();
+      buildMemberTabs(currentUser);
+      closeEditEmployeeModal();
+      showAdminEmployeeDetail(name);
+
+      document.getElementById('toast-emoji').textContent = '💾';
+      document.getElementById('toast-msg').textContent = `${name}'s details updated`;
+      document.getElementById('toast-sub').textContent = '';
+      const toast = document.getElementById('completion-toast');
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3000);
     }
 
     // ═══ APPROVAL WORKFLOW ═══
@@ -11885,13 +12173,100 @@ ${brandLines}`;
           <input class="form-control" type="date" id="ob-birthdate">
         </div>
       </div>
-      <div class="form-group">
-        <label>Phone</label>
-        <input class="form-control" id="ob-phone" placeholder="e.g. 98765 43210">
-      </div>
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="closeOnboardingForm()">Cancel</button>
         <button class="btn btn-primary" onclick="submitOnboardingForm()">Continue</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDIT EMPLOYEE MODAL (Gokul only — from the Admin employee detail view) -->
+  <div class="modal-overlay hidden" id="edit-employee-modal" onclick="if(event.target===this)closeEditEmployeeModal()">
+    <div class="modal" style="max-width:520px">
+      <div class="modal-title">Edit <span id="eem-title-name">Employee</span></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Employee ID</label>
+          <input class="form-control" id="eem-employeeid" placeholder="e.g. LSPL014">
+        </div>
+        <div class="form-group">
+          <label>Gender</label>
+          <select class="form-control" id="eem-gender">
+            <option value="">Select</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Department</label>
+          <input class="form-control" id="eem-dept">
+        </div>
+        <div class="form-group">
+          <label>Role / Title</label>
+          <input class="form-control" id="eem-role">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Joining Date</label>
+          <input class="form-control" type="date" id="eem-joindate">
+        </div>
+        <div class="form-group">
+          <label>Date of Birth</label>
+          <input class="form-control" type="date" id="eem-birthdate">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Mobile Number</label>
+          <input class="form-control" id="eem-mobile">
+        </div>
+        <div class="form-group">
+          <label>Personal Email</label>
+          <input class="form-control" type="email" id="eem-email">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Address</label>
+        <textarea class="form-control" id="eem-address" rows="2"></textarea>
+      </div>
+      <div class="admin-detail-section-title" style="margin-top:12px">🔒 Financial &amp; ID</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>PAN Number</label>
+          <input class="form-control" id="eem-pan" style="text-transform:uppercase">
+        </div>
+        <div class="form-group">
+          <label>Aadhar Number</label>
+          <input class="form-control" id="eem-aadhar">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Bank Name</label>
+          <input class="form-control" id="eem-bankname">
+        </div>
+        <div class="form-group">
+          <label>Branch Name</label>
+          <input class="form-control" id="eem-branch">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Account Number</label>
+          <input class="form-control" id="eem-account">
+        </div>
+        <div class="form-group">
+          <label>IFSC Code</label>
+          <input class="form-control" id="eem-ifsc" style="text-transform:uppercase">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeEditEmployeeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="submitEditEmployeeModal()">Save Changes</button>
       </div>
     </div>
   </div>
