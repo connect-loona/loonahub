@@ -732,8 +732,8 @@
     /* ── MEMBER CARDS ── */
     .member-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
-      gap: 16px;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 14px;
     }
 
     .member-card {
@@ -1067,6 +1067,46 @@
       max-width: 160px;
       opacity: .5;
       background-image: repeating-linear-gradient(90deg, currentColor 0, currentColor 1px, transparent 1px, transparent 2px, currentColor 2px, currentColor 4px, transparent 4px, transparent 6px, currentColor 6px, currentColor 7px, transparent 7px, transparent 9px);
+    }
+
+    /* Scaled-up version for the dedicated Loonatic profile page */
+    .lc-card-big {
+      padding: 28px 32px !important;
+    }
+
+    .lc-card-big .lc-photo-panel {
+      width: 120px;
+      height: 148px;
+    }
+
+    .lc-card-big .lc-top {
+      grid-template-columns: 120px 1fr;
+      gap: 22px;
+    }
+
+    .lc-card-big .lc-photo-panel .avatar {
+      font-size: 48px;
+    }
+
+    .lc-card-big .lc-name {
+      font-size: 26px;
+    }
+
+    .lc-card-big .lc-tenure {
+      font-size: 13px;
+      margin-bottom: 14px;
+    }
+
+    .lc-card-big .lc-fields .lc-row {
+      font-size: 13.5px;
+    }
+
+    .lc-card-big .lc-eyebrow {
+      font-size: 11px;
+    }
+
+    .lc-card-big .lt-known-for {
+      font-size: 14px;
     }
 
     /* ── ADMIN PANEL ── */
@@ -4876,38 +4916,43 @@
 
     <!-- ======= TEAM ======= -->
     <div class="page" id="page-team">
-      <div class="section-header" style="margin-top:0">
-        <div class="section-title">Meet the <span>Loonatics</span></div>
-        <button class="btn btn-primary" onclick="openAddMember()" style="padding:7px 16px;font-size:12px">+ Add
-          Member</button>
-      </div>
-      <div class="member-grid" id="member-cards"></div>
-      <div class="section-header">
-        <div class="section-title">Full <span>Breakdown</span></div>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Member</th>
-              <th>Dept</th>
-              <th>Total</th>
-              <th>Completed</th>
-              <th>In Progress</th>
-              <th>Pending</th>
-              <th>Rate</th>
-            </tr>
-          </thead>
-          <tbody id="team-table"></tbody>
-        </table>
-      </div>
-      <div id="past-employees-section" style="display: none; margin-top: 28px;">
-        <div class="section-header">
-          <div class="section-title">Past <span>Employees</span></div>
+      <div id="team-roster-view">
+        <div class="section-header" style="margin-top:0">
+          <div class="section-title">Meet the <span>Loonatics</span></div>
+          <button class="btn btn-primary" onclick="openAddMember()" style="padding:7px 16px;font-size:12px">+ Add
+            Member</button>
         </div>
-        <div id="past-employees-cards"
-          style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px"></div>
+        <div class="member-grid" id="member-cards"></div>
+        <div class="section-header">
+          <div class="section-title">Full <span>Breakdown</span></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Member</th>
+                <th>Dept</th>
+                <th>Total</th>
+                <th>Completed</th>
+                <th>In Progress</th>
+                <th>Pending</th>
+                <th>Rate</th>
+              </tr>
+            </thead>
+            <tbody id="team-table"></tbody>
+          </table>
+        </div>
+        <div id="past-employees-section" style="display: none; margin-top: 28px;">
+          <div class="section-header">
+            <div class="section-title">Past <span>Employees</span></div>
+          </div>
+          <div id="past-employees-cards"
+            style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px"></div>
+        </div>
       </div>
+      <!-- Clicking a Loonatic takes over the whole Team page with their pass card,
+           rather than showing it as one tile among many. -->
+      <div id="loonatic-profile-view" style="display:none"></div>
     </div>
 
     <!-- ======= ADMIN (Gokul only) ======= -->
@@ -8351,6 +8396,75 @@
       openStatusPicker();
     }
 
+    // Builds the full "Loona Pass" graphic for one person — used only by the
+    // dedicated profile page (openLoonaticProfile), not the Team roster tiles.
+    function buildLoonaticPassCardHTML(name) {
+      const info = MEMBER_INFO[name] || {};
+      const color = info.color || '#888';
+      const a = (window.ATT || {})[name] || null;
+      const joinDate = (a && a.joinDate) || info.joinDate;
+      const days = joinDate && window.daysAt ? window.daysAt(joinDate) : null;
+      const birthdate = info.birthdate;
+      const zodiac = zodiacSign(birthdate);
+      const spirit = spiritAnimal(birthdate);
+      const moon = moonPhaseOnDate(birthdate);
+      const realRole = (window._teamDetail && window._teamDetail[name] && window._teamDetail[name].asylum) || info.role || 'Team Member';
+      const fun = funRoleName(realRole);
+      const brands = (window._teamDetail && window._teamDetail[name] && window._teamDetail[name].brands) || new Set();
+      const buildingHTML = brands.size ? Array.from(brands).map(b => `<div class="lt-building-item">→ ${b}</div>`).join('') : '<div class="lt-building-item" style="color:var(--muted)">No active brands right now</div>';
+      const avatarInner = info.avatar ? `<img src="${info.avatar}" style="width:100%;height:100%;object-fit:cover">` : (info.emoji || '👤');
+      const avatarHtml = `<div class="avatar" style="background:${color}20;color:${color};${info.avatar ? 'padding:0;' : ''}overflow:hidden">${avatarInner}</div>`;
+      return `
+      <button class="btn btn-ghost" onclick="closeLoonaticProfile()" style="margin-bottom:16px">← Back to Team</button>
+      <div class="member-card lc-card lc-card-big" style="border-color:${color}44;color:${color};max-width:640px;margin:0 auto">
+        <div class="lc-corner-br"></div>
+        <div class="lc-eyebrow"><span>Loona Pass &middot; ${fbMemberKey(name)}</span><div class="lc-seal">${zodiac ? zodiac.emoji : '✦'}</div></div>
+        <div class="lc-top">
+          <div class="lt-avatar-wrap">
+            ${statusBubbleHTML(name)}
+            <div class="lc-photo-panel">${avatarHtml}</div>
+            <label class="avatar-edit" title="Change photo" style="position:absolute;bottom:2px;right:2px;z-index:3" onclick="event.stopPropagation()">📷<input type="file" accept="image/*" style="display:none" onchange="uploadMemberPhoto(this,'${name}')"></label>
+          </div>
+          <div style="color:var(--text)">
+            <div class="lc-name">${name}</div>
+            <div class="lc-tenure">${days != null ? `A Loonatic since ${days}d` : 'Loonatic'}</div>
+            <div class="lc-fields">
+              <div class="lc-row"><span class="lc-label">Role</span><span class="lc-val lt-fun-role" style="color:${color}">${fun}</span></div>
+              <div class="lc-row" style="margin-top:-2px"><span class="lc-label"></span><span class="lc-val lt-real-role">${realRole}</span></div>
+              ${zodiac ? `<div class="lc-row"><span class="lc-label">Zodiac</span><span class="lc-val">${zodiac.emoji} ${zodiac.name} · ${fmtDate(birthdate)}</span></div>` : ''}
+              ${spirit ? `<div class="lc-row"><span class="lc-label">Spirit Animal</span><span class="lc-val">${spirit.emoji} ${spirit.name}</span></div>` : ''}
+              ${moon ? `<div class="lc-row"><span class="lc-label">Moon Phase</span><span class="lc-val">${moon.emoji} ${moon.name}</span></div>` : ''}
+            </div>
+          </div>
+        </div>
+        <div class="lc-divider"></div>
+        <div style="color:var(--text)">
+          <div class="lc-section-label">Currently Building</div>
+          ${buildingHTML}
+        </div>
+        <div class="lt-known-for">${info.knownFor ? `"${info.knownFor}"` : 'Known for: still writing their legend.'}</div>
+        <div class="lc-footer">
+          <div class="lc-id-tag">${info.employeeId ? `№ ${info.employeeId}` : 'UNASSIGNED'}</div>
+          <div class="lc-barcode"></div>
+        </div>
+      </div>`;
+    }
+
+    function openLoonaticProfile(name) {
+      window._openLoonaticProfileName = name;
+      document.getElementById('team-roster-view').style.display = 'none';
+      const view = document.getElementById('loonatic-profile-view');
+      view.style.display = '';
+      view.innerHTML = buildLoonaticPassCardHTML(name);
+      window.scrollTo(0, 0);
+    }
+
+    function closeLoonaticProfile() {
+      window._openLoonaticProfileName = null;
+      document.getElementById('loonatic-profile-view').style.display = 'none';
+      document.getElementById('team-roster-view').style.display = '';
+    }
+
     function renderTeam() {
       const tMap = {};
       TASKS.forEach(t => { if (!t.member) return; if (!tMap[t.member]) tMap[t.member] = { member: t.member, asylum: t.asylum, total: 0, done: 0, ip: 0, ns: 0, brands: new Set() }; const m = tMap[t.member]; m.total++; if (t.status === 'Completed') m.done++; else if (t.status === 'In Progress') m.ip++; else m.ns++; if (t.brand) m.brands.add(t.brand); });
@@ -8385,61 +8499,28 @@
       window._teamDetail = {};
       activeMembers.concat(inactiveMembers).forEach(m => { window._teamDetail[m.member] = m; });
 
-      // "Meet the Loonatics" fun-profile card — a Loona ID/pass-card look rather than
-      // a task tracker (that data still lives in the Full Breakdown table below, and
-      // on the Task Board itself).
+      // Team page shows a simple roster to pick from — clicking someone opens their
+      // full Loona Pass as its own page (see openLoonaticProfile), rather than
+      // cramming the whole card into every grid tile.
       document.getElementById('member-cards').innerHTML = activeMembers.map(m => {
         const name = m.member;
         const info = MEMBER_INFO[name] || {};
-        const a = mAtt(name);
         const color = mColor(name);
-        const joinDate = (a && a.joinDate) || info.joinDate;
-        const days = joinDate && window.daysAt ? window.daysAt(joinDate) : null;
-        const birthdate = info.birthdate;
-        const zodiac = zodiacSign(birthdate);
-        const spirit = spiritAnimal(birthdate);
-        const moon = moonPhaseOnDate(birthdate);
         const realRole = m.asylum || info.role || 'Team Member';
-        const fun = funRoleName(realRole);
-        const buildingHTML = m.brands.size ? Array.from(m.brands).map(b => `<div class="lt-building-item">→ ${b}</div>`).join('') : '<div class="lt-building-item" style="color:var(--muted)">No active brands right now</div>';
-        const avatarHtml = `<div class="avatar" style="background:${color}20;color:${color};${info.avatar ? 'padding:0;' : ''}overflow:hidden">${mAvatar(name)}</div>`;
         return `
-    <div class="member-card lc-card" style="border-color:${color}44;color:${color}" onclick="window.showMemberDetail('${name}')">
-      <div class="lc-corner-br"></div>
-      <div class="lc-eyebrow"><span>Loona Pass &middot; ${fbMemberKey(name)}</span><div class="lc-seal">${zodiac ? zodiac.emoji : '✦'}</div></div>
-      <div class="lc-top">
-        <div class="lt-avatar-wrap">
-          ${statusBubbleHTML(name)}
-          <div class="lc-photo-panel">${avatarHtml}</div>
-          <label class="avatar-edit" title="Change photo" style="position:absolute;bottom:2px;right:2px;z-index:3" onclick="event.stopPropagation()">📷<input type="file" accept="image/*" style="display:none" onchange="uploadMemberPhoto(this,'${name}')"></label>
-        </div>
-        <div style="color:var(--text)">
-          <div class="lc-name">${name}</div>
-          <div class="lc-tenure">${days != null ? `A Loonatic since ${days}d` : 'Loonatic'}</div>
-          <div class="lc-fields">
-            <div class="lc-row"><span class="lc-label">Role</span><span class="lc-val lt-fun-role" style="color:${color}">${fun}</span></div>
-            <div class="lc-row" style="margin-top:-2px"><span class="lc-label"></span><span class="lc-val lt-real-role">${realRole}</span></div>
-            ${zodiac ? `<div class="lc-row"><span class="lc-label">Zodiac</span><span class="lc-val">${zodiac.emoji} ${zodiac.name} · ${fmtDate(birthdate)}</span></div>` : ''}
-            ${spirit ? `<div class="lc-row"><span class="lc-label">Spirit Animal</span><span class="lc-val">${spirit.emoji} ${spirit.name}</span></div>` : ''}
-            ${moon ? `<div class="lc-row"><span class="lc-label">Moon Phase</span><span class="lc-val">${moon.emoji} ${moon.name}</span></div>` : ''}
-          </div>
-        </div>
+    <div class="admin-emp-card" style="border-color:${color}22" onclick="openLoonaticProfile('${name}')">
+      <div class="lt-avatar-wrap">
+        ${statusBubbleHTML(name)}
+        <div class="admin-emp-avatar" style="background:${color}20;color:${color};${info.avatar ? 'padding:0;' : ''}overflow:hidden">${mAvatar(name)}</div>
       </div>
-      <div class="lc-divider"></div>
-      <div style="color:var(--text)">
-        <div class="lc-section-label">Currently Building</div>
-        ${buildingHTML}
-      </div>
-      <div class="lt-known-for">${info.knownFor ? `"${info.knownFor}"` : 'Known for: still writing their legend.'}</div>
-      <div class="lc-footer">
-        <div class="lc-id-tag">${info.employeeId ? `№ ${info.employeeId}` : 'UNASSIGNED'}</div>
-        <div class="lc-barcode"></div>
-      </div>
-      <div class="member-actions" style="margin-top:12px;display:flex;gap:8px">
-        <button onclick="event.stopPropagation();removeMember('${name}')" style="background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);color:#e05c5c;padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;font-family:var(--font);flex:1">Remove from Team</button>
-      </div>
+      <div class="admin-emp-name">${name}</div>
+      <div class="admin-emp-role">${realRole}</div>
     </div>`;
       }).join('');
+
+      if (window._openLoonaticProfileName && ALL_MEMBERS.includes(window._openLoonaticProfileName)) {
+        document.getElementById('loonatic-profile-view').innerHTML = buildLoonaticPassCardHTML(window._openLoonaticProfileName);
+      }
 
       // Past employees section
       const pastSec = document.getElementById('past-employees-section') || (() => {
@@ -13643,16 +13724,11 @@ ${brandLines}`;
     #phase-grid .phase-status-sel{font-size:7.5px!important;padding:3px 2px!important;margin-bottom:4px!important}
     #phase-grid .phase-items{display:none!important}
     /* ---- Team: 4 member cards per row, condensed to essentials, tap for full detail ---- */
+    /* Team roster tiles reuse .admin-emp-card, which already has its own 5-per-row
+       mobile treatment (see Admin Employee Directory rules below) — nothing extra
+       needed here. The big pass-card profile page (#loonatic-profile-view) is
+       outside #member-cards entirely, so none of this affects it. */
     #member-cards{grid-template-columns:repeat(4,1fr)!important;gap:6px!important}
-    #member-cards .member-card{padding:6px 4px!important;border-radius:9px!important;cursor:pointer!important}
-    #member-cards .lc-top{grid-template-columns:1fr!important;justify-items:center!important;text-align:center!important;gap:2px!important}
-    #member-cards .lc-photo-panel{width:28px!important;height:28px!important;border-radius:50%!important;margin:0 auto!important}
-    #member-cards .lc-photo-panel .avatar{font-size:12px!important}
-    #member-cards .avatar-edit{display:none!important}
-    #member-cards .lc-name{font-size:8px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:100%!important;margin-top:3px!important;text-align:center!important}
-    /* Condensed on mobile — photo, status bubble, and name only; tap the card for the full pass-card popup */
-    #member-cards .lc-eyebrow,#member-cards .lc-tenure,#member-cards .lc-divider,#member-cards .lc-fields,#member-cards .lc-section-label,#member-cards .lt-building-item,#member-cards .lt-known-for,#member-cards .lc-footer,#member-cards .member-actions,#member-cards .lc-corner-br{display:none!important}
-    #member-cards .lc-card::before,#member-cards .lc-card::after{display:none!important}
     #member-cards .status-bubble{font-size:7px!important;padding:2px 5px!important;margin-bottom:4px!important}
     /* ---- Past Employees: 6 per row, tiny cards, icon-only Restore ---- */
     #past-employees-cards{grid-template-columns:repeat(6,1fr)!important;gap:5px!important}
