@@ -1004,6 +1004,21 @@
     .lp-footer-dna { border: 1px solid #1a1206; border-radius: 3px; padding: 5px 9px; font-size: 8.5px; font-weight: 700; line-height: 1.5; }
     .lp-footer-target { font-size: 15px; }
 
+    .lp-edit-btn {
+      background: transparent;
+      color: #1a1206;
+      border: 2px solid #1a1206;
+      border-radius: 4px;
+      padding: 6px 16px;
+      font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      transition: background .15s, color .15s;
+    }
+    .lp-edit-btn:hover { background: #1a1206; color: #e8541e; }
+
     @media (max-width: 720px) {
       .lp-top { grid-template-columns: 1fr; }
       .lp-seal { top: 8px; }
@@ -4829,25 +4844,6 @@
             Member</button>
         </div>
         <div class="member-grid" id="member-cards"></div>
-        <div class="section-header">
-          <div class="section-title">Full <span>Breakdown</span></div>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Member</th>
-                <th>Dept</th>
-                <th>Total</th>
-                <th>Completed</th>
-                <th>In Progress</th>
-                <th>Pending</th>
-                <th>Rate</th>
-              </tr>
-            </thead>
-            <tbody id="team-table"></tbody>
-          </table>
-        </div>
         <div id="past-employees-section" style="display: none; margin-top: 28px;">
           <div class="section-header">
             <div class="section-title">Past <span>Employees</span></div>
@@ -8378,7 +8374,10 @@
       };
 
       return `
-      <button class="btn btn-ghost" onclick="closeLoonaticProfile()" style="margin-bottom:16px">← Back to Team</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <button class="btn btn-ghost" onclick="closeLoonaticProfile()">← Back to Team</button>
+        ${canEdit ? `<button class="lp-edit-btn" onclick="${isSelf ? 'openMyProfileModal()' : `openEditEmployeeModal('${name}')`}">✎ Edit Profile</button>` : ''}
+      </div>
       <div class="lp-page" style="max-width:860px;margin:0 auto">
         <div class="lp-header">
           <div class="lp-header-left">
@@ -8395,7 +8394,7 @@
             <div class="lt-avatar-wrap" style="display:block;width:100%">
               ${statusBubbleHTML(name)}
               <div class="lp-photo-frame">${avatarInner}</div>
-              <label class="avatar-edit" title="Change photo" style="position:absolute;bottom:38px;right:6px;z-index:3" onclick="event.stopPropagation()">📷<input type="file" accept="image/*" style="display:none" onchange="uploadMemberPhoto(this,'${name}')"></label>
+              ${canEdit ? `<label class="avatar-edit" title="Change photo" style="position:absolute;bottom:38px;right:6px;z-index:3;width:30px;height:30px;font-size:15px;background:#1a1206;color:#e8541e;border:1.5px solid #e8541e" onclick="event.stopPropagation()">📷<input type="file" accept="image/*" style="display:none" onchange="uploadMemberPhoto(this,'${name}')"></label>` : ''}
             </div>
             <div class="lp-photo-footer">
               <div class="lp-barcode-big"></div>
@@ -8581,12 +8580,6 @@
         pastSec.style.display = 'none';
       }
 
-      document.getElementById('team-table').innerHTML = activeMembers.map(m => `<tr>
-    <td><span style="color:${mColor(m.member)}">●</span> <strong>${m.member}</strong></td>
-    <td style="color:var(--muted)">${m.asylum || (MEMBER_INFO[m.member] || {}).role || '—'}</td>
-    <td>${m.total}</td><td style="color:var(--green)">${m.done}</td>
-    <td style="color:var(--blue)">${m.ip}</td><td style="color:var(--yellow)">${m.ns}</td>
-    <td style="min-width:140px">${progressBar(m.done, m.total)}</td></tr>`).join('');
       renderOrgChart();
       renderLcSignAvatar();
     }
