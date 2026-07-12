@@ -1156,6 +1156,65 @@
     }
     .costar-cool-btn:hover { background: #3d3d3d; }
 
+    /* ── Find Your Loona Personality quiz ── */
+    .quiz-modal { position: relative; text-align: center; }
+    .quiz-close-x { position: absolute; top: 14px; right: 16px; background: none; border: none; color: var(--muted); font-size: 16px; cursor: pointer; line-height: 1; }
+    .quiz-close-x:hover { color: var(--text); }
+
+    .quiz-intro { padding: 20px 6px 6px; }
+    .quiz-intro-emoji { font-size: 44px; margin-bottom: 14px; }
+    .quiz-intro-text { font-size: 17px; font-weight: 600; line-height: 1.5; }
+
+    .quiz-progress { font-size: 11px; font-weight: 700; letter-spacing: .05em; color: var(--muted); text-transform: uppercase; margin-bottom: 10px; }
+    .quiz-question { font-size: 17px; font-weight: 700; line-height: 1.4; margin-bottom: 18px; text-align: left; }
+    .quiz-options { display: flex; flex-direction: column; gap: 8px; }
+    .quiz-option {
+      display: flex; align-items: center; gap: 10px;
+      text-align: left; width: 100%;
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: 10px; padding: 11px 14px;
+      font-family: var(--font); font-size: 13.5px; color: var(--text);
+      cursor: pointer; transition: border-color .15s, background .15s;
+    }
+    .quiz-option:hover { border-color: var(--accent); }
+    .quiz-option.quiz-option-selected { border-color: var(--accent); background: rgba(200,169,110,.1); }
+    .quiz-option-letter {
+      flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
+      border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: var(--muted);
+    }
+    .quiz-option.quiz-option-selected .quiz-option-letter { border-color: var(--accent); color: var(--accent); background: rgba(200,169,110,.15); }
+
+    .quiz-options-moon { flex-direction: row; justify-content: center; flex-wrap: wrap; gap: 10px; }
+    .quiz-moon-option {
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      width: 84px; padding: 14px 6px;
+      background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px;
+      font-family: var(--font); cursor: pointer; transition: border-color .15s, background .15s;
+    }
+    .quiz-moon-option:hover { border-color: var(--accent); }
+    .quiz-moon-option.quiz-option-selected { border-color: var(--accent); background: rgba(200,169,110,.1); }
+    .quiz-moon-emoji { font-size: 26px; }
+    .quiz-moon-label { font-size: 10.5px; font-weight: 600; text-align: center; line-height: 1.3; }
+    .quiz-moon-footnote { font-size: 11.5px; color: var(--muted); font-style: italic; text-align: center; margin-top: 14px; }
+
+    .quiz-loading { padding: 40px 10px; }
+    .quiz-loading-spinner { font-size: 44px; animation: quizSpin 1.1s linear infinite; }
+    @keyframes quizSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .quiz-loading-text { font-size: 14px; color: var(--muted); margin-top: 14px; }
+
+    .quiz-result { text-align: center; padding-top: 10px; }
+    .quiz-result-label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+    .quiz-result-emoji { font-size: 48px; margin-top: 10px; }
+    .quiz-result-name { font-size: 22px; font-weight: 700; margin-top: 6px; }
+    .quiz-result-tagline { font-size: 13.5px; font-style: italic; color: var(--muted); margin-top: 6px; }
+    .quiz-result-para { font-size: 13px; line-height: 1.6; text-align: left; margin-top: 16px; }
+    .quiz-result-earned { color: var(--muted); font-size: 12px; }
+    .quiz-result-row { text-align: left; margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border); }
+    .quiz-result-row-label { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); margin-bottom: 3px; }
+    .quiz-result-row-val { font-size: 13px; line-height: 1.5; }
+    .quiz-result-share { font-size: 12.5px; font-style: italic; color: var(--muted); text-align: center; margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--border); }
+
     .lp-edit-btn {
       background: transparent;
       color: #1a1206;
@@ -5025,6 +5084,10 @@
           <button class="btn btn-primary" onclick="openCostarModal()" style="padding:7px 16px;font-size:12px">Reveal</button>
         </div>
         <div class="oracle-tagline">A different scene partner every day — tap Reveal to find out who's in it with you.</div>
+        <div class="section-header">
+          <div class="section-title">Find Your <span>Loona Personality</span></div>
+        </div>
+        <div id="loona-quiz-entry"></div>
         <div id="past-employees-section" style="display: none; margin-top: 28px;">
           <div class="section-header">
             <div class="section-title">Past <span>Employees</span></div>
@@ -6317,7 +6380,7 @@
             attachAvatarListener(m.name);
             attachFavoritesListener(m.name);
             const existing = MEMBER_INFO[m.name] || {};
-            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || null, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null, mobile: m.mobile || existing.mobile || null, gender: m.gender || existing.gender || null, personalEmail: m.personalEmail || existing.personalEmail || null, address: m.address || existing.address || null, lastName: m.lastName || existing.lastName || null, emergencyContactName: m.emergencyContactName || existing.emergencyContactName || null, emergencyContactPhone: m.emergencyContactPhone || existing.emergencyContactPhone || null, bloodGroup: m.bloodGroup || existing.bloodGroup || null, workEmail: m.workEmail || existing.workEmail || null, knownFor: m.knownFor || existing.knownFor || null, mbti: m.mbti || existing.mbti || null, style: m.style || existing.style || null, nowPlayingSong: m.nowPlayingSong || existing.nowPlayingSong || null, nowPlayingArtist: m.nowPlayingArtist || existing.nowPlayingArtist || null, funFacts: m.funFacts || existing.funFacts || null, favMovie: m.favMovie || existing.favMovie || null, favSnack: m.favSnack || existing.favSnack || null, favBook: m.favBook || existing.favBook || null, favDestination: m.favDestination || existing.favDestination || null, favMovieImg: existing.favMovieImg || null, favSnackImg: existing.favSnackImg || null, favBookImg: existing.favBookImg || null, favDestinationImg: existing.favDestinationImg || null, nowPlayingImg: existing.nowPlayingImg || null, profilePromptDismissed: m.profilePromptDismissed || existing.profilePromptDismissed || false };
+            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || null, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null, mobile: m.mobile || existing.mobile || null, gender: m.gender || existing.gender || null, personalEmail: m.personalEmail || existing.personalEmail || null, address: m.address || existing.address || null, lastName: m.lastName || existing.lastName || null, emergencyContactName: m.emergencyContactName || existing.emergencyContactName || null, emergencyContactPhone: m.emergencyContactPhone || existing.emergencyContactPhone || null, bloodGroup: m.bloodGroup || existing.bloodGroup || null, workEmail: m.workEmail || existing.workEmail || null, knownFor: m.knownFor || existing.knownFor || null, mbti: m.mbti || existing.mbti || null, style: m.style || existing.style || null, nowPlayingSong: m.nowPlayingSong || existing.nowPlayingSong || null, nowPlayingArtist: m.nowPlayingArtist || existing.nowPlayingArtist || null, funFacts: m.funFacts || existing.funFacts || null, favMovie: m.favMovie || existing.favMovie || null, favSnack: m.favSnack || existing.favSnack || null, favBook: m.favBook || existing.favBook || null, favDestination: m.favDestination || existing.favDestination || null, favMovieImg: existing.favMovieImg || null, favSnackImg: existing.favSnackImg || null, favBookImg: existing.favBookImg || null, favDestinationImg: existing.favDestinationImg || null, nowPlayingImg: existing.nowPlayingImg || null, profilePromptDismissed: m.profilePromptDismissed || existing.profilePromptDismissed || false, loonaPersonality: m.loonaPersonality || existing.loonaPersonality || null };
             // Older records still carry the avatar inline on this same node — use it right away,
             // then migrate it out to member_avatars/ so this node stays small for everyone from now on.
             if (m.avatar && m.avatar !== MEMBER_INFO[m.name].avatar) {
@@ -8458,6 +8521,293 @@
       return LUCKY_HOURS[dailyHash(name + '_' + todayISO() + '_hour') % LUCKY_HOURS.length];
     }
 
+    // ═══ Find Your Loona Personality ═══ — a one-time 20-question quiz (taken
+    // once, result saved to the profile). 19 questions are scored against 8
+    // hidden traits; question 20 (the moon) is just for fun and isn't scored.
+    // Each option maps to exactly one trait so the trait totals stay comparable.
+    const QUIZ_QUESTIONS = [
+      { q: 'The client says, "Surprise us."', options: [
+        { text: 'I already have three ideas.', trait: 'Vision' },
+        { text: 'I need more context first.', trait: 'Logic' },
+        { text: 'Time to find references.', trait: 'Craft' },
+        { text: "Let's just start and see where it goes.", trait: 'Momentum' }
+      ] },
+      { q: 'Your creative process usually begins with…', options: [
+        { text: 'A random thought.', trait: 'Curiosity' },
+        { text: 'A Pinterest rabbit hole.', trait: 'Craft' },
+        { text: 'Writing everything down.', trait: 'Logic' },
+        { text: 'Opening Figma immediately.', trait: 'Momentum' }
+      ] },
+      { q: 'It\'s 11:30 PM and a client sends "One small change."', options: [
+        { text: "I'll do it now.", trait: 'Momentum' },
+        { text: 'Depends how small.', trait: 'Logic' },
+        { text: "Tomorrow's problem.", trait: 'Focus' },
+        { text: 'Why are they awake?', trait: 'Adaptability' }
+      ] },
+      { q: "What's usually open on your laptop?", options: [
+        { text: '40 browser tabs.', trait: 'Curiosity' },
+        { text: 'Figma and Spotify.', trait: 'Craft' },
+        { text: 'Notion with colour-coded lists.', trait: 'Logic' },
+        { text: 'Whatever I need right now.', trait: 'Adaptability' }
+      ] },
+      { q: "During a brainstorm, you're the one who…", options: [
+        { text: 'Throws the wildest ideas out first.', trait: 'Vision' },
+        { text: "Refines everyone else's ideas.", trait: 'Craft' },
+        { text: 'Keeps the discussion on track.', trait: 'Collaboration' },
+        { text: 'Waits… then says the best thing.', trait: 'Focus' }
+      ] },
+      { q: 'Your biggest creative strength?', options: [
+        { text: 'Imagination.', trait: 'Vision' },
+        { text: 'Taste.', trait: 'Craft' },
+        { text: 'Problem-solving.', trait: 'Logic' },
+        { text: 'Getting things done.', trait: 'Momentum' }
+      ] },
+      { q: 'Which office role do you secretly become?', options: [
+        { text: 'The therapist.', trait: 'Collaboration' },
+        { text: 'The comedian.', trait: 'Adaptability' },
+        { text: 'The organiser.', trait: 'Logic' },
+        { text: 'The ghost.', trait: 'Focus' }
+      ] },
+      { q: 'Which sentence sounds most like you?', options: [
+        { text: '"Imagine if…"', trait: 'Vision' },
+        { text: '"Give me five minutes."', trait: 'Focus' },
+        { text: '"There\'s definitely a better way."', trait: 'Logic' },
+        { text: '"Let\'s ship it."', trait: 'Momentum' }
+      ] },
+      { q: 'Deadlines make you…', options: [
+        { text: 'Come alive.', trait: 'Momentum' },
+        { text: 'Hyper-organised.', trait: 'Logic' },
+        { text: 'Calm somehow.', trait: 'Focus' },
+        { text: 'Slightly dramatic.', trait: 'Adaptability' }
+      ] },
+      { q: 'Pick a workspace.', options: [
+        { text: 'Clean desk.', trait: 'Logic' },
+        { text: 'Creative chaos.', trait: 'Curiosity' },
+        { text: 'Coffee everywhere.', trait: 'Momentum' },
+        { text: 'Headphones on. World off.', trait: 'Focus' }
+      ] },
+      { q: 'Which feedback annoys you the most?', options: [
+        { text: '"Make it pop."', trait: 'Craft' },
+        { text: '"I don\'t know… something\'s missing."', trait: 'Logic' },
+        { text: '"Can we try another option?"', trait: 'Momentum' },
+        { text: '"My cousin had an idea…"', trait: 'Vision' }
+      ] },
+      { q: 'You have one free afternoon.', options: [
+        { text: 'Learn something new.', trait: 'Curiosity' },
+        { text: 'Build a passion project.', trait: 'Vision' },
+        { text: 'Sleep.', trait: 'Focus' },
+        { text: 'Wander somewhere with a camera.', trait: 'Adaptability' }
+      ] },
+      { q: "What's your relationship with revisions?", options: [
+        { text: 'Every version gets better.', trait: 'Craft' },
+        { text: 'At some point… stop.', trait: 'Momentum' },
+        { text: 'I secretly enjoy solving them.', trait: 'Logic' },
+        { text: "Depends who's asking.", trait: 'Collaboration' }
+      ] },
+      { q: 'Pick a superpower.', options: [
+        { text: 'Seeing patterns.', trait: 'Logic' },
+        { text: 'Unlimited creativity.', trait: 'Vision' },
+        { text: 'Never missing details.', trait: 'Craft' },
+        { text: 'Infinite focus.', trait: 'Focus' }
+      ] },
+      { q: 'If the office lost Wi-Fi…', options: [
+        { text: 'Talk to people.', trait: 'Collaboration' },
+        { text: 'Sketch ideas.', trait: 'Vision' },
+        { text: 'Panic for thirty seconds.', trait: 'Adaptability' },
+        { text: 'Finally organise my files.', trait: 'Logic' }
+      ] },
+      { q: "What's your biggest weakness?", options: [
+        { text: 'I overthink.', trait: 'Logic' },
+        { text: 'I start too many things.', trait: 'Curiosity' },
+        { text: "I'm too particular.", trait: 'Craft' },
+        { text: 'I forget to take breaks.', trait: 'Momentum' }
+      ] },
+      { q: "You're happiest when…", options: [
+        { text: 'Everyone loves the final result.', trait: 'Collaboration' },
+        { text: 'You solve an impossible problem.', trait: 'Logic' },
+        { text: "You're completely in flow.", trait: 'Focus' },
+        { text: 'You surprise yourself.', trait: 'Curiosity' }
+      ] },
+      { q: 'Which word describes you best?', options: [
+        { text: 'Curious.', trait: 'Curiosity' },
+        { text: 'Reliable.', trait: 'Collaboration' },
+        { text: 'Bold.', trait: 'Momentum' },
+        { text: 'Thoughtful.', trait: 'Focus' }
+      ] },
+      { q: 'Your ideal workday ends with…', options: [
+        { text: 'Shipping something.', trait: 'Momentum' },
+        { text: 'Learning something.', trait: 'Curiosity' },
+        { text: 'Making someone laugh.', trait: 'Collaboration' },
+        { text: 'Feeling proud of the craft.', trait: 'Craft' }
+      ] }
+    ];
+    // Question 20 — purely for fun, not scored (per the brief: "it doesn't affect
+    // your result… or does it?" — it doesn't; kept unscored on purpose).
+    const QUIZ_MOON_QUESTION = { q: 'Finally… choose a moon.', options: [
+      { emoji: '🌑', text: 'New Moon' },
+      { emoji: '🌓', text: 'First Quarter' },
+      { emoji: '🌕', text: 'Full Moon' },
+      { emoji: '🌘', text: 'Waning Crescent' }
+    ] };
+
+    const LOONA_PERSONALITIES = {
+      moonwalker: { emoji: '🌕', name: 'The Moonwalker', tagline: 'You see the idea before everyone else sees the possibility.', paragraph: 'You naturally think in worlds, campaigns and what something could become. Safe ideas rarely excite you.', chose: 'big-picture thinking, imagination, bold ideas and curiosity.', traits: ['Vision', 'Creativity', 'Ambition'], weakness: 'The idea is thrilling long before it is finished — and sometimes that is where it stays.', collaborator: 'orbitkeeper', warning: 'Pick one orbit and actually land it before you launch the next one.', line: '"Imagine if we…"' },
+      worldbuilder: { emoji: '🎨', name: 'The World Builder', tagline: 'You make things feel complete, considered and impossible to scroll past.', paragraph: 'You care about the details people may never consciously notice — but they always feel them.', chose: 'craft, references, visual taste, detail and refinement.', traits: ['Taste', 'Patience', 'Precision'], weakness: 'You can always find one more thing to fix — the trick is knowing when it was already good.', collaborator: 'ignition', warning: 'Set a real finish line before the polish becomes the whole project.', line: '"Something still feels slightly off."' },
+      ignition: { emoji: '🚀', name: 'The Ignition', tagline: 'You turn hesitation into momentum.', paragraph: 'You would rather begin, test and improve than spend forever planning the perfect first move.', chose: 'speed, action, experimentation and shipping work.', traits: ['Momentum', 'Decisiveness', 'Energy'], weakness: 'You are already three steps ahead before anyone else has finished reading the brief.', collaborator: 'worldbuilder', warning: 'Check who is still catching up before you sprint off again.', line: '"Let\'s just try it."' },
+      orbitkeeper: { emoji: '🛰️', name: 'The Orbit Keeper', tagline: 'You are the reason the chaos still has a calendar.', paragraph: 'You instinctively organise people, timelines and loose ends without making creativity feel controlled.', chose: 'planning, reliability, collaboration and structure.', traits: ['Responsibility', 'Calm', 'Organisation'], weakness: 'You will quietly fix the plan five times before anyone notices it almost fell apart.', collaborator: 'moonwalker', warning: "Hand something back before you are holding the whole timeline alone.", line: '"Who is actually doing what?"' },
+      glitch: { emoji: '👽', name: 'The Glitch', tagline: 'Your brain takes the route no one else can see.', paragraph: 'Your ideas may sound strange at first. Then suddenly they become the concept everyone wants.', chose: 'unusual ideas, experimentation, curiosity and surprise.', traits: ['Originality', 'Humour', 'Imagination'], weakness: 'Sometimes the idea makes perfect sense in your head — and nowhere else.', collaborator: 'puzzlesolver', warning: 'Explain the idea before everyone assumes you have lost it.', line: '"Okay, this may sound weird…"' },
+      deepdiver: { emoji: '🌊', name: 'The Deep Diver', tagline: 'You disappear into the work and return with something finished.', paragraph: 'Noise drains you. Space sharpens you. Your best work happens when you can focus without interruption.', chose: 'silence, flow, depth and independent working.', traits: ['Focus', 'Patience', 'Depth'], weakness: 'You can go so deep that no one remembers you are still in the room.', collaborator: 'spark', warning: 'Surface occasionally — the team needs to know the dive is going well.', line: '"Give me some time alone with it."' },
+      spark: { emoji: '⚡', name: 'The Spark', tagline: 'You make people more excited about the work.', paragraph: 'Your energy moves through rooms, brainstorms and group chats. You make ideas feel possible.', chose: 'collaboration, humour, people and shared energy.', traits: ['Enthusiasm', 'Communication', 'Optimism'], weakness: 'You can talk yourself into loving five different directions before lunch.', collaborator: 'deepdiver', warning: 'Save some of that energy for the idea that actually needs it most.', line: '"Wait, I have an idea."' },
+      puzzlesolver: { emoji: '🧩', name: 'The Puzzle Solver', tagline: 'Impossible briefs are your favourite kind.', paragraph: 'You naturally break confusion into smaller, solvable pieces. Where others see problems, you see patterns.', chose: 'logic, questions, systems and problem-solving.', traits: ['Clarity', 'Reasoning', 'Adaptability'], weakness: 'You will fix a problem so thoroughly, no one remembers it was ever broken — or that you fixed it.', collaborator: 'glitch', warning: 'Ask before you solve — not every puzzle wants solving.', line: '"There has to be a better way."' },
+      shapeshifter: { emoji: '🎭', name: 'The Shape-Shifter', tagline: 'You adapt before the situation has finished changing.', paragraph: 'New brief, new client, new platform — you quickly understand what the moment requires and become it.', chose: 'flexibility, variety, curiosity and improvisation.', traits: ['Adaptability', 'Resourcefulness', 'Range'], weakness: 'You can become exactly what every project needs — and still wonder what you actually prefer.', collaborator: 'anchor', warning: 'Keep one thing constant so the rest of the shape-shifting has an anchor.', line: '"We\'ll figure it out."' },
+      eclipse: { emoji: '🌑', name: 'The Eclipse', tagline: 'You do not need attention to create impact.', paragraph: 'You observe first, speak carefully and often contribute the thought that shifts the entire direction.', chose: 'listening, thoughtfulness, calm and quiet confidence.', traits: ['Perception', 'Depth', 'Composure'], weakness: 'The best point in the room is often the one you decided not to say out loud.', collaborator: 'wildfire', warning: 'Say the quiet thought — it is usually the one worth hearing.', line: '"I\'ve been thinking…"' },
+      wildfire: { emoji: '🔥', name: 'The Wildfire', tagline: 'Once you believe in something, the whole room catches it.', paragraph: 'You are bold, expressive and difficult to ignore. You bring urgency — and occasionally beautiful chaos.', chose: 'risk, confidence, energy and instinct.', traits: ['Courage', 'Momentum', 'Influence'], weakness: 'You convince the room before you have fully convinced yourself.', collaborator: 'eclipse', warning: 'Pace the fire — not everything needs to burn today.', line: '"No, trust me. This will work."' },
+      anchor: { emoji: '⚓', name: 'The Anchor', tagline: 'When everything becomes dramatic, you remain strangely normal.', paragraph: 'You bring steadiness, perspective and emotional calm. People trust you because you do not panic easily.', chose: 'reliability, patience, support and level-headed decisions.', traits: ['Stability', 'Empathy', 'Consistency'], weakness: 'You will hold everyone else steady and forget to ask who is holding you.', collaborator: 'shapeshifter', warning: "Let someone steady you occasionally — it is allowed.", line: '"It\'s fine. We\'ll handle it."' }
+    };
+
+    // Primary trait decides the personality; where a trait maps to two possible
+    // personalities, the second-strongest trait breaks the tie.
+    function personalityFromTraits(scores) {
+      const traits = Object.keys(scores).sort((a, b) => scores[b] - scores[a]);
+      const primary = traits[0], secondary = traits[1];
+      switch (primary) {
+        case 'Vision': return 'moonwalker';
+        case 'Craft': return 'worldbuilder';
+        case 'Momentum': return secondary === 'Vision' ? 'wildfire' : 'ignition';
+        case 'Logic': return secondary === 'Collaboration' ? 'orbitkeeper' : 'puzzlesolver';
+        case 'Focus': return secondary === 'Collaboration' ? 'eclipse' : 'deepdiver';
+        case 'Curiosity': return 'glitch';
+        case 'Collaboration': return secondary === 'Momentum' ? 'spark' : 'anchor';
+        case 'Adaptability': return 'shapeshifter';
+        default: return 'moonwalker';
+      }
+    }
+
+    function scoreQuizAnswers(answers) {
+      const scores = { Vision: 0, Craft: 0, Momentum: 0, Logic: 0, Focus: 0, Curiosity: 0, Collaboration: 0, Adaptability: 0 };
+      QUIZ_QUESTIONS.forEach((q, i) => {
+        const optIdx = answers[i];
+        if (optIdx == null) return;
+        const trait = q.options[optIdx].trait;
+        scores[trait] = (scores[trait] || 0) + 1;
+      });
+      return scores;
+    }
+
+    // Total slide count = 19 scored questions + 1 moon question = 20, matching
+    // "20 questions" in the brief. _quizIndex: -1 = intro, 0-18 = QUIZ_QUESTIONS,
+    // 19 = the moon question.
+    function openLoonaQuiz() {
+      if (!currentUser) return;
+      window._quizAnswers = new Array(QUIZ_QUESTIONS.length + 1).fill(null);
+      window._quizIndex = -1;
+      document.getElementById('loona-quiz-modal').classList.remove('hidden');
+      renderQuizSlide();
+    }
+
+    function closeLoonaQuiz() {
+      document.getElementById('loona-quiz-modal').classList.add('hidden');
+    }
+
+    function quizSelectOption(idx) {
+      window._quizAnswers[window._quizIndex] = idx;
+      renderQuizSlide();
+    }
+
+    function quizGoBack() {
+      if (window._quizIndex > -1) window._quizIndex--;
+      renderQuizSlide();
+    }
+
+    function quizGoNext() {
+      const total = QUIZ_QUESTIONS.length + 1;
+      if (window._quizIndex >= 0 && window._quizAnswers[window._quizIndex] == null) return;
+      if (window._quizIndex === total - 1) { quizSubmit(); return; }
+      window._quizIndex++;
+      renderQuizSlide();
+    }
+
+    function quizSubmit() {
+      const content = document.getElementById('loona-quiz-content');
+      content.innerHTML = `
+        <div class="quiz-loading">
+          <div class="quiz-loading-spinner">🔮</div>
+          <div class="quiz-loading-text">Reading the pattern in your answers…</div>
+        </div>`;
+      document.getElementById('loona-quiz-footer').style.display = 'none';
+      setTimeout(() => {
+        const scores = scoreQuizAnswers(window._quizAnswers);
+        const key = personalityFromTraits(scores);
+        if (MEMBER_INFO[currentUser]) MEMBER_INFO[currentUser].loonaPersonality = key;
+        if (_db) _db.ref('members/' + fbMemberKey(currentUser) + '/loonaPersonality').set(key);
+        renderQuizResult(key);
+        renderDailyExtras();
+        if (window._openLoonaticProfileName === currentUser && window._loonaticEditMode !== currentUser) {
+          document.getElementById('loonatic-profile-view').innerHTML = buildLoonaticPassCardHTML(currentUser, false);
+        }
+      }, 1600);
+    }
+
+    function renderQuizResult(key) {
+      const p = LOONA_PERSONALITIES[key];
+      const partner = LOONA_PERSONALITIES[p.collaborator];
+      document.getElementById('loona-quiz-content').innerHTML = `
+        <div class="quiz-result">
+          <div class="quiz-result-label">Your Loona Personality</div>
+          <div class="quiz-result-emoji">${p.emoji}</div>
+          <div class="quiz-result-name">${p.name}</div>
+          <div class="quiz-result-tagline">${p.tagline}</div>
+          <div class="quiz-result-para">${p.paragraph}</div>
+          <div class="quiz-result-para quiz-result-earned">You earned this because your answers consistently favoured ${p.chose}</div>
+          <div class="quiz-result-row"><div class="quiz-result-row-label">Your strongest traits</div><div class="quiz-result-row-val">${p.traits.join(' · ')}</div></div>
+          <div class="quiz-result-row"><div class="quiz-result-row-label">Your creative weakness</div><div class="quiz-result-row-val">${p.weakness}</div></div>
+          <div class="quiz-result-row"><div class="quiz-result-row-label">Your ideal collaborator</div><div class="quiz-result-row-val">${partner.emoji} ${partner.name}</div></div>
+          <div class="quiz-result-row"><div class="quiz-result-row-label">Your Loona warning</div><div class="quiz-result-row-val">${p.warning}</div></div>
+          <div class="quiz-result-share">Apparently, I'm ${p.name}. This explains a lot.</div>
+        </div>`;
+      const footer = document.getElementById('loona-quiz-footer');
+      footer.style.display = 'flex';
+      footer.innerHTML = `<button class="btn btn-primary" style="width:100%" onclick="closeLoonaQuiz()">Done</button>`;
+    }
+
+    function renderQuizSlide() {
+      const i = window._quizIndex;
+      const total = QUIZ_QUESTIONS.length + 1;
+      const content = document.getElementById('loona-quiz-content');
+      const footer = document.getElementById('loona-quiz-footer');
+      footer.style.display = 'flex';
+
+      if (i === -1) {
+        content.innerHTML = `
+          <div class="quiz-intro">
+            <div class="quiz-intro-emoji">🔮</div>
+            <div class="quiz-intro-text">20 questions. No wrong answers. Just dangerously accurate ones.</div>
+          </div>`;
+        footer.innerHTML = `<button class="btn btn-primary" style="width:100%" onclick="quizGoNext()">Begin</button>`;
+        return;
+      }
+
+      const isMoon = i === QUIZ_QUESTIONS.length;
+      const q = isMoon ? QUIZ_MOON_QUESTION : QUIZ_QUESTIONS[i];
+      const answered = window._quizAnswers[i];
+      const letters = ['A', 'B', 'C', 'D'];
+
+      content.innerHTML = `
+        <div class="quiz-progress">Question ${i + 1} of ${total}</div>
+        <div class="quiz-question">${q.q}</div>
+        <div class="quiz-options${isMoon ? ' quiz-options-moon' : ''}">
+          ${q.options.map((o, idx) => isMoon
+            ? `<button class="quiz-moon-option${answered === idx ? ' quiz-option-selected' : ''}" onclick="quizSelectOption(${idx})"><div class="quiz-moon-emoji">${o.emoji}</div><div class="quiz-moon-label">${o.text}</div></button>`
+            : `<button class="quiz-option${answered === idx ? ' quiz-option-selected' : ''}" onclick="quizSelectOption(${idx})"><span class="quiz-option-letter">${letters[idx]}</span>${o.text}</button>`
+          ).join('')}
+        </div>
+        ${isMoon ? '<div class="quiz-moon-footnote">Just for fun. It doesn\'t affect your result… or does it?</div>' : ''}`;
+
+      footer.innerHTML = `
+        <button class="btn btn-ghost" onclick="quizGoBack()">Back</button>
+        <button class="btn btn-primary" ${answered == null ? 'disabled' : ''} onclick="quizGoNext()">${i === total - 1 ? 'Submit' : 'Next'}</button>`;
+    }
+
     // ═══ Find Today's Co-Star ═══ — a different (deterministic, so stable all
     // day) teammate each day, revealed via a slot-machine-style popup rather than
     // shown outright. {Subj}/{obj}/{poss} are filled in from the co-star's own
@@ -8609,6 +8959,36 @@
           <div class="oracle-tagline">A little guidance from somewhere beyond the brief.</div>
           <button class="btn btn-primary" onclick="openLoonaOracle()">🔮 Draw My Card</button>
         </div>`;
+
+      renderQuizEntry();
+    }
+
+    function renderQuizEntry() {
+      const el = document.getElementById('loona-quiz-entry');
+      if (!el) return;
+      const key = (MEMBER_INFO[currentUser] || {}).loonaPersonality;
+      if (key && LOONA_PERSONALITIES[key]) {
+        const p = LOONA_PERSONALITIES[key];
+        el.innerHTML = `
+          <div class="oracle-intro">
+            <div class="oracle-tagline">You already found yours: ${p.emoji} <b>${p.name}</b></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-ghost" onclick="viewLoonaQuizResult('${key}')">View Result</button>
+              <button class="btn btn-primary" onclick="openLoonaQuiz()">Retake</button>
+            </div>
+          </div>`;
+      } else {
+        el.innerHTML = `
+          <div class="oracle-intro">
+            <div class="oracle-tagline">20 quick questions to find out which kind of creative you actually are at work.</div>
+            <button class="btn btn-primary" onclick="openLoonaQuiz()">Find Now</button>
+          </div>`;
+      }
+    }
+
+    function viewLoonaQuizResult(key) {
+      document.getElementById('loona-quiz-modal').classList.remove('hidden');
+      renderQuizResult(key);
     }
 
     // ═══ Daily mood/status ═══
@@ -8721,6 +9101,7 @@
 
     function buildLoonaticPassCardHTML(name, editMode) {
       const info = MEMBER_INFO[name] || {};
+      const loonaPersonality = info.loonaPersonality ? LOONA_PERSONALITIES[info.loonaPersonality] : null;
       const a = (window.ATT || {})[name] || null;
       const joinDate = (a && a.joinDate) || info.joinDate;
       const days = joinDate && window.daysAt ? window.daysAt(joinDate) : null;
@@ -8827,6 +9208,7 @@
               <div class="lp-field-row">${fieldIcon(info.mbti ? info.mbti.split('-')[0] : 'MBTI', 'text')}<div class="lp-field-label">MBTI:</div><div class="lp-field-val">${editMode ? `<input class="lp-inline-input" id="lp-edit-mbti" value="${escAttr(info.mbti)}" placeholder="e.g. ENTP-A">` : (info.mbti || '—')}</div></div>
               <div class="lp-field-row">${fieldIcon(moon ? moon.emoji : '🌙', 'fill mono')}<div class="lp-field-label">MOON PHASE ON BIRTHDAY:</div><div class="lp-field-val">${moon ? moon.name : '—'}</div>${editMode ? '<div class="lp-field-extra" style="opacity:.6">auto, from birthdate</div>' : ''}</div>
               <div class="lp-field-row">${fieldIcon('<svg viewBox="0 0 24 24" width="13" height="13"><path d="M12 3c-1.1 0-2 .9-2 2 0 .8.5 1.5 1.2 1.8L12 7.2l.8-.4C13.5 6.5 14 5.8 14 5c0-1.1-.9-2-2-2z" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M12 7l9 6.5c.8.6.3 1.9-.7 1.9H3.7c-1 0-1.5-1.3-.7-1.9L12 7z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>', 'fill')}<div class="lp-field-label">STYLE:</div><div class="lp-field-val">${editMode ? `<input class="lp-inline-input" id="lp-edit-style" value="${escAttr(info.style)}" placeholder="e.g. All Black, Always">` : (info.style || '—')}</div></div>
+              <div class="lp-field-row">${fieldIcon(loonaPersonality ? loonaPersonality.emoji : '🔮')}<div class="lp-field-label">LOONA PERSONALITY:</div><div class="lp-field-val">${loonaPersonality ? loonaPersonality.name : (isSelf ? `<span style="cursor:pointer;text-decoration:underline" onclick="openLoonaQuiz()">Find out</span>` : '—')}</div>${loonaPersonality && isSelf ? `<div class="lp-field-extra" style="cursor:pointer;text-decoration:underline" onclick="viewLoonaQuizResult('${info.loonaPersonality}')">view</div>` : ''}</div>
             </div>
           </div>
         </div>
@@ -13580,6 +13962,15 @@ ${brandLines}`;
   </div>
 
   <!-- STATUS PICKER MODAL (Meet the Loonatics — daily mood) -->
+  <!-- FIND YOUR LOONA PERSONALITY QUIZ MODAL -->
+  <div class="modal-overlay hidden" id="loona-quiz-modal">
+    <div class="modal quiz-modal" style="max-width:420px">
+      <button class="quiz-close-x" onclick="closeLoonaQuiz()">✕</button>
+      <div id="loona-quiz-content"></div>
+      <div class="modal-actions" id="loona-quiz-footer" style="margin-top:18px"></div>
+    </div>
+  </div>
+
   <!-- FIND TODAY'S CO-STAR MODAL -->
   <div class="modal-overlay hidden" id="costar-modal" onclick="if(event.target===this)closeCostarModal()">
     <div class="costar-modal-card">
