@@ -6280,8 +6280,8 @@
     function openOnboardingForm() {
       document.getElementById('ob-name').value = '';
       document.getElementById('ob-lastname').value = '';
-      document.getElementById('ob-dept').value = '';
-      document.getElementById('ob-role').value = '';
+      populateCategorySelect('dept', 'ob-dept');
+      populateCategorySelect('role', 'ob-role');
       document.getElementById('ob-joindate').value = '';
       document.getElementById('ob-birthdate').value = '';
       const nameErr = document.getElementById('ob-name-error');
@@ -8372,15 +8372,19 @@
       (CUSTOM_CATEGORIES[kind] || []).forEach(c => set.add(c));
       return Array.from(set).sort();
     }
-    function populateAmpSelect(kind, selectValue) {
-      const sel = document.getElementById(kind === 'dept' ? 'amp-dept' : 'amp-role');
+    // Generalized so any dept/role <select> in the app (Add Team Member, onboarding,
+    // Admin edit/My Profile) can share the same Firebase-synced category list and
+    // "+ add new" flow, instead of each modal keeping its own copy.
+    function populateCategorySelect(kind, selectId, selectValue) {
+      const sel = document.getElementById(selectId);
+      if (!sel) return;
       const list = categoryList(kind);
       sel.innerHTML = list.map(v => `<option value="${v.replace(/"/g, '&quot;')}">${v}</option>`).join('');
       if (selectValue && !list.includes(selectValue)) sel.innerHTML += `<option value="${selectValue.replace(/"/g, '&quot;')}">${selectValue}</option>`;
       if (selectValue) sel.value = selectValue;
       else if (list.length) sel.selectedIndex = 0;
     }
-    function addAmpCategory(kind) {
+    function addCategoryFor(kind, selectId) {
       const label = kind === 'dept' ? 'department' : 'role';
       const val = prompt(`New ${label}:`);
       if (!val || !val.trim()) return;
@@ -8388,9 +8392,14 @@
       CUSTOM_CATEGORIES[kind] = CUSTOM_CATEGORIES[kind] || [];
       if (!CUSTOM_CATEGORIES[kind].includes(v)) CUSTOM_CATEGORIES[kind].push(v);
       cacheCustomCategories();
+      // Written straight to Firebase — the categories/ listener (see initFirebase)
+      // syncs CUSTOM_CATEGORIES for every other logged-in session immediately, same
+      // as any other Firebase-backed list in this app. No separate approval step.
       if (_db) _db.ref('categories/' + kind).set(CUSTOM_CATEGORIES[kind]);
-      populateAmpSelect(kind, v);
+      populateCategorySelect(kind, selectId, v);
     }
+    function populateAmpSelect(kind, selectValue) { populateCategorySelect(kind, kind === 'dept' ? 'amp-dept' : 'amp-role', selectValue); }
+    function addAmpCategory(kind) { addCategoryFor(kind, kind === 'dept' ? 'amp-dept' : 'amp-role'); }
     let _ampPhotoDataUrl = null;
     async function handleAmpPhotoChange(input) {
       const file = input.files[0];
@@ -8570,6 +8579,21 @@
       renderAdminPendingQueue();
     }
 
+    // MEMBER_INFO only ever carried color/emoji/role for the original team — their
+    // employee code, department, and join date instead live in the (separately
+    // hardcoded + PetPooja-synced) ATT table that the Team page's attendance stats
+    // already read from. Falls back to that so the Admin views don't show "—" for
+    // data that's actually on record elsewhere.
+    function memberDisplayInfo(name) {
+      const info = MEMBER_INFO[name] || {};
+      const att = (window.ATT || {})[name] || {};
+      return Object.assign({}, info, {
+        employeeId: info.employeeId || (att.code && att.code !== '—' ? att.code : null),
+        department: info.department || (att.dept && att.dept !== '—' ? att.dept : null),
+        joinDate: info.joinDate || att.joinDate || null
+      });
+    }
+
     function renderAdminDirectory() {
       const list = document.getElementById('admin-directory-list');
       if (!list) return;
@@ -8578,7 +8602,7 @@
       const mAvatar = m => { const info = MEMBER_INFO[m] || {}; return info.avatar ? `<img src="${info.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : mEmoji(m); };
       const active = ALL_MEMBERS.filter(n => !INACTIVE_MEMBERS.has(n));
       list.innerHTML = active.map(n => {
-        const info = MEMBER_INFO[n] || {};
+        const info = memberDisplayInfo(n);
         return `<div class="admin-emp-card" onclick="showAdminEmployeeDetail('${n}')">
           <div class="admin-emp-avatar" style="background:${mColor(n)}20;color:${mColor(n)};${info.avatar ? 'padding:0;' : ''}overflow:hidden">${mAvatar(n)}</div>
           <div class="admin-emp-name">${n}</div>
@@ -8589,7 +8613,7 @@
     }
 
     async function showAdminEmployeeDetail(name) {
-      const info = MEMBER_INFO[name] || {};
+      const info = memberDisplayInfo(name);
       const key = fbMemberKey(name);
       const mAvatarHtml = info.avatar ? `<img src="${info.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : (info.emoji || '👤');
       const detail = document.getElementById('admin-employee-detail');
@@ -8667,7 +8691,7 @@
     async function openEditEmployeeModal(name, context) {
       _eemEditingName = name;
       _eemContext = context || 'admin';
-      const info = MEMBER_INFO[name] || {};
+      const info = memberDisplayInfo(name);
       const isSelf = name === currentUser;
       document.getElementById('eem-title-name').textContent = isSelf ? 'My Profile' : name;
       document.getElementById('eem-backfill-banner').style.display = _eemContext === 'backfill' ? 'block' : 'none';
@@ -8675,8 +8699,8 @@
       document.getElementById('eem-employeeid').value = info.employeeId || '';
       document.getElementById('eem-employeeid').disabled = isSelf && normName(currentUser) !== 'gokul';
       document.getElementById('eem-lastname').value = info.lastName || '';
-      document.getElementById('eem-dept').value = info.department || '';
-      document.getElementById('eem-role').value = info.role || '';
+      populateCategorySelect('dept', 'eem-dept', info.department || '');
+      populateCategorySelect('role', 'eem-role', info.role || '');
       document.getElementById('eem-joindate').value = info.joinDate || '';
       document.getElementById('eem-birthdate').value = info.birthdate || '';
       document.getElementById('eem-mobile').value = info.mobile || '';
@@ -12252,11 +12276,17 @@ ${brandLines}`;
       <div class="form-row">
         <div class="form-group">
           <label>Department</label>
-          <input class="form-control" id="ob-dept" placeholder="e.g. Design">
+          <div style="display:flex;gap:6px">
+            <select class="form-control" id="ob-dept" style="flex:1"></select>
+            <button type="button" class="btn btn-ghost" style="padding:0 12px" onclick="addCategoryFor('dept','ob-dept')" title="Add new department">+</button>
+          </div>
         </div>
         <div class="form-group">
           <label>Role / Title</label>
-          <input class="form-control" id="ob-role" placeholder="e.g. Video Editor">
+          <div style="display:flex;gap:6px">
+            <select class="form-control" id="ob-role" style="flex:1"></select>
+            <button type="button" class="btn btn-ghost" style="padding:0 12px" onclick="addCategoryFor('role','ob-role')" title="Add new role">+</button>
+          </div>
         </div>
       </div>
       <div class="form-row">
@@ -12294,11 +12324,17 @@ ${brandLines}`;
       <div class="form-row">
         <div class="form-group">
           <label>Department</label>
-          <input class="form-control" id="eem-dept">
+          <div style="display:flex;gap:6px">
+            <select class="form-control" id="eem-dept" style="flex:1"></select>
+            <button type="button" class="btn btn-ghost" style="padding:0 12px" onclick="addCategoryFor('dept','eem-dept')" title="Add new department">+</button>
+          </div>
         </div>
         <div class="form-group">
           <label>Role / Title</label>
-          <input class="form-control" id="eem-role">
+          <div style="display:flex;gap:6px">
+            <select class="form-control" id="eem-role" style="flex:1"></select>
+            <button type="button" class="btn btn-ghost" style="padding:0 12px" onclick="addCategoryFor('role','eem-role')" title="Add new role">+</button>
+          </div>
         </div>
       </div>
       <div class="form-row">
@@ -13076,6 +13112,13 @@ ${brandLines}`;
     #past-employees-cards .member-actions-restore{margin-top:2px!important}
     #past-employees-cards .member-actions-restore button{font-size:0!important;padding:4px!important}
     #past-employees-cards .member-actions-restore button::after{content:'\2191';font-size:11px}
+    /* ---- Admin Employee Directory: 5 per row on phone, condensed to essentials ---- */
+    .admin-directory-list{grid-template-columns:repeat(5,1fr)!important;gap:5px!important}
+    .admin-emp-card{padding:5px 2px!important;border-radius:8px!important;gap:2px!important}
+    .admin-emp-avatar{width:22px!important;height:22px!important;font-size:9px!important;margin-bottom:3px!important}
+    .admin-emp-name{font-size:6.5px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:100%!important}
+    .admin-emp-role{font-size:5.8px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:100%!important}
+    .admin-emp-dept{display:none!important}
     /* ---- Brands: 4 active brand cards per row, condensed to a logo+name tile, tap for full detail ---- */
     #brand-cards-active{grid-template-columns:repeat(4,1fr)!important;gap:6px!important}
     #brand-cards-active .brand-card{padding:6px 4px!important;border-radius:9px!important}
