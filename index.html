@@ -6253,6 +6253,11 @@
               .sort((a, b) => (b.id || 0) - (a.id || 0))
           );
           if (currentUser) renderReminders();
+          // Server-written announcements (calendar-create.js/calendar-sync.js
+          // posting a meeting straight to Firebase) only ever reach the client
+          // through this listener — unlike postBroadcast()'s own manual posts,
+          // nothing else was re-rendering the Loona Board for them.
+          if (typeof renderLoonaBoard === 'function') renderLoonaBoard();
         });
 
         _db.ref('reimbursements').on('value', snap => {
@@ -15734,14 +15739,18 @@ ${brandLines}`;
     }
     // Navigates to Loona Notes and claims + opens the recorder for a specific synced
     // meeting — the button inside showMeetingStartedPopup's body calls this directly.
-    function lnGoToRecordFor(eventKey){
+    // Exposed on window — called from inline onclick markup built outside this
+    // IIFE (calRecordActionHTML's Loona Board "Record this meeting" button, and
+    // showMeetingStartedPopup's "Start Recording" button below), which runs in
+    // the global scope and can't reach a plain function declared in here.
+    window.lnGoToRecordFor = function lnGoToRecordFor(eventKey){
       var pop=document.getElementById("call-remind-pop"); if(pop) pop.remove();
       document.querySelectorAll(".nav-btn").forEach(function(b){ b.classList.remove("active"); });
       var lvBtn=document.querySelector('.nav-btn[onclick*="loonaverse"]');
       if(lvBtn) lvBtn.classList.add("active");
       openLoonaNotes();
       lnStartRecordingFor(eventKey);
-    }
+    };
     // Fires once, right at a meeting's start time — offers one-click "Start
     // Recording" (pre-wired through lnStartRecordingFor's claim check), or if
     // someone else already claimed it in the meantime, says so instead of
