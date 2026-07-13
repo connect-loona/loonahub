@@ -3931,6 +3931,17 @@
     #pend-pop p b{color:var(--accent2)}
     #pend-pop .go{width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#1a0f08;border:none;border-radius:12px;padding:11px;font-weight:600;cursor:pointer;font-size:14px}
 
+    /* Pre-call / meeting-starting reminder — was missing entirely, so it rendered
+       as bare unstyled text stuck at the bottom of whatever page was open instead
+       of a proper popup like every other alert above. */
+    #call-remind-pop{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:99999}
+    #call-remind-pop .box{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:30px 32px;width:370px;text-align:center;position:relative}
+    #call-remind-pop .lk{font-size:38px}
+    #call-remind-pop h3{color:var(--text);margin:8px 0 6px;font-size:19px}
+    #call-remind-pop p{color:var(--muted);font-size:13px;line-height:1.55;margin-bottom:18px}
+    #call-remind-pop p b{color:var(--accent2)}
+    #call-remind-pop .go{width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#1a0f08;border:none;border-radius:12px;padding:11px;font-weight:600;cursor:pointer;font-size:14px}
+
   </style>
   <style></style>
   <script>
@@ -12709,7 +12720,13 @@
             const recordBtn = claim
               ? `<span class="btn btn-ghost" style="padding:6px 12px;font-size:12px;opacity:.7;cursor:default" title="Claimed at ${lnEsc(new Date(claim.startedAt).toLocaleTimeString('en-IN'))}">🎙️ Being recorded by ${lnEsc(claim.by)}</span>`
               : `<button class="btn btn-primary" style="padding:6px 12px;font-size:12px" onclick="lnStartRecordingFor('${e._key}')">🎙️ Record this meeting</button>`;
-            return `<div class="lb-item">
+            // Same "just started" window as the pop-up reminder (checkCallReminders'
+            // threshold===0 case) — highlighted here too so it's visible right on
+            // this panel, not just in a one-off popup you might miss.
+            const minsUntil = e.start && e.start.length > 10 ? (new Date(e.start).getTime() - Date.now()) / 60000 : null;
+            const isLiveNow = minsUntil != null && minsUntil <= 0 && minsUntil > -5;
+            return `<div class="lb-item${isLiveNow ? ' lb-item-live' : ''}">
+              ${isLiveNow ? `<div class="lb-live-badge">🔴 LIVE NOW</div>` : ''}
               <div class="lb-meta"><span>${lnEsc(when)}</span>${e.brand ? `<span>· ${lnEsc(e.brand)}</span>` : ''}</div>
               <div class="lb-text">${lnEsc(e.title)}${names.length ? ' · ' + lnEsc(names.join(', ')) : ''}</div>
               <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
@@ -14936,6 +14953,9 @@ ${brandLines}`;
   .lb-list{display:flex;flex-direction:column;gap:12px}
   .lb-item{border-top:1px solid rgba(255,255,255,.06);padding-top:12px}
   .lb-item:first-child{border-top:none;padding-top:0}
+  .lb-item-live{background:rgba(255,90,60,.08);border:1px solid rgba(255,90,60,.35);border-radius:12px;padding:12px!important;margin:-1px 0 0}
+  .lb-item-live:first-child{margin-top:0}
+  .lb-live-badge{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:800;letter-spacing:.04em;color:#ff5a3c;margin-bottom:6px}
   .lb-meta{display:flex;align-items:center;gap:10px;font-size:11px;color:var(--muted);margin-bottom:5px}
   .lb-avatar{width:20px;height:20px;border-radius:50%;object-fit:cover;flex-shrink:0}
   .lb-author{color:#ff9457;font-weight:600}
