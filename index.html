@@ -6423,7 +6423,7 @@
             attachAvatarListener(m.name);
             attachFavoritesListener(m.name);
             const existing = MEMBER_INFO[m.name] || {};
-            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || null, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null, mobile: m.mobile || existing.mobile || null, gender: m.gender || existing.gender || null, personalEmail: m.personalEmail || existing.personalEmail || null, address: m.address || existing.address || null, lastName: m.lastName || existing.lastName || null, emergencyContactName: m.emergencyContactName || existing.emergencyContactName || null, emergencyContactPhone: m.emergencyContactPhone || existing.emergencyContactPhone || null, bloodGroup: m.bloodGroup || existing.bloodGroup || null, workEmail: m.workEmail || existing.workEmail || null, knownFor: m.knownFor || existing.knownFor || null, mbti: m.mbti || existing.mbti || null, style: m.style || existing.style || null, nowPlayingSong: m.nowPlayingSong || existing.nowPlayingSong || null, nowPlayingArtist: m.nowPlayingArtist || existing.nowPlayingArtist || null, funFacts: m.funFacts || existing.funFacts || null, favMovie: m.favMovie || existing.favMovie || null, favSnack: m.favSnack || existing.favSnack || null, favBook: m.favBook || existing.favBook || null, favDestination: m.favDestination || existing.favDestination || null, favMovieImg: existing.favMovieImg || null, favSnackImg: existing.favSnackImg || null, favBookImg: existing.favBookImg || null, favDestinationImg: existing.favDestinationImg || null, nowPlayingImg: existing.nowPlayingImg || null, profilePromptDismissed: m.profilePromptDismissed || existing.profilePromptDismissed || false, loonaPersonality: m.loonaPersonality || existing.loonaPersonality || null };
+            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || null, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null, mobile: m.mobile || existing.mobile || null, gender: m.gender || existing.gender || null, personalEmail: m.personalEmail || existing.personalEmail || null, address: m.address || existing.address || null, lastName: m.lastName || existing.lastName || null, emergencyContactName: m.emergencyContactName || existing.emergencyContactName || null, emergencyContactPhone: m.emergencyContactPhone || existing.emergencyContactPhone || null, bloodGroup: m.bloodGroup || existing.bloodGroup || null, workEmail: m.workEmail || existing.workEmail || null, email: m.email || existing.email || null, knownFor: m.knownFor || existing.knownFor || null, mbti: m.mbti || existing.mbti || null, style: m.style || existing.style || null, nowPlayingSong: m.nowPlayingSong || existing.nowPlayingSong || null, nowPlayingArtist: m.nowPlayingArtist || existing.nowPlayingArtist || null, funFacts: m.funFacts || existing.funFacts || null, favMovie: m.favMovie || existing.favMovie || null, favSnack: m.favSnack || existing.favSnack || null, favBook: m.favBook || existing.favBook || null, favDestination: m.favDestination || existing.favDestination || null, favMovieImg: existing.favMovieImg || null, favSnackImg: existing.favSnackImg || null, favBookImg: existing.favBookImg || null, favDestinationImg: existing.favDestinationImg || null, nowPlayingImg: existing.nowPlayingImg || null, profilePromptDismissed: m.profilePromptDismissed || existing.profilePromptDismissed || false, loonaPersonality: m.loonaPersonality || existing.loonaPersonality || null };
             // Older records still carry the avatar inline on this same node — use it right away,
             // then migrate it out to member_avatars/ so this node stays small for everyone from now on.
             if (m.avatar && m.avatar !== MEMBER_INFO[m.name].avatar) {
@@ -10210,6 +10210,7 @@
           <div class="member-stat-row"><span class="k">Employee ID</span><span>${info.employeeId || '—'}</span></div>
           <div class="member-stat-row"><span class="k">Full Name</span><span>${name}${info.lastName ? ' ' + info.lastName : ''}</span></div>
           <div class="member-stat-row"><span class="k">Work Email</span><span>${workEmail}</span></div>
+          <div class="member-stat-row"><span class="k">Google Calendar Email</span><span>${info.email || workEmail + ' (default)'}</span></div>
           <div class="member-stat-row"><span class="k">Personal Email</span><span>${info.personalEmail || '—'}</span></div>
           <div class="member-stat-row"><span class="k">Mobile</span><span>${info.mobile || '—'}</span></div>
           <div class="member-stat-row"><span class="k">Gender</span><span>${info.gender || '—'}</span></div>
@@ -10268,6 +10269,7 @@
       document.getElementById('eem-birthdate').value = info.birthdate || '';
       document.getElementById('eem-mobile').value = info.mobile || '';
       document.getElementById('eem-email').value = info.personalEmail || '';
+      document.getElementById('eem-calendaremail').value = info.email || '';
       document.getElementById('eem-gender').value = info.gender || '';
       document.getElementById('eem-bloodgroup').value = info.bloodGroup || '';
       document.getElementById('eem-address').value = info.address || '';
@@ -10352,6 +10354,7 @@
       const birthdate = document.getElementById('eem-birthdate').value;
       const mobile = document.getElementById('eem-mobile').value.trim();
       const personalEmail = document.getElementById('eem-email').value.trim();
+      const calendarEmail = document.getElementById('eem-calendaremail').value.trim();
       const gender = document.getElementById('eem-gender').value;
       const bloodGroup = document.getElementById('eem-bloodgroup').value;
       const address = document.getElementById('eem-address').value.trim();
@@ -10366,7 +10369,10 @@
       const bankIFSC = document.getElementById('eem-ifsc').value.trim().toUpperCase();
 
       const existing = MEMBER_INFO[name] || {};
-      const nonSensitive = { employeeId: employeeId || null, lastName: lastName || null, department: department || null, role: role || existing.role || 'Team Member', joinDate: joinDate || null, birthdate: birthdate || null, mobile: mobile || null, personalEmail: personalEmail || null, gender: gender || null, bloodGroup: bloodGroup || null, address: address || null, emergencyContactName: emergencyContactName || null, emergencyContactPhone: emergencyContactPhone || null, workEmail: loginDeriveEmail(name) };
+      // "email" (not workEmail) is the exact field calendar-create.js/calendar-sync.js
+      // check before falling back to the firstname@loona.in guess — only set it when
+      // someone's real Google Workspace address doesn't match that convention.
+      const nonSensitive = { employeeId: employeeId || null, lastName: lastName || null, department: department || null, role: role || existing.role || 'Team Member', joinDate: joinDate || null, birthdate: birthdate || null, mobile: mobile || null, personalEmail: personalEmail || null, email: calendarEmail || null, gender: gender || null, bloodGroup: bloodGroup || null, address: address || null, emergencyContactName: emergencyContactName || null, emergencyContactPhone: emergencyContactPhone || null, workEmail: loginDeriveEmail(name) };
       MEMBER_INFO[name] = Object.assign({}, existing, nonSensitive);
       const sensitiveRecord = { pan: pan || null, aadhar: aadhar || null, bankAccountName: bankAccountName || null, bankName: bankName || null, bankBranch: bankBranch || null, bankAccount: bankAccount || null, bankIFSC: bankIFSC || null };
 
@@ -14015,6 +14021,12 @@ ${brandLines}`;
         <div class="form-group">
           <label>Personal Email</label>
           <input class="form-control" type="email" id="eem-email">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Google Calendar Email</label>
+          <input class="form-control" type="email" id="eem-calendaremail" placeholder="Only fill this in if your real Google Workspace email isn't firstname@loona.in">
         </div>
       </div>
       <div class="form-row">
