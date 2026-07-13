@@ -12452,6 +12452,10 @@
     function calRecordActionHTML(eventKey) {
       if (!eventKey) return '';
       const claim = (window.MEETING_RECORDING_CLAIMS || {})[eventKey];
+      if (claim && claim.completed) {
+        return `<span class="btn btn-ghost" style="padding:5px 10px;font-size:11px;opacity:.85;cursor:default">✅ Recorded by ${lnEsc(claim.by)}</span>` +
+          (claim.noteKey ? ` <button class="btn btn-primary" style="padding:5px 10px;font-size:11px" onclick="calOpenMeeting('${claim.noteKey}')">📝 See Notes</button>` : '');
+      }
       // Clicking this now takes you to Loona Notes so you can actually see the
       // recording — previously a dead, non-interactive span that did nothing.
       if (claim) return `<button class="btn btn-ghost" style="padding:5px 10px;font-size:11px;opacity:.85" onclick="lnGoToClaimedRecording('${eventKey}')" title="Claimed at ${lnEsc(new Date(claim.startedAt).toLocaleTimeString('en-IN'))}">🎙️ Being recorded by ${lnEsc(claim.by)}</button>`;
@@ -12754,10 +12758,10 @@
             const range = calEventRange(e.start, e.end);
             const when = `${lnFmtEventWhen(e.start)}${range ? ' · ' + range : ''}`;
             const names = calAllAttendeeNames(e);
-            const claim = (window.MEETING_RECORDING_CLAIMS || {})[e._key];
-            const recordBtn = claim
-              ? `<button class="btn btn-ghost" style="padding:6px 12px;font-size:12px;opacity:.85" onclick="lnGoToClaimedRecording('${e._key}')" title="Claimed at ${lnEsc(new Date(claim.startedAt).toLocaleTimeString('en-IN'))}">🎙️ Being recorded by ${lnEsc(claim.by)}</button>`
-              : `<button class="btn btn-primary" style="padding:6px 12px;font-size:12px" onclick="lnStartRecordingFor('${e._key}')">🎙️ Record this meeting</button>`;
+            // Delegates to the one shared claim-aware toggle (Loona Board, Calendar
+            // tab, and here) instead of keeping its own copy that can drift out of
+            // sync — this used to be a separate inline duplicate of the same logic.
+            const recordBtn = calRecordActionHTML(e._key);
             // Same "just started" window as the pop-up reminder (checkCallReminders'
             // threshold===0 case) — highlighted here too so it's visible right on
             // this panel, not just in a one-off popup you might miss.
@@ -12795,6 +12799,7 @@
       if (!_db) { alert('Recording claims need a live connection — try again in a moment.'); return; }
 
       let claimedByMe = false;
+      let myClaim = null;
       try {
         const result = await _db.ref('meetingRecordingClaims/' + eventKey).transaction(current => {
           if (current) return; // already claimed — abort, leave it untouched
@@ -12806,10 +12811,20 @@
           alert((claim && claim.by ? claim.by : 'Someone') + ' is already recording this meeting — no need to double up.');
           return;
         }
+        myClaim = result.snapshot.val();
       } catch (e) {
         alert('Could not check the recording claim for this meeting: ' + (e.message || e));
         return;
       }
+
+      // Reflect the claim immediately rather than waiting on the Firebase
+      // listener's round-trip — otherwise "Being recorded by X" only showed
+      // up whenever some other unrelated re-render happened to fire next
+      // (in practice, often not until well after the note was saved).
+      window.MEETING_RECORDING_CLAIMS = window.MEETING_RECORDING_CLAIMS || {};
+      window.MEETING_RECORDING_CLAIMS[eventKey] = myClaim;
+      if (typeof lnRenderUpcomingMeetings === 'function') lnRenderUpcomingMeetings();
+      if (typeof renderLoonaBoard === 'function') renderLoonaBoard();
 
       lnStartNew();
       lnActiveCalendarEventKey = eventKey;
@@ -13532,15 +13547,24 @@
         clientSafeSummary: p.clientSafeSummary || '',
         ts: Date.now()
       };
+      let noteKey = null;
       if (_db) {
-        _db.ref('meetingNotes').push(note);
+        const noteRef = _db.ref('meetingNotes').push(note);
+        noteKey = noteRef.key;
       } else {
         note._key = 'local_' + Date.now();
+        noteKey = note._key;
         window.MEETING_NOTES.unshift(note);
       }
       window._lnPending = null;
       // The Firebase claim itself is left in place on purpose — the meeting really was
       // recorded, so it should stay locked against anyone else redundantly recording it.
+      // Marked completed (with a link to the note) so the Loona Board and Upcoming
+      // Meetings panels can show "Recorded by X" + a way to open the note, instead
+      // of "Being recorded by X" forever as if it were still in progress.
+      if (lnActiveCalendarEventKey && _db) {
+        _db.ref('meetingRecordingClaims/' + lnActiveCalendarEventKey).update({ completed: true, noteKey });
+      }
       lnActiveCalendarEventKey = null;
       lnClearRecoverySession();
       lnShowView('list');
