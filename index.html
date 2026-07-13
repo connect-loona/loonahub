@@ -10610,7 +10610,15 @@
         const av=(MEMBER_INFO[a.author]||{}).avatar;
         const authorIcon=av?`<img class="lb-avatar" src="${av}" alt="">`:(a.emoji||'📢');
         const recordBtn = a.calendar_event_id && typeof calRecordActionHTML==='function' ? calRecordActionHTML(calSafeKey(a.calendar_event_id)) : '';
-        return `<div class="lb-item"><div class="lb-meta">${authorIcon}<span class="lb-author">${a.author||'Team'}</span><span class="lb-time">${when}</span>${canDel?`<span class="lb-del" title="Remove" onclick="deleteAnnouncement(${a.id})">✕</span>`:''}</div>${a.text?`<div class="lb-text">${String(a.text).replace(/</g,'&lt;')}</div>`:''}${a.image?`<img class="lb-img" src="${a.image}" alt="">`:''}<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px">${(((a.links&&a.links.length)?a.links:(a.link?[a.link]:[]))||[]).map(L=>`<a class="lb-link" style="margin-top:0" href="${L}" target="_blank" rel="noopener">🔗 ${L.length>50?L.slice(0,50)+'…':L}</a>`).join('')}${recordBtn}</div></div>`;
+        // Daily Oracle/Co-Star broadcast (loona-daily-broadcast.js) posts one shared
+        // announcement for the whole team, but "Read Today's Oracle"/"Find Your
+        // Co-Star" are personal — each person who clicks sees their OWN card/match
+        // (tarotForToday/workBuddyForToday are already per-person, per-day), not
+        // whatever the first clicker saw.
+        const actionBtn = a.action==='oracle' ? `<button class="btn btn-primary" style="padding:5px 10px;font-size:11px" onclick="openLoonaOracle()">🔮 ${a.actionLabel?String(a.actionLabel).replace(/</g,'&lt;'):"Read Today's Oracle"}</button>`
+          : a.action==='costar' ? `<button class="btn btn-primary" style="padding:5px 10px;font-size:11px" onclick="openCostarModal()">🎬 ${a.actionLabel?String(a.actionLabel).replace(/</g,'&lt;'):'Find Your Co-Star'}</button>`
+          : '';
+        return `<div class="lb-item"><div class="lb-meta">${authorIcon}<span class="lb-author">${a.author||'Team'}</span><span class="lb-time">${when}</span>${canDel?`<span class="lb-del" title="Remove" onclick="deleteAnnouncement(${a.id})">✕</span>`:''}</div>${a.text?`<div class="lb-text">${String(a.text).replace(/</g,'&lt;')}</div>`:''}${a.image?`<img class="lb-img" src="${a.image}" alt="">`:''}<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px">${(((a.links&&a.links.length)?a.links:(a.link?[a.link]:[]))||[]).map(L=>`<a class="lb-link" style="margin-top:0" href="${L}" target="_blank" rel="noopener">🔗 ${L.length>50?L.slice(0,50)+'…':L}</a>`).join('')}${recordBtn}${actionBtn}</div></div>`;
       }).join('')+`</div></div>`;
     }
     function postBroadcast() {

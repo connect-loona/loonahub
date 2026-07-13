@@ -28,6 +28,11 @@
 [functions."calendar-sync"]
   schedule = "*/5 * * * *"
 
+# Posts the daily "Read Today's Oracle" / "Find Your Co-Star" nudges to the
+# Loona Board for everyone. 04:30 UTC = 10:00 IST.
+[functions."loona-daily-broadcast"]
+  schedule = "30 4 * * *"
+
 # Set these in Netlify → Site settings → Environment variables (NOT in code):
 #   PETPOOJA_CLIENT_ID
 #   PETPOOJA_CLIENT_SECRET
