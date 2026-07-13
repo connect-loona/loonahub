@@ -5546,7 +5546,7 @@
       </div>
       <div class="cal2-grid" id="cal2-grid"></div>
       <div id="cal2-today-panel"></div>
-      <div class="cal2-detail-panel" id="cal2-detail-panel" style="display:none"></div>
+      <div class="cal2-detail-panel" id="cal2-detail-panel" style="display:none" onclick="if(event.target===this)calCloseDayDetail()"></div>
     </div>
 
     <!-- ======= AI CHAT ======= -->
@@ -12551,25 +12551,27 @@
       if (!panel) return;
       const { meetings, dueTasks, completedTasks, calEvents } = calDayData(dateStr);
       const niceDate = lnFmtDate(dateStr);
-      panel.style.display = 'block';
+      panel.style.display = 'flex';
       panel.innerHTML = `
-        <div class="cal2-detail-head">
-          <div class="cal2-detail-title">${lnEsc(calSelectedPerson)} — ${niceDate}</div>
-          <button class="btn btn-ghost" onclick="calCloseDayDetail()">Close</button>
+        <div class="cal2-detail-card">
+          <div class="cal2-detail-head">
+            <div class="cal2-detail-title">${lnEsc(calSelectedPerson)} — ${niceDate}</div>
+            <button class="btn btn-ghost" onclick="calCloseDayDetail()">Close</button>
+          </div>
+          ${calEvents.length ? `<div class="ln-section-label">Google Calendar</div>${calEvents.map(e => {
+            const joinLink = e.callLink || e.htmlLink;
+            const names = calAllAttendeeNames(e);
+            const canEdit = normName(currentUser) === 'gokul' || normName(currentUser) === normName(e.organizer);
+            return `<div class="cal2-detail-row" style="display:block">
+              <div>📅 ${calEventRange(e.start, e.end) ? `<span class="cal2-detail-time">${lnEsc(calEventRange(e.start, e.end))}</span> · ` : ''}${joinLink ? `<a href="${lnEsc(joinLink)}" target="_blank" rel="noopener">${lnEsc(e.title)}</a>` : lnEsc(e.title)}${e.brand ? ' · ' + lnEsc(e.brand) : ''}${names.length ? ' · ' + lnEsc(names.join(', ')) : ''}${e.callLink && e.htmlLink ? ` · <a href="${lnEsc(e.htmlLink)}" target="_blank" rel="noopener" style="color:var(--muted)">Calendar</a>` : ''}</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${calRecordActionHTML(e._key)}${canEdit ? `<button class="btn btn-ghost" style="padding:5px 10px;font-size:11px" onclick="openEditMeeting('${e._key}')">✎ Edit</button>` : ''}</div>
+            </div>`;
+          }).join('')}` : ''}
+          ${meetings.length ? `<div class="ln-section-label">Meeting Records</div>${meetings.map(n => `<div class="cal2-detail-row cal2-detail-row-clickable" onclick="calOpenMeeting('${n._key}')">🎙️ ${lnEsc(n.title)}${n.brand ? ' · ' + lnEsc(n.brand) : ''}</div>`).join('')}` : ''}
+          ${completedTasks.length ? `<div class="ln-section-label">Completed</div>${completedTasks.map(t => `<div class="cal2-detail-row">✓ ${lnEsc(t.task)}${t.brand ? ' · ' + lnEsc(t.brand) : ''}</div>`).join('')}` : ''}
+          ${dueTasks.length ? `<div class="ln-section-label">Due</div>${dueTasks.map(t => `<div class="cal2-detail-row">📌 ${lnEsc(t.task)}${t.brand ? ' · ' + lnEsc(t.brand) : ''} (${t.status})</div>`).join('')}` : ''}
+          ${(!meetings.length && !dueTasks.length && !completedTasks.length && !calEvents.length) ? '<div class="ln-note-meta">Nothing recorded for this day.</div>' : ''}
         </div>
-        ${calEvents.length ? `<div class="ln-section-label">Google Calendar</div>${calEvents.map(e => {
-          const joinLink = e.callLink || e.htmlLink;
-          const names = calAllAttendeeNames(e);
-          const canEdit = normName(currentUser) === 'gokul' || normName(currentUser) === normName(e.organizer);
-          return `<div class="cal2-detail-row" style="display:block">
-            <div>📅 ${calEventRange(e.start, e.end) ? `<span class="cal2-detail-time">${lnEsc(calEventRange(e.start, e.end))}</span> · ` : ''}${joinLink ? `<a href="${lnEsc(joinLink)}" target="_blank" rel="noopener">${lnEsc(e.title)}</a>` : lnEsc(e.title)}${e.brand ? ' · ' + lnEsc(e.brand) : ''}${names.length ? ' · ' + lnEsc(names.join(', ')) : ''}${e.callLink && e.htmlLink ? ` · <a href="${lnEsc(e.htmlLink)}" target="_blank" rel="noopener" style="color:var(--muted)">Calendar</a>` : ''}</div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${calRecordActionHTML(e._key)}${canEdit ? `<button class="btn btn-ghost" style="padding:5px 10px;font-size:11px" onclick="openEditMeeting('${e._key}')">✎ Edit</button>` : ''}</div>
-          </div>`;
-        }).join('')}` : ''}
-        ${meetings.length ? `<div class="ln-section-label">Meeting Records</div>${meetings.map(n => `<div class="cal2-detail-row cal2-detail-row-clickable" onclick="calOpenMeeting('${n._key}')">🎙️ ${lnEsc(n.title)}${n.brand ? ' · ' + lnEsc(n.brand) : ''}</div>`).join('')}` : ''}
-        ${completedTasks.length ? `<div class="ln-section-label">Completed</div>${completedTasks.map(t => `<div class="cal2-detail-row">✓ ${lnEsc(t.task)}${t.brand ? ' · ' + lnEsc(t.brand) : ''}</div>`).join('')}` : ''}
-        ${dueTasks.length ? `<div class="ln-section-label">Due</div>${dueTasks.map(t => `<div class="cal2-detail-row">📌 ${lnEsc(t.task)}${t.brand ? ' · ' + lnEsc(t.brand) : ''} (${t.status})</div>`).join('')}` : ''}
-        ${(!meetings.length && !dueTasks.length && !completedTasks.length && !calEvents.length) ? '<div class="ln-note-meta">Nothing recorded for this day.</div>' : ''}
       `;
     }
 
@@ -14554,7 +14556,8 @@ ${brandLines}`;
 .nm-guest-row{display:flex;gap:8px}
 .nm-guest-row .form-control{flex:1}
 .nm-note{font-size:12px;color:#e05c5c;margin-top:4px}
-.cal2-detail-panel{margin-top:18px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px}
+.cal2-detail-panel{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);align-items:center;justify-content:center;z-index:9999;padding:20px}
+.cal2-detail-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;width:420px;max-width:100%;max-height:80vh;overflow-y:auto}
 .cal2-detail-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
 .cal2-detail-title{font-size:14px;font-weight:700;color:var(--text)}
 .cal2-detail-row{background:var(--surface2);border-radius:8px;padding:9px 12px;margin-bottom:6px;font-size:12.5px;color:var(--text);cursor:default}
