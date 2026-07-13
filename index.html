@@ -849,6 +849,23 @@
       border-color: var(--accent, #c8a96e);
     }
 
+    /* Same mood system as the roster's status-bubble, but sitting inline next
+       to the Overview greeting instead of floating above an avatar. */
+    .ov-mood-pill {
+      margin-left: auto;
+      flex-shrink: 0;
+      background: #1a1a1a;
+      border: 1px solid var(--accent, #c8a96e);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      padding: 7px 16px;
+      border-radius: 18px;
+      cursor: pointer;
+    }
+    .ov-mood-pill:hover { background: #262626; }
+
     .lt-fun-role {
       font-size: 12px;
       font-weight: 700;
@@ -7420,7 +7437,7 @@
       const avatarHtml = info.avatar
         ? `<img src="${info.avatar}" id="overview-user-avatar" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);margin-right:12px;vertical-align:middle">`
         : `<span style="font-size:32px;margin-right:8px">${info.emoji}</span>`;
-      document.getElementById('welcome-msg').innerHTML = `${avatarHtml}${greet}, ${currentUser}!`;
+      document.getElementById('welcome-msg').innerHTML = `${avatarHtml}${greet}, ${currentUser}!${ovMoodPillHTML()}`;
 
       // My tasks (logged-in member)
       const myTasks = TASKS.filter(t => normName(t.member) === normName(currentUser));
@@ -9056,6 +9073,14 @@
     }
     function avatarWithStatusHTML(name, avatarHtml) {
       return `<div class="lt-avatar-wrap">${statusBubbleHTML(name)}${avatarHtml}</div>`;
+    }
+    // Same MEMBER_STATUS data as statusBubbleHTML, rendered as an inline pill
+    // for the Overview greeting rather than a floating bubble over an avatar.
+    function ovMoodPillHTML() {
+      if (!currentUser) return '';
+      const s = (window.MEMBER_STATUS || {})[fbMemberKey(currentUser)];
+      const label = s ? `${s.emoji} ${s.text}` : '+ Set mood';
+      return `<div class="ov-mood-pill" onclick="openStatusPicker()">${label}</div>`;
     }
 
     function openStatusPicker() {
@@ -14459,6 +14484,7 @@ ${brandLines}`;
     .section-title{font-size:22px!important}
     .today-title{font-size:22px!important;line-height:1.15}
     .today-title img{width:38px!important;height:38px!important}
+    .ov-mood-pill{font-size:11px!important;padding:5px 12px!important}
     .today-panel,.quote-card{padding:18px!important;border-radius:18px!important}
     .quote-text{font-size:17px!important}
     /* ---- Stat cards: 2 per row ---- */
