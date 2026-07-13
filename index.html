@@ -5699,6 +5699,28 @@
         <div style="font-size:12px;color:var(--muted)">One shared playlist. Add whatever's stuck in your head.</div>
       </div>
 
+      <!-- Real in-Hub playback (Web Playback SDK) — desktop browsers only, Spotify
+           doesn't support this SDK on any mobile browser. Falls back to the plain
+           iframe embed below on unsupported browsers. -->
+      <div class="radio-sdk-player" id="radio-sdk-player" style="display:none">
+        <div class="radio-sdk-player-inner">
+          <img id="radio-sdk-art" class="radio-sdk-art" src="" alt="" style="display:none">
+          <div class="radio-sdk-art-placeholder" id="radio-sdk-art-placeholder">📻</div>
+          <div class="radio-sdk-info">
+            <div class="radio-sdk-title" id="radio-sdk-title">Loona Radio</div>
+            <div class="radio-sdk-artist" id="radio-sdk-artist">Tap play to start listening here</div>
+            <div class="radio-sdk-progress-track"><div class="radio-sdk-progress-fill" id="radio-sdk-progress-fill"></div></div>
+          </div>
+          <div class="radio-sdk-controls">
+            <button class="radio-sdk-btn" id="radio-sdk-prev-btn" onclick="radioSdkPrev()" title="Previous">⏮</button>
+            <button class="radio-sdk-btn radio-sdk-btn-main" id="radio-sdk-playpause-btn" onclick="radioSdkTogglePlay()" title="Play/Pause">▶</button>
+            <button class="radio-sdk-btn" id="radio-sdk-next-btn" onclick="radioSdkNext()" title="Next">⏭</button>
+          </div>
+        </div>
+        <div class="radio-sdk-status" id="radio-sdk-status"></div>
+      </div>
+      <div class="radio-info-note" id="radio-mobile-note" style="display:none">Full playback here needs a desktop browser (Spotify's player doesn't support phones). On phone, use the Spotify app to listen — you can still add tracks from here either way.</div>
+
       <div class="radio-embed-wrap" id="radio-embed-wrap">
         <div class="radio-embed-skeleton" id="radio-embed-skeleton">loading the playlist…</div>
         <iframe id="radio-spotify-embed" class="radio-spotify-embed" style="display:none" src="" width="100%" height="352" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
@@ -10750,23 +10772,41 @@
       renderRadioEmbed();
       renderRadioFeed();
       renderRadioManualQueue();
+      if (radioPlayerSupported()) {
+        radioInitSdkPlayer();
+      } else {
+        const note = document.getElementById('radio-mobile-note');
+        if (note) note.style.display = 'block';
+      }
     }
 
     function renderRadioEmbed() {
       const skeleton = document.getElementById('radio-embed-skeleton');
       const iframe = document.getElementById('radio-spotify-embed');
       const playlistId = window.RADIO_CONFIG.spotifyPlaylistId;
-      if (playlistId) {
-        const src = `https://open.spotify.com/embed/playlist/${playlistId}?utm_source=generator&theme=0`;
-        if (iframe.src !== src) iframe.src = src;
-        iframe.style.display = 'block';
-        if (skeleton) skeleton.style.display = 'none';
-      } else if (skeleton) {
-        skeleton.textContent = 'no playlist set up yet';
-        skeleton.style.display = 'flex';
-        iframe.style.display = 'none';
+      // The SDK player (desktop only) fully replaces the plain iframe embed — it
+      // solves the "stuck on 30s preview" problem the iframe has on Safari, and
+      // gives real play/pause/skip controls. On mobile, where Spotify's SDK
+      // doesn't run at all, the iframe stays as the fallback.
+      const embedWrap = document.getElementById('radio-embed-wrap');
+      const sdkSupported = radioPlayerSupported();
+      if (embedWrap) embedWrap.style.display = sdkSupported ? 'none' : '';
+      if (!sdkSupported) {
+        if (playlistId) {
+          const src = `https://open.spotify.com/embed/playlist/${playlistId}?utm_source=generator&theme=0`;
+          if (iframe.src !== src) iframe.src = src;
+          iframe.style.display = 'block';
+          if (skeleton) skeleton.style.display = 'none';
+        } else if (skeleton) {
+          skeleton.textContent = 'no playlist set up yet';
+          skeleton.style.display = 'flex';
+          iframe.style.display = 'none';
+        }
       }
 
+      // Apple Music mirror toggle is independent of the Spotify embed/SDK
+      // player above — always evaluated, not skipped just because the SDK
+      // player replaced the Spotify iframe.
       const toggleWrap = document.getElementById('radio-applemusic-toggle-wrap');
       const amUrl = window.RADIO_CONFIG.appleMusicPlaylistUrl;
       if (toggleWrap) toggleWrap.style.display = amUrl ? 'block' : 'none';
@@ -10777,6 +10817,173 @@
         const embedSrc = amUrl.replace('music.apple.com', 'embed.music.apple.com');
         if (amIframe && amIframe.src !== embedSrc) amIframe.src = embedSrc;
       }
+    }
+
+    // ═══ LOONA RADIO — in-Hub playback (Web Playback SDK) ═══
+    // Spotify's Web Playback SDK only runs on desktop browsers (Chrome/Firefox/
+    // Edge) — it does not work on ANY mobile browser, regardless of device
+    // capability. That's a hard platform restriction, not something to detect
+    // more cleverly around; the UA sniff below is the accepted way to gate it.
+    // Playback is tied to Gokul's one Spotify account (same refresh token as
+    // add-to-playlist.js), so only one device can be the active listener at a
+    // time — pressing play here takes over from wherever it was playing before.
+    let radioSdkPlayer = null;
+    let radioSdkDeviceId = null;
+    let radioSdkAccessToken = null;
+    let radioSdkAccessTokenExpiry = 0;
+    let radioSdkPollInterval = null;
+
+    function radioPlayerSupported() {
+      return !/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    }
+
+    async function radioGetAccessToken() {
+      if (radioSdkAccessToken && Date.now() < radioSdkAccessTokenExpiry - 30000) return radioSdkAccessToken;
+      const idToken = firebase.auth().currentUser ? await firebase.auth().currentUser.getIdToken() : null;
+      const resp = await fetch('/.netlify/functions/spotify-playback-token', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken })
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || !data.success) throw new Error(data.message || 'Could not get a playback token');
+      radioSdkAccessToken = data.access_token;
+      radioSdkAccessTokenExpiry = Date.now() + (data.expires_in || 3600) * 1000;
+      return radioSdkAccessToken;
+    }
+
+    function radioLoadSdkScript() {
+      return new Promise((resolve) => {
+        if (window.Spotify) return resolve();
+        window.onSpotifyWebPlaybackSDKReady = resolve;
+        if (document.getElementById('spotify-player-sdk-script')) return;
+        const script = document.createElement('script');
+        script.id = 'spotify-player-sdk-script';
+        script.src = 'https://sdk.scdn.co/spotify-player.js';
+        document.head.appendChild(script);
+      });
+    }
+
+    function radioSetSdkStatus(msg) {
+      const el = document.getElementById('radio-sdk-status');
+      if (el) el.textContent = msg;
+    }
+
+    async function radioInitSdkPlayer() {
+      const wrap = document.getElementById('radio-sdk-player');
+      if (wrap) wrap.style.display = 'block';
+      const note = document.getElementById('radio-mobile-note');
+      if (note) note.style.display = 'none';
+      if (radioSdkPlayer) { radioStartStatusPolling(); return; } // already initialized this session
+      try {
+        await radioLoadSdkScript();
+      } catch (e) {
+        radioSetSdkStatus('Could not load the Spotify player.');
+        return;
+      }
+      radioSdkPlayer = new Spotify.Player({
+        name: 'Loona Radio (Hub)',
+        getOAuthToken: cb => { radioGetAccessToken().then(cb).catch(() => cb('')); },
+        volume: 0.8
+      });
+      radioSdkPlayer.addListener('ready', ({ device_id }) => { radioSdkDeviceId = device_id; radioSetSdkStatus(''); });
+      radioSdkPlayer.addListener('not_ready', () => { radioSdkDeviceId = null; });
+      radioSdkPlayer.addListener('initialization_error', ({ message }) => radioSetSdkStatus('Could not start the player: ' + message));
+      radioSdkPlayer.addListener('authentication_error', ({ message }) => radioSetSdkStatus('Spotify login issue: ' + message));
+      radioSdkPlayer.addListener('account_error', () => radioSetSdkStatus('This needs Spotify Premium on the connected account.'));
+      radioSdkPlayer.addListener('player_state_changed', radioHandlePlayerState);
+      await radioSdkPlayer.connect();
+      radioStartStatusPolling();
+    }
+
+    function radioHandlePlayerState(state) {
+      if (!state) return;
+      const track = state.track_window && state.track_window.current_track;
+      if (track) {
+        const titleEl = document.getElementById('radio-sdk-title');
+        const artistEl = document.getElementById('radio-sdk-artist');
+        if (titleEl) titleEl.textContent = track.name;
+        if (artistEl) artistEl.textContent = (track.artists || []).map(a => a.name).join(', ');
+        const art = track.album && track.album.images && track.album.images[0] && track.album.images[0].url;
+        const artEl = document.getElementById('radio-sdk-art');
+        const placeholderEl = document.getElementById('radio-sdk-art-placeholder');
+        if (art && artEl) { artEl.src = art; artEl.style.display = 'block'; if (placeholderEl) placeholderEl.style.display = 'none'; }
+      }
+      const btn = document.getElementById('radio-sdk-playpause-btn');
+      if (btn) btn.textContent = state.paused ? '▶' : '⏸';
+      const fill = document.getElementById('radio-sdk-progress-fill');
+      if (fill && state.duration) fill.style.width = Math.min(100, (state.position / state.duration * 100)) + '%';
+    }
+
+    // Polls current playback state so the "Now Playing" info stays accurate even
+    // when THIS device isn't the one currently active (e.g. someone else has it
+    // playing) — player_state_changed only fires for this device's own session.
+    function radioStartStatusPolling() {
+      if (radioSdkPollInterval) return;
+      radioPollNowPlaying();
+      radioSdkPollInterval = setInterval(radioPollNowPlaying, 5000);
+    }
+
+    async function radioPollNowPlaying() {
+      try {
+        const token = await radioGetAccessToken();
+        const resp = await fetch('https://api.spotify.com/v1/me/player', { headers: { Authorization: 'Bearer ' + token } });
+        if (resp.status === 204) { radioSetSdkStatus('Nothing playing — hit play to start Loona Radio here.'); return; }
+        if (!resp.ok) return;
+        const data = await resp.json().catch(() => null);
+        if (!data || !data.item) return;
+        const titleEl = document.getElementById('radio-sdk-title');
+        const artistEl = document.getElementById('radio-sdk-artist');
+        if (titleEl) titleEl.textContent = data.item.name;
+        if (artistEl) artistEl.textContent = (data.item.artists || []).map(a => a.name).join(', ');
+        const art = data.item.album && data.item.album.images && data.item.album.images[0] && data.item.album.images[0].url;
+        const artEl = document.getElementById('radio-sdk-art');
+        const placeholderEl = document.getElementById('radio-sdk-art-placeholder');
+        if (art && artEl) { artEl.src = art; artEl.style.display = 'block'; if (placeholderEl) placeholderEl.style.display = 'none'; }
+        const btn = document.getElementById('radio-sdk-playpause-btn');
+        if (btn) btn.textContent = data.is_playing ? '⏸' : '▶';
+        const fill = document.getElementById('radio-sdk-progress-fill');
+        if (fill && data.item.duration_ms) fill.style.width = Math.min(100, (data.progress_ms / data.item.duration_ms * 100)) + '%';
+        const onThisDevice = data.device && radioSdkDeviceId && data.device.id === radioSdkDeviceId;
+        radioSetSdkStatus(data.is_playing ? (onThisDevice ? 'Playing here' : 'Playing on ' + (data.device ? data.device.name : 'another device')) : 'Paused');
+      } catch (e) { /* transient network hiccup — next poll retries */ }
+    }
+
+    async function radioSdkTogglePlay() {
+      if (!radioSdkDeviceId) { radioSetSdkStatus('Still connecting…'); return; }
+      try {
+        const token = await radioGetAccessToken();
+        const statusResp = await fetch('https://api.spotify.com/v1/me/player', { headers: { Authorization: 'Bearer ' + token } });
+        const status = statusResp.status === 204 ? null : await statusResp.json().catch(() => null);
+        const activeHere = status && status.device && status.device.id === radioSdkDeviceId;
+        if (activeHere && status.is_playing) {
+          await fetch('https://api.spotify.com/v1/me/player/pause', { method: 'PUT', headers: { Authorization: 'Bearer ' + token } });
+        } else if (activeHere && !status.is_playing) {
+          await fetch('https://api.spotify.com/v1/me/player/play', { method: 'PUT', headers: { Authorization: 'Bearer ' + token } });
+        } else {
+          // Nothing playing, or playing on a different device — grab playback to
+          // THIS device and (re)start the one Loona Radio playlist here.
+          await fetch('https://api.spotify.com/v1/me/player/play?device_id=' + radioSdkDeviceId, {
+            method: 'PUT', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ context_uri: 'spotify:playlist:' + (window.RADIO_CONFIG.spotifyPlaylistId || '') })
+          });
+        }
+        setTimeout(radioPollNowPlaying, 600);
+      } catch (e) { radioSetSdkStatus('Could not control playback: ' + (e.message || e)); }
+    }
+
+    async function radioSdkNext() {
+      try {
+        const token = await radioGetAccessToken();
+        await fetch('https://api.spotify.com/v1/me/player/next', { method: 'POST', headers: { Authorization: 'Bearer ' + token } });
+        setTimeout(radioPollNowPlaying, 600);
+      } catch (e) { radioSetSdkStatus('Could not skip: ' + (e.message || e)); }
+    }
+
+    async function radioSdkPrev() {
+      try {
+        const token = await radioGetAccessToken();
+        await fetch('https://api.spotify.com/v1/me/player/previous', { method: 'POST', headers: { Authorization: 'Bearer ' + token } });
+        setTimeout(radioPollNowPlaying, 600);
+      } catch (e) { radioSetSdkStatus('Could not go back: ' + (e.message || e)); }
     }
 
     function radioToggleAppleMusic() {
@@ -14989,6 +15196,22 @@ ${brandLines}`;
 .nm-guest-row .form-control{flex:1}
 .nm-note{font-size:12px;color:#e05c5c;margin-top:4px}
 .radio-note{font-size:12px;color:#e05c5c;margin:6px 0}
+.radio-info-note{font-size:12px;color:var(--muted);margin:0 0 14px;line-height:1.5}
+.radio-sdk-player{background:linear-gradient(135deg,#1c1714,#100d0e);border:1px solid rgba(255,109,41,.28);border-radius:14px;padding:14px;margin-bottom:14px}
+.radio-sdk-player-inner{display:flex;align-items:center;gap:14px}
+.radio-sdk-art,.radio-sdk-art-placeholder{width:64px;height:64px;border-radius:10px;flex-shrink:0;object-fit:cover;background:var(--surface2)}
+.radio-sdk-art-placeholder{display:flex;align-items:center;justify-content:center;font-size:26px}
+.radio-sdk-info{flex:1;min-width:0}
+.radio-sdk-title{font-size:14.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.radio-sdk-artist{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.radio-sdk-progress-track{background:var(--surface2);border-radius:4px;height:4px;margin-top:8px;overflow:hidden}
+.radio-sdk-progress-fill{background:linear-gradient(135deg,var(--accent),var(--accent2));height:100%;width:0;transition:width .3s linear}
+.radio-sdk-controls{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.radio-sdk-btn{background:none;border:none;color:var(--text);cursor:pointer;font-size:18px;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;border-radius:50%}
+.radio-sdk-btn:hover{background:rgba(255,255,255,.08)}
+.radio-sdk-btn-main{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#1a0f08;font-size:16px}
+.radio-sdk-btn-main:hover{background:linear-gradient(135deg,var(--accent),var(--accent2));opacity:.9}
+.radio-sdk-status{font-size:11.5px;color:var(--muted);margin-top:10px;text-align:center}
 .radio-embed-wrap{position:relative;border-radius:14px;overflow:hidden;background:var(--surface2);margin-bottom:14px;min-height:80px}
 .radio-embed-skeleton{display:flex;align-items:center;justify-content:center;height:352px;color:var(--muted);font-size:13px;background:linear-gradient(90deg,var(--surface2) 0%,var(--surface) 50%,var(--surface2) 100%);background-size:200% 100%;animation:radioSkeleton 1.6s ease-in-out infinite}
 @keyframes radioSkeleton{0%{background-position:200% 0}100%{background-position:-200% 0}}
