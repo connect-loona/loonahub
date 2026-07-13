@@ -2361,6 +2361,10 @@
       font-family: var(--font);
       outline: none;
       width: 100%;
+      /* Without this, browsers render native date/time-picker icons in their
+         light-theme color by default — invisible against this dark background,
+         so a type=date/time input looked like it had no way to open a picker. */
+      color-scheme: dark;
     }
 
     .form-control:focus {
