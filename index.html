@@ -4058,6 +4058,7 @@
         <button class="nav-btn" onclick="showPage('loonacode',this)">Loona Code</button>
         <button class="nav-btn" onclick="showPage('loonaverse',this)">Loonaverse</button>
         <button class="nav-btn" onclick="showPage('radio',this)">📻 Loona Radio</button>
+        <button class="nav-btn" id="nav-braincheck-btn" onclick="showPage('braincheck',this)">🧠 Brain Check</button>
         <button class="nav-btn" id="nav-admin-btn" onclick="showPage('admin',this)" style="display:none">🛠 Admin</button>
       </nav>
       <div style="display:flex;align-items:center;gap:12px">
@@ -4151,6 +4152,11 @@
           </div>
         </div>
       </div>
+
+      <!-- Loona Brain Check — daily dashboard card, state depends on whether
+           this member has completed today's check yet and whether a winner
+           has been declared (see bcRenderCard() in the Brain Check script). -->
+      <div class="bc-card" id="braincheck-card"></div>
 
       <!-- Today Stats -->
       <div class="stat-grid" id="today-stats">
@@ -5819,6 +5825,90 @@
       </div>
     </div>
 
+    <!-- ======= LOONA BRAIN CHECK ======= -->
+    <div class="page bc-theme" id="page-braincheck">
+      <!-- OPENING -->
+      <div id="bc-view-opening">
+        <div class="bc-hero">
+          <div class="bc-hero-title">Loona Brain Check</div>
+          <div class="bc-hero-tagline">10 questions. One score. No pretending you knew that.</div>
+          <div class="bc-covers-label">Today's check covers:</div>
+          <div class="bc-covers-list" id="bc-covers-list"></div>
+          <div class="bc-rules-row">
+            <div class="bc-rule"><span>10</span><label>questions</label></div>
+            <div class="bc-rule"><span>1</span><label>answer per question</label></div>
+            <div class="bc-rule"><span>0</span><label>retakes</label></div>
+          </div>
+          <button class="btn btn-primary" onclick="bcBegin()">Begin</button>
+          <div class="bc-note">Your answers are final. Confidence is not evidence.</div>
+        </div>
+      </div>
+
+      <!-- QUESTION FLOW -->
+      <div id="bc-view-question" style="display:none">
+        <div class="bc-q-top">
+          <div class="bc-q-progress-label" id="bc-q-progress-label"></div>
+          <div class="bc-progress-track"><div class="bc-progress-fill" id="bc-progress-fill"></div></div>
+        </div>
+        <div class="bc-final-note" id="bc-final-note" style="display:none">Final question. No pressure. Obviously.</div>
+        <div class="bc-q-card">
+          <div class="bc-q-text" id="bc-q-text"></div>
+          <div class="bc-q-options" id="bc-q-options"></div>
+          <div class="bc-q-feedback" id="bc-q-feedback" style="display:none"></div>
+        </div>
+        <div class="bc-q-footer" id="bc-q-footer" style="display:none">
+          <div class="bc-survived-label" id="bc-survived-label"></div>
+          <button class="btn btn-primary" id="bc-next-btn" onclick="bcNextQuestion()">Next Question</button>
+        </div>
+      </div>
+
+      <!-- LOADING -->
+      <div id="bc-view-loading" style="display:none">
+        <div class="bc-loading">
+          <div class="bc-loading-spinner">🧠</div>
+          <div class="bc-loading-text" id="bc-loading-text">Calculating the damage…</div>
+        </div>
+      </div>
+
+      <!-- SCORE CARD -->
+      <div id="bc-view-score" style="display:none">
+        <div class="bc-score-card">
+          <div class="bc-score-label">Today's Loona Brain Check</div>
+          <div class="bc-score-big" id="bc-score-big">0 / 10</div>
+          <div class="bc-score-tier" id="bc-score-tier"></div>
+          <div class="bc-score-desc" id="bc-score-desc"></div>
+          <div class="bc-cat-breakdown-label">Your category breakdown</div>
+          <div class="bc-cat-breakdown" id="bc-cat-breakdown"></div>
+          <div class="bc-strong-weak" id="bc-strong-weak"></div>
+          <div class="bc-score-actions">
+            <button class="btn btn-ghost" onclick="bcShowReview()">Review My Answers</button>
+            <button class="btn btn-primary" onclick="bcShowLeaderboard()">View Today's Leaderboard</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- REVIEW -->
+      <div id="bc-view-review" style="display:none">
+        <div class="bc-section-head">
+          <div class="bc-section-title">Review Your Answers</div>
+          <a class="bc-link-back" onclick="bcShowScore()">← Back to Score</a>
+        </div>
+        <div id="bc-review-list"></div>
+      </div>
+
+      <!-- LEADERBOARD -->
+      <div id="bc-view-leaderboard" style="display:none">
+        <div class="bc-section-head">
+          <div class="bc-section-title">Today's Leaderboard</div>
+          <a class="bc-link-back" onclick="bcBackFromLeaderboard()">← Back</a>
+        </div>
+        <div id="bc-winner-banner" class="bc-winner-banner" style="display:none"></div>
+        <div class="bc-lb-summary" id="bc-lb-summary"></div>
+        <div id="bc-lb-list"></div>
+        <div class="bc-lb-note">Ties are settled by completion time. Speed finally has consequences.</div>
+      </div>
+    </div>
+
     <!-- ======= LOONA CODE ======= -->
     <div class="page" id="page-loonacode">
       <div class="section-header" style="margin-top:0">
@@ -6490,6 +6580,35 @@
             .sort((a, b) => (b.ts || 0) - (a.ts || 0));
           if (document.getElementById('page-radio') && document.getElementById('page-radio').classList.contains('active') && typeof renderRadioManualQueue === 'function') renderRadioManualQueue();
         });
+
+        // Loona Brain Check — today's results (everyone's scores, for the
+        // leaderboard + dashboard rank) and today's officially-decided winner
+        // (written by the brain-check-winner scheduled function at the daily
+        // cutoff). Scoped to "today" at listener-registration time, same
+        // simplification the rest of this app's daily-rotating features use —
+        // a session open across midnight picks up the new date on next reload.
+        (function () {
+          const bcDate = typeof bcTodayDateIST === 'function' ? bcTodayDateIST() : null;
+          if (!bcDate) return;
+          _db.ref('brainCheck/results/' + bcDate).on('value', snap => {
+            window.BRAINCHECK_RESULTS = window.BRAINCHECK_RESULTS || {};
+            window.BRAINCHECK_RESULTS[bcDate] = snap.val() || {};
+            const overviewActive = document.getElementById('page-overview') && document.getElementById('page-overview').classList.contains('active');
+            if (overviewActive && typeof bcRenderCard === 'function') bcRenderCard();
+            const bcPageActive = document.getElementById('page-braincheck') && document.getElementById('page-braincheck').classList.contains('active');
+            const lbVisible = document.getElementById('bc-view-leaderboard') && document.getElementById('bc-view-leaderboard').style.display !== 'none';
+            if (bcPageActive && lbVisible && typeof bcRenderLeaderboard === 'function') bcRenderLeaderboard();
+          });
+          _db.ref('brainCheck/winner/' + bcDate).on('value', snap => {
+            window.BRAINCHECK_WINNER = window.BRAINCHECK_WINNER || {};
+            window.BRAINCHECK_WINNER[bcDate] = snap.val() || null;
+            const overviewActive = document.getElementById('page-overview') && document.getElementById('page-overview').classList.contains('active');
+            if (overviewActive && typeof bcRenderCard === 'function') bcRenderCard();
+            const bcPageActive = document.getElementById('page-braincheck') && document.getElementById('page-braincheck').classList.contains('active');
+            const lbVisible = document.getElementById('bc-view-leaderboard') && document.getElementById('bc-view-leaderboard').style.display !== 'none';
+            if (bcPageActive && lbVisible && typeof bcRenderLeaderboard === 'function') bcRenderLeaderboard();
+          });
+        })();
 
         // Seed brands on first connect
         _db.ref('brands').once('value', snap => {
@@ -7661,6 +7780,7 @@
         ? `<img src="${info.avatar}" id="overview-user-avatar" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);margin-right:12px;vertical-align:middle">`
         : `<span style="font-size:32px;margin-right:8px">${info.emoji}</span>`;
       document.getElementById('welcome-msg').innerHTML = `${avatarHtml}${greet}, ${currentUser}!${ovMoodPillHTML()}`;
+      if (typeof bcRenderCard === 'function') bcRenderCard();
 
       // My tasks (logged-in member)
       const myTasks = TASKS.filter(t => normName(t.member) === normName(currentUser));
@@ -9254,6 +9374,446 @@
       renderQuizResult(key);
     }
 
+    // ═══ LOONA BRAIN CHECK — daily 10-question trivia ═══
+    // Everyone gets the identical 10 questions each day (a deterministic,
+    // seeded slice of the shared bank — no server round-trip needed to agree
+    // on "today's questions"). Answers lock on selection, explanations show
+    // immediately, and results are written to Firebase so the whole team's
+    // scores/leaderboard/winner can be computed from one shared node.
+    const BRAIN_CHECK_QUESTIONS = [
+      { category: 'Marketing', q: 'What does brand positioning describe?', options: ['Where a logo is placed', 'Where a product sits in a store', 'How a brand is perceived relative to competitors', 'The order of posts on Instagram'], correct: 2, explanation: 'Brand positioning is the space a brand aims to occupy in the customer’s mind compared with alternatives.' },
+      { category: 'Marketing', q: 'What is a USP (unique selling proposition)?', options: ['A discount offer', 'The one clear reason a customer should choose this product over others', 'A tagline', 'A loyalty program'], correct: 1, explanation: 'A USP is the specific benefit or difference that sets a product apart from competing options.' },
+      { category: 'Marketing', q: 'What does "top of funnel" refer to?', options: ['The final purchase step', 'The awareness stage where prospects first discover a brand', 'Customer support', 'Repeat purchases'], correct: 1, explanation: 'Top of funnel is the earliest stage, focused on getting a brand noticed before any consideration or purchase happens.' },
+      { category: 'Marketing', q: 'What is a target audience?', options: ['Everyone who could theoretically buy anything', 'The specific group of people a product or message is built for', 'The company’s own employees', 'Competitors being tracked'], correct: 1, explanation: 'Defining a target audience focuses messaging and spend on the people most likely to actually respond.' },
+      { category: 'Marketing', q: 'What does A/B testing help marketers do?', options: ['Guess randomly', 'Compare two versions of something to see which performs better', 'Increase prices', 'File taxes'], correct: 1, explanation: 'A/B testing splits an audience between two variants to see which drives better results before committing fully to one.' },
+      { category: 'Finance', q: 'What is cash flow?', options: ['The total value of a company', 'Money moving into and out of a business', 'Revenue before taxes', 'Profit after salaries'], correct: 1, explanation: 'Cash flow measures actual money entering and leaving the business. A company can be profitable on paper and still face cash flow problems.' },
+      { category: 'Finance', q: 'What is gross profit?', options: ['Revenue minus the direct cost of delivering the product or service', 'Revenue minus every business expense', 'Cash left in the bank', 'Revenue before customer payments arrive'], correct: 0, explanation: 'Gross profit is revenue minus the direct cost of producing or delivering the work. Operating expenses are deducted later.' },
+      { category: 'Finance', q: 'What is a burn rate?', options: ['The interest rate on a loan', 'The rate at which a company spends its cash reserves', 'The tax rate on profits', 'The rate of employee turnover'], correct: 1, explanation: 'Burn rate tracks how quickly available cash is being spent, especially important for startups without steady revenue yet.' },
+      { category: 'Finance', q: 'What does ROI stand for?', options: ['Rate of Interest', 'Return on Investment', 'Revenue over Income', 'Rate of Inflation'], correct: 1, explanation: 'ROI compares the gain from an investment against its cost, usually expressed as a percentage or ratio.' },
+      { category: 'Finance', q: 'What is a fixed cost?', options: ['A cost that changes with production volume', 'A cost that stays the same regardless of output, like rent', 'A one-time cost', 'A cost paid only by investors'], correct: 1, explanation: 'Fixed costs don’t move with how much a business produces or sells, unlike variable costs which scale with output.' },
+      { category: 'Social Media', q: 'What does engagement rate usually measure?', options: ['Followers gained', 'Interactions relative to reach, impressions or followers', 'Advertising spend', 'How often a brand posts'], correct: 1, explanation: 'Engagement rate compares actions such as likes, comments, saves and shares against the size of the audience or reach.' },
+      { category: 'Social Media', q: 'What does reach mean?', options: ['The total number of times content was displayed', 'The number of unique people who saw the content', 'The number of followers gained', 'The amount spent promoting content'], correct: 1, explanation: 'Reach counts unique viewers. Impressions can be higher because the same person may see the content several times.' },
+      { category: 'Social Media', q: 'What is an algorithm, in the social media sense?', options: ['A paid ad format', 'The system that decides what content gets shown to which users', 'A type of caption', 'A verification badge'], correct: 1, explanation: 'Platform algorithms rank and distribute content to users based on predicted relevance and engagement, not just posting order.' },
+      { category: 'Social Media', q: 'What does "organic" mean in a social media context?', options: ['Content that uses eco-friendly imagery', 'Reach or engagement earned without paid promotion', 'A type of influencer', 'A scheduling tool'], correct: 1, explanation: 'Organic reach comes from unpaid distribution, as opposed to reach bought through ads or boosted posts.' },
+      { category: 'Social Media', q: 'What is a content calendar used for?', options: ['Tracking employee holidays', 'Planning what gets posted, where, and when', 'Measuring ad spend', 'Verifying accounts'], correct: 1, explanation: 'A content calendar keeps posting consistent and coordinated across platforms and campaigns.' },
+      { category: 'Performance Marketing', q: 'What does ROAS measure?', options: ['Revenue earned for every unit spent on advertising', 'The number of people who saw an ad', 'The cost of making content', 'Organic growth after a campaign'], correct: 0, explanation: 'ROAS means Return on Ad Spend. A 4× ROAS means every ₹1 spent on advertising generated ₹4 in attributed revenue.' },
+      { category: 'Performance Marketing', q: 'What does CPC stand for?', options: ['Cost Per Click', 'Content Publishing Cycle', 'Customer Purchase Confirmation', 'Campaign Performance Check'], correct: 0, explanation: 'CPC is how much an advertiser pays each time someone clicks their ad.' },
+      { category: 'Performance Marketing', q: 'What is a conversion, in a performance marketing context?', options: ['Any click on an ad', 'A user completing a desired action, like a purchase or sign-up', 'A follower gained', 'An impression served'], correct: 1, explanation: 'A conversion is the specific outcome a campaign is optimised for, not just traffic or attention.' },
+      { category: 'Performance Marketing', q: 'What does CTR measure?', options: ['Total ad spend', 'The percentage of people who click an ad after seeing it', 'Customer lifetime value', 'The number of ad variations tested'], correct: 1, explanation: 'Click-through rate shows how compelling an ad is relative to how many people saw it.' },
+      { category: 'Performance Marketing', q: 'What is retargeting?', options: ['Hiring a new marketing agency', 'Showing ads to people who already visited or interacted with a brand', 'Changing the target audience completely', 'Reducing ad frequency'], correct: 1, explanation: 'Retargeting re-engages people who already showed interest, usually converting at a higher rate than cold audiences.' },
+      { category: 'Business', q: 'What is the break-even point?', options: ['When revenue begins growing', 'When revenue equals total costs', 'When the company becomes profitable forever', 'When investors recover their money'], correct: 1, explanation: 'At break-even, the business has covered all fixed and variable costs but has not yet made a profit.' },
+      { category: 'Business', q: 'What is a P&L statement?', options: ['A legal contract', 'A summary of a company’s revenues, costs and profit over a period', 'A hiring plan', 'A customer feedback form'], correct: 1, explanation: 'A profit and loss statement shows whether a business made or lost money over a given period.' },
+      { category: 'Business', q: 'What does B2B mean?', options: ['Business to Business', 'Back to Basics', 'Brand to Buyer', 'Budget to Balance'], correct: 0, explanation: 'B2B describes companies that primarily sell to other businesses rather than individual consumers.' },
+      { category: 'Business', q: 'What is a stakeholder?', options: ['Only the company’s shareholders', 'Anyone with an interest in or affected by the business’s decisions', 'A competitor', 'A government regulator only'], correct: 1, explanation: 'Stakeholders include employees, customers and partners — anyone with a real stake in how the business performs, not just owners.' },
+      { category: 'Business', q: 'What does "scaling" a business typically mean?', options: ['Reducing the team size', 'Growing revenue or output without a proportional increase in costs', 'Moving to a bigger office', 'Changing the company’s name'], correct: 1, explanation: 'Scaling is about growth that outpaces the added cost of achieving it, not growth at any cost.' },
+      { category: 'Branding', q: 'What is a brand archetype?', options: ['A legal brand registration', 'A framework used to define a brand’s personality', 'A logo construction method', 'A customer survey'], correct: 1, explanation: 'Brand archetypes use familiar personality patterns, such as the Rebel, Creator or Caregiver, to make a brand easier to understand and remember.' },
+      { category: 'Branding', q: 'What is brand equity?', options: ['The physical assets a brand owns', 'The value a brand has beyond its product, built through perception and trust', 'A brand’s legal trademark filing', 'The number of employees at a company'], correct: 1, explanation: 'Brand equity is the extra value customers place on a brand purely because of what it represents to them.' },
+      { category: 'Branding', q: 'What is a brand voice?', options: ['The founder’s literal speaking voice', 'The consistent tone and personality a brand uses across communication', 'A jingle used in ads', 'The volume of ad spend'], correct: 1, explanation: 'Brand voice keeps a brand sounding recognisably like itself across every channel and format.' },
+      { category: 'Branding', q: 'What does "rebranding" involve?', options: ['Only changing a logo', 'A deliberate shift in a brand’s identity, positioning or visual system', 'Filing for bankruptcy', 'Hiring new staff'], correct: 1, explanation: 'Rebranding is broader than a new logo — it can reshape how a brand is positioned and perceived entirely.' },
+      { category: 'Branding', q: 'What is a mood board typically used for?', options: ['Tracking employee wellbeing', 'Visually communicating a brand or project’s intended look and feel', 'Scheduling social posts', 'Measuring campaign ROI'], correct: 1, explanation: 'Mood boards align a team visually before design work starts, using references, colours and imagery.' },
+      { category: 'Consumer Psychology', q: 'What is social proof?', options: ['Proof that a campaign is original', 'People using others’ actions to guide their decisions', 'Verification that followers are real', 'Legal approval for an advertisement'], correct: 1, explanation: 'Reviews, testimonials, creator endorsements and customer numbers reduce uncertainty by showing that other people already trust the choice.' },
+      { category: 'Consumer Psychology', q: 'What is the scarcity principle?', options: ['People value things less when they’re rare', 'People perceive things as more desirable when they’re limited or hard to get', 'It only applies to luxury goods', 'It has no effect on buying behaviour'], correct: 1, explanation: 'Limited availability, real or implied, tends to increase perceived value and urgency to act.' },
+      { category: 'Consumer Psychology', q: 'What is FOMO, as marketers use the term?', options: ['A pricing strategy', 'The fear of missing out, used to drive urgency in decisions', 'A customer service policy', 'A legal disclaimer'], correct: 1, explanation: 'FOMO taps into the discomfort of missing something others are experiencing, nudging faster decisions.' },
+      { category: 'Consumer Psychology', q: 'What is anchoring, in a pricing context?', options: ['Fixing a product physically in a store', 'Using an initial price or number as a reference point that influences perception of value', 'A shipping method', 'A loyalty program tier'], correct: 1, explanation: 'The first number shown — like a "was" price — shapes how reasonable the actual price feels afterward.' },
+      { category: 'Consumer Psychology', q: 'What is the halo effect?', options: ['A discount applied at checkout', 'Letting a positive impression in one area influence perception of everything else about a brand', 'A customer complaint pattern', 'A type of packaging'], correct: 1, explanation: 'One strong positive trait — great design, a beloved founder — can make people assume everything else about a brand is good too.' },
+      { category: 'Internet Culture', q: 'What does it mean when content is "ratioed"?', options: ['It has more shares than views', 'Replies or criticism heavily outweigh positive engagement', 'It has a perfect engagement rate', 'It was posted in the wrong dimensions'], correct: 1, explanation: 'Being ratioed usually means a post receives significantly more negative replies or quote-posts than likes or supportive engagement.' },
+      { category: 'Internet Culture', q: 'What does "going viral" mean?', options: ['Content spreading rapidly and widely across a platform', 'A post being taken down by moderators', 'An account getting verified', 'A brand launching in a new country'], correct: 0, explanation: 'Viral content spreads far beyond its original audience, usually through rapid sharing rather than paid promotion.' },
+      { category: 'Internet Culture', q: 'What is a meme, broadly speaking?', options: ['A legal document', 'An idea, image or format that spreads and gets remixed across the internet', 'A type of advertisement only', 'A verified account badge'], correct: 1, explanation: 'Memes are cultural units that get copied, remixed and reinterpreted as they spread — not a single fixed format.' },
+      { category: 'Internet Culture', q: 'What does "cancel culture" refer to?', options: ['Cancelling a subscription service', 'The widespread public withdrawal of support from a person or brand over controversial behaviour', 'A refund policy', 'An algorithm update'], correct: 1, explanation: 'It describes collective public backlash, usually online, in response to something considered offensive or unacceptable.' },
+      { category: 'Internet Culture', q: 'What is "rage bait"?', options: ['A fishing technique', 'Content designed to provoke anger or outrage to drive engagement', 'A customer service escalation', 'A type of giveaway'], correct: 1, explanation: 'Rage bait deliberately courts outrage because angry reactions still count as engagement to most algorithms.' },
+      { category: 'General Knowledge', q: 'Which is the largest ocean on Earth?', options: ['Atlantic', 'Indian', 'Pacific', 'Arctic'], correct: 2, explanation: 'The Pacific Ocean covers more area than all the continents combined.' },
+      { category: 'General Knowledge', q: 'What is the capital of Australia?', options: ['Sydney', 'Melbourne', 'Canberra', 'Perth'], correct: 2, explanation: 'Canberra was purpose-built as the capital as a compromise between rivals Sydney and Melbourne.' },
+      { category: 'General Knowledge', q: 'Who wrote the play "Romeo and Juliet"?', options: ['Charles Dickens', 'William Shakespeare', 'Jane Austen', 'Mark Twain'], correct: 1, explanation: 'Romeo and Juliet is one of Shakespeare’s earliest and most performed tragedies.' },
+      { category: 'General Knowledge', q: 'What is the chemical symbol for gold?', options: ['Go', 'Gd', 'Au', 'Ag'], correct: 2, explanation: 'Au comes from the Latin word for gold, "aurum".' },
+      { category: 'General Knowledge', q: 'Which planet is known as the Red Planet?', options: ['Venus', 'Mars', 'Jupiter', 'Saturn'], correct: 1, explanation: 'Mars appears red due to iron oxide (rust) covering much of its surface.' },
+      { category: 'Geopolitics', q: 'What does the acronym "UN" stand for?', options: ['United Nations', 'Universal Network', 'United Nationalities', 'Union of Nations'], correct: 0, explanation: 'The United Nations was founded in 1945 to maintain international peace and cooperation.' },
+      { category: 'Geopolitics', q: 'Which organisation is commonly referred to by the acronym "EU"?', options: ['Eastern Union', 'European Union', 'Economic Union', 'Elected Union'], correct: 1, explanation: 'The European Union is a political and economic union of European member states.' },
+      { category: 'Geopolitics', q: 'What is a "trade deficit"?', options: ['When a country’s exports exceed its imports', 'When a country’s imports exceed the value of its exports', 'A tax on foreign goods', 'A type of currency peg'], correct: 1, explanation: 'A trade deficit means a country is buying more from abroad than it’s selling abroad.' },
+      { category: 'Geopolitics', q: 'What does "sanctions" typically mean in international relations?', options: ['Formal awards given to allies', 'Restrictive measures imposed on a country to pressure a policy change', 'A trade agreement', 'A military alliance'], correct: 1, explanation: 'Sanctions are penalties, often economic, meant to pressure a country into changing behaviour without military action.' },
+      { category: 'Geopolitics', q: 'What is a "bilateral agreement"?', options: ['An agreement involving three or more countries', 'An agreement between exactly two parties, usually countries', 'A domestic-only policy', 'A type of currency exchange rate'], correct: 1, explanation: 'Bilateral means "two-sided" — an agreement negotiated directly between two parties, as opposed to multilateral deals involving several.' }
+    ];
+
+    const BRAIN_CHECK_TIERS = [
+      { min: 10, title: 'The Unpaid CMO', desc: 'You knew everything. This is either deeply impressive or mildly concerning.', share: 'I scored 10/10 on Loona Brain Check. Please route unnecessary opinions through me.' },
+      { min: 9, title: 'Suspiciously Employable', desc: 'One answer stood between you and unbearable confidence.', share: '9/10. I will be discussing the missing point with management.' },
+      { min: 8, title: 'The Deck Closer', desc: 'Sharp, useful and dangerously comfortable with marketing terminology.', share: '8/10. Enough knowledge to lead the meeting.' },
+      { min: 7, title: 'Dangerously Informed', desc: 'You know enough to contribute and just enough to complicate everything.', share: '7/10. Smart enough to have opinions.' },
+      { min: 6, title: 'The Confident Generalist', desc: 'You knew some. You guessed some. Your posture made them look identical.', share: '6/10. The confidence carried it.' },
+      { min: 5, title: 'Briefly Awake', desc: 'Half your brain arrived. The remaining half may still be commuting.', share: '5/10. Technically awake.' },
+      { min: 3, title: 'The Vibes Department', desc: 'The knowledge was missing. The energy was undeniable.', share: 'I did not know the answers, but I supported the experience.' },
+      { min: 1, title: 'Intern of the Internet', desc: 'Today was less of a quiz and more of an intervention.', share: 'Loona Brain Check humbled me publicly.' },
+      { min: 0, title: 'Out of Office Mentally', desc: 'No correct answers. Pure instinct. A performance piece.', share: '0/10. I reject conventional knowledge.' }
+    ];
+    function bcTierFor(score) { return BRAIN_CHECK_TIERS.find(t => score >= t.min) || BRAIN_CHECK_TIERS[BRAIN_CHECK_TIERS.length - 1]; }
+
+    const BC_CORRECT_LINES = ['Suspiciously competent.', 'Someone paid attention.', 'Your brain has entered the building.', 'Correct. No notes.', 'Marketing approves.', 'The spreadsheet is proud.', 'You may continue working here.'];
+    const BC_WRONG_LINES = ['The confidence was impressive, though.', 'Strong choice. Wrong choice.', 'Beautifully incorrect.', 'You answered with your heart. That was the problem.', 'The spreadsheet disagrees.', 'Marketing has left the chat.', 'That answer needed another revision.', 'Confidence: 10/10. Accuracy: unavailable.'];
+    const BC_LOADING_LINES = ['Checking your confidence against reality…', 'Measuring marketing instincts…', 'Asking finance to be gentle…', 'Ranking the Loonatics…', 'Preparing your official judgement…'];
+    const BC_WINNER_BROADCASTS = [
+      { text: (n, s) => `Today's smartest Loonatic\n\n${n} scored ${s}/10.\n\nNo guesses. No mercy. No pretending.`, actionLabel: "See Everyone's Scores" },
+      { text: (n, s) => `We have a winner\n\n${n} completed today's Brain Check with ${s}/10.\n\nEveryone else may now quietly review their answers.`, actionLabel: 'Open Leaderboard' },
+      { text: (n, s) => `Today's crown goes to ${n}\n\n10 questions. ${s} correct answers.\n\nThis level of competence was not requested.`, actionLabel: 'View Results' },
+      { text: (n, s) => `The leaderboard has spoken\n\n${n} takes today's win with ${s}/10.\n\nPlease direct all unnecessary questions accordingly.`, actionLabel: 'See Leaderboard' }
+    ];
+
+    function bcRandomFrom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+    function bcMulberry32(seed) {
+      return function () {
+        seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+        let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    function bcSeededShuffle(arr, seed) {
+      const a = arr.slice();
+      const rand = bcMulberry32(seed);
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(rand() * (i + 1));
+        const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+      }
+      return a;
+    }
+    // One fixed shuffle of the whole bank, sliced into rotating 10-question
+    // "days" — every client computes the identical order from this same fixed
+    // seed, so no Firebase round-trip is needed just to agree on today's set.
+    const BC_PERMUTATION = bcSeededShuffle(BRAIN_CHECK_QUESTIONS.map((_, i) => i), 20260101);
+
+    function bcDaysSinceEpoch(dateStr) { return Math.floor(Date.parse(dateStr + 'T00:00:00Z') / 86400000); }
+    function bcTodayDateIST() {
+      const now = new Date(Date.now() + 5.5 * 3600000);
+      return now.getUTCFullYear() + '-' + String(now.getUTCMonth() + 1).padStart(2, '0') + '-' + String(now.getUTCDate()).padStart(2, '0');
+    }
+    function bcIsPastCutoff() {
+      const now = new Date(Date.now() + 5.5 * 3600000);
+      return now.getUTCHours() >= 12;
+    }
+    function bcGetTodaysQuestions(dateStr) {
+      const perCycle = Math.max(1, Math.floor(BRAIN_CHECK_QUESTIONS.length / 10));
+      const cycleIndex = bcDaysSinceEpoch(dateStr) % perCycle;
+      const start = cycleIndex * 10;
+      return BC_PERMUTATION.slice(start, start + 10).map(i => Object.assign({ _bankIndex: i }, BRAIN_CHECK_QUESTIONS[i]));
+    }
+
+    function bcFmtDuration(ms) {
+      if (!ms && ms !== 0) return '';
+      const totalSec = Math.round(ms / 1000);
+      const m = Math.floor(totalSec / 60), s = totalSec % 60;
+      return m + 'm ' + String(s).padStart(2, '0') + 's';
+    }
+
+    function bcSurvivedLine(n) {
+      if (n === 2) return '2 questions survived';
+      if (n === 5) return 'Halfway. The brain remains online.';
+      if (n === 8) return '8 down. Dignity mostly intact.';
+      return n + ' of 10 survived';
+    }
+
+    function bcActiveMembers() { return ALL_MEMBERS.filter(m => !INACTIVE_MEMBERS.has(m)); }
+
+    function bcMyResultToday() {
+      const date = bcTodayDateIST();
+      const results = (window.BRAINCHECK_RESULTS || {})[date] || {};
+      return results[fbMemberKey(currentUser)] || null;
+    }
+
+    function bcGoToPage() {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      const page = document.getElementById('page-braincheck');
+      if (page) page.classList.add('active');
+      const navBtn = document.getElementById('nav-braincheck-btn');
+      if (navBtn) navBtn.classList.add('active');
+      bcOpenPage();
+    }
+
+    function bcShowView(name) {
+      ['opening', 'question', 'loading', 'score', 'review', 'leaderboard'].forEach(v => {
+        const el = document.getElementById('bc-view-' + v);
+        if (el) el.style.display = v === name ? '' : 'none';
+      });
+    }
+
+    // Entry point — called whenever the Brain Check page is opened (nav click
+    // or a dashboard-card CTA). Routes straight to whichever state applies:
+    // already completed today → score card; otherwise → opening screen.
+    function bcOpenPage() {
+      const myResult = bcMyResultToday();
+      if (myResult) {
+        bcRenderScore(myResult);
+        bcShowView('score');
+      } else {
+        const list = document.getElementById('bc-covers-list');
+        if (list) {
+          const cats = Array.from(new Set(bcGetTodaysQuestions(bcTodayDateIST()).map(q => q.category)));
+          list.textContent = cats.join(' · ');
+        }
+        bcShowView('opening');
+      }
+    }
+
+    function bcBegin() {
+      window._bcQuestions = bcGetTodaysQuestions(bcTodayDateIST());
+      window._bcIndex = 0;
+      window._bcAnswers = [];
+      window._bcStartTs = Date.now();
+      bcShowView('question');
+      bcRenderQuestion();
+    }
+
+    function bcRenderQuestion() {
+      const i = window._bcIndex;
+      const q = window._bcQuestions[i];
+      const progressLabel = document.getElementById('bc-q-progress-label');
+      if (progressLabel) progressLabel.textContent = `Question ${i + 1} of 10 · ${q.category}`;
+      const fill = document.getElementById('bc-progress-fill');
+      if (fill) fill.style.width = ((i) / 10 * 100) + '%';
+      const finalNote = document.getElementById('bc-final-note');
+      if (finalNote) finalNote.style.display = i === 9 ? 'block' : 'none';
+      document.getElementById('bc-q-text').textContent = q.q;
+      document.getElementById('bc-q-options').innerHTML = q.options.map((opt, idx) => `
+        <button class="bc-option" id="bc-option-${idx}" onclick="bcSelectOption(${idx})">
+          <span class="bc-option-letter">${String.fromCharCode(65 + idx)}</span>
+          <span class="bc-option-text">${lnEsc(opt)}</span>
+        </button>`).join('');
+      document.getElementById('bc-q-feedback').style.display = 'none';
+      document.getElementById('bc-q-footer').style.display = 'none';
+      window._bcQuestionStartTs = Date.now();
+    }
+
+    function bcSelectOption(idx) {
+      if (window._bcAnswers[window._bcIndex] != null) return; // already locked
+      const i = window._bcIndex;
+      const q = window._bcQuestions[i];
+      const isCorrect = idx === q.correct;
+      const timeMs = Date.now() - (window._bcQuestionStartTs || Date.now());
+      window._bcAnswers[i] = { bankIndex: q._bankIndex, selected: idx, correct: isCorrect, timeMs };
+
+      document.querySelectorAll('.bc-option').forEach((btn, optIdx) => {
+        btn.classList.add('bc-option-locked');
+        if (optIdx === q.correct) btn.classList.add('bc-option-correct');
+        else if (optIdx === idx) btn.classList.add('bc-option-wrong');
+      });
+
+      const feedback = document.getElementById('bc-q-feedback');
+      feedback.style.display = 'block';
+      feedback.className = 'bc-q-feedback ' + (isCorrect ? 'bc-feedback-correct' : 'bc-feedback-wrong');
+      feedback.innerHTML = `
+        <div class="bc-feedback-head">${isCorrect ? 'Correct.' : 'Incorrect.'}</div>
+        <div class="bc-feedback-line">${isCorrect ? lnEsc(bcRandomFrom(BC_CORRECT_LINES)) : lnEsc(bcRandomFrom(BC_WRONG_LINES))}</div>
+        ${isCorrect ? '' : `<div class="bc-feedback-selected">You selected: <b>${lnEsc(q.options[idx])}</b></div>
+        <div class="bc-feedback-answer">Correct answer: <b>${lnEsc(q.options[q.correct])}</b></div>`}
+        <div class="bc-feedback-why"><div class="bc-feedback-why-label">Why?</div>${lnEsc(q.explanation)}</div>`;
+
+      const survivedCount = window._bcAnswers.filter(Boolean).length;
+      document.getElementById('bc-survived-label').textContent = i < 9 ? bcSurvivedLine(survivedCount) : '';
+      const nextBtn = document.getElementById('bc-next-btn');
+      nextBtn.textContent = i === 9 ? 'See My Score' : (isCorrect ? 'Next Question' : 'Recover and Continue');
+      document.getElementById('bc-q-footer').style.display = 'flex';
+    }
+
+    function bcNextQuestion() {
+      if (window._bcAnswers[window._bcIndex] == null) return;
+      if (window._bcIndex >= 9) { bcFinish(); return; }
+      window._bcIndex++;
+      bcRenderQuestion();
+    }
+
+    function bcFinish() {
+      bcShowView('loading');
+      const loadingText = document.getElementById('bc-loading-text');
+      let tick = 0;
+      if (loadingText) loadingText.textContent = bcRandomFrom(BC_LOADING_LINES);
+      const interval = setInterval(() => { tick++; if (loadingText) loadingText.textContent = bcRandomFrom(BC_LOADING_LINES); }, 700);
+      setTimeout(() => {
+        clearInterval(interval);
+        const result = bcComputeResult();
+        bcSubmitResult(result);
+        bcRenderScore(result);
+        bcShowView('score');
+      }, 2200);
+    }
+
+    function bcComputeResult() {
+      const score = window._bcAnswers.filter(a => a && a.correct).length;
+      const categories = {};
+      window._bcQuestions.forEach((q, i) => {
+        const a = window._bcAnswers[i];
+        if (!categories[q.category]) categories[q.category] = { correct: 0, total: 0 };
+        categories[q.category].total++;
+        if (a && a.correct) categories[q.category].correct++;
+      });
+      const durationMs = Date.now() - window._bcStartTs;
+      return {
+        name: currentUser,
+        score,
+        categories,
+        answers: window._bcAnswers.map(a => ({ bankIndex: a.bankIndex, selected: a.selected, correct: a.correct })),
+        startedAt: window._bcStartTs,
+        completedAt: Date.now(),
+        durationMs
+      };
+    }
+
+    function bcSubmitResult(result) {
+      if (!_db || !currentUser) return;
+      const date = bcTodayDateIST();
+      _db.ref('brainCheck/results/' + date + '/' + fbMemberKey(currentUser)).set(result);
+    }
+
+    function bcRenderScore(result) {
+      document.getElementById('bc-score-big').textContent = result.score + ' / 10';
+      const tier = bcTierFor(result.score);
+      document.getElementById('bc-score-tier').textContent = tier.title;
+      document.getElementById('bc-score-desc').textContent = tier.desc;
+
+      const catEntries = Object.entries(result.categories || {}).sort((a, b) => b[1].total - a[1].total);
+      const BC_CAT_QUIPS = ['Alarmingly informed', 'Chronically online, but usefully', 'Keep the calculator nearby', 'The instincts are alive', 'Solid, if unspectacular', 'Room to grow, apparently'];
+      document.getElementById('bc-cat-breakdown').innerHTML = catEntries.map(([cat, c], i) => `
+        <div class="bc-cat-row">
+          <div class="bc-cat-name">${lnEsc(cat)}</div>
+          <div class="bc-cat-score">${c.correct} / ${c.total}</div>
+          <div class="bc-cat-quip">${lnEsc(bcRandomFrom(BC_CAT_QUIPS))}</div>
+        </div>`).join('');
+
+      if (catEntries.length) {
+        const ranked = catEntries.slice().sort((a, b) => (b[1].correct / b[1].total) - (a[1].correct / a[1].total));
+        const strongest = ranked[0];
+        const weakest = ranked[ranked.length - 1];
+        const strongestRatio = strongest[1].correct / strongest[1].total;
+        const weakestRatio = weakest[1].correct / weakest[1].total;
+        // A perfect score means every category is tied at 100% — there's no
+        // real weak spot to call out, so don't manufacture one.
+        const swEl = document.getElementById('bc-strong-weak');
+        swEl.style.gridTemplateColumns = weakestRatio < strongestRatio ? '1fr 1fr' : '1fr';
+        swEl.innerHTML = weakestRatio < strongestRatio ? `
+          <div class="bc-sw-block"><div class="bc-sw-label">Your strongest area</div><div class="bc-sw-name">${lnEsc(strongest[0])}</div></div>
+          <div class="bc-sw-block"><div class="bc-sw-label">Needs another coffee</div><div class="bc-sw-name">${lnEsc(weakest[0])}</div></div>` : `
+          <div class="bc-sw-block"><div class="bc-sw-label">Your strongest area</div><div class="bc-sw-name">${lnEsc(strongest[0])}</div></div>`;
+      }
+      window._bcLastResult = result;
+    }
+
+    function bcShowReview() {
+      const result = window._bcLastResult;
+      const questions = window._bcQuestions || (result ? result.answers.map(a => Object.assign({ _bankIndex: a.bankIndex }, BRAIN_CHECK_QUESTIONS[a.bankIndex])) : []);
+      const answers = result ? result.answers : window._bcAnswers;
+      document.getElementById('bc-review-list').innerHTML = questions.map((q, i) => {
+        const a = answers[i] || {};
+        return `<div class="bc-review-item">
+          <div class="bc-review-q">${i + 1}. ${lnEsc(q.q)}</div>
+          <div class="bc-review-a ${a.correct ? 'bc-review-a-correct' : 'bc-review-a-wrong'}">
+            Your answer: ${lnEsc(q.options[a.selected])} ${a.correct ? '✅' : '❌'}
+          </div>
+          ${a.correct ? '' : `<div class="bc-review-correct">Correct answer: ${lnEsc(q.options[q.correct])}</div>`}
+          <div class="bc-review-why">${lnEsc(q.explanation)}</div>
+        </div>`;
+      }).join('');
+      bcShowView('review');
+    }
+
+    function bcShowScore() {
+      if (window._bcLastResult) bcRenderScore(window._bcLastResult);
+      bcShowView('score');
+    }
+
+    function bcShowLeaderboard() {
+      bcRenderLeaderboard();
+      bcShowView('leaderboard');
+    }
+
+    function bcBackFromLeaderboard() {
+      if (bcMyResultToday()) bcShowScore(); else bcShowView('opening');
+    }
+
+    function bcRenderLeaderboard() {
+      const date = bcTodayDateIST();
+      const resultsObj = (window.BRAINCHECK_RESULTS || {})[date] || {};
+      const results = Object.values(resultsObj);
+      const active = bcActiveMembers();
+      const completedNames = new Set(results.map(r => normName(r.name)));
+      const notAttempted = active.filter(m => !completedNames.has(normName(m)));
+
+      const winner = (window.BRAINCHECK_WINNER || {})[date];
+      const banner = document.getElementById('bc-winner-banner');
+      if (winner) {
+        banner.style.display = 'block';
+        banner.innerHTML = `
+          <div class="bc-winner-label">Today's Winner</div>
+          <div class="bc-winner-name">🏆 ${lnEsc(winner.name)}</div>
+          <div class="bc-winner-sub">${winner.score} / 10 · Completed in ${bcFmtDuration(winner.durationMs)}</div>`;
+      } else if (results.length) {
+        const ranked = results.slice().sort((a, b) => b.score - a.score || a.durationMs - b.durationMs);
+        const leader = ranked[0];
+        banner.style.display = 'block';
+        banner.innerHTML = `
+          <div class="bc-winner-label">Current Leader</div>
+          <div class="bc-winner-name">${lnEsc(leader.name)}</div>
+          <div class="bc-winner-sub">${leader.score} / 10 · ${bcFmtDuration(leader.durationMs)}</div>`;
+      } else {
+        banner.style.display = 'none';
+      }
+
+      document.getElementById('bc-lb-summary').innerHTML = `
+        <div>${results.length} of ${active.length} Loonatics have completed today's check.</div>
+        ${notAttempted.length ? `<div class="bc-lb-not-attempted">${notAttempted.length} Loonatic${notAttempted.length !== 1 ? 's' : ''} ${notAttempted.length !== 1 ? 'have' : 'has'} not attempted today's check.</div>` : ''}`;
+
+      const ranked = results.slice().sort((a, b) => b.score - a.score || a.durationMs - b.durationMs);
+      document.getElementById('bc-lb-list').innerHTML = ranked.map((r, i) => {
+        const info = MEMBER_INFO[r.name] || {};
+        const avatar = info.avatar ? `<img class="bc-lb-avatar" src="${lnEsc(info.avatar)}" alt="">` : `<div class="bc-lb-avatar bc-lb-avatar-fallback">${lnEsc((r.name[0] || '?').toUpperCase())}</div>`;
+        return `<div class="bc-lb-row">
+          <div class="bc-lb-rank">#${i + 1}</div>
+          ${avatar}
+          <div class="bc-lb-name">${lnEsc(r.name)}</div>
+          <div class="bc-lb-score">${r.score} / 10</div>
+          <div class="bc-lb-time">${bcFmtDuration(r.durationMs)}</div>
+        </div>`;
+      }).join('') || '<div class="bc-empty-state">No one’s taken today’s check yet.</div>';
+    }
+
+    // ═══ Dashboard card (Overview page) ═══
+    function bcRenderCard() {
+      const el = document.getElementById('braincheck-card');
+      if (!el) return;
+      const date = bcTodayDateIST();
+      const winner = (window.BRAINCHECK_WINNER || {})[date];
+      const myResult = bcMyResultToday();
+
+      if (winner) {
+        el.innerHTML = `
+          <div class="bc-card-title">Today's Winner</div>
+          <div class="bc-card-winner">🏆 ${lnEsc(winner.name)}</div>
+          <div class="bc-card-winner-sub">${winner.score} / 10 · ${bcFmtDuration(winner.durationMs)}</div>
+          <div class="bc-card-line">No guesses. No mercy. No pretending.</div>
+          <button class="btn btn-primary" onclick="bcGoToPage()">View Full Leaderboard</button>
+          <div class="bc-card-footer">The crown resets tomorrow.</div>`;
+        return;
+      }
+      if (myResult) {
+        const tier = bcTierFor(myResult.score);
+        const resultsObj = (window.BRAINCHECK_RESULTS || {})[date] || {};
+        const ranked = Object.values(resultsObj).slice().sort((a, b) => b.score - a.score || a.durationMs - b.durationMs);
+        const rank = ranked.findIndex(r => normName(r.name) === normName(currentUser)) + 1;
+        el.innerHTML = `
+          <div class="bc-card-title">Loona Brain Check</div>
+          <div class="bc-card-sub">Your score today</div>
+          <div class="bc-card-score">${myResult.score} / 10</div>
+          <div class="bc-card-tier">${lnEsc(tier.title)}</div>
+          ${rank ? `<div class="bc-card-rank">Current rank: #${rank}</div>` : ''}
+          <button class="btn btn-primary" onclick="bcGoToPage()">View Leaderboard</button>
+          <div class="bc-card-footer">Tomorrow's questions drop in the morning.</div>`;
+        return;
+      }
+      el.innerHTML = `
+        <div class="bc-card-title">Loona Brain Check</div>
+        <div class="bc-card-sub">10 questions. One score. No pretending you knew that.</div>
+        <div class="bc-card-desc">A daily mix of marketing, finance, social media, branding and business.</div>
+        <button class="btn btn-primary" onclick="bcGoToPage()">Start Today's Check</button>
+        <div class="bc-card-footer">New questions every morning. The leaderboard resets daily.</div>`;
+    }
+
     // ═══ Daily mood/status ═══
     const STATUS_OPTIONS = [
       { emoji: '😁', text: 'Feeling Cute Today' },
@@ -10809,6 +11369,7 @@
         // whatever the first clicker saw.
         const actionBtn = a.action==='oracle' ? `<button class="btn btn-primary" style="padding:5px 10px;font-size:11px" onclick="openLoonaOracle()">🔮 ${a.actionLabel?String(a.actionLabel).replace(/</g,'&lt;'):"Read Today's Oracle"}</button>`
           : a.action==='costar' ? `<button class="btn btn-primary" style="padding:5px 10px;font-size:11px" onclick="openCostarModal()">🎬 ${a.actionLabel?String(a.actionLabel).replace(/</g,'&lt;'):'Find Your Co-Star'}</button>`
+          : a.action==='braincheck' ? `<button class="btn btn-primary" style="padding:5px 10px;font-size:11px" onclick="bcGoToPage();bcShowLeaderboard()">🧠 ${a.actionLabel?String(a.actionLabel).replace(/</g,'&lt;'):"See Everyone's Scores"}</button>`
           : '';
         return `<div class="lb-item"><div class="lb-meta">${authorIcon}<span class="lb-author">${a.author||'Team'}</span><span class="lb-time">${when}</span>${canDel?`<span class="lb-del" title="Remove" onclick="deleteAnnouncement(${a.id})">✕</span>`:''}</div>${a.text?`<div class="lb-text">${String(a.text).replace(/</g,'&lt;')}</div>`:''}${a.image?`<img class="lb-img" src="${a.image}" alt="">`:''}<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px">${(((a.links&&a.links.length)?a.links:(a.link?[a.link]:[]))||[]).map(L=>`<a class="lb-link" style="margin-top:0" href="${L}" target="_blank" rel="noopener">🔗 ${L.length>50?L.slice(0,50)+'…':L}</a>`).join('')}${recordBtn}${actionBtn}</div></div>`;
       }).join('')+`</div></div>`;
@@ -13057,6 +13618,9 @@
       }
       if (id === 'radio') {
         openRadioPage();
+      }
+      if (id === 'braincheck') {
+        bcOpenPage();
       }
     }
 
@@ -15690,6 +16254,124 @@ ${brandLines}`;
   .rr-bottom-row{grid-template-columns:1fr}
   .rr-mini-info{width:auto;flex:1}
   .rr-mini-progress-wrap{display:none}
+}
+
+/* ═══ Loona Brain Check ═══ */
+/* The page itself gets its own dark card background (like Radio's
+   .radio-redesign) instead of sitting directly on the orange page gradient —
+   orange accent text over an orange gradient has no contrast, and every
+   other section on this page already assumes a dark backdrop. */
+.bc-theme{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:26px 22px;margin:-4px -4px 0}
+.bc-hero{max-width:640px;margin:0 auto;text-align:center;padding:36px 20px}
+.bc-hero-title{font-family:var(--card-font);font-weight:900;color:var(--accent);font-size:clamp(30px,4.5vw,44px);margin-bottom:10px}
+.bc-hero-tagline{color:var(--text);font-size:15px;margin-bottom:18px}
+.bc-covers-label{color:var(--muted);font-size:11px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px}
+.bc-covers-list{color:var(--accent2);font-size:13px;font-weight:600;margin-bottom:22px}
+.bc-rules-row{display:flex;justify-content:center;gap:28px;margin-bottom:26px}
+.bc-rule{display:flex;flex-direction:column;align-items:center}
+.bc-rule span{font-family:var(--card-font);font-weight:900;color:var(--accent);font-size:24px;line-height:1}
+.bc-rule label{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-top:3px}
+.bc-note{color:var(--muted);font-size:11.5px;font-style:italic;margin-top:16px}
+
+.bc-q-top{max-width:640px;margin:0 auto 6px}
+.bc-q-progress-label{color:var(--accent2);font-size:12px;font-weight:600;margin-bottom:6px}
+.bc-progress-track{height:5px;background:var(--surface2);border-radius:3px;overflow:hidden}
+.bc-progress-fill{height:100%;width:0;background:var(--accent);border-radius:3px;transition:width .3s ease}
+.bc-final-note{max-width:640px;margin:8px auto 0;color:var(--accent2);font-size:12px;font-style:italic;text-align:center}
+.bc-q-card{max-width:640px;margin:18px auto 0;background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:24px}
+.bc-q-text{font-size:17px;font-weight:700;color:var(--text);margin-bottom:18px}
+.bc-q-options{display:flex;flex-direction:column;gap:10px}
+.bc-option{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-family:var(--font);font-size:13.5px;cursor:pointer}
+.bc-option:hover:not(.bc-option-locked){border-color:var(--accent)}
+.bc-option-letter{width:24px;height:24px;min-width:24px;border-radius:50%;background:var(--surface2);color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.bc-option-locked{cursor:default}
+.bc-option-correct{border-color:var(--green);background:rgba(76,175,125,.12)}
+.bc-option-correct .bc-option-letter{background:var(--green);color:#08210f}
+.bc-option-wrong{border-color:var(--red);background:rgba(224,92,92,.12)}
+.bc-option-wrong .bc-option-letter{background:var(--red);color:#2b0808}
+.bc-q-feedback{max-width:640px;margin:16px auto 0;border-radius:12px;padding:16px 18px}
+.bc-feedback-correct{background:rgba(76,175,125,.1);border:1px solid rgba(76,175,125,.35)}
+.bc-feedback-wrong{background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.35)}
+.bc-feedback-head{font-family:var(--card-font);font-weight:700;font-size:18px;margin-bottom:4px}
+.bc-feedback-correct .bc-feedback-head{color:var(--green)}
+.bc-feedback-wrong .bc-feedback-head{color:var(--red)}
+.bc-feedback-line{color:var(--muted);font-style:italic;font-size:13px;margin-bottom:10px}
+.bc-feedback-selected,.bc-feedback-answer{font-size:13px;margin-bottom:4px}
+.bc-feedback-why{margin-top:10px;font-size:13px;color:var(--muted);border-top:1px solid var(--border);padding-top:10px}
+.bc-feedback-why-label{color:var(--accent2);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.bc-q-footer{max-width:640px;margin:16px auto 0;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.bc-survived-label{color:var(--muted);font-size:12.5px;font-style:italic}
+
+.bc-loading{max-width:640px;margin:60px auto;text-align:center}
+.bc-loading-spinner{font-size:44px;animation:bcPulse 1.2s ease-in-out infinite}
+@keyframes bcPulse{0%,100%{transform:scale(1);opacity:.7}50%{transform:scale(1.15);opacity:1}}
+.bc-loading-text{color:var(--muted);font-size:13.5px;margin-top:14px;font-style:italic}
+
+.bc-score-card{max-width:640px;margin:0 auto;background:var(--surface2);border:1px solid var(--border);border-radius:16px;padding:32px;text-align:center}
+.bc-score-label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}
+.bc-score-big{font-family:var(--card-font);font-weight:900;color:var(--accent);font-size:52px;line-height:1}
+.bc-score-tier{font-family:var(--card-font);font-weight:700;font-size:22px;color:var(--text);margin-top:8px}
+.bc-score-desc{color:var(--muted);font-size:13.5px;margin-top:6px;max-width:440px;margin-left:auto;margin-right:auto}
+.bc-cat-breakdown-label{color:var(--accent2);font-size:11px;text-transform:uppercase;letter-spacing:.06em;margin-top:26px;margin-bottom:10px;text-align:left}
+.bc-cat-breakdown{display:flex;flex-direction:column;gap:8px}
+.bc-cat-row{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;text-align:left}
+.bc-cat-name{font-size:13px;font-weight:600}
+.bc-cat-score{font-weight:700;color:var(--accent)}
+.bc-cat-quip{color:var(--muted);font-size:11.5px;font-style:italic;text-align:right}
+.bc-strong-weak{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px}
+.bc-sw-block{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:left}
+.bc-sw-label{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em}
+.bc-sw-name{font-weight:700;margin-top:3px}
+.bc-score-actions{display:flex;gap:10px;justify-content:center;margin-top:26px;flex-wrap:wrap}
+
+.bc-section-head{display:flex;justify-content:space-between;align-items:baseline;max-width:640px;margin:0 auto 14px}
+.bc-section-title{font-family:var(--card-font);font-weight:700;font-size:19px;color:var(--text)}
+.bc-link-back{color:var(--accent2);font-size:12.5px;cursor:pointer}
+.bc-link-back:hover{text-decoration:underline}
+#bc-review-list{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.bc-review-item{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.bc-review-q{font-weight:700;font-size:13.5px;margin-bottom:6px}
+.bc-review-a{font-size:13px;margin-bottom:4px}
+.bc-review-a-correct{color:var(--green)}
+.bc-review-a-wrong{color:var(--red)}
+.bc-review-correct{font-size:12.5px;color:var(--muted);margin-bottom:6px}
+.bc-review-why{font-size:12.5px;color:var(--muted);border-top:1px solid var(--border);padding-top:8px;margin-top:6px}
+
+.bc-winner-banner{max-width:640px;margin:0 auto 18px;background:linear-gradient(135deg,rgba(255,109,41,.16),rgba(255,148,87,.06));border:1px solid var(--accent);border-radius:12px;padding:16px 18px;text-align:center}
+.bc-winner-label{color:var(--accent2);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.bc-winner-name{font-family:var(--card-font);font-weight:900;font-size:22px;margin-top:4px}
+.bc-winner-sub{color:var(--muted);font-size:12.5px;margin-top:2px}
+.bc-lb-summary{max-width:640px;margin:0 auto 16px;color:var(--muted);font-size:13px;text-align:center}
+.bc-lb-not-attempted{margin-top:4px;font-size:12px}
+#bc-lb-list{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:8px}
+.bc-lb-row{display:grid;grid-template-columns:32px 30px 1fr auto auto;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px}
+.bc-lb-rank{color:var(--muted);font-size:12px;font-weight:700}
+.bc-lb-avatar{width:30px;height:30px;border-radius:50%;object-fit:cover}
+.bc-lb-avatar-fallback{display:flex;align-items:center;justify-content:center;background:var(--accent);color:#2b1200;font-size:12px;font-weight:700}
+.bc-lb-name{font-size:13px;font-weight:600}
+.bc-lb-score{color:var(--accent);font-weight:700;font-size:13px}
+.bc-lb-time{color:var(--muted);font-size:11.5px}
+.bc-lb-note{max-width:640px;margin:16px auto 0;color:var(--muted);font-size:11.5px;text-align:center;font-style:italic}
+.bc-empty-state{color:var(--muted);font-size:13px;text-align:center;padding:20px}
+
+.bc-card{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:20px}
+.bc-card-title{font-family:var(--card-font);font-weight:700;font-size:18px;color:var(--text)}
+.bc-card-sub{color:var(--muted);font-size:12.5px;margin-top:4px}
+.bc-card-desc{color:var(--muted);font-size:12px;margin-top:6px;margin-bottom:14px}
+.bc-card-score{font-family:var(--card-font);font-weight:900;color:var(--accent);font-size:32px;margin-top:10px}
+.bc-card-tier{font-weight:700;font-size:14px;margin-top:2px}
+.bc-card-rank{color:var(--muted);font-size:12px;margin-top:6px;margin-bottom:14px}
+.bc-card-winner{font-family:var(--card-font);font-weight:900;font-size:22px;color:var(--accent);margin-top:8px}
+.bc-card-winner-sub{color:var(--muted);font-size:12.5px;margin-top:2px}
+.bc-card-line{color:var(--text);font-size:12.5px;font-style:italic;margin-top:8px;margin-bottom:14px}
+.bc-card-footer{color:var(--muted);font-size:11px;margin-top:12px}
+@media (max-width:860px){
+  .bc-rules-row{gap:18px}
+  .bc-cat-row{grid-template-columns:1fr auto}
+  .bc-cat-quip{display:none}
+  .bc-strong-weak{grid-template-columns:1fr}
+  .bc-lb-row{grid-template-columns:24px 26px 1fr auto;font-size:12px}
+  .bc-lb-time{display:none}
 }
 .cal2-detail-panel{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);align-items:center;justify-content:center;z-index:9999;padding:20px}
 .cal2-detail-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;width:420px;max-width:100%;max-height:80vh;overflow-y:auto}

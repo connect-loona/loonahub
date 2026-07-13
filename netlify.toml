@@ -33,6 +33,12 @@
 [functions."loona-daily-broadcast"]
   schedule = "30 4 * * *"
 
+# Loona Brain Check's daily cut-off — locks in today's winner (highest score,
+# fastest completion breaks a tie) and posts the winner announcement to the
+# Loona Board. 06:30 UTC = 12:00 IST.
+[functions."brain-check-winner"]
+  schedule = "30 6 * * *"
+
 # Set these in Netlify → Site settings → Environment variables (NOT in code):
 #   PETPOOJA_CLIENT_ID
 #   PETPOOJA_CLIENT_SECRET
