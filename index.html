@@ -11993,7 +11993,12 @@
         assignedBy.toLowerCase() !== 'me' &&
         normName(assignedBy) !== normName(currentUser) &&
         normName(t.member) === normName(currentUser) &&
-        !t.is_personal;
+        !t.is_personal &&
+        // Tasks auto-created from Loona Notes meeting action items are assigned
+        // to whoever recorded the meeting by default, not chosen deliberately —
+        // requiring that person's sign-off to close them out is friction nobody
+        // asked for, so whoever it's assigned to can just complete it directly.
+        !t.fromMeetingNotes;
 
       if (needsAssignerApproval) {
         _approvalPendingIdx = idx;
@@ -13443,7 +13448,8 @@
           due_date: dueDate || '',
           assigned_by: lnResolveAssignedBy(member, assignedBySel),
           asylum: (MEMBER_INFO[member] || {}).role || '',
-          isNew: true
+          isNew: true,
+          fromMeetingNotes: true
         });
       });
       p.actionItems[i].pushed = true;
@@ -13611,6 +13617,7 @@
           assigned_by: lnResolveAssignedBy(member, assignedBySel),
           asylum: (MEMBER_INFO[member] || {}).role || '',
           isNew: true,
+          fromMeetingNotes: true,
           sourceNoteKey: note._key || null
         });
       });
