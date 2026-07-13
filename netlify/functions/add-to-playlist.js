@@ -135,12 +135,25 @@ exports.handler = async (event) => {
       return { statusCode: 200, headers, body: JSON.stringify({ success: false, message: "Spotify wouldn't take that track (" + addResp.status + ")." + (errText ? " " + errText.slice(0, 200) : "") }) };
     }
 
+    // Best-effort — powers the Radio page's "hours" stat. Not worth failing
+    // the whole add over if this one lookup hiccups.
+    let durationMs = 0;
+    try {
+      const trackId = spotifyUri.replace("spotify:track:", "");
+      const trackResp = await fetch(`https://api.spotify.com/v1/tracks/${trackId}`, { headers: { Authorization: "Bearer " + accessToken } });
+      if (trackResp.ok) {
+        const trackData = await trackResp.json().catch(() => null);
+        if (trackData && trackData.duration_ms) durationMs = trackData.duration_ms;
+      }
+    } catch (e) { /* duration is a nice-to-have, not worth failing the add over */ }
+
     const logEntry = {
       spotifyUri,
       trackName: (trackMeta && trackMeta.trackName) || "",
       artistName: (trackMeta && trackMeta.artistName) || "",
       albumArt: (trackMeta && trackMeta.albumArt) || "",
       songlinkUrl: (trackMeta && trackMeta.songlinkUrl) || "",
+      durationMs,
       addedBy: memberName,
       note: note || "",
       ts: Date.now()

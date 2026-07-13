@@ -4686,36 +4686,6 @@
       </div>
     </div>
 
-    <!-- ADD TRACK (LOONA RADIO) MODAL -->
-    <div class="modal-overlay hidden" id="radio-add-modal">
-      <div class="modal">
-        <div class="modal-title">Add a <span>Track</span></div>
-        <div class="form-group">
-          <label>Track link</label>
-          <input class="form-control" type="url" id="radio-track-url" placeholder="Paste a Spotify / Apple Music / YouTube / song.link link" inputmode="url">
-        </div>
-        <div class="form-group">
-          <label>Note (optional)</label>
-          <input class="form-control" type="text" id="radio-track-note" placeholder="why this one? (optional)" maxlength="140">
-        </div>
-
-        <div class="radio-note" id="radio-modal-error" style="display:none"></div>
-
-        <div id="radio-modal-loading" style="display:none;text-align:center;padding:18px 0">
-          <div class="quiz-loading-spinner" style="font-size:28px">🎧</div>
-          <div style="color:var(--muted);font-size:12.5px;margin-top:6px">finding it…</div>
-        </div>
-
-        <div id="radio-preview-card" style="display:none"></div>
-
-        <div class="modal-actions">
-          <button class="btn btn-ghost" onclick="closeAddTrackModal()">Cancel</button>
-          <button class="btn btn-primary" id="radio-resolve-btn" onclick="radioResolveTrack()">Find Track</button>
-          <button class="btn btn-primary" id="radio-confirm-btn" onclick="radioConfirmAddTrack()" style="display:none">on air, add it 🌙</button>
-        </div>
-      </div>
-    </div>
-
     <!-- RECORD TASK MODAL -->
     <div class="modal-overlay hidden" id="record-task-modal">
       <div class="modal" style="max-width:640px">
@@ -5693,56 +5663,159 @@
     </div>
 
     <!-- ======= LOONA RADIO ======= -->
-    <div class="page" id="page-radio">
-      <div class="section-header" style="margin-top:0">
-        <div class="section-title">Loona <span>Radio</span></div>
-        <div style="font-size:12px;color:var(--muted)">One shared playlist. Add whatever's stuck in your head.</div>
-      </div>
+    <div class="page radio-redesign" id="page-radio">
 
-      <!-- Real in-Hub playback (Web Playback SDK) — desktop browsers only, Spotify
-           doesn't support this SDK on any mobile browser. Falls back to the plain
-           iframe embed below on unsupported browsers. -->
-      <div class="radio-sdk-player" id="radio-sdk-player" style="display:none">
-        <div class="radio-sdk-player-inner">
-          <img id="radio-sdk-art" class="radio-sdk-art" src="" alt="" style="display:none">
-          <div class="radio-sdk-art-placeholder" id="radio-sdk-art-placeholder">📻</div>
-          <div class="radio-sdk-info">
-            <div class="radio-sdk-title" id="radio-sdk-title">Loona Radio</div>
-            <div class="radio-sdk-artist" id="radio-sdk-artist">Tap play to start listening here</div>
-            <div class="radio-sdk-progress-track"><div class="radio-sdk-progress-fill" id="radio-sdk-progress-fill"></div></div>
+      <!-- ═══ HERO ═══ -->
+      <div class="rr-hero">
+        <div class="rr-hero-left">
+          <div class="rr-live-tag">● LIVE ON LOONA</div>
+          <div class="rr-hero-title">LOONA<br>RADIO</div>
+          <div class="rr-hero-tagline">One shared playlist.<br>Hundreds of moods.<br>Music chosen by the team.<br>Updated every day.</div>
+          <div class="rr-stats-row">
+            <div class="rr-stat"><span id="rr-stat-songs">0</span><label>Songs</label></div>
+            <div class="rr-stat"><span id="rr-stat-contributors">0</span><label>Contributors</label></div>
+            <div class="rr-stat"><span id="rr-stat-hours">0</span><label>Hours</label></div>
           </div>
-          <div class="radio-sdk-controls">
-            <button class="radio-sdk-btn" id="radio-sdk-prev-btn" onclick="radioSdkPrev()" title="Previous">⏮</button>
-            <button class="radio-sdk-btn radio-sdk-btn-main" id="radio-sdk-playpause-btn" onclick="radioSdkTogglePlay()" title="Play/Pause">▶</button>
-            <button class="radio-sdk-btn" id="radio-sdk-next-btn" onclick="radioSdkNext()" title="Next">⏭</button>
+          <a class="rr-spotify-link" id="rr-open-spotify" href="#" target="_blank" rel="noopener">🔗 Open on Spotify</a>
+        </div>
+
+        <div class="rr-hero-right">
+          <!-- Real in-Hub playback (Web Playback SDK) — desktop browsers only, see
+               radioPlayerSupported(). Hidden by default; openRadioPage() shows this
+               OR the mobile note + iframe fallback below, never both. -->
+          <div id="radio-sdk-player" style="display:none">
+            <div class="rr-vinyl-wrap">
+              <div class="rr-vinyl" id="rr-vinyl">
+                <div class="rr-vinyl-grooves"></div>
+                <div class="rr-vinyl-label" id="rr-vinyl-label"></div>
+              </div>
+              <div class="rr-tonearm"></div>
+            </div>
+            <div class="rr-nowplaying-card" id="rr-nowplaying-card">
+              <img id="radio-sdk-art" class="rr-art" src="" alt="" style="display:none">
+              <div class="rr-art-placeholder" id="radio-sdk-art-placeholder">📻</div>
+            </div>
+
+            <div class="rr-player-panel">
+              <div class="rr-np-label" id="rr-np-label">NOW PLAYING</div>
+              <div class="rr-np-title" id="radio-sdk-title">Loona Radio</div>
+              <div class="rr-np-artist" id="radio-sdk-artist">Tap play to start listening here</div>
+              <div class="rr-progress-row">
+                <span class="rr-time" id="rr-time-elapsed">0:00</span>
+                <div class="rr-progress-track"><div class="rr-progress-fill" id="radio-sdk-progress-fill"></div></div>
+                <span class="rr-time" id="rr-time-total">0:00</span>
+              </div>
+              <div class="rr-controls-row">
+                <button class="rr-ctl-btn" title="Shuffle">🔀</button>
+                <button class="rr-ctl-btn" id="radio-sdk-prev-btn" onclick="radioSdkPrev()" title="Previous">⏮</button>
+                <button class="rr-ctl-btn rr-ctl-main" id="radio-sdk-playpause-btn" onclick="radioSdkTogglePlay()" title="Play/Pause">▶</button>
+                <button class="rr-ctl-btn" id="radio-sdk-next-btn" onclick="radioSdkNext()" title="Next">⏭</button>
+                <button class="rr-ctl-btn" title="Repeat">🔁</button>
+              </div>
+              <div class="rr-sdk-status" id="radio-sdk-status"></div>
+            </div>
+          </div>
+
+          <div class="radio-info-note" id="radio-mobile-note" style="display:none">Full playback here needs a desktop browser (Spotify's player doesn't support phones). On phone, use the Spotify app to listen — you can still add tracks from here either way.</div>
+
+          <div class="radio-embed-wrap" id="radio-embed-wrap">
+            <div class="radio-embed-skeleton" id="radio-embed-skeleton">loading the playlist…</div>
+            <iframe id="radio-spotify-embed" class="radio-spotify-embed" style="display:none" src="" width="100%" height="352" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+          </div>
+
+          <div id="radio-applemusic-toggle-wrap" style="display:none">
+            <button class="btn btn-ghost" id="radio-applemusic-toggle-btn" onclick="radioToggleAppleMusic()">listening on apple music?</button>
+            <div class="radio-embed-wrap" id="radio-applemusic-embed-wrap" style="display:none">
+              <iframe id="radio-applemusic-embed" class="radio-spotify-embed" src="" width="100%" height="175" frameborder="0" allow="autoplay *; encrypted-media *;" loading="lazy"></iframe>
+            </div>
           </div>
         </div>
-        <div class="radio-sdk-status" id="radio-sdk-status"></div>
-      </div>
-      <div class="radio-info-note" id="radio-mobile-note" style="display:none">Full playback here needs a desktop browser (Spotify's player doesn't support phones). On phone, use the Spotify app to listen — you can still add tracks from here either way.</div>
-
-      <div class="radio-embed-wrap" id="radio-embed-wrap">
-        <div class="radio-embed-skeleton" id="radio-embed-skeleton">loading the playlist…</div>
-        <iframe id="radio-spotify-embed" class="radio-spotify-embed" style="display:none" src="" width="100%" height="352" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
       </div>
 
-      <div id="radio-applemusic-toggle-wrap" style="display:none">
-        <button class="btn btn-ghost" id="radio-applemusic-toggle-btn" onclick="radioToggleAppleMusic()">listening on apple music?</button>
-        <div class="radio-embed-wrap" id="radio-applemusic-embed-wrap" style="display:none">
-          <iframe id="radio-applemusic-embed" class="radio-spotify-embed" src="" width="100%" height="175" frameborder="0" allow="autoplay *; encrypted-media *;" loading="lazy"></iframe>
+      <!-- ═══ ADD SONG / ADD MANUALLY ═══ -->
+      <div class="rr-add-row">
+        <div class="rr-card">
+          <div class="rr-card-title">ADD A SONG</div>
+          <div class="rr-card-sub">Found a song that hits? Add it to Loona Radio.</div>
+          <div class="rr-link-input-wrap">
+            <span class="rr-link-plus">+</span>
+            <div class="rr-link-input-col">
+              <input type="url" id="radio-track-url" class="rr-link-input" placeholder="Search or paste a link" inputmode="url">
+              <div class="rr-link-input-hint">Spotify link, YouTube, SoundCloud &amp; more</div>
+            </div>
+          </div>
+          <input type="text" id="radio-track-note" class="rr-note-input" placeholder="why this one? (optional)" maxlength="140">
+          <div class="radio-note" id="radio-modal-error" style="display:none"></div>
+          <div id="radio-modal-loading" style="display:none;text-align:center;padding:10px 0">
+            <div class="quiz-loading-spinner" style="font-size:24px">🎧</div>
+            <div style="color:var(--muted);font-size:12px;margin-top:4px">finding it…</div>
+          </div>
+          <div id="radio-preview-card"></div>
+          <button class="rr-btn-red" id="radio-resolve-btn" onclick="radioResolveTrack()">+ Add to Queue</button>
+          <button class="rr-btn-red" id="radio-confirm-btn" onclick="radioConfirmAddTrack()" style="display:none">on air, add it 🌙</button>
+        </div>
+
+        <div class="rr-card">
+          <div class="rr-card-title">ADD A TRACK MANUALLY</div>
+          <div class="rr-card-sub">Can't find it? Add song details manually.</div>
+          <input type="text" id="radio-manual-song" class="rr-form-input" placeholder="Song name">
+          <input type="text" id="radio-manual-artist" class="rr-form-input" placeholder="Artist name">
+          <input type="url" id="radio-manual-link" class="rr-form-input" placeholder="Spotify link (optional)">
+          <div class="radio-note" id="radio-manual-error" style="display:none"></div>
+          <button class="rr-btn-red" id="radio-manual-add-btn" onclick="radioAddManually()">Add to Queue</button>
         </div>
       </div>
 
-      <div class="radio-actions-row">
-        <button class="btn btn-primary" onclick="openAddTrackModal()">+ Add a Track</button>
+      <!-- ═══ RECENT ADDITIONS ═══ -->
+      <div class="rr-section-head">
+        <div class="rr-section-title">RECENT ADDITIONS</div>
+      </div>
+      <div id="radio-feed" class="rr-feed-grid"></div>
+
+      <!-- ═══ MANUAL QUEUE / ORBIT MEMBERS ═══ -->
+      <div class="rr-bottom-row">
+        <div class="rr-card" id="radio-manual-queue-wrap" style="display:none">
+          <div class="rr-card-head-row">
+            <div class="rr-card-title">MANUAL QUEUE <span class="rr-card-title-sub">(couldn't auto-match)</span></div>
+            <a class="rr-link-action" onclick="radioClearManualQueue()">Clear All</a>
+          </div>
+          <div id="radio-manual-queue"></div>
+        </div>
+
+        <div class="rr-card">
+          <div class="rr-card-title">ORBIT MEMBERS</div>
+          <div class="rr-card-sub">The people behind the soundtrack.</div>
+          <div id="radio-orbit-members"></div>
+          <a class="rr-link-action" id="radio-orbit-toggle" onclick="radioToggleOrbitMembers()" style="display:none">View All Contributors →</a>
+        </div>
       </div>
 
-      <div class="ln-section-label">Recent Additions</div>
-      <div id="radio-feed"></div>
+      <!-- ═══ STATS FOOTER ═══ -->
+      <div class="rr-stats-footer">
+        <div class="rr-stat"><span id="rr-footer-stat-songs">0</span><label>Songs</label></div>
+        <div class="rr-stat"><span id="rr-footer-stat-contributors">0</span><label>Contributors</label></div>
+        <div class="rr-stat"><span id="rr-footer-stat-hours">0</span><label>Hours</label></div>
+        <div class="rr-stat"><span>∞</span><label>Moods</label></div>
+      </div>
 
-      <div id="radio-manual-queue-wrap" style="display:none">
-        <div class="ln-section-label">⏳ Manual Queue (couldn't auto-match — drop these in yourself)</div>
-        <div id="radio-manual-queue"></div>
+      <!-- ═══ STICKY MINI PLAYER ═══ -->
+      <div class="rr-mini-player" id="rr-mini-player" style="display:none">
+        <img id="rr-mini-art" class="rr-mini-art" src="" alt="" style="display:none">
+        <div class="rr-mini-art-placeholder" id="rr-mini-art-placeholder">📻</div>
+        <div class="rr-mini-info">
+          <div class="rr-mini-title" id="rr-mini-title">Loona Radio</div>
+          <div class="rr-mini-artist" id="rr-mini-artist"></div>
+        </div>
+        <div class="rr-mini-controls">
+          <button class="rr-ctl-btn" id="rr-mini-prev-btn" onclick="radioSdkPrev()" title="Previous">⏮</button>
+          <button class="rr-ctl-btn rr-ctl-main" id="rr-mini-playpause-btn" onclick="radioSdkTogglePlay()" title="Play/Pause">▶</button>
+          <button class="rr-ctl-btn" id="rr-mini-next-btn" onclick="radioSdkNext()" title="Next">⏭</button>
+        </div>
+        <div class="rr-mini-progress-wrap">
+          <span class="rr-time" id="rr-mini-time-elapsed">0:00</span>
+          <div class="rr-progress-track"><div class="rr-progress-fill" id="rr-mini-progress-fill"></div></div>
+          <span class="rr-time" id="rr-mini-time-total">0:00</span>
+        </div>
       </div>
     </div>
 
@@ -6390,14 +6463,25 @@
         // to Spotify.
         _db.ref('radio/config').on('value', snap => {
           window.RADIO_CONFIG = snap.val() || {};
-          if (document.getElementById('page-radio') && document.getElementById('page-radio').classList.contains('active') && typeof renderRadioEmbed === 'function') renderRadioEmbed();
+          const radioPageActive = document.getElementById('page-radio') && document.getElementById('page-radio').classList.contains('active');
+          if (radioPageActive && typeof renderRadioEmbed === 'function') renderRadioEmbed();
+          if (radioPageActive) {
+            const spotifyLink = document.getElementById('rr-open-spotify');
+            if (spotifyLink) {
+              if (window.RADIO_CONFIG.spotifyPlaylistId) { spotifyLink.href = 'https://open.spotify.com/playlist/' + window.RADIO_CONFIG.spotifyPlaylistId; spotifyLink.style.display = ''; }
+              else spotifyLink.style.display = 'none';
+            }
+          }
         });
         _db.ref('radio/log').on('value', snap => {
           const data = snap.val() || {};
           window.RADIO_LOG = Object.entries(data)
             .map(([k, v]) => ({ ...v, _key: k }))
             .sort((a, b) => (b.ts || 0) - (a.ts || 0));
-          if (document.getElementById('page-radio') && document.getElementById('page-radio').classList.contains('active') && typeof renderRadioFeed === 'function') renderRadioFeed();
+          const radioPageActive = document.getElementById('page-radio') && document.getElementById('page-radio').classList.contains('active');
+          if (radioPageActive && typeof renderRadioFeed === 'function') renderRadioFeed();
+          if (radioPageActive && typeof radioRenderStats === 'function') radioRenderStats();
+          if (radioPageActive && typeof radioRenderOrbitMembers === 'function') radioRenderOrbitMembers();
         });
         _db.ref('radio/manualQueue').on('value', snap => {
           const data = snap.val() || {};
@@ -10769,15 +10853,103 @@
     let radioAppleMusicShown = false;
 
     function openRadioPage() {
+      radioResetAddForm();
       renderRadioEmbed();
       renderRadioFeed();
       renderRadioManualQueue();
+      radioRenderStats();
+      radioRenderOrbitMembers();
+      const spotifyLink = document.getElementById('rr-open-spotify');
+      if (spotifyLink) {
+        if (window.RADIO_CONFIG.spotifyPlaylistId) {
+          spotifyLink.href = 'https://open.spotify.com/playlist/' + window.RADIO_CONFIG.spotifyPlaylistId;
+          spotifyLink.style.display = '';
+        } else {
+          spotifyLink.style.display = 'none';
+        }
+      }
       if (radioPlayerSupported()) {
         radioInitSdkPlayer();
       } else {
         const note = document.getElementById('radio-mobile-note');
         if (note) note.style.display = 'block';
       }
+    }
+
+    // ═══ Stats (hero + footer) ═══
+    function radioRenderStats() {
+      const log = window.RADIO_LOG || [];
+      const songs = log.length;
+      const contributors = new Set(log.map(t => normName(t.addedBy)).filter(Boolean)).size;
+      const totalMs = log.reduce((sum, t) => sum + (t.durationMs || 0), 0);
+      const hours = Math.round(totalMs / 3600000 * 10) / 10;
+      ['rr-stat-songs', 'rr-footer-stat-songs'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = songs; });
+      ['rr-stat-contributors', 'rr-footer-stat-contributors'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = contributors; });
+      ['rr-stat-hours', 'rr-footer-stat-hours'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = hours; });
+    }
+
+    // ═══ Orbit Members (contributor leaderboard) ═══
+    let radioOrbitExpanded = false;
+    function radioRenderOrbitMembers() {
+      const cont = document.getElementById('radio-orbit-members');
+      const toggle = document.getElementById('radio-orbit-toggle');
+      if (!cont) return;
+      const log = window.RADIO_LOG || [];
+      const counts = {};
+      log.forEach(t => { const name = (t.addedBy || '').trim(); if (name) counts[name] = (counts[name] || 0) + 1; });
+      const ranked = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+      if (!ranked.length) {
+        cont.innerHTML = '<div class="radio-empty-state">no contributors yet.</div>';
+        if (toggle) toggle.style.display = 'none';
+        return;
+      }
+      const maxCount = ranked[0][1];
+      const shown = radioOrbitExpanded ? ranked : ranked.slice(0, 5);
+      cont.innerHTML = shown.map(([name, count]) => {
+        const info = MEMBER_INFO[name] || {};
+        const avatar = info.avatar ? `<img class="rr-orbit-avatar" src="${lnEsc(info.avatar)}" alt="">` : `<div class="rr-orbit-avatar rr-orbit-avatar-fallback">${lnEsc((name[0] || '?').toUpperCase())}</div>`;
+        const pct = Math.max(6, Math.round(count / maxCount * 100));
+        return `<div class="rr-orbit-row">
+          ${avatar}
+          <div class="rr-orbit-name">${lnEsc(name)}</div>
+          <div class="rr-orbit-bar-track"><div class="rr-orbit-bar-fill" style="width:${pct}%"></div></div>
+          <div class="rr-orbit-count">${count} song${count !== 1 ? 's' : ''}</div>
+        </div>`;
+      }).join('');
+      if (toggle) {
+        toggle.style.display = ranked.length > 5 ? '' : 'none';
+        toggle.textContent = radioOrbitExpanded ? '← Show Less' : 'View All Contributors →';
+      }
+    }
+
+    function radioToggleOrbitMembers() {
+      radioOrbitExpanded = !radioOrbitExpanded;
+      radioRenderOrbitMembers();
+    }
+
+    // ═══ Relative time formatting ("12 mins ago", "Yesterday", "2 days ago") ═══
+    function radioTimeAgo(ts) {
+      if (!ts) return '';
+      const diffMs = Date.now() - ts;
+      const mins = Math.floor(diffMs / 60000);
+      if (mins < 1) return 'just now';
+      if (mins < 60) return mins + (mins === 1 ? ' min ago' : ' mins ago');
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return hrs + (hrs === 1 ? ' hour ago' : ' hours ago');
+      const days = Math.floor(hrs / 24);
+      if (days === 1) return 'Yesterday';
+      if (days < 7) return days + ' days ago';
+      const d = new Date(ts);
+      return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    }
+
+    // ═══ Likes (heart) — per-track, per-member toggle ═══
+    function radioToggleLike(key) {
+      if (!_db || !key) return;
+      const memberKey = fbMemberKey(currentUser);
+      const track = (window.RADIO_LOG || []).find(t => t._key === key);
+      const alreadyLiked = !!(track && track.likedBy && track.likedBy[memberKey]);
+      _db.ref('radio/log/' + key + '/likedBy/' + memberKey).set(alreadyLiked ? null : true);
     }
 
     function renderRadioEmbed() {
@@ -10894,23 +11066,83 @@
       radioStartStatusPolling();
     }
 
+    function radioFmtTime(ms) {
+      if (!ms && ms !== 0) return '0:00';
+      const totalSec = Math.floor(ms / 1000);
+      const m = Math.floor(totalSec / 60);
+      const s = totalSec % 60;
+      return m + ':' + String(s).padStart(2, '0');
+    }
+
+    // Single place that updates BOTH the hero "Now Playing" card and the
+    // sticky mini-player at the bottom, so they never drift out of sync with
+    // each other — called from both the SDK's own player_state_changed event
+    // (fires only for this device) and the account-wide status poll (covers
+    // "someone else has it playing").
+    function radioApplyNowPlayingUI({ title, artist, art, isPlaying, positionMs, durationMs }) {
+      const npLabel = document.getElementById('rr-np-label');
+      if (title) {
+        const titleEl = document.getElementById('radio-sdk-title');
+        const miniTitleEl = document.getElementById('rr-mini-title');
+        if (titleEl) titleEl.textContent = title;
+        if (miniTitleEl) miniTitleEl.textContent = title;
+        if (npLabel) npLabel.style.display = '';
+        const miniPlayer = document.getElementById('rr-mini-player');
+        if (miniPlayer) miniPlayer.style.display = 'flex';
+      }
+      if (artist !== undefined) {
+        const artistEl = document.getElementById('radio-sdk-artist');
+        const miniArtistEl = document.getElementById('rr-mini-artist');
+        if (artistEl) artistEl.textContent = artist;
+        if (miniArtistEl) miniArtistEl.textContent = artist;
+      }
+      if (art) {
+        const artEl = document.getElementById('radio-sdk-art');
+        const placeholderEl = document.getElementById('radio-sdk-art-placeholder');
+        const miniArtEl = document.getElementById('rr-mini-art');
+        const miniPlaceholderEl = document.getElementById('rr-mini-art-placeholder');
+        const vinylLabel = document.getElementById('rr-vinyl-label');
+        if (artEl) { artEl.src = art; artEl.style.display = 'block'; }
+        if (placeholderEl) placeholderEl.style.display = 'none';
+        if (miniArtEl) { miniArtEl.src = art; miniArtEl.style.display = 'block'; }
+        if (miniPlaceholderEl) miniPlaceholderEl.style.display = 'none';
+        if (vinylLabel) vinylLabel.style.backgroundImage = `url('${art}')`;
+      }
+      const icon = isPlaying ? '⏸' : '▶';
+      const btn = document.getElementById('radio-sdk-playpause-btn');
+      const miniBtn = document.getElementById('rr-mini-playpause-btn');
+      if (btn) btn.textContent = icon;
+      if (miniBtn) miniBtn.textContent = icon;
+      const vinyl = document.getElementById('rr-vinyl');
+      if (vinyl) vinyl.classList.toggle('rr-vinyl-spinning', !!isPlaying);
+      if (durationMs) {
+        const pct = Math.min(100, (positionMs / durationMs * 100));
+        const fill = document.getElementById('radio-sdk-progress-fill');
+        const miniFill = document.getElementById('rr-mini-progress-fill');
+        if (fill) fill.style.width = pct + '%';
+        if (miniFill) miniFill.style.width = pct + '%';
+        const elEl = document.getElementById('rr-time-elapsed');
+        const totEl = document.getElementById('rr-time-total');
+        const miniElEl = document.getElementById('rr-mini-time-elapsed');
+        const miniTotEl = document.getElementById('rr-mini-time-total');
+        if (elEl) elEl.textContent = radioFmtTime(positionMs);
+        if (totEl) totEl.textContent = radioFmtTime(durationMs);
+        if (miniElEl) miniElEl.textContent = radioFmtTime(positionMs);
+        if (miniTotEl) miniTotEl.textContent = radioFmtTime(durationMs);
+      }
+    }
+
     function radioHandlePlayerState(state) {
       if (!state) return;
       const track = state.track_window && state.track_window.current_track;
-      if (track) {
-        const titleEl = document.getElementById('radio-sdk-title');
-        const artistEl = document.getElementById('radio-sdk-artist');
-        if (titleEl) titleEl.textContent = track.name;
-        if (artistEl) artistEl.textContent = (track.artists || []).map(a => a.name).join(', ');
-        const art = track.album && track.album.images && track.album.images[0] && track.album.images[0].url;
-        const artEl = document.getElementById('radio-sdk-art');
-        const placeholderEl = document.getElementById('radio-sdk-art-placeholder');
-        if (art && artEl) { artEl.src = art; artEl.style.display = 'block'; if (placeholderEl) placeholderEl.style.display = 'none'; }
-      }
-      const btn = document.getElementById('radio-sdk-playpause-btn');
-      if (btn) btn.textContent = state.paused ? '▶' : '⏸';
-      const fill = document.getElementById('radio-sdk-progress-fill');
-      if (fill && state.duration) fill.style.width = Math.min(100, (state.position / state.duration * 100)) + '%';
+      radioApplyNowPlayingUI({
+        title: track ? track.name : undefined,
+        artist: track ? (track.artists || []).map(a => a.name).join(', ') : undefined,
+        art: track && track.album && track.album.images && track.album.images[0] && track.album.images[0].url,
+        isPlaying: !state.paused,
+        positionMs: state.position,
+        durationMs: state.duration
+      });
     }
 
     // Polls current playback state so the "Now Playing" info stays accurate even
@@ -10930,18 +11162,14 @@
         if (!resp.ok) return;
         const data = await resp.json().catch(() => null);
         if (!data || !data.item) return;
-        const titleEl = document.getElementById('radio-sdk-title');
-        const artistEl = document.getElementById('radio-sdk-artist');
-        if (titleEl) titleEl.textContent = data.item.name;
-        if (artistEl) artistEl.textContent = (data.item.artists || []).map(a => a.name).join(', ');
-        const art = data.item.album && data.item.album.images && data.item.album.images[0] && data.item.album.images[0].url;
-        const artEl = document.getElementById('radio-sdk-art');
-        const placeholderEl = document.getElementById('radio-sdk-art-placeholder');
-        if (art && artEl) { artEl.src = art; artEl.style.display = 'block'; if (placeholderEl) placeholderEl.style.display = 'none'; }
-        const btn = document.getElementById('radio-sdk-playpause-btn');
-        if (btn) btn.textContent = data.is_playing ? '⏸' : '▶';
-        const fill = document.getElementById('radio-sdk-progress-fill');
-        if (fill && data.item.duration_ms) fill.style.width = Math.min(100, (data.progress_ms / data.item.duration_ms * 100)) + '%';
+        radioApplyNowPlayingUI({
+          title: data.item.name,
+          artist: (data.item.artists || []).map(a => a.name).join(', '),
+          art: data.item.album && data.item.album.images && data.item.album.images[0] && data.item.album.images[0].url,
+          isPlaying: data.is_playing,
+          positionMs: data.progress_ms,
+          durationMs: data.item.duration_ms
+        });
         const onThisDevice = data.device && radioSdkDeviceId && data.device.id === radioSdkDeviceId;
         radioSetSdkStatus(data.is_playing ? (onThisDevice ? 'Playing here' : 'Playing on ' + (data.device ? data.device.name : 'another device')) : 'Paused');
       } catch (e) { /* transient network hiccup — next poll retries */ }
@@ -11003,18 +11231,29 @@
         return;
       }
       const isAdmin = normName(currentUser) === 'gokul';
+      const memberKey = fbMemberKey(currentUser);
       cont.innerHTML = items.map(t => {
-        const art = t.albumArt ? `<img class="radio-track-art" src="${lnEsc(t.albumArt)}" alt="">` : `<div class="radio-track-art"></div>`;
+        const art = t.albumArt ? `<img class="rr-feed-art" src="${lnEsc(t.albumArt)}" alt="">` : `<div class="rr-feed-art"></div>`;
+        const adderInfo = MEMBER_INFO[t.addedBy] || {};
+        const adderAvatar = adderInfo.avatar ? `<img class="rr-feed-avatar" src="${lnEsc(adderInfo.avatar)}" alt="">` : `<div class="rr-feed-avatar rr-feed-avatar-fallback">${lnEsc(((t.addedBy || '?')[0] || '?').toUpperCase())}</div>`;
         const removeBtn = isAdmin ? `<button class="radio-track-remove" title="Remove from radio" onclick="event.stopPropagation();radioRemoveTrack('${t._key}','${lnEsc(t.spotifyUri || '')}')">✕</button>` : '';
-        return `<div class="radio-track-card" onclick="radioOpenSonglink('${lnEsc(t.songlinkUrl || '')}')">
-          ${art}
-          <div class="radio-track-info">
-            <div class="radio-track-title">${lnEsc(t.trackName || 'Unknown track')}</div>
-            <div class="radio-track-artist">${lnEsc(t.artistName || '')}</div>
-            <div class="radio-track-meta">added by ${lnEsc(t.addedBy || 'someone')}</div>
-            ${t.note ? `<div class="radio-track-note">“${lnEsc(t.note)}”</div>` : ''}
+        const likedByMe = !!(t.likedBy && t.likedBy[memberKey]);
+        const likeCount = t.likedBy ? Object.keys(t.likedBy).length : 0;
+        return `<div class="rr-feed-card">
+          <div class="rr-feed-head">${adderAvatar}<span class="rr-feed-added-by">${lnEsc(t.addedBy || 'someone')} added</span></div>
+          <div class="rr-feed-body" onclick="radioOpenSonglink('${lnEsc(t.songlinkUrl || '')}')">
+            ${art}
+            <div class="rr-feed-info">
+              <div class="rr-feed-title">${lnEsc(t.trackName || 'Unknown track')}</div>
+              <div class="rr-feed-artist">${lnEsc(t.artistName || '')}</div>
+              <div class="rr-feed-time">${radioTimeAgo(t.ts)}</div>
+            </div>
           </div>
-          ${removeBtn}
+          ${t.note ? `<div class="radio-track-note">“${lnEsc(t.note)}”</div>` : ''}
+          <div class="rr-feed-foot">
+            <button class="rr-like-btn${likedByMe ? ' rr-liked' : ''}" onclick="event.stopPropagation();radioToggleLike('${t._key}')">${likedByMe ? '♥' : '♡'} <span>${likeCount}</span></button>
+            ${removeBtn}
+          </div>
         </div>`;
       }).join('');
     }
@@ -11032,18 +11271,22 @@
         return;
       }
       wrap.style.display = 'block';
-      cont.innerHTML = window.RADIO_MANUAL_QUEUE.map(m => `<div class="radio-track-card" style="cursor:default" onclick="event.stopPropagation()">
+      cont.innerHTML = window.RADIO_MANUAL_QUEUE.map(m => {
+        const searchQuery = encodeURIComponent(`${m.trackName || ''} ${m.artistName || ''}`.trim());
+        return `<div class="radio-track-card" style="cursor:default" onclick="event.stopPropagation()">
         <div class="radio-track-art"></div>
         <div class="radio-track-info">
           <div class="radio-track-title">${lnEsc(m.trackName || m.originalUrl || 'Unresolved link')}</div>
           <div class="radio-track-artist">${lnEsc(m.artistName || '')}</div>
           <div class="radio-track-meta">flagged by ${lnEsc(m.addedBy || 'someone')}${m.note ? ' · “' + lnEsc(m.note) + '”' : ''}</div>
           <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap">
-            <a class="lb-link" style="margin-top:0" href="${lnEsc(m.songlinkUrl || m.originalUrl || '#')}" target="_blank" rel="noopener">🔗 open link</a>
-            <button class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="event.stopPropagation();radioDismissManualQueueEntry('${m._key}')">mark done</button>
+            <a class="lb-link" style="margin-top:0" href="${lnEsc(m.songlinkUrl || m.originalUrl || '#')}" target="_blank" rel="noopener">🔗 Open link</a>
+            ${searchQuery ? `<a class="lb-link" style="margin-top:0" href="https://open.spotify.com/search/${searchQuery}" target="_blank" rel="noopener">Add to Playlist</a>` : ''}
+            <button class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="event.stopPropagation();radioDismissManualQueueEntry('${m._key}')">🗑 mark done</button>
           </div>
         </div>
-      </div>`).join('');
+      </div>`;
+      }).join('');
     }
 
     function radioDismissManualQueueEntry(key) {
@@ -11051,7 +11294,17 @@
       _db.ref('radio/manualQueue/' + key).remove();
     }
 
-    function openAddTrackModal() {
+    function radioClearManualQueue() {
+      if (normName(currentUser) !== 'gokul' || !_db) return;
+      if (!(window.RADIO_MANUAL_QUEUE || []).length) return;
+      if (!confirm('Clear the entire manual queue? This just clears the list here — it doesn\'t undo anything on Spotify.')) return;
+      _db.ref('radio/manualQueue').remove();
+    }
+
+    // "Add a Song" is inline on the page now (no modal) — this resets it back
+    // to its empty starting state, called on page load and after each
+    // successful add so the form's ready for the next one.
+    function radioResetAddForm() {
       radioResolvedTrack = null;
       document.getElementById('radio-track-url').value = '';
       document.getElementById('radio-track-note').value = '';
@@ -11064,13 +11317,6 @@
       document.getElementById('radio-confirm-btn').style.display = 'none';
       document.getElementById('radio-confirm-btn').disabled = false;
       document.getElementById('radio-confirm-btn').textContent = 'on air, add it 🌙';
-      document.getElementById('radio-add-modal').classList.remove('hidden');
-      setTimeout(() => document.getElementById('radio-track-url').focus(), 80);
-    }
-
-    function closeAddTrackModal() {
-      document.getElementById('radio-add-modal').classList.add('hidden');
-      radioResolvedTrack = null;
     }
 
     function radioShowModalError(msg) {
@@ -11084,8 +11330,13 @@
       document.getElementById('radio-modal-error').style.display = 'none';
       if (!url) { radioShowModalError('Paste a track link first.'); return; }
 
+      // Reset back to a clean "resolve" state first — this form has no Cancel
+      // button anymore (it's inline, not a modal), so a previous error/duplicate
+      // leaving the confirm button up must not block starting a fresh lookup.
       const btn = document.getElementById('radio-resolve-btn');
+      btn.style.display = '';
       btn.disabled = true;
+      document.getElementById('radio-confirm-btn').style.display = 'none';
       document.getElementById('radio-modal-loading').style.display = 'block';
       document.getElementById('radio-preview-card').style.display = 'none';
 
@@ -11172,11 +11423,12 @@
           radioShowModalError((data && data.message) || 'Couldn\'t add that track.');
           btn.disabled = false;
           btn.textContent = original;
+          radioRestoreResolveBtn();
           return;
         }
 
         const addedTrackName = radioResolvedTrack.trackName || '';
-        closeAddTrackModal();
+        radioResetAddForm();
         document.getElementById('toast-emoji').textContent = '🌙';
         document.getElementById('toast-msg').textContent = 'on air 🌙';
         document.getElementById('toast-sub').textContent = addedTrackName;
@@ -11187,7 +11439,78 @@
         radioShowModalError('Something went wrong adding that track: ' + (e.message || e));
         btn.disabled = false;
         btn.textContent = original;
+        radioRestoreResolveBtn();
       }
+    }
+
+    // A failed/duplicate confirm leaves the preview + confirm button up with
+    // no Cancel button (this is an inline form, not a modal) — bring back the
+    // resolve button so the user can paste a different link and retry.
+    function radioRestoreResolveBtn() {
+      const resolveBtn = document.getElementById('radio-resolve-btn');
+      resolveBtn.style.display = '';
+      resolveBtn.disabled = false;
+      document.getElementById('radio-confirm-btn').style.display = 'none';
+    }
+
+    function radioShowManualError(msg) {
+      const el = document.getElementById('radio-manual-error');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    // "Add a Track Manually" — a straight-typed song/artist, skipping Odesli
+    // entirely. A real Spotify track link lets it go straight onto the
+    // playlist same as the normal flow; without one there's no spotifyUri to
+    // add, so it lands in the same Gokul-only manual queue as an unmatched link.
+    async function radioAddManually() {
+      const song = document.getElementById('radio-manual-song').value.trim();
+      const artist = document.getElementById('radio-manual-artist').value.trim();
+      const link = document.getElementById('radio-manual-link').value.trim();
+      document.getElementById('radio-manual-error').style.display = 'none';
+      if (!song) { radioShowManualError('Give it a song name at least.'); return; }
+
+      const spotifyMatch = link.match(/open\.spotify\.com\/track\/([a-zA-Z0-9]+)/);
+      if (spotifyMatch) {
+        try {
+          const idToken = (firebase.auth().currentUser) ? await firebase.auth().currentUser.getIdToken() : null;
+          const resp = await fetch('/.netlify/functions/add-to-playlist', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              idToken,
+              spotifyUri: 'spotify:track:' + spotifyMatch[1],
+              trackMeta: { trackName: song, artistName: artist, albumArt: '', songlinkUrl: link },
+              note: ''
+            })
+          });
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok || !data.success) { radioShowManualError((data && data.message) || 'Couldn\'t add that track.'); return; }
+          document.getElementById('radio-manual-song').value = '';
+          document.getElementById('radio-manual-artist').value = '';
+          document.getElementById('radio-manual-link').value = '';
+          document.getElementById('toast-emoji').textContent = '🌙';
+          document.getElementById('toast-msg').textContent = 'on air 🌙';
+          document.getElementById('toast-sub').textContent = song;
+          const toast = document.getElementById('completion-toast');
+          toast.classList.add('show');
+          setTimeout(() => toast.classList.remove('show'), 3000);
+        } catch (e) {
+          radioShowManualError('Something went wrong adding that track: ' + (e.message || e));
+        }
+        return;
+      }
+
+      if (_db) {
+        _db.ref('radio/manualQueue').push({
+          trackName: song, artistName: artist, originalUrl: link, songlinkUrl: link,
+          addedBy: currentUser, note: '', ts: Date.now()
+        });
+      }
+      document.getElementById('radio-manual-song').value = '';
+      document.getElementById('radio-manual-artist').value = '';
+      document.getElementById('radio-manual-link').value = '';
+      radioShowManualError('no Spotify link, so this is flagged for a manual drop 🌙');
     }
 
     function radioRemoveTrack(logId, spotifyUri) {
@@ -15226,7 +15549,7 @@ ${brandLines}`;
 .radio-track-artist{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .radio-track-meta{font-size:11px;color:var(--muted);margin-top:4px}
 .radio-track-note{font-size:12px;color:var(--accent2);font-style:italic;margin-top:4px}
-.radio-track-remove{position:absolute;top:10px;right:10px;background:none;border:none;color:#666;cursor:pointer;font-size:16px;padding:8px;line-height:1;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center}
+.radio-track-remove{position:absolute;top:10px;right:10px;background:none;border:none;color:#666;cursor:pointer;font-size:16px;padding:8px;line-height:1;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;scroll-margin-top:90px}
 .radio-track-remove:hover{color:#e05c5c}
 .radio-preview-card{display:flex;gap:12px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px;margin:10px 0}
 .radio-preview-art{width:64px;height:64px;border-radius:8px;object-fit:cover;flex-shrink:0;background:var(--surface)}
@@ -15235,6 +15558,128 @@ ${brandLines}`;
 .radio-preview-artist{font-size:12.5px;color:var(--muted);margin-top:2px}
 .radio-preview-confirm-label{font-size:12px;color:var(--muted);margin-top:8px}
 .radio-empty-state{color:var(--muted);font-size:13px;padding:16px 0;text-align:center}
+
+/* ═══ Loona Radio — full redesign ═══ */
+.radio-redesign{--rr-red:#ff3b3b;--rr-red-deep:#b31217;--rr-red-soft:rgba(255,59,59,.14);--rr-border:rgba(255,90,90,.3);--rr-card:rgba(255,255,255,.025);background:radial-gradient(ellipse at top right,#1a0a0a 0%,#0b0607 55%);border-radius:18px;padding:26px 22px 100px;margin:-4px -4px 0}
+.radio-redesign .radio-track-card,.radio-redesign .radio-track-art{background:var(--rr-card);border-color:var(--rr-border)}
+.radio-redesign .radio-track-note{color:var(--rr-red)}
+.radio-redesign .lb-link{color:#ff9d9d}
+
+.rr-hero{display:grid;grid-template-columns:1fr 1fr;gap:36px;margin-bottom:34px}
+.rr-live-tag{color:var(--rr-red);font-size:11px;font-weight:700;letter-spacing:.1em;margin-bottom:10px}
+.rr-hero-title{font-family:'Playfair Display',serif;font-weight:900;color:var(--rr-red);font-size:clamp(48px,7vw,84px);line-height:.92;letter-spacing:-.01em;margin-bottom:18px;text-shadow:0 0 40px rgba(255,59,59,.25)}
+.rr-hero-tagline{font-family:'Playfair Display',serif;font-style:italic;font-weight:500;color:#e8c9c9;font-size:16px;line-height:1.55;margin-bottom:22px}
+.rr-stats-row{display:flex;gap:18px;margin-bottom:20px}
+.rr-stat{display:flex;flex-direction:column;padding-right:18px;border-right:1px solid var(--rr-border)}
+.rr-stat:last-child{border-right:none;padding-right:0}
+.rr-stat span{font-family:'Playfair Display',serif;font-weight:900;color:var(--rr-red);font-size:26px;line-height:1}
+.rr-stat label{color:#c99;font-size:10px;letter-spacing:.08em;text-transform:uppercase;margin-top:3px}
+.rr-spotify-link{display:inline-block;color:var(--rr-red);border:1px solid var(--rr-red);border-radius:24px;padding:8px 18px;font-size:12px;font-weight:600;text-decoration:none;letter-spacing:.03em}
+.rr-spotify-link:hover{background:var(--rr-red-soft)}
+
+.rr-hero-right{position:relative;min-height:340px}
+.rr-vinyl-wrap{position:absolute;top:20px;right:0;width:230px;height:230px;z-index:1}
+.rr-vinyl{width:100%;height:100%;border-radius:50%;background:repeating-radial-gradient(circle,#1c1414 0px,#1c1414 2px,#100b0b 3px,#100b0b 5px);box-shadow:0 20px 50px rgba(0,0,0,.6);position:relative}
+.rr-vinyl-spinning{animation:rrVinylSpin 3.5s linear infinite}
+@keyframes rrVinylSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+.rr-vinyl-grooves{position:absolute;inset:14px;border-radius:50%;border:1px solid rgba(255,255,255,.05)}
+.rr-vinyl-label{position:absolute;top:50%;left:50%;width:74px;height:74px;margin:-37px 0 0 -37px;border-radius:50%;background:var(--rr-red-deep) center/cover;border:2px solid rgba(0,0,0,.4)}
+.rr-vinyl-label::after{content:'';position:absolute;top:50%;left:50%;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:#0b0607}
+.rr-tonearm{position:absolute;top:-6px;right:-30px;width:6px;height:120px;background:linear-gradient(#ccc,#888);border-radius:4px;transform:rotate(28deg);transform-origin:top center;box-shadow:0 4px 10px rgba(0,0,0,.5)}
+.rr-tonearm::before{content:'';position:absolute;top:-8px;left:-7px;width:20px;height:20px;border-radius:50%;background:#999;border:3px solid #666}
+
+.rr-nowplaying-card{position:relative;z-index:2;width:210px;aspect-ratio:1;border-radius:6px;background:#100b0b;box-shadow:0 24px 46px rgba(0,0,0,.55);overflow:hidden;margin-bottom:18px}
+.rr-art{width:100%;height:100%;object-fit:cover;display:block}
+.rr-art-placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:52px;background:linear-gradient(135deg,#241414,#0d0808)}
+
+.rr-player-panel{position:relative;z-index:2;max-width:340px}
+.rr-np-label{color:var(--rr-red);font-size:10.5px;font-weight:700;letter-spacing:.1em;margin-bottom:4px}
+.rr-np-title{font-family:'Playfair Display',serif;font-weight:700;font-style:italic;color:#fff;font-size:22px;line-height:1.2}
+.rr-np-artist{color:#c99;font-size:13px;margin-top:2px}
+.rr-progress-row{display:flex;align-items:center;gap:8px;margin-top:14px}
+.rr-time{color:#a97;font-size:10.5px;min-width:28px}
+.rr-progress-track{flex:1;height:3px;background:rgba(255,255,255,.12);border-radius:3px;overflow:hidden;position:relative}
+.rr-progress-fill{height:100%;width:0;background:var(--rr-red);border-radius:3px;transition:width .3s linear}
+.rr-controls-row{display:flex;align-items:center;gap:14px;margin-top:16px}
+.rr-ctl-btn{background:none;border:none;color:var(--rr-red);cursor:pointer;font-size:17px;min-width:38px;min-height:38px;display:flex;align-items:center;justify-content:center;border-radius:50%}
+.rr-ctl-btn:hover{background:var(--rr-red-soft)}
+.rr-ctl-main{width:52px;height:52px;min-width:52px;min-height:52px;background:var(--rr-red);color:#1a0505;font-size:20px;box-shadow:0 8px 22px rgba(255,59,59,.35)}
+.rr-ctl-main:hover{background:var(--rr-red);opacity:.9}
+.rr-sdk-status{color:#a97;font-size:11px;margin-top:10px}
+
+.rr-add-row{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:30px}
+.rr-card{background:var(--rr-card);border:1px solid var(--rr-border);border-radius:14px;padding:20px}
+.rr-card-title{font-family:'Playfair Display',serif;font-weight:900;font-style:italic;color:var(--rr-red);font-size:20px;margin-bottom:6px}
+.rr-card-title-sub{font-size:11px;color:#a97;font-weight:400;font-style:normal;letter-spacing:.02em}
+.rr-card-sub{color:#c99;font-size:12.5px;margin-bottom:16px}
+.rr-link-input-wrap{display:flex;align-items:center;gap:14px;border:1px dashed var(--rr-border);border-radius:12px;padding:16px;margin-bottom:12px}
+.rr-link-plus{width:38px;height:38px;min-width:38px;border-radius:50%;border:1px solid var(--rr-red);color:var(--rr-red);display:flex;align-items:center;justify-content:center;font-size:18px}
+.rr-link-input-col{flex:1;min-width:0}
+.rr-link-input{width:100%;background:none;border:none;color:#fff;font-size:14px;outline:none}
+.rr-link-input::placeholder{color:#e8c9c9;opacity:.6}
+.rr-link-input-hint{color:#a97;font-size:11px;margin-top:2px}
+.rr-note-input,.rr-form-input{width:100%;background:rgba(255,255,255,.02);border:1px solid var(--rr-border);border-radius:8px;color:#fff;font-size:13px;padding:10px 12px;margin-bottom:10px;font-family:var(--font);outline:none}
+.rr-note-input::placeholder,.rr-form-input::placeholder{color:#a97}
+.rr-btn-red{width:100%;background:var(--rr-red);color:#1a0505;border:none;border-radius:8px;padding:12px;font-weight:700;font-size:13.5px;cursor:pointer;margin-top:2px}
+.rr-btn-red:hover{opacity:.92}
+.rr-btn-red:disabled{opacity:.6;cursor:default}
+
+.rr-section-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px}
+.rr-section-title{font-family:'Playfair Display',serif;font-weight:900;font-style:italic;color:var(--rr-red);font-size:19px;letter-spacing:.02em}
+.rr-link-action{color:var(--rr-red);font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;white-space:nowrap;scroll-margin-top:90px}
+.rr-link-action:hover{text-decoration:underline}
+
+.rr-feed-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:32px}
+.rr-feed-card{background:var(--rr-card);border:1px solid var(--rr-border);border-radius:12px;padding:14px}
+.rr-feed-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.rr-feed-avatar{width:22px;height:22px;border-radius:50%;object-fit:cover}
+.rr-feed-avatar-fallback{display:flex;align-items:center;justify-content:center;background:var(--rr-red-deep);color:#fff;font-size:10px;font-weight:700}
+.rr-feed-added-by{color:#c99;font-size:11.5px}
+.rr-feed-body{cursor:pointer}
+.rr-feed-art{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;background:rgba(255,255,255,.04);margin-bottom:8px}
+.rr-feed-title{color:#fff;font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rr-feed-artist{color:#c99;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.rr-feed-time{color:#a97;font-size:10.5px;margin-top:4px}
+.rr-feed-foot{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
+.rr-like-btn{background:none;border:none;color:#a97;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;padding:4px;min-height:32px}
+.rr-like-btn.rr-liked{color:var(--rr-red)}
+.rr-like-btn:hover{color:var(--rr-red)}
+
+.rr-bottom-row{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px}
+.rr-card-head-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
+.rr-orbit-row{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.rr-orbit-avatar{width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0}
+.rr-orbit-avatar-fallback{display:flex;align-items:center;justify-content:center;background:var(--rr-red-deep);color:#fff;font-size:11px;font-weight:700}
+.rr-orbit-name{color:#fff;font-size:12.5px;width:64px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rr-orbit-bar-track{flex:1;height:5px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden}
+.rr-orbit-bar-fill{height:100%;background:var(--rr-red);border-radius:3px}
+.rr-orbit-count{color:#a97;font-size:11px;flex-shrink:0;min-width:56px;text-align:right}
+
+.rr-stats-footer{display:flex;justify-content:space-around;border-top:1px solid var(--rr-border);border-bottom:1px solid var(--rr-border);padding:18px 0;margin-bottom:8px}
+.rr-stats-footer .rr-stat{align-items:center;border-right:none;padding-right:0}
+.rr-stats-footer .rr-stat span{font-size:22px}
+
+.rr-mini-player{position:fixed;left:0;right:0;bottom:0;z-index:400;background:#0d0607;border-top:1px solid var(--rr-border);padding:10px 18px;display:flex;align-items:center;gap:12px;box-shadow:0 -10px 30px rgba(0,0,0,.5)}
+.rr-mini-art,.rr-mini-art-placeholder{width:42px;height:42px;border-radius:6px;object-fit:cover;flex-shrink:0;background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;font-size:18px}
+.rr-mini-info{min-width:0;width:150px;flex-shrink:0}
+.rr-mini-title{color:#fff;font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rr-mini-artist{color:#c99;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rr-mini-controls{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.rr-mini-controls .rr-ctl-main{width:38px;height:38px;min-width:38px;min-height:38px;font-size:14px}
+.rr-mini-progress-wrap{flex:1;display:flex;align-items:center;gap:8px;min-width:80px}
+
+@media (max-width:860px){
+  .rr-hero{grid-template-columns:1fr;gap:24px}
+  .rr-hero-right{min-height:auto;padding-top:10px}
+  .rr-vinyl-wrap{position:static;width:160px;height:160px;margin:0 auto 18px}
+  .rr-nowplaying-card{width:100%;max-width:260px;margin:0 auto 18px}
+  .rr-player-panel{max-width:100%}
+  .rr-add-row{grid-template-columns:1fr}
+  .rr-feed-grid{grid-template-columns:repeat(2,1fr)}
+  .rr-bottom-row{grid-template-columns:1fr}
+  .rr-mini-info{width:auto;flex:1}
+  .rr-mini-progress-wrap{display:none}
+}
 .cal2-detail-panel{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);align-items:center;justify-content:center;z-index:9999;padding:20px}
 .cal2-detail-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;width:420px;max-width:100%;max-height:80vh;overflow-y:auto}
 .cal2-detail-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
