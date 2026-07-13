@@ -12540,7 +12540,9 @@
           const joinLink = e.callLink || e.htmlLink;
           const time = calEventRange(e.start, e.end);
           const names = calAllAttendeeNames(e);
-          return `<div class="lb-item">
+          const canRemove = normName(currentUser) === 'gokul' || normName(currentUser) === normName(e.organizer);
+          return `<div class="lb-item" style="position:relative">
+            ${canRemove ? `<span class="cal2-remove-btn" title="Remove from Loona Hub" onclick="calDeleteEvent('${e._key}')">✕</span>` : ''}
             <div class="lb-meta"><span>${lnEsc(time || '')}</span>${e.brand ? `<span>· ${lnEsc(e.brand)}</span>` : ''}</div>
             <div class="lb-text">${joinLink ? `<a class="lb-link" href="${lnEsc(joinLink)}" target="_blank" rel="noopener">🔗 ${lnEsc(e.title)}</a>` : lnEsc(e.title)}</div>
             ${names.length ? `<div class="ln-note-meta">${lnEsc(names.join(', '))}</div>` : ''}
@@ -12548,6 +12550,20 @@
           </div>`;
         }).join('')}</div>
       </div>`;
+    }
+
+    // Loona-Hub-only removal — does NOT touch the real Google Calendar event or
+    // notify attendees. calendarEvents isn't ledger-locked against re-sync (see
+    // calendar-create.js), so if the underlying Google event still exists the
+    // next periodic sync can bring it back; that's expected, not a bug.
+    function calDeleteEvent(key, dateStr) {
+      if (!confirm('Remove this meeting from Loona Hub? This only hides it here — it will NOT cancel the meeting on Google Calendar, and if the event still exists there the next sync may bring it back.')) return;
+      window.CALENDAR_EVENTS = (window.CALENDAR_EVENTS || []).filter(e => e._key !== key);
+      if (_db) _db.ref('calendarEvents/' + key).remove();
+      if (typeof calRenderMonth === 'function' && document.getElementById('page-calendar') && document.getElementById('page-calendar').classList.contains('active')) calRenderMonth();
+      if (typeof lnRenderUpcomingMeetings === 'function' && document.getElementById('page-loonanotes') && document.getElementById('page-loonanotes').classList.contains('active')) lnRenderUpcomingMeetings();
+      if (typeof renderLoonaBoard === 'function' && document.getElementById('page-tasks') && document.getElementById('page-tasks').classList.contains('active')) renderLoonaBoard();
+      if (dateStr) calShowDayDetail(dateStr);
     }
 
     function calShowDayDetail(dateStr) {
@@ -12568,7 +12584,7 @@
             const canEdit = normName(currentUser) === 'gokul' || normName(currentUser) === normName(e.organizer);
             return `<div class="cal2-detail-row" style="display:block">
               <div>📅 ${calEventRange(e.start, e.end) ? `<span class="cal2-detail-time">${lnEsc(calEventRange(e.start, e.end))}</span> · ` : ''}${joinLink ? `<a href="${lnEsc(joinLink)}" target="_blank" rel="noopener">${lnEsc(e.title)}</a>` : lnEsc(e.title)}${e.brand ? ' · ' + lnEsc(e.brand) : ''}${names.length ? ' · ' + lnEsc(names.join(', ')) : ''}${e.callLink && e.htmlLink ? ` · <a href="${lnEsc(e.htmlLink)}" target="_blank" rel="noopener" style="color:var(--muted)">Calendar</a>` : ''}</div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${calRecordActionHTML(e._key)}${canEdit ? `<button class="btn btn-ghost" style="padding:5px 10px;font-size:11px" onclick="openEditMeeting('${e._key}')">✎ Edit</button>` : ''}</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${calRecordActionHTML(e._key)}${canEdit ? `<button class="btn btn-ghost" style="padding:5px 10px;font-size:11px" onclick="openEditMeeting('${e._key}')">✎ Edit</button>` : ''}${canEdit ? `<button class="btn btn-ghost" style="padding:5px 10px;font-size:11px" onclick="calDeleteEvent('${e._key}', '${dateStr}')">✕ Remove</button>` : ''}</div>
             </div>`;
           }).join('')}` : ''}
           ${meetings.length ? `<div class="ln-section-label">Meeting Records</div>${meetings.map(n => `<div class="cal2-detail-row cal2-detail-row-clickable" onclick="calOpenMeeting('${n._key}')">🎙️ ${lnEsc(n.title)}${n.brand ? ' · ' + lnEsc(n.brand) : ''}</div>`).join('')}` : ''}
@@ -14571,6 +14587,8 @@ ${brandLines}`;
 .cal2-badge-due{background:rgba(91,156,246,.15);color:var(--blue)}
 .cal2-badge-sync{background:rgba(155,107,255,.15);color:#9b6bff}
 .cal2-today-card{margin-top:18px}
+.cal2-remove-btn{position:absolute;top:2px;right:0;cursor:pointer;color:#666;font-size:12px;padding:2px 4px}
+.cal2-remove-btn:hover{color:#e05c5c}
 .nm-attendee-list{display:flex;flex-wrap:wrap;gap:8px;max-height:160px;overflow-y:auto;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px}
 .nm-attendee-chip{display:flex;align-items:center;gap:5px;font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:5px 10px;cursor:pointer;user-select:none}
 .nm-attendee-chip.checked{background:rgba(255,109,41,.15);border-color:rgba(255,109,41,.4);color:var(--accent2)}
