@@ -12866,6 +12866,15 @@
         const preset = ev.brand || lnBrandOptionList().find(b => (ev.title || '').toLowerCase().includes(String(b).toLowerCase()));
         if (preset) brandSel.value = preset;
       }
+      // "Record this meeting" / "Start Recording" (Loona Board, Calendar, Upcoming
+      // Meetings, and the meeting-started popup) only used to land here on the
+      // record screen still showing an idle "Start Recording" button — the exact
+      // same label as the one just clicked, so it read as already recording when
+      // it wasn't. Actually starting capture here makes every entry point behave
+      // the same way: one click, recording begins immediately. If mic access is
+      // blocked, lnBeginRecording() leaves the idle button in place with a status
+      // message instead of failing silently.
+      lnBeginRecording();
     }
 
     // Frees up a claim this session made but never actually turned into a saved
