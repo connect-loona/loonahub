@@ -6484,17 +6484,28 @@
           if (v && v.date && v.person) BOTD_STATE = v;
         });
 
-        // Inactive members sync
+        // Inactive members sync — stored as a { [fbMemberKey(name)]: name } map, not a
+        // plain array. removeMember/restoreMember used to .set() the WHOLE array from
+        // this browser's local INACTIVE_MEMBERS snapshot, so any two people (or even
+        // two tabs) toggling different members near each other could silently clobber
+        // one another's change — whoever wrote last would overwrite the other's edit,
+        // effectively "un-inactivating" someone by accident. Per-key writes below make
+        // each person's active/inactive toggle independent so this can't happen.
         _db.ref('inactive_members').once('value', snap => {
           if (!snap.val() && INACTIVE_MEMBERS.size > 0) {
-            _db.ref('inactive_members').set([...INACTIVE_MEMBERS]);
+            const seed = {};
+            INACTIVE_MEMBERS.forEach(n => { seed[fbMemberKey(n)] = n; });
+            _db.ref('inactive_members').set(seed);
           }
         });
         _db.ref('inactive_members').on('value', snap => {
-          const arr = snap.val() || [];
+          const raw = snap.val() || {};
+          // Legacy array format (pre-migration) is still readable so no one already
+          // marked inactive under the old scheme gets silently restored by this change.
+          const names = Array.isArray(raw) ? raw : Object.values(raw);
           INACTIVE_MEMBERS.clear();
-          arr.forEach(n => INACTIVE_MEMBERS.add(n));
-          try { localStorage.setItem('loona_inactive_members', JSON.stringify(arr)); } catch(e) {}
+          names.forEach(n => n && INACTIVE_MEMBERS.add(n));
+          try { localStorage.setItem('loona_inactive_members', JSON.stringify(names)); } catch(e) {}
           rebuildLoginPicker();
           if (currentUser) { renderTeam(); buildMemberTabs(currentUser); renderOverview(); }
         });
@@ -10896,7 +10907,10 @@
       if (!confirm(`Move "${name}" to past employees? They'll be removed from active workflows.`)) return;
       INACTIVE_MEMBERS.add(name);
       localStorage.setItem('loona_inactive_members', JSON.stringify([...INACTIVE_MEMBERS]));
-      if (_db) _db.ref('inactive_members').set([...INACTIVE_MEMBERS]);
+      // Per-key write, not a whole-array .set() — so someone else toggling a
+      // DIFFERENT member's active/inactive status at the same time can't clobber
+      // this change (or vice versa).
+      if (_db) _db.ref('inactive_members/' + fbMemberKey(name)).set(name);
       rebuildLoginPicker();
       renderTeam();
       buildMemberTabs(currentUser);
@@ -10906,7 +10920,7 @@
     function restoreMember(name) {
       INACTIVE_MEMBERS.delete(name);
       localStorage.setItem('loona_inactive_members', JSON.stringify([...INACTIVE_MEMBERS]));
-      if (_db) _db.ref('inactive_members').set([...INACTIVE_MEMBERS]);
+      if (_db) _db.ref('inactive_members/' + fbMemberKey(name)).remove();
       renderTeam();
       buildMemberTabs(currentUser);
       renderOverview();
