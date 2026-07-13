@@ -68,8 +68,19 @@ async function fbGet(path) {
   const resp = await fetch(FB + '/' + path + '.json');
   return resp.json().catch(() => null);
 }
+// Callers were previously ignoring the response entirely — a rejected write
+// (bad Firebase rule, malformed payload, etc.) looked identical to a
+// successful one, so e.g. the Loona Board announcement could silently fail
+// to write while the calendar event and per-attendee tasks went through fine,
+// with nothing anywhere to say so. This logs the failure and lets the caller
+// track it instead of it disappearing.
 async function fbPatch(path, obj) {
-  return fetch(FB + '/' + path + '.json', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) });
+  const resp = await fetch(FB + '/' + path + '.json', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) });
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => '');
+    console.error(`Firebase PATCH ${path} failed (${resp.status}): ${errText.slice(0, 300)}`);
+  }
+  return resp;
 }
 
 // Firebase RTDB keys can't contain . # $ [ ] /
@@ -207,7 +218,9 @@ exports.handler = async (event) => {
       htmlLink: data.htmlLink || '',
       updatedAt: Date.now()
     };
-    await fbPatch('calendarEvents', { [fbSafeKey(uid)]: calendarEventEntry });
+    const warnings = [];
+    const calEventsResp = await fbPatch('calendarEvents', { [fbSafeKey(uid)]: calendarEventEntry });
+    if (!calEventsResp.ok) warnings.push('Meeting created on Google Calendar, but saving it into Loona Hub failed — it may not show up on the Calendar tab.');
 
     // Per-attendee task — same is_auto/auto_calendar_event_id shape calendar-sync.js
     // uses, and logged in the same ledger so the periodic sync doesn't duplicate it.
@@ -247,7 +260,7 @@ exports.handler = async (event) => {
     if (!annLog[annLogKey]) {
       const allNames = [...knownAttendees, ...guestNames];
       const annKey = 'auto_ann_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2);
-      await fbPatch('announcements', {
+      const annResp = await fbPatch('announcements', {
         [annKey]: {
           id: Date.now(),
           text: `📅 ${calendarEventEntry.title}${timeRange ? ` — ${timeRange}` : ''}${brand ? ` · ${brand}` : ''} · ${allNames.join(', ')}`,
@@ -259,13 +272,14 @@ exports.handler = async (event) => {
           visibleTo: knownAttendees
         }
       });
-      await fbPatch('calendarSyncLog/announcements', { [annLogKey]: true });
+      if (!annResp.ok) warnings.push('Meeting created, but the Loona Board post failed to save — it won\'t show up there.');
+      else await fbPatch('calendarSyncLog/announcements', { [annLogKey]: true });
     }
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ success: true, eventId: data.id, htmlLink: data.htmlLink || '', callLink })
+      body: JSON.stringify({ success: true, eventId: data.id, htmlLink: data.htmlLink || '', callLink, warnings })
     };
   } catch (err) {
     return { statusCode: 502, headers, body: JSON.stringify({ success: false, message: String((err && err.message) || err) }) };

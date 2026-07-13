@@ -12407,10 +12407,11 @@
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok || !data.success) throw new Error(data.message || (editing ? 'Could not save changes' : 'Could not create the meeting'));
         closeNewMeeting();
+        const warningNote = (data.warnings && data.warnings.length) ? '\n\n⚠️ ' + data.warnings.join('\n⚠️ ') : '';
         if (editing) {
-          alert('Meeting updated!' + (data.tasksUpdated ? ` ${data.tasksUpdated} task(s) refreshed with the new time.` : ''));
+          alert('Meeting updated!' + (data.tasksUpdated ? ` ${data.tasksUpdated} task(s) refreshed with the new time.` : '') + warningNote);
         } else {
-          alert('Meeting created!' + (data.callLink ? ' Meet link: ' + data.callLink : ''));
+          alert('Meeting created!' + (data.callLink ? ' Meet link: ' + data.callLink : '') + warningNote);
         }
       } catch (e) {
         nmShowError(e.message || String(e));
