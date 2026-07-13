@@ -13152,7 +13152,8 @@
       if (!manualText && !hasAudio) { alert('No recording or transcript yet. Record some audio or type/paste a transcript first.'); return; }
       const title = document.getElementById('ln-meeting-title').value.trim() || `Meeting — ${lnFmtDate(new Date().toISOString())}`;
       const brandSel = document.getElementById('ln-meeting-brand');
-      const brand = brandSel ? brandSel.value : '';
+      const manualBrand = brandSel ? brandSel.value : '';
+      const brandOptions = lnBrandOptionList();
       lnShowView('result');
       document.getElementById('ln-result-loading').style.display = 'flex';
       document.getElementById('ln-result-content').style.display = 'none';
@@ -13168,10 +13169,16 @@
         const resp = await lnFetchStage('Generating notes', '/.netlify/functions/notes-summarize', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ transcript, title, recordedBy: currentUser || '' })
+          body: JSON.stringify({ transcript, title, recordedBy: currentUser || '', brandOptions })
         });
         const data = await resp.json();
         if (!resp.ok) throw new Error(data.error || 'Failed to generate notes');
+        // Manual brand selection always wins; otherwise fall back to the AI's
+        // best-effort guess from the transcript (only trusted if it's an exact
+        // match against one of the brands we actually gave it to choose from).
+        const detectedBrand = (data.brand && brandOptions.includes(data.brand)) ? data.brand : '';
+        const brand = manualBrand || detectedBrand;
+        if (!manualBrand && detectedBrand && brandSel) brandSel.value = detectedBrand;
         window._lnPending = {
           title, brand, transcript,
           summary: data.summary || '',
@@ -13218,16 +13225,66 @@
       return selectedBy || currentUser || '';
     }
 
+    function lnAssigneeRowHTML(prefix, i, selected, removable) {
+      return `<div class="ln-assignee-row">
+        <select class="ln-action-ctl ln-assignee-select">${lnMemberOptions(selected)}</select>
+        <button type="button" class="ln-assignee-remove" onclick="lnRemoveAssigneeRow('${prefix}',${i},this)" ${removable ? '' : 'style="visibility:hidden"'}>×</button>
+      </div>`;
+    }
+
+    function lnAddAssigneeRow(prefix, i) {
+      const list = document.getElementById(`${prefix}-assignees-${i}`);
+      if (!list) return;
+      list.insertAdjacentHTML('beforeend', lnAssigneeRowHTML(prefix, i, '', true));
+      lnRefreshAssigneeRemoveVisibility(prefix, i);
+    }
+
+    function lnRemoveAssigneeRow(prefix, i, btnEl) {
+      const list = document.getElementById(`${prefix}-assignees-${i}`);
+      if (!list || list.children.length <= 1) return;
+      btnEl.closest('.ln-assignee-row').remove();
+      lnRefreshAssigneeRemoveVisibility(prefix, i);
+    }
+
+    // Only show the × once there's more than one row — a single assignee row
+    // has nothing to remove down to.
+    function lnRefreshAssigneeRemoveVisibility(prefix, i) {
+      const list = document.getElementById(`${prefix}-assignees-${i}`);
+      if (!list) return;
+      const rows = list.querySelectorAll('.ln-assignee-row');
+      rows.forEach(row => {
+        const btn = row.querySelector('.ln-assignee-remove');
+        if (btn) btn.style.visibility = rows.length > 1 ? 'visible' : 'hidden';
+      });
+    }
+
+    function lnCollectAssignees(prefix, i) {
+      const list = document.getElementById(`${prefix}-assignees-${i}`);
+      if (!list) return [];
+      const seen = new Set();
+      const out = [];
+      list.querySelectorAll('.ln-assignee-select').forEach(sel => {
+        const v = sel.value;
+        if (v && !seen.has(v)) { seen.add(v); out.push(v); }
+      });
+      return out;
+    }
+
     function lnActionRowFieldsHTML(prefix, i, a, defaultBrand) {
       const dueDate = a.dueDate || '';
+      const assignees = Array.isArray(a.assignees) && a.assignees.length ? a.assignees : [a.assignee || ''];
       return `
         <input type="text" class="ln-action-task-input" id="${prefix}-task-${i}" value="${lnEsc(a.task)}">
         <div class="ln-action-fields">
           <div class="ln-action-field"><label>Brand</label><select class="ln-action-ctl" id="${prefix}-brand-${i}">${lnActionBrandOptionsHTML(a.brand || defaultBrand || '')}</select></div>
           <div class="ln-action-field"><label>Priority</label><select class="ln-action-ctl" id="${prefix}-priority-${i}">${lnPriorityOptionsHTML('Medium')}</select></div>
           <div class="ln-action-field"><label>Due Date</label><input type="date" class="ln-action-ctl" id="${prefix}-due-${i}" value="${lnEsc(dueDate)}"></div>
-          <div class="ln-action-field"><label>Assigned To</label><select class="ln-action-ctl" id="${prefix}-assignee-${i}">${lnMemberOptions(a.assignee)}</select></div>
           <div class="ln-action-field"><label>Assigned By</label><select class="ln-action-ctl" id="${prefix}-by-${i}">${lnMemberByOptions(currentUser)}</select></div>
+        </div>
+        <div class="ln-action-field" style="margin-bottom:10px">
+          <label>Assigned To</label>
+          <div class="ln-assignee-list" id="${prefix}-assignees-${i}">${assignees.map(name => lnAssigneeRowHTML(prefix, i, name, assignees.length > 1)).join('')}</div>
+          <button type="button" class="ln-assignee-add-btn" onclick="lnAddAssigneeRow('${prefix}',${i})">+ Add another assignee</button>
         </div>`;
     }
 
@@ -13356,19 +13413,21 @@
       const brand = document.getElementById('ln-action-brand-' + i).value;
       const priority = document.getElementById('ln-action-priority-' + i).value;
       const dueDate = document.getElementById('ln-action-due-' + i).value;
-      const assignee = document.getElementById('ln-action-assignee-' + i).value;
       const assignedBySel = document.getElementById('ln-action-by-' + i).value;
-      const member = assignee || currentUser || '';
-      fbAddTask({
-        member,
-        brand: canonicalBrandName(brand || 'Meeting Notes'),
-        task,
-        priority: priority || 'Medium',
-        status: 'Not Started',
-        due_date: dueDate || '',
-        assigned_by: lnResolveAssignedBy(member, assignedBySel),
-        asylum: (MEMBER_INFO[member] || {}).role || '',
-        isNew: true
+      const assignees = lnCollectAssignees('ln-action', i);
+      const members = assignees.length ? assignees : [currentUser || ''];
+      members.forEach(member => {
+        fbAddTask({
+          member,
+          brand: canonicalBrandName(brand || 'Meeting Notes'),
+          task,
+          priority: priority || 'Medium',
+          status: 'Not Started',
+          due_date: dueDate || '',
+          assigned_by: lnResolveAssignedBy(member, assignedBySel),
+          asylum: (MEMBER_INFO[member] || {}).role || '',
+          isNew: true
+        });
       });
       p.actionItems[i].pushed = true;
       const row = document.getElementById('ln-action-' + i);
@@ -13521,20 +13580,22 @@
       const brand = document.getElementById('ln-detail-brand-' + i).value;
       const priority = document.getElementById('ln-detail-priority-' + i).value;
       const dueDate = document.getElementById('ln-detail-due-' + i).value;
-      const assignee = document.getElementById('ln-detail-assignee-' + i).value;
       const assignedBySel = document.getElementById('ln-detail-by-' + i).value;
-      const member = assignee || currentUser || '';
-      fbAddTask({
-        member,
-        brand: canonicalBrandName(brand || 'Meeting Notes'),
-        task,
-        priority: priority || 'Medium',
-        status: 'Not Started',
-        due_date: dueDate || '',
-        assigned_by: lnResolveAssignedBy(member, assignedBySel),
-        asylum: (MEMBER_INFO[member] || {}).role || '',
-        isNew: true,
-        sourceNoteKey: note._key || null
+      const assignees = lnCollectAssignees('ln-detail', i);
+      const members = assignees.length ? assignees : [currentUser || ''];
+      members.forEach(member => {
+        fbAddTask({
+          member,
+          brand: canonicalBrandName(brand || 'Meeting Notes'),
+          task,
+          priority: priority || 'Medium',
+          status: 'Not Started',
+          due_date: dueDate || '',
+          assigned_by: lnResolveAssignedBy(member, assignedBySel),
+          asylum: (MEMBER_INFO[member] || {}).role || '',
+          isNew: true,
+          sourceNoteKey: note._key || null
+        });
       });
       note.actionItems[i].pushed = true;
       if (_db && note._key) {
@@ -14380,7 +14441,14 @@ ${brandLines}`;
 .ln-action-task-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 10px;font-size:13px;font-weight:600;color:var(--text);font-family:var(--font);margin-bottom:10px}
 .ln-action-fields{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px}
 .ln-action-field label{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;margin-bottom:3px}
-.ln-action-ctl,.ln-action-assignee{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;font-size:11.5px;font-family:var(--font)}
+.ln-action-ctl,.ln-action-assignee{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;font-size:11.5px;font-family:var(--font);color-scheme:dark}
+.ln-assignee-list{display:flex;flex-direction:column;gap:6px}
+.ln-assignee-row{display:flex;gap:6px;align-items:center}
+.ln-assignee-row .ln-action-ctl{flex:1}
+.ln-assignee-remove{flex-shrink:0;background:var(--surface);border:1px solid var(--border);color:var(--muted);border-radius:6px;width:26px;height:26px;font-size:14px;line-height:1;cursor:pointer}
+.ln-assignee-remove:hover{color:var(--text);border-color:var(--red,#e05a5a)}
+.ln-assignee-add-btn{background:none;border:none;color:var(--accent2);font-size:11px;font-weight:600;cursor:pointer;padding:2px 0;text-align:left}
+.ln-assignee-add-btn:hover{text-decoration:underline}
 .ln-action-add{background:var(--green);color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
 .ln-action-add:disabled{opacity:.5;cursor:default}
 .ln-error{color:var(--red);font-size:13px;text-align:center;padding:20px}
