@@ -11991,14 +11991,16 @@
         assignedBy !== '' &&
         assignedBy.toLowerCase() !== 'myself' &&
         assignedBy.toLowerCase() !== 'me' &&
+        // The one auto-created task per attendee for a synced/created Google
+        // Calendar meeting ("Meeting: <title>") is assigned by "Google
+        // Calendar" — there's no real person who could ever approve it, so
+        // it would sit stuck in Awaiting Approval forever. Only this exact
+        // calendar-invite task type skips approval; task board items pushed
+        // from Loona Notes action items still go through the normal flow.
+        assignedBy.toLowerCase() !== 'google calendar' &&
         normName(assignedBy) !== normName(currentUser) &&
         normName(t.member) === normName(currentUser) &&
-        !t.is_personal &&
-        // Tasks auto-created from Loona Notes meeting action items are assigned
-        // to whoever recorded the meeting by default, not chosen deliberately —
-        // requiring that person's sign-off to close them out is friction nobody
-        // asked for, so whoever it's assigned to can just complete it directly.
-        !t.fromMeetingNotes;
+        !t.is_personal;
 
       if (needsAssignerApproval) {
         _approvalPendingIdx = idx;
@@ -13448,8 +13450,7 @@
           due_date: dueDate || '',
           assigned_by: lnResolveAssignedBy(member, assignedBySel),
           asylum: (MEMBER_INFO[member] || {}).role || '',
-          isNew: true,
-          fromMeetingNotes: true
+          isNew: true
         });
       });
       p.actionItems[i].pushed = true;
@@ -13617,7 +13618,6 @@
           assigned_by: lnResolveAssignedBy(member, assignedBySel),
           asylum: (MEMBER_INFO[member] || {}).role || '',
           isNew: true,
-          fromMeetingNotes: true,
           sourceNoteKey: note._key || null
         });
       });
