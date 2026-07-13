@@ -12452,7 +12452,9 @@
     function calRecordActionHTML(eventKey) {
       if (!eventKey) return '';
       const claim = (window.MEETING_RECORDING_CLAIMS || {})[eventKey];
-      if (claim) return `<span class="btn btn-ghost" style="padding:5px 10px;font-size:11px;opacity:.7;cursor:default" title="Claimed at ${lnEsc(new Date(claim.startedAt).toLocaleTimeString('en-IN'))}">🎙️ Being recorded by ${lnEsc(claim.by)}</span>`;
+      // Clicking this now takes you to Loona Notes so you can actually see the
+      // recording — previously a dead, non-interactive span that did nothing.
+      if (claim) return `<button class="btn btn-ghost" style="padding:5px 10px;font-size:11px;opacity:.85" onclick="lnGoToClaimedRecording('${eventKey}')" title="Claimed at ${lnEsc(new Date(claim.startedAt).toLocaleTimeString('en-IN'))}">🎙️ Being recorded by ${lnEsc(claim.by)}</button>`;
       return `<button class="btn btn-primary" style="padding:5px 10px;font-size:11px" onclick="lnGoToRecordFor('${eventKey}')">🎙️ Record this meeting</button>`;
     }
 
@@ -12720,8 +12722,20 @@
       const panel = document.getElementById('ln-upcoming-panel');
       if (!panel) return;
       const todayStr = calTodayIST();
+      const now = Date.now();
       const upcoming = (window.CALENDAR_EVENTS || [])
-        .filter(e => e && (e.start || '').slice(0, 10) >= todayStr && (e.knownAttendees || []).some(a => normName(a) === normName(currentUser)))
+        .filter(e => {
+          if (!e || !(e.knownAttendees || []).some(a => normName(a) === normName(currentUser))) return false;
+          const start = e.start || '';
+          if (start.slice(0, 10) < todayStr) return false;
+          // All-day entries have no time component to compare against "now" —
+          // keep those for the whole day. Timed meetings whose end has already
+          // passed are done (and have a transcript in the Notes list below by
+          // then, if recorded), so they no longer belong in "Upcoming".
+          if (start.length <= 10) return true;
+          const end = new Date(e.end || e.start).getTime();
+          return isNaN(end) || end >= now;
+        })
         .sort((a, b) => (a.start || '').localeCompare(b.start || ''))
         .slice(0, 8);
 
@@ -12740,7 +12754,7 @@
             const names = calAllAttendeeNames(e);
             const claim = (window.MEETING_RECORDING_CLAIMS || {})[e._key];
             const recordBtn = claim
-              ? `<span class="btn btn-ghost" style="padding:6px 12px;font-size:12px;opacity:.7;cursor:default" title="Claimed at ${lnEsc(new Date(claim.startedAt).toLocaleTimeString('en-IN'))}">🎙️ Being recorded by ${lnEsc(claim.by)}</span>`
+              ? `<button class="btn btn-ghost" style="padding:6px 12px;font-size:12px;opacity:.85" onclick="lnGoToClaimedRecording('${e._key}')" title="Claimed at ${lnEsc(new Date(claim.startedAt).toLocaleTimeString('en-IN'))}">🎙️ Being recorded by ${lnEsc(claim.by)}</button>`
               : `<button class="btn btn-primary" style="padding:6px 12px;font-size:12px" onclick="lnStartRecordingFor('${e._key}')">🎙️ Record this meeting</button>`;
             // Same "just started" window as the pop-up reminder (checkCallReminders'
             // threshold===0 case) — highlighted here too so it's visible right on
@@ -15754,6 +15768,21 @@ ${brandLines}`;
       if(lvBtn) lvBtn.classList.add("active");
       openLoonaNotes();
       lnStartRecordingFor(eventKey);
+    };
+    // "Being recorded by X" was a dead, non-interactive span before — clicking
+    // it now takes you to Loona Notes so there's somewhere to actually see it.
+    // If it's your own claim (e.g. you navigated away mid-recording), it jumps
+    // straight back into the live record view instead of just the list —
+    // someone else's claim has no session to resume, so it just lands there.
+    window.lnGoToClaimedRecording = function lnGoToClaimedRecording(eventKey){
+      document.querySelectorAll(".nav-btn").forEach(function(b){ b.classList.remove("active"); });
+      var lvBtn=document.querySelector('.nav-btn[onclick*="loonaverse"]');
+      if(lvBtn) lvBtn.classList.add("active");
+      openLoonaNotes();
+      var claim=(window.MEETING_RECORDING_CLAIMS||{})[eventKey];
+      if(claim && normName(claim.by)===normName(currentUser) && lnRecording && lnActiveCalendarEventKey===eventKey){
+        lnShowView("record");
+      }
     };
     // Fires once, right at a meeting's start time — offers one-click "Start
     // Recording" (pre-wired through lnStartRecordingFor's claim check), or if
