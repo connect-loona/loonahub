@@ -61,3 +61,37 @@
 #                             drive.file are only needed for Loona Notes' "Export as Doc"
 #                             (calendar-sync.js is read-only and works with just the first
 #                             scope) — see docs-export.js.)
+#   FIREBASE_WEB_API_KEY     (optional — defaults to the same public Web API key already
+#                             embedded in index.html's client-side Firebase config. Used by
+#                             add-to-playlist.js/remove-from-playlist.js to verify a caller's
+#                             Firebase ID token via the Identity Toolkit REST API. Not a
+#                             secret — Firebase web API keys are meant to be public; real
+#                             access control is Firebase Auth + database rules.)
+#
+# Loona Radio (netlify/functions/resolve-track.js, add-to-playlist.js,
+# remove-from-playlist.js) — every track add/remove goes through ONE Spotify
+# account (Gokul's) so teammates never need their own Spotify login, since
+# Spotify Dev Mode caps a new app at 5 authorized users:
+#   SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET   (from a Spotify Developer Dashboard app —
+#                             https://developer.spotify.com/dashboard)
+#   SPOTIFY_REFRESH_TOKEN    (Gokul's own — see one-time setup below)
+#   SPOTIFY_PLAYLIST_ID      (fallback only — radio/config/spotifyPlaylistId in Firebase
+#                             is checked FIRST, so the playlist can be swapped without a
+#                             redeploy; set this env var too so there's still a working
+#                             default if that Firebase value is ever cleared)
+#
+#   One-time setup for SPOTIFY_REFRESH_TOKEN (do this once, as Gokul, from any machine —
+#   there's no in-app UI for this on purpose, it's a one-time credential exchange):
+#     1. Create an app at https://developer.spotify.com/dashboard, add a redirect URI of
+#        http://127.0.0.1:8080/callback (or any URI you can catch locally).
+#     2. Visit (as Gokul, logged into open.spotify.com with the account that owns/can edit
+#        the Loona Radio playlist):
+#          https://accounts.spotify.com/authorize?client_id=YOUR_CLIENT_ID&response_type=code&redirect_uri=http://127.0.0.1:8080/callback&scope=playlist-modify-public%20playlist-modify-private
+#     3. Copy the "code" query param from the redirect, then exchange it for tokens:
+#          curl -X POST https://accounts.spotify.com/api/token \
+#            -H "Authorization: Basic $(echo -n CLIENT_ID:CLIENT_SECRET | base64)" \
+#            -d grant_type=authorization_code -d code=THE_CODE \
+#            -d redirect_uri=http://127.0.0.1:8080/callback
+#     4. Paste the response's "refresh_token" into Netlify as SPOTIFY_REFRESH_TOKEN.
+#   Also set radio/config/spotifyPlaylistId (and optionally appleMusicPlaylistUrl) directly
+#   in the Firebase Realtime Database console — no admin UI for these either, by design.

@@ -4057,6 +4057,7 @@
         <button class="nav-btn" onclick="showPage('chat',this)">AI Chat</button>
         <button class="nav-btn" onclick="showPage('loonacode',this)">Loona Code</button>
         <button class="nav-btn" onclick="showPage('loonaverse',this)">Loonaverse</button>
+        <button class="nav-btn" onclick="showPage('radio',this)">📻 Loona Radio</button>
         <button class="nav-btn" id="nav-admin-btn" onclick="showPage('admin',this)" style="display:none">🛠 Admin</button>
       </nav>
       <div style="display:flex;align-items:center;gap:12px">
@@ -4681,6 +4682,36 @@
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="closeNewMeeting()">Cancel</button>
           <button class="btn btn-primary" id="nm-submit-btn" onclick="submitNewMeeting()">Create Meeting</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADD TRACK (LOONA RADIO) MODAL -->
+    <div class="modal-overlay hidden" id="radio-add-modal">
+      <div class="modal">
+        <div class="modal-title">Add a <span>Track</span></div>
+        <div class="form-group">
+          <label>Track link</label>
+          <input class="form-control" type="url" id="radio-track-url" placeholder="Paste a Spotify / Apple Music / YouTube / song.link link" inputmode="url">
+        </div>
+        <div class="form-group">
+          <label>Note (optional)</label>
+          <input class="form-control" type="text" id="radio-track-note" placeholder="why this one? (optional)" maxlength="140">
+        </div>
+
+        <div class="radio-note" id="radio-modal-error" style="display:none"></div>
+
+        <div id="radio-modal-loading" style="display:none;text-align:center;padding:18px 0">
+          <div class="quiz-loading-spinner" style="font-size:28px">🎧</div>
+          <div style="color:var(--muted);font-size:12.5px;margin-top:6px">finding it…</div>
+        </div>
+
+        <div id="radio-preview-card" style="display:none"></div>
+
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="closeAddTrackModal()">Cancel</button>
+          <button class="btn btn-primary" id="radio-resolve-btn" onclick="radioResolveTrack()">Find Track</button>
+          <button class="btn btn-primary" id="radio-confirm-btn" onclick="radioConfirmAddTrack()" style="display:none">on air, add it 🌙</button>
         </div>
       </div>
     </div>
@@ -5661,6 +5692,38 @@
       </div>
     </div>
 
+    <!-- ======= LOONA RADIO ======= -->
+    <div class="page" id="page-radio">
+      <div class="section-header" style="margin-top:0">
+        <div class="section-title">Loona <span>Radio</span></div>
+        <div style="font-size:12px;color:var(--muted)">One shared playlist. Add whatever's stuck in your head.</div>
+      </div>
+
+      <div class="radio-embed-wrap" id="radio-embed-wrap">
+        <div class="radio-embed-skeleton" id="radio-embed-skeleton">loading the playlist…</div>
+        <iframe id="radio-spotify-embed" class="radio-spotify-embed" style="display:none" src="" width="100%" height="352" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+      </div>
+
+      <div id="radio-applemusic-toggle-wrap" style="display:none">
+        <button class="btn btn-ghost" id="radio-applemusic-toggle-btn" onclick="radioToggleAppleMusic()">listening on apple music?</button>
+        <div class="radio-embed-wrap" id="radio-applemusic-embed-wrap" style="display:none">
+          <iframe id="radio-applemusic-embed" class="radio-spotify-embed" src="" width="100%" height="175" frameborder="0" allow="autoplay *; encrypted-media *;" loading="lazy"></iframe>
+        </div>
+      </div>
+
+      <div class="radio-actions-row">
+        <button class="btn btn-primary" onclick="openAddTrackModal()">+ Add a Track</button>
+      </div>
+
+      <div class="ln-section-label">Recent Additions</div>
+      <div id="radio-feed"></div>
+
+      <div id="radio-manual-queue-wrap" style="display:none">
+        <div class="ln-section-label">⏳ Manual Queue (couldn't auto-match — drop these in yourself)</div>
+        <div id="radio-manual-queue"></div>
+      </div>
+    </div>
+
     <!-- ======= LOONA CODE ======= -->
     <div class="page" id="page-loonacode">
       <div class="section-header" style="margin-top:0">
@@ -6297,6 +6360,29 @@
           if (document.getElementById('page-loonanotes') && document.getElementById('page-loonanotes').classList.contains('active') && typeof lnRenderUpcomingMeetings === 'function') lnRenderUpcomingMeetings();
           if (document.getElementById('page-tasks') && document.getElementById('page-tasks').classList.contains('active') && typeof renderLoonaBoard === 'function') renderLoonaBoard();
           if (document.getElementById('page-calendar') && document.getElementById('page-calendar').classList.contains('active') && typeof calRenderMonth === 'function') calRenderMonth();
+        });
+
+        // Loona Radio — playlist config (swappable without a redeploy), the shared
+        // add-log (last 10 shown, dedupe/rate-limit checked against the rest
+        // server-side), and Gokul-only manual queue for links Odesli couldn't match
+        // to Spotify.
+        _db.ref('radio/config').on('value', snap => {
+          window.RADIO_CONFIG = snap.val() || {};
+          if (document.getElementById('page-radio') && document.getElementById('page-radio').classList.contains('active') && typeof renderRadioEmbed === 'function') renderRadioEmbed();
+        });
+        _db.ref('radio/log').on('value', snap => {
+          const data = snap.val() || {};
+          window.RADIO_LOG = Object.entries(data)
+            .map(([k, v]) => ({ ...v, _key: k }))
+            .sort((a, b) => (b.ts || 0) - (a.ts || 0));
+          if (document.getElementById('page-radio') && document.getElementById('page-radio').classList.contains('active') && typeof renderRadioFeed === 'function') renderRadioFeed();
+        });
+        _db.ref('radio/manualQueue').on('value', snap => {
+          const data = snap.val() || {};
+          window.RADIO_MANUAL_QUEUE = Object.entries(data)
+            .map(([k, v]) => ({ ...v, _key: k }))
+            .sort((a, b) => (b.ts || 0) - (a.ts || 0));
+          if (document.getElementById('page-radio') && document.getElementById('page-radio').classList.contains('active') && typeof renderRadioManualQueue === 'function') renderRadioManualQueue();
         });
 
         // Seed brands on first connect
@@ -10647,6 +10733,275 @@
       fbDeleteAnnouncement(id);
     }
 
+    // ═══ LOONA RADIO ═══
+    // Everything writes through two Netlify functions (add-to-playlist.js /
+    // remove-from-playlist.js) using Gokul's own Spotify account server-side —
+    // Spotify's Feb 2026 Dev Mode rules cap a new app at 5 authorized users, so
+    // routing every write through one account is what lets the whole team add
+    // tracks without anyone needing their own Spotify login. resolve-track.js
+    // (Odesli) is the only piece that runs client-triggered but needs no secret.
+    window.RADIO_CONFIG = window.RADIO_CONFIG || {};
+    window.RADIO_LOG = window.RADIO_LOG || [];
+    window.RADIO_MANUAL_QUEUE = window.RADIO_MANUAL_QUEUE || [];
+    let radioResolvedTrack = null; // set once resolve-track succeeds, cleared on modal close
+    let radioAppleMusicShown = false;
+
+    function openRadioPage() {
+      renderRadioEmbed();
+      renderRadioFeed();
+      renderRadioManualQueue();
+    }
+
+    function renderRadioEmbed() {
+      const skeleton = document.getElementById('radio-embed-skeleton');
+      const iframe = document.getElementById('radio-spotify-embed');
+      const playlistId = window.RADIO_CONFIG.spotifyPlaylistId;
+      if (playlistId) {
+        const src = `https://open.spotify.com/embed/playlist/${playlistId}?utm_source=generator&theme=0`;
+        if (iframe.src !== src) iframe.src = src;
+        iframe.style.display = 'block';
+        if (skeleton) skeleton.style.display = 'none';
+      } else if (skeleton) {
+        skeleton.textContent = 'no playlist set up yet';
+        skeleton.style.display = 'flex';
+        iframe.style.display = 'none';
+      }
+
+      const toggleWrap = document.getElementById('radio-applemusic-toggle-wrap');
+      const amUrl = window.RADIO_CONFIG.appleMusicPlaylistUrl;
+      if (toggleWrap) toggleWrap.style.display = amUrl ? 'block' : 'none';
+      if (amUrl) {
+        const amIframe = document.getElementById('radio-applemusic-embed');
+        // embed.music.apple.com is Apple's official oEmbed-style embed host for a
+        // regular music.apple.com playlist URL — swap the host, keep the path.
+        const embedSrc = amUrl.replace('music.apple.com', 'embed.music.apple.com');
+        if (amIframe && amIframe.src !== embedSrc) amIframe.src = embedSrc;
+      }
+    }
+
+    function radioToggleAppleMusic() {
+      radioAppleMusicShown = !radioAppleMusicShown;
+      const wrap = document.getElementById('radio-applemusic-embed-wrap');
+      const btn = document.getElementById('radio-applemusic-toggle-btn');
+      if (wrap) wrap.style.display = radioAppleMusicShown ? 'block' : 'none';
+      if (btn) btn.textContent = radioAppleMusicShown ? 'hide apple music' : 'listening on apple music?';
+    }
+
+    function renderRadioFeed() {
+      const cont = document.getElementById('radio-feed');
+      if (!cont) return;
+      const items = (window.RADIO_LOG || []).slice(0, 10);
+      if (!items.length) {
+        cont.innerHTML = '<div class="radio-empty-state">first track drops soon.</div>';
+        return;
+      }
+      const isAdmin = normName(currentUser) === 'gokul';
+      cont.innerHTML = items.map(t => {
+        const art = t.albumArt ? `<img class="radio-track-art" src="${lnEsc(t.albumArt)}" alt="">` : `<div class="radio-track-art"></div>`;
+        const removeBtn = isAdmin ? `<button class="radio-track-remove" title="Remove from radio" onclick="event.stopPropagation();radioRemoveTrack('${t._key}','${lnEsc(t.spotifyUri || '')}')">✕</button>` : '';
+        return `<div class="radio-track-card" onclick="radioOpenSonglink('${lnEsc(t.songlinkUrl || '')}')">
+          ${art}
+          <div class="radio-track-info">
+            <div class="radio-track-title">${lnEsc(t.trackName || 'Unknown track')}</div>
+            <div class="radio-track-artist">${lnEsc(t.artistName || '')}</div>
+            <div class="radio-track-meta">added by ${lnEsc(t.addedBy || 'someone')}</div>
+            ${t.note ? `<div class="radio-track-note">“${lnEsc(t.note)}”</div>` : ''}
+          </div>
+          ${removeBtn}
+        </div>`;
+      }).join('');
+    }
+
+    function radioOpenSonglink(url) {
+      if (url) window.open(url, '_blank', 'noopener');
+    }
+
+    function renderRadioManualQueue() {
+      const wrap = document.getElementById('radio-manual-queue-wrap');
+      const cont = document.getElementById('radio-manual-queue');
+      if (!wrap || !cont) return;
+      if (normName(currentUser) !== 'gokul' || !(window.RADIO_MANUAL_QUEUE || []).length) {
+        wrap.style.display = 'none';
+        return;
+      }
+      wrap.style.display = 'block';
+      cont.innerHTML = window.RADIO_MANUAL_QUEUE.map(m => `<div class="radio-track-card" style="cursor:default" onclick="event.stopPropagation()">
+        <div class="radio-track-art"></div>
+        <div class="radio-track-info">
+          <div class="radio-track-title">${lnEsc(m.trackName || m.originalUrl || 'Unresolved link')}</div>
+          <div class="radio-track-artist">${lnEsc(m.artistName || '')}</div>
+          <div class="radio-track-meta">flagged by ${lnEsc(m.addedBy || 'someone')}${m.note ? ' · “' + lnEsc(m.note) + '”' : ''}</div>
+          <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap">
+            <a class="lb-link" style="margin-top:0" href="${lnEsc(m.songlinkUrl || m.originalUrl || '#')}" target="_blank" rel="noopener">🔗 open link</a>
+            <button class="btn btn-ghost" style="padding:4px 10px;font-size:11px" onclick="event.stopPropagation();radioDismissManualQueueEntry('${m._key}')">mark done</button>
+          </div>
+        </div>
+      </div>`).join('');
+    }
+
+    function radioDismissManualQueueEntry(key) {
+      if (!key || !_db) return;
+      _db.ref('radio/manualQueue/' + key).remove();
+    }
+
+    function openAddTrackModal() {
+      radioResolvedTrack = null;
+      document.getElementById('radio-track-url').value = '';
+      document.getElementById('radio-track-note').value = '';
+      document.getElementById('radio-modal-error').style.display = 'none';
+      document.getElementById('radio-modal-loading').style.display = 'none';
+      document.getElementById('radio-preview-card').style.display = 'none';
+      document.getElementById('radio-preview-card').innerHTML = '';
+      document.getElementById('radio-resolve-btn').style.display = '';
+      document.getElementById('radio-resolve-btn').disabled = false;
+      document.getElementById('radio-confirm-btn').style.display = 'none';
+      document.getElementById('radio-confirm-btn').disabled = false;
+      document.getElementById('radio-confirm-btn').textContent = 'on air, add it 🌙';
+      document.getElementById('radio-add-modal').classList.remove('hidden');
+      setTimeout(() => document.getElementById('radio-track-url').focus(), 80);
+    }
+
+    function closeAddTrackModal() {
+      document.getElementById('radio-add-modal').classList.add('hidden');
+      radioResolvedTrack = null;
+    }
+
+    function radioShowModalError(msg) {
+      const el = document.getElementById('radio-modal-error');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    async function radioResolveTrack() {
+      const url = document.getElementById('radio-track-url').value.trim();
+      document.getElementById('radio-modal-error').style.display = 'none';
+      if (!url) { radioShowModalError('Paste a track link first.'); return; }
+
+      const btn = document.getElementById('radio-resolve-btn');
+      btn.disabled = true;
+      document.getElementById('radio-modal-loading').style.display = 'block';
+      document.getElementById('radio-preview-card').style.display = 'none';
+
+      try {
+        const resp = await fetch('/.netlify/functions/resolve-track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        const data = await resp.json().catch(() => ({}));
+        document.getElementById('radio-modal-loading').style.display = 'none';
+        if (!resp.ok || !data.success) {
+          radioShowModalError((data && data.message) || 'Couldn\'t look up that link.');
+          btn.disabled = false;
+          return;
+        }
+
+        if (!data.spotifyUri) {
+          // Found the track, but not on Spotify — flag for a manual drop rather
+          // than leave the person with nothing to show for pasting the link.
+          if (_db) {
+            _db.ref('radio/manualQueue').push({
+              songlinkUrl: data.songlinkUrl || url,
+              originalUrl: url,
+              trackName: data.trackName || '',
+              artistName: data.artistName || '',
+              addedBy: currentUser,
+              note: document.getElementById('radio-track-note').value.trim(),
+              ts: Date.now()
+            });
+          }
+          radioShowModalError('couldn\'t auto-add this one — flagged for a manual drop 🌙');
+          btn.disabled = false;
+          return;
+        }
+
+        radioResolvedTrack = data;
+        const card = document.getElementById('radio-preview-card');
+        card.innerHTML = `<div class="radio-preview-card">
+          ${data.albumArt ? `<img class="radio-preview-art" src="${lnEsc(data.albumArt)}" alt="">` : '<div class="radio-preview-art"></div>'}
+          <div class="radio-preview-info">
+            <div class="radio-preview-title">${lnEsc(data.trackName || 'Unknown track')}</div>
+            <div class="radio-preview-artist">${lnEsc(data.artistName || '')}</div>
+            <div class="radio-preview-confirm-label">is this the one?</div>
+          </div>
+        </div>`;
+        card.style.display = 'block';
+        btn.style.display = 'none';
+        document.getElementById('radio-confirm-btn').style.display = '';
+      } catch (e) {
+        document.getElementById('radio-modal-loading').style.display = 'none';
+        radioShowModalError('Something went wrong looking that up: ' + (e.message || e));
+        btn.disabled = false;
+      }
+    }
+
+    async function radioConfirmAddTrack() {
+      if (!radioResolvedTrack || !radioResolvedTrack.spotifyUri) return;
+      const btn = document.getElementById('radio-confirm-btn');
+      btn.disabled = true;
+      const original = btn.textContent;
+      btn.textContent = 'adding…';
+      document.getElementById('radio-modal-error').style.display = 'none';
+
+      try {
+        const idToken = (firebase.auth().currentUser) ? await firebase.auth().currentUser.getIdToken() : null;
+        const resp = await fetch('/.netlify/functions/add-to-playlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            idToken,
+            spotifyUri: radioResolvedTrack.spotifyUri,
+            trackMeta: {
+              trackName: radioResolvedTrack.trackName,
+              artistName: radioResolvedTrack.artistName,
+              albumArt: radioResolvedTrack.albumArt,
+              songlinkUrl: radioResolvedTrack.songlinkUrl
+            },
+            note: document.getElementById('radio-track-note').value.trim()
+          })
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok || !data.success) {
+          radioShowModalError((data && data.message) || 'Couldn\'t add that track.');
+          btn.disabled = false;
+          btn.textContent = original;
+          return;
+        }
+
+        const addedTrackName = radioResolvedTrack.trackName || '';
+        closeAddTrackModal();
+        document.getElementById('toast-emoji').textContent = '🌙';
+        document.getElementById('toast-msg').textContent = 'on air 🌙';
+        document.getElementById('toast-sub').textContent = addedTrackName;
+        const toast = document.getElementById('completion-toast');
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 3000);
+      } catch (e) {
+        radioShowModalError('Something went wrong adding that track: ' + (e.message || e));
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    }
+
+    function radioRemoveTrack(logId, spotifyUri) {
+      if (normName(currentUser) !== 'gokul') return;
+      if (!confirm('Remove this track from Loona Radio?')) return;
+      (async () => {
+        try {
+          const idToken = (firebase.auth().currentUser) ? await firebase.auth().currentUser.getIdToken() : null;
+          const resp = await fetch('/.netlify/functions/remove-from-playlist', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken, spotifyUri, logId })
+          });
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok || !data.success) alert((data && data.message) || 'Could not remove that track.');
+        } catch (e) {
+          alert('Could not remove that track: ' + (e.message || e));
+        }
+      })();
+    }
+
     // Per-user local dismiss — hides an announcement for just this user on this device
     function getDismissedIds() {
       try { return new Set(JSON.parse(localStorage.getItem('dismissed_' + currentUser) || '[]')); }
@@ -12158,6 +12513,9 @@
       }
       if (id === 'admin') {
         openAdminTab();
+      }
+      if (id === 'radio') {
+        openRadioPage();
       }
     }
 
@@ -14630,6 +14988,30 @@ ${brandLines}`;
 .nm-guest-row{display:flex;gap:8px}
 .nm-guest-row .form-control{flex:1}
 .nm-note{font-size:12px;color:#e05c5c;margin-top:4px}
+.radio-note{font-size:12px;color:#e05c5c;margin:6px 0}
+.radio-embed-wrap{position:relative;border-radius:14px;overflow:hidden;background:var(--surface2);margin-bottom:14px;min-height:80px}
+.radio-embed-skeleton{display:flex;align-items:center;justify-content:center;height:352px;color:var(--muted);font-size:13px;background:linear-gradient(90deg,var(--surface2) 0%,var(--surface) 50%,var(--surface2) 100%);background-size:200% 100%;animation:radioSkeleton 1.6s ease-in-out infinite}
+@keyframes radioSkeleton{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.radio-spotify-embed{border-radius:14px;display:block}
+#radio-applemusic-toggle-wrap{margin-bottom:14px}
+#radio-applemusic-toggle-btn{font-size:12px;padding:7px 14px}
+.radio-actions-row{display:flex;gap:10px;margin-bottom:16px}
+.radio-track-card{display:flex;gap:12px;align-items:flex-start;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px;cursor:pointer;position:relative}
+.radio-track-art{width:52px;height:52px;border-radius:8px;object-fit:cover;flex-shrink:0;background:var(--surface)}
+.radio-track-info{flex:1;min-width:0}
+.radio-track-title{font-size:13.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.radio-track-artist{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.radio-track-meta{font-size:11px;color:var(--muted);margin-top:4px}
+.radio-track-note{font-size:12px;color:var(--accent2);font-style:italic;margin-top:4px}
+.radio-track-remove{position:absolute;top:10px;right:10px;background:none;border:none;color:#666;cursor:pointer;font-size:16px;padding:8px;line-height:1;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center}
+.radio-track-remove:hover{color:#e05c5c}
+.radio-preview-card{display:flex;gap:12px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px;margin:10px 0}
+.radio-preview-art{width:64px;height:64px;border-radius:8px;object-fit:cover;flex-shrink:0;background:var(--surface)}
+.radio-preview-info{flex:1;min-width:0}
+.radio-preview-title{font-size:14px;font-weight:700;color:var(--text)}
+.radio-preview-artist{font-size:12.5px;color:var(--muted);margin-top:2px}
+.radio-preview-confirm-label{font-size:12px;color:var(--muted);margin-top:8px}
+.radio-empty-state{color:var(--muted);font-size:13px;padding:16px 0;text-align:center}
 .cal2-detail-panel{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);align-items:center;justify-content:center;z-index:9999;padding:20px}
 .cal2-detail-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;width:420px;max-width:100%;max-height:80vh;overflow-y:auto}
 .cal2-detail-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
