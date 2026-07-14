@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "description": "Server-side dependencies for Loona Hub's Netlify Functions.",
   "dependencies": {
-    "sarvamai": "^1.1.7"
+    "sarvamai": "^1.1.7",
+    "web-push": "^3.6.7"
   }
 }
