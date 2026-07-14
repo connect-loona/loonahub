@@ -1373,6 +1373,13 @@
       opacity: .75;
     }
 
+    .admin-emp-warn {
+      font-size: 10px;
+      color: var(--yellow);
+      margin-top: 4px;
+      font-weight: 600;
+    }
+
     .admin-pending-badge {
       display: inline-block;
       font-size: 9.5px;
@@ -10967,11 +10974,18 @@
       const active = ALL_MEMBERS.filter(n => !INACTIVE_MEMBERS.has(n));
       list.innerHTML = active.map(n => {
         const info = memberDisplayInfo(n);
+        // Anyone without an Employee ID linked won't show any real attendance —
+        // PetPooja punches have nothing to match them against (see LIVE.empMap /
+        // applyLiveRecords). Flagged here rather than leaving it a silent gap,
+        // since this is exactly the kind of thing that looks like "the new
+        // person isn't showing up" without explaining why.
+        const missingEmpId = !info.employeeId;
         return `<div class="admin-emp-card" onclick="showAdminEmployeeDetail('${n}')">
           <div class="admin-emp-avatar" style="background:${mColor(n)}20;color:${mColor(n)};${info.avatar ? 'padding:0;' : ''}overflow:hidden">${mAvatar(n)}</div>
           <div class="admin-emp-name">${n}</div>
           <div class="admin-emp-role">${info.role || 'Team Member'}</div>
           ${info.department ? `<div class="admin-emp-dept">${info.department}</div>` : ''}
+          ${missingEmpId ? `<div class="admin-emp-warn" title="No Employee ID linked — attendance won't sync for them">⚠ No Employee ID</div>` : ''}
         </div>`;
       }).join('');
     }
@@ -16698,6 +16712,7 @@ ${brandLines}`;
     .admin-emp-name{font-size:6.5px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:100%!important}
     .admin-emp-role{font-size:5.8px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:100%!important}
     .admin-emp-dept{display:none!important}
+    .admin-emp-warn{font-size:5.5px!important;margin-top:1px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:100%!important}
     /* ---- Brands: 4 active brand cards per row, condensed to a logo+name tile, tap for full detail ---- */
     #brand-cards-active{grid-template-columns:repeat(4,1fr)!important;gap:6px!important}
     #brand-cards-active .brand-card{padding:6px 4px!important;border-radius:9px!important}
@@ -17728,13 +17743,17 @@ ${brandLines}`;
     }
     function applyLiveRecords(records, startISO, source){
       source = source || "live";
-      var byName={}, unmapped=0;
-      records.forEach(function(rec){ var nm=LIVE.empMap[rec.emp_id]; if(!nm||!ATT[nm]){ unmapped++; return; } (byName[nm]=byName[nm]||{})[rec.date]=rec; });
+      var byName={}, unmapped=0, unmappedCodes={};
+      records.forEach(function(rec){ var nm=LIVE.empMap[rec.emp_id]; if(!nm||!ATT[nm]){ unmapped++; unmappedCodes[rec.emp_id]=true; return; } (byName[nm]=byName[nm]||{})[rec.date]=rec; });
       if(source==="live"){
+        // Named directly (rather than a generic "check LIVE.empMap" dev message) so
+        // whoever's looking at this — not necessarily someone who can read the code —
+        // knows exactly which Employee ID to go add/fix in Admin > Edit Employee.
+        var codeList = Object.keys(unmappedCodes).join(', ');
         if(records.length && !Object.keys(byName).length){
-          LIVE_ERROR="Petpooja returned "+records.length+" record(s) but none matched a mapped employee — check LIVE.empMap's emp_id values against Petpooja's actual employee IDs (try &debug=1 on the sync endpoint to see raw emp_ids).";
+          LIVE_ERROR="Petpooja returned "+records.length+" record(s) but none matched a mapped employee — code(s) "+codeList+" aren't linked to anyone yet. Go to Admin → Employee Directory → their card → Edit, and enter their Employee ID exactly as Petpooja has it.";
         } else if(unmapped>0){
-          LIVE_ERROR=unmapped+" of "+records.length+" record(s) didn't match a mapped employee — some people may be missing live data. Check LIVE.empMap.";
+          LIVE_ERROR=unmapped+" of "+records.length+" record(s) didn't match a mapped employee — code(s) "+codeList+" aren't linked to anyone yet. Go to Admin → Employee Directory → their card → Edit, and enter their Employee ID exactly as Petpooja has it.";
         } else { LIVE_ERROR=null; }
       }
       var from = startISO || (TODAY.slice(0,8)+"01");
