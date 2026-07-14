@@ -5542,7 +5542,6 @@
       </div>
 
       <section class="lv2-hero" id="lv-today">
-        <img class="lv2-hero-planet" src="assets/loonaverse/hero_planet.jpg" alt="">
         <div class="lv2-hero-copy">
           <h1>Welcome to the<br>Loonaverse.</h1>
           <p class="lv2-hero-kicker">Our playground for everything we wish existed.</p>
@@ -16285,11 +16284,10 @@ ${brandLines}`;
 .lv2-subnav{display:flex;gap:8px;margin-bottom:22px;flex-wrap:wrap}
 .lv2-subnav a{padding:9px 16px;border-radius:999px;border:1px solid var(--border);color:var(--muted);font-size:13px;font-weight:600;cursor:pointer}
 .lv2-subnav a:hover,.lv2-subnav a.active{color:var(--text);border-color:var(--accent);background:rgba(255,109,41,.12)}
-.lv2-hero{position:relative;overflow:hidden;min-height:230px;padding:34px 32px;display:grid;grid-template-columns:1.45fr .72fr;gap:24px;align-items:center;border:1px solid rgba(255,109,41,.25);border-radius:24px;background:linear-gradient(120deg,#1a0700,#3d1000 54%,#170704);margin-bottom:26px}
+.lv2-hero{position:relative;overflow:hidden;min-height:260px;padding:34px 32px;display:grid;grid-template-columns:1.45fr .72fr;gap:24px;align-items:center;border:1px solid rgba(255,109,41,.25);border-radius:24px;background:linear-gradient(90deg,#0a0503 0%,#0a0503 22%,rgba(10,5,3,.55) 46%,rgba(10,5,3,.25) 65%,transparent 100%),url('assets/loonaverse/hero_bg.png');background-size:cover;background-position:right center;margin-bottom:26px}
 .lv2-hero-copy h1{font-size:52px;line-height:.98;letter-spacing:-2px;margin:0 0 10px;color:var(--text)}
 .lv2-hero-kicker{color:var(--accent2);font-size:16px;margin:0 0 10px;font-weight:600}
 .lv2-hero-sub{color:var(--muted);font-size:14.5px;line-height:1.6;margin:0}
-.lv2-hero-planet{position:absolute;right:150px;top:0;width:260px;height:260px;object-fit:cover;mix-blend-mode:screen;opacity:.85}
 .lv2-live-card{position:relative;z-index:2;padding:18px;border:1px solid var(--border);border-radius:18px;background:rgba(25,14,11,.93)}
 .lv2-live-label{font-size:13px;color:var(--text);display:flex;align-items:center;gap:6px}
 .lv2-dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block}
@@ -16346,8 +16344,7 @@ ${brandLines}`;
 .lv2-idea-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:10px 12px;font-family:var(--font);font-size:12.5px;box-sizing:border-box;margin-bottom:10px;resize:vertical}
 
 @media(max-width:900px){
-  .lv2-hero{grid-template-columns:1fr;min-height:auto}
-  .lv2-hero-planet{display:none}
+  .lv2-hero{grid-template-columns:1fr;min-height:auto;background:linear-gradient(180deg,#0a0503 0%,rgba(10,5,3,.55) 55%,rgba(10,5,3,.35) 100%),url('assets/loonaverse/hero_bg.png');background-size:cover;background-position:center}
   .lv2-mid-grid{grid-template-columns:1fr}
   .lv2-idea-banner{grid-template-columns:1fr}
   .lv2-cube{display:none}
