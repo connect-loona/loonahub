@@ -13265,7 +13265,7 @@
       rtMimeType = lnPickMimeType();
       rtAudioChunks = [];
       try {
-        rtMediaRecorder = rtMimeType ? new MediaRecorder(rtStream, { mimeType: rtMimeType }) : new MediaRecorder(rtStream);
+        rtMediaRecorder = new MediaRecorder(rtStream, lnRecorderOptions(rtMimeType));
       } catch (e) {
         rtSetStatusLine('⚠️ Couldn’t start recording on this device. Type or paste the tasks manually below instead.');
         rtStream.getTracks().forEach(t => t.stop());
@@ -14613,6 +14613,16 @@
       return '';
     }
 
+    // Speech doesn't need the browser's default ~128kbps — capping it keeps a full
+    // hour-long meeting recording down around 12-15MB instead of ~50MB, so it uploads
+    // faster and stays well clear of Sarvam's upload-URL expiry window and any size caps.
+    const LN_AUDIO_BITRATE = 32000;
+    function lnRecorderOptions(mimeType) {
+      const opts = { audioBitsPerSecond: LN_AUDIO_BITRATE };
+      if (mimeType) opts.mimeType = mimeType;
+      return opts;
+    }
+
     async function lnBeginRecording() {
       lnSetStatusLine('');
       if (!lnRecordingSupported()) {
@@ -14629,7 +14639,7 @@
       lnAudioChunks = [];
       lnRecoverySessionId = 'ln_' + Date.now() + '_' + Math.random().toString(36).slice(2);
       try {
-        lnMediaRecorder = lnMimeType ? new MediaRecorder(lnStream, { mimeType: lnMimeType }) : new MediaRecorder(lnStream);
+        lnMediaRecorder = new MediaRecorder(lnStream, lnRecorderOptions(lnMimeType));
       } catch (e) {
         lnSetStatusLine('⚠️ Couldn’t start recording on this device. Type or paste the transcript manually below instead.');
         lnStream.getTracks().forEach(t => t.stop());
