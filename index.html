@@ -14752,18 +14752,28 @@
       onStage = onStage || lnSetProcessingStage;
       onStage('Uploading audio…');
       const ext = lnMimeToExt(mimeType);
-      const createResp = await lnFetchStage('Creating transcription job', '/.netlify/functions/sarvam-create-job', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fileExt: ext })
-      });
-      const createData = await createResp.json();
-      if (!createResp.ok) throw new Error(createData.error || 'Failed to start transcription job');
-      const { jobId, uploadUrl } = createData;
 
-      // Azure Blob's presigned upload URL doesn't have CORS enabled for browser origins,
-      // so this goes through our own same-origin proxy instead of PUTting to it directly.
-      const proxyUrl = '/api/sarvam-upload-proxy?url=' + encodeURIComponent(uploadUrl);
-      const putResp = await lnFetchStage('Uploading audio to Sarvam', proxyUrl, { method: 'PUT', headers: { 'Content-Type': lnBaseMimeType(mimeType) || 'application/octet-stream' }, body: blob });
-      if (!putResp.ok) throw new Error(`Failed to upload audio for transcription (HTTP ${putResp.status})`);
+      // Sarvam hands back a presigned Azure Blob upload URL that's only valid for a
+      // limited window. A large/slow recording can take long enough to upload that it
+      // goes stale before the PUT lands — rather than fail outright, get a brand-new
+      // job + URL and try the upload once more before surfacing an error.
+      let jobId, putResp;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        const createResp = await lnFetchStage('Creating transcription job', '/.netlify/functions/sarvam-create-job', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fileExt: ext })
+        });
+        const createData = await createResp.json();
+        if (!createResp.ok) throw new Error(createData.error || 'Failed to start transcription job');
+        jobId = createData.jobId;
+
+        // Azure Blob's presigned upload URL doesn't have CORS enabled for browser origins,
+        // so this goes through our own same-origin proxy instead of PUTting to it directly.
+        const proxyUrl = '/api/sarvam-upload-proxy?url=' + encodeURIComponent(createData.uploadUrl);
+        putResp = await lnFetchStage('Uploading audio to Sarvam', proxyUrl, { method: 'PUT', headers: { 'Content-Type': lnBaseMimeType(mimeType) || 'application/octet-stream' }, body: blob });
+        if (putResp.ok) break;
+        if (attempt === 2) throw new Error(`Failed to upload audio for transcription (HTTP ${putResp.status})`);
+        onStage('Upload link expired — retrying…');
+      }
 
       const startResp = await lnFetchStage('Starting transcription job', '/.netlify/functions/sarvam-start-job', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobId })
