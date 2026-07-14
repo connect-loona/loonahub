@@ -1085,7 +1085,7 @@
     .oracle-intro { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
     .oracle-tagline { font-size: 13px; color: var(--muted); font-style: italic; max-width: 420px; }
 
-    .loona-extras-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: stretch; }
+    .loona-extras-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; align-items: stretch; }
     .loona-extra-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; }
     .loona-extra-title { font-size: 14px; font-weight: 700; margin-bottom: 12px; }
     @media(max-width:820px){ .loona-extras-grid { grid-template-columns: 1fr; } }
@@ -4058,7 +4058,6 @@
         <button class="nav-btn" onclick="showPage('loonacode',this)">Loona Code</button>
         <button class="nav-btn" onclick="showPage('loonaverse',this)">Loonaverse</button>
         <button class="nav-btn" onclick="showPage('radio',this)">📻 Loona Radio</button>
-        <button class="nav-btn" id="nav-braincheck-btn" onclick="showPage('braincheck',this)">🧠 Brain Check</button>
         <button class="nav-btn" id="nav-admin-btn" onclick="showPage('admin',this)" style="display:none">🛠 Admin</button>
       </nav>
       <div style="display:flex;align-items:center;gap:12px">
@@ -4152,11 +4151,6 @@
           </div>
         </div>
       </div>
-
-      <!-- Loona Brain Check — daily dashboard card, state depends on whether
-           this member has completed today's check yet and whether a winner
-           has been declared (see bcRenderCard() in the Brain Check script). -->
-      <div class="bc-card" id="braincheck-card"></div>
 
       <!-- Today Stats -->
       <div class="stat-grid" id="today-stats">
@@ -5141,6 +5135,10 @@
             <div class="loona-extra-title">🧭 Find Your Loona Personality</div>
             <div id="loona-quiz-entry"></div>
           </div>
+          <div class="loona-extra-card">
+            <div class="loona-extra-title">🧠 Loona Brain Check</div>
+            <div id="braincheck-card"></div>
+          </div>
         </div>
         <div id="past-employees-section" style="display: none; margin-top: 28px;">
           <div class="section-header">
@@ -5826,7 +5824,10 @@
     </div>
 
     <!-- ======= LOONA BRAIN CHECK ======= -->
-    <div class="page bc-theme" id="page-braincheck">
+    <!-- ======= LOONA BRAIN CHECK (modal, opened from its Team-page card) ======= -->
+    <div class="modal-overlay hidden" id="braincheck-modal" onclick="if(event.target===this)bcCloseModal()">
+    <div class="bc-theme bc-modal-box">
+      <a class="bc-modal-close" onclick="bcCloseModal()">✕ Close</a>
       <!-- OPENING -->
       <div id="bc-view-opening">
         <div class="bc-hero">
@@ -5907,6 +5908,7 @@
         <div id="bc-lb-list"></div>
         <div class="bc-lb-note">Ties are settled by completion time. Speed finally has consequences.</div>
       </div>
+    </div>
     </div>
 
     <!-- ======= LOONA CODE ======= -->
@@ -6593,20 +6595,18 @@
           _db.ref('brainCheck/results/' + bcDate).on('value', snap => {
             window.BRAINCHECK_RESULTS = window.BRAINCHECK_RESULTS || {};
             window.BRAINCHECK_RESULTS[bcDate] = snap.val() || {};
-            const overviewActive = document.getElementById('page-overview') && document.getElementById('page-overview').classList.contains('active');
-            if (overviewActive && typeof bcRenderCard === 'function') bcRenderCard();
-            const bcPageActive = document.getElementById('page-braincheck') && document.getElementById('page-braincheck').classList.contains('active');
+            if (typeof bcRenderCard === 'function') bcRenderCard();
+            const modalOpen = document.getElementById('braincheck-modal') && !document.getElementById('braincheck-modal').classList.contains('hidden');
             const lbVisible = document.getElementById('bc-view-leaderboard') && document.getElementById('bc-view-leaderboard').style.display !== 'none';
-            if (bcPageActive && lbVisible && typeof bcRenderLeaderboard === 'function') bcRenderLeaderboard();
+            if (modalOpen && lbVisible && typeof bcRenderLeaderboard === 'function') bcRenderLeaderboard();
           });
           _db.ref('brainCheck/winner/' + bcDate).on('value', snap => {
             window.BRAINCHECK_WINNER = window.BRAINCHECK_WINNER || {};
             window.BRAINCHECK_WINNER[bcDate] = snap.val() || null;
-            const overviewActive = document.getElementById('page-overview') && document.getElementById('page-overview').classList.contains('active');
-            if (overviewActive && typeof bcRenderCard === 'function') bcRenderCard();
-            const bcPageActive = document.getElementById('page-braincheck') && document.getElementById('page-braincheck').classList.contains('active');
+            if (typeof bcRenderCard === 'function') bcRenderCard();
+            const modalOpen = document.getElementById('braincheck-modal') && !document.getElementById('braincheck-modal').classList.contains('hidden');
             const lbVisible = document.getElementById('bc-view-leaderboard') && document.getElementById('bc-view-leaderboard').style.display !== 'none';
-            if (bcPageActive && lbVisible && typeof bcRenderLeaderboard === 'function') bcRenderLeaderboard();
+            if (modalOpen && lbVisible && typeof bcRenderLeaderboard === 'function') bcRenderLeaderboard();
           });
         })();
 
@@ -7780,7 +7780,6 @@
         ? `<img src="${info.avatar}" id="overview-user-avatar" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);margin-right:12px;vertical-align:middle">`
         : `<span style="font-size:32px;margin-right:8px">${info.emoji}</span>`;
       document.getElementById('welcome-msg').innerHTML = `${avatarHtml}${greet}, ${currentUser}!${ovMoodPillHTML()}`;
-      if (typeof bcRenderCard === 'function') bcRenderCard();
 
       // My tasks (logged-in member)
       const myTasks = TASKS.filter(t => normName(t.member) === normName(currentUser));
@@ -9344,6 +9343,7 @@
         </div>`;
 
       renderQuizEntry();
+      if (typeof bcRenderCard === 'function') bcRenderCard();
     }
 
     function renderQuizEntry() {
@@ -9430,7 +9430,57 @@
       { category: 'Geopolitics', q: 'Which organisation is commonly referred to by the acronym "EU"?', options: ['Eastern Union', 'European Union', 'Economic Union', 'Elected Union'], correct: 1, explanation: 'The European Union is a political and economic union of European member states.' },
       { category: 'Geopolitics', q: 'What is a "trade deficit"?', options: ['When a country’s exports exceed its imports', 'When a country’s imports exceed the value of its exports', 'A tax on foreign goods', 'A type of currency peg'], correct: 1, explanation: 'A trade deficit means a country is buying more from abroad than it’s selling abroad.' },
       { category: 'Geopolitics', q: 'What does "sanctions" typically mean in international relations?', options: ['Formal awards given to allies', 'Restrictive measures imposed on a country to pressure a policy change', 'A trade agreement', 'A military alliance'], correct: 1, explanation: 'Sanctions are penalties, often economic, meant to pressure a country into changing behaviour without military action.' },
-      { category: 'Geopolitics', q: 'What is a "bilateral agreement"?', options: ['An agreement involving three or more countries', 'An agreement between exactly two parties, usually countries', 'A domestic-only policy', 'A type of currency exchange rate'], correct: 1, explanation: 'Bilateral means "two-sided" — an agreement negotiated directly between two parties, as opposed to multilateral deals involving several.' }
+      { category: 'Geopolitics', q: 'What is a "bilateral agreement"?', options: ['An agreement involving three or more countries', 'An agreement between exactly two parties, usually countries', 'A domestic-only policy', 'A type of currency exchange rate'], correct: 1, explanation: 'Bilateral means "two-sided" — an agreement negotiated directly between two parties, as opposed to multilateral deals involving several.' },
+      { category: 'Marketing', q: 'What is a customer persona?', options: ['A legal identity document', 'A semi-fictional profile representing a segment of the target audience', 'A brand’s tagline', 'A pricing tier'], correct: 1, explanation: 'Personas help teams design messaging and products around a realistic picture of who they’re actually for.' },
+      { category: 'Marketing', q: 'What does "market share" measure?', options: ['Total company revenue', 'A company’s sales as a percentage of total sales in its industry', 'The number of countries a brand operates in', 'A company’s marketing budget'], correct: 1, explanation: 'Market share shows how a company is performing relative to its whole industry, not just in absolute terms.' },
+      { category: 'Marketing', q: 'What is word-of-mouth marketing?', options: ['Radio advertising', 'People sharing recommendations about a brand with others, organically', 'A trade show presentation', 'Cold-calling prospects'], correct: 1, explanation: 'Word-of-mouth spreads through genuine recommendations rather than paid placement, which is often why it’s so trusted.' },
+      { category: 'Marketing', q: 'What does "omnichannel" marketing mean?', options: ['Using only one advertising channel', 'Providing a consistent, connected experience across multiple channels', 'Marketing exclusively on TV', 'A type of pricing strategy'], correct: 1, explanation: 'Omnichannel means a customer gets the same coherent experience whether they’re on social, email, in-store or on the website.' },
+      { category: 'Marketing', q: 'What is a value proposition?', options: ['The lowest price offered', 'A clear statement of the specific value and benefits a product delivers to customers', 'A refund policy', 'A company’s mission statement only'], correct: 1, explanation: 'A value proposition answers "why should I choose this?" for the customer, distinct from a mission statement aimed inward.' },
+      { category: 'Finance', q: 'What is equity, in a business context?', options: ['Total debt owed', 'Ownership value in a company after liabilities are subtracted from assets', 'Annual revenue', 'A type of loan'], correct: 1, explanation: 'Equity represents what owners would actually keep if all debts were settled today.' },
+      { category: 'Finance', q: 'What does "liquidity" refer to?', options: ['How easily an asset can be converted to cash', 'The total value of a company’s assets', 'The interest rate on debt', 'A company’s profit margin'], correct: 0, explanation: 'Highly liquid assets (like cash itself) can be used almost immediately; others, like property, take time to convert.' },
+      { category: 'Finance', q: 'What is depreciation?', options: ['An increase in a company’s stock price', 'The gradual reduction in value of an asset over time', 'A one-time tax refund', 'A type of employee bonus'], correct: 1, explanation: 'Depreciation spreads the cost of an asset, like equipment, over its useful life instead of all at once.' },
+      { category: 'Finance', q: 'What does "working capital" measure?', options: ['Total company debt', 'The difference between current assets and current liabilities, showing short-term financial health', 'Annual profit', 'Employee salaries'], correct: 1, explanation: 'Working capital shows whether a business can comfortably cover its near-term obligations.' },
+      { category: 'Finance', q: 'What is an invoice?', options: ['A legal contract', 'A document requesting payment for goods or services provided', 'A tax filing', 'A bank statement'], correct: 1, explanation: 'An invoice formally requests payment and records what was provided, at what price, and when it’s due.' },
+      { category: 'Social Media', q: 'What is a hashtag primarily used for?', options: ['Formatting bold text', 'Categorizing content and making it discoverable around a topic', 'Tagging a location', 'Blocking a user'], correct: 1, explanation: 'Hashtags group related posts together, helping people find content on a topic beyond just their existing followers.' },
+      { category: 'Social Media', q: 'What does "impressions" measure on social media?', options: ['Unique viewers only', 'The total number of times content was displayed, regardless of clicks or engagement', 'The number of shares', 'Follower growth rate'], correct: 1, explanation: 'Impressions count every display, so one person seeing a post three times counts as three impressions.' },
+      { category: 'Social Media', q: 'What is influencer marketing?', options: ['Advertising exclusively through TV celebrities', 'Partnering with individuals who have an engaged audience to promote a brand', 'A type of SEO strategy', 'Email marketing automation'], correct: 1, explanation: 'Influencer marketing borrows an existing audience’s trust in a creator to introduce them to a brand.' },
+      { category: 'Social Media', q: 'What does "UGC" stand for in a marketing context?', options: ['Universal Growth Campaign', 'User-Generated Content', 'Unified Graphic Concept', 'Urgent Growth Check'], correct: 1, explanation: 'UGC is content created by customers or fans rather than the brand itself, often used for its authenticity.' },
+      { category: 'Social Media', q: 'What is a social media algorithm change typically meant to do?', options: ['Increase ad prices only', 'Improve what content is shown to users based on predicted relevance', 'Remove all organic reach permanently', 'Verify accounts faster'], correct: 1, explanation: 'Algorithm updates aim to surface content platforms predict users will actually want to see and engage with.' },
+      { category: 'Performance Marketing', q: 'What does CPM stand for?', options: ['Cost Per Mille (cost per thousand impressions)', 'Customer Purchase Metric', 'Campaign Performance Model', 'Content Publishing Method'], correct: 0, explanation: 'CPM prices ads by every thousand times they’re shown, regardless of clicks — useful for awareness-focused campaigns.' },
+      { category: 'Performance Marketing', q: 'What is a landing page primarily designed to do?', options: ['Show a company’s full website navigation', 'Drive a visitor toward one specific action, like signing up or buying', 'Host a blog archive', 'List all company job openings'], correct: 1, explanation: 'Landing pages strip away distractions so traffic from a specific campaign converts toward one clear goal.' },
+      { category: 'Performance Marketing', q: 'What does "attribution" mean in performance marketing?', options: ['Crediting a designer for an ad’s artwork', 'Identifying which touchpoints or channels contributed to a conversion', 'A legal disclaimer on ads', 'Naming a campaign internally'], correct: 1, explanation: 'Attribution tries to answer which ads, clicks or channels actually deserve credit for a sale.' },
+      { category: 'Performance Marketing', q: 'What is A/B testing an ad typically meant to determine?', options: ['Which version of an ad performs better', 'The total ad budget needed', 'The best time zone to launch in', 'Which competitor to target'], correct: 0, explanation: 'Running two ad variants side by side shows which one actually drives better results before scaling spend.' },
+      { category: 'Performance Marketing', q: 'What does "impression share" measure?', options: ['The percentage of eligible impressions an ad actually received', 'Total clicks divided by total spend', 'The number of keywords in a campaign', 'Customer satisfaction score'], correct: 0, explanation: 'Impression share shows how much of the available audience an ad reached versus how much it could have.' },
+      { category: 'Business', q: 'What is a competitive advantage?', options: ['Having the lowest number of employees', 'A unique attribute that lets a company outperform competitors', 'A company’s legal registration', 'An office location'], correct: 1, explanation: 'A real competitive advantage is something rivals can’t easily copy, like proprietary tech or brand trust.' },
+      { category: 'Business', q: 'What does "diversification" mean in a business strategy?', options: ['Focusing entirely on one product', 'Expanding into new products, markets or services to reduce risk', 'Reducing the workforce', 'Increasing debt only'], correct: 1, explanation: 'Diversifying spreads risk across multiple revenue sources instead of depending on just one.' },
+      { category: 'Business', q: 'What is a merger?', options: ['One company buying another company’s stock at a discount', 'Two companies combining into a single new entity', 'A company declaring bankruptcy', 'A type of employee contract'], correct: 1, explanation: 'A merger creates one combined company, distinct from an acquisition where one company absorbs another.' },
+      { category: 'Business', q: 'What does "overhead" refer to?', options: ['Direct costs of producing a specific product', 'Ongoing business expenses not directly tied to producing a specific product, like rent or utilities', 'One-time legal fees', 'Employee bonuses only'], correct: 1, explanation: 'Overhead keeps the business running regardless of how much is actually produced or sold in a given period.' },
+      { category: 'Business', q: 'What is a KPI?', options: ['A Key Performance Indicator used to measure progress toward a goal', 'A type of tax form', 'A legal business license', 'A hiring policy'], correct: 0, explanation: 'KPIs turn a broad goal into something specific and trackable, like conversion rate or monthly revenue.' },
+      { category: 'Branding', q: 'What is brand consistency?', options: ['Never changing a logo', 'Presenting the same tone, visuals and messaging across every touchpoint', 'Only advertising on one platform', 'Having one single employee handle branding'], correct: 1, explanation: 'Consistency is what makes a brand instantly recognizable no matter where someone encounters it.' },
+      { category: 'Branding', q: 'What is a tagline?', options: ['A legal disclaimer', 'A short, memorable phrase capturing a brand’s essence or promise', 'A product’s barcode', 'A company’s stock ticker'], correct: 1, explanation: 'A good tagline compresses what a brand stands for into something people can actually remember.' },
+      { category: 'Branding', q: 'What does "brand differentiation" mean?', options: ['Making a brand identical to competitors', 'Establishing clear, meaningful differences that set a brand apart from competitors', 'Changing a brand’s name yearly', 'Reducing product variety'], correct: 1, explanation: 'Differentiation gives customers an actual reason to pick one brand over a near-identical alternative.' },
+      { category: 'Branding', q: 'What is a logo primarily meant to do?', options: ['Replace the need for any other branding', 'Serve as a simple, recognizable visual symbol representing a brand', 'List all company products', 'Show a company’s financials'], correct: 1, explanation: 'A logo is a visual shorthand for a brand — the rest of brand identity still has to do the heavier lifting.' },
+      { category: 'Branding', q: 'What does "brand loyalty" describe?', options: ['A legal contract with customers', 'Customers consistently choosing one brand over competitors over time', 'A one-time purchase', 'A discount coupon'], correct: 1, explanation: 'Loyal customers keep returning even when cheaper or more convenient alternatives exist.' },
+      { category: 'Consumer Psychology', q: 'What is the decoy effect?', options: ['Removing all options to force a decision', 'Adding a third, less attractive option to make one of the other two seem more appealing', 'Lowering all prices equally', 'A type of loyalty program'], correct: 1, explanation: 'A deliberately weaker third option can nudge people toward the pricier of the two real choices.' },
+      { category: 'Consumer Psychology', q: 'What is loss aversion?', options: ['People prefer gaining something over avoiding an equivalent loss', 'People feel the pain of a loss more strongly than the pleasure of an equivalent gain', 'It only affects financial decisions', 'It has no impact on marketing'], correct: 1, explanation: 'Losing ₹100 typically feels worse than gaining ₹100 feels good — a bias marketers often lean on with urgency framing.' },
+      { category: 'Consumer Psychology', q: 'What is the mere-exposure effect?', options: ['People dislike things they see often', 'People tend to develop a preference for things merely because they’re familiar with them', 'It only applies to advertising jingles', 'It reduces brand recall'], correct: 1, explanation: 'Repeated exposure alone, even without new information, tends to make people like something more.' },
+      { category: 'Consumer Psychology', q: 'What is confirmation bias?', options: ['Confirming an order was received', 'The tendency to favor information that confirms existing beliefs', 'A type of customer survey', 'A legal requirement for ads'], correct: 1, explanation: 'People tend to notice and trust information that agrees with what they already believed going in.' },
+      { category: 'Consumer Psychology', q: 'What is reciprocity, as used in marketing?', options: ['Charging customers twice', 'The tendency for people to want to return a favor, like a free sample, with a purchase', 'A refund policy', 'A pricing tiebreaker'], correct: 1, explanation: 'A small free gift can create a genuine sense of obligation to reciprocate, often through a purchase.' },
+      { category: 'Internet Culture', q: 'What is "doomscrolling"?', options: ['Deleting an old social account', 'Continuously scrolling through negative or distressing news content', 'A content moderation tool', 'A type of algorithm update'], correct: 1, explanation: 'Doomscrolling describes compulsively consuming bad news well past the point of it being useful.' },
+      { category: 'Internet Culture', q: 'What does it mean for content to be "gatekept"?', options: ['It’s been widely shared', 'Information or a recommendation is deliberately kept from spreading further', 'It was flagged as spam', 'It went viral instantly'], correct: 1, explanation: 'Gatekeeping means deliberately not sharing something — a place, product or tip — to keep it exclusive.' },
+      { category: 'Internet Culture', q: 'What is a "stan," in internet slang?', options: ['A casual, indifferent fan', 'An extremely or obsessively devoted fan of a person or thing', 'A type of troll account', 'A content moderator'], correct: 1, explanation: 'The term comes from an Eminem song about an obsessive fan and has since become general internet slang.' },
+      { category: 'Internet Culture', q: 'What does "touch grass" mean as internet slang?', options: ['A gardening tutorial', 'A suggestion that someone spends too much time online and should step away', 'A fitness challenge', 'A meme format about plants'], correct: 1, explanation: 'It’s a (usually joking) way of telling someone to get some perspective outside the internet.' },
+      { category: 'Internet Culture', q: 'What is "main character energy"?', options: ['Acting exactly like everyone else', 'Carrying oneself as if one is the protagonist of their own story, confidently', 'A film editing technique', 'A customer service policy'], correct: 1, explanation: 'It describes a confident, self-assured way of moving through life, as if starring in your own story.' },
+      { category: 'General Knowledge', q: 'What is the longest river in the world?', options: ['Amazon', 'Nile', 'Yangtze', 'Mississippi'], correct: 1, explanation: 'The Nile is traditionally cited as the longest river in the world, running through northeastern Africa.' },
+      { category: 'General Knowledge', q: 'How many continents are there?', options: ['5', '6', '7', '8'], correct: 2, explanation: 'The commonly taught model recognizes seven continents: Africa, Antarctica, Asia, Australia, Europe, North America and South America.' },
+      { category: 'General Knowledge', q: 'What is the largest mammal in the world?', options: ['African elephant', 'Blue whale', 'Giraffe', 'Orca'], correct: 1, explanation: 'The blue whale is the largest animal known to have ever existed, not just the largest mammal alive today.' },
+      { category: 'General Knowledge', q: 'Who painted the Mona Lisa?', options: ['Vincent van Gogh', 'Leonardo da Vinci', 'Pablo Picasso', 'Claude Monet'], correct: 1, explanation: 'Leonardo da Vinci painted the Mona Lisa in the early 16th century; it now hangs in the Louvre.' },
+      { category: 'General Knowledge', q: 'What is the smallest prime number?', options: ['0', '1', '2', '3'], correct: 2, explanation: '2 is the smallest prime number, and the only even prime — every other even number is divisible by 2.' },
+      { category: 'Geopolitics', q: 'What does "NATO" stand for?', options: ['North Atlantic Treaty Organization', 'National Alliance of Trade Organizations', 'New Age Trade Office', 'Northern Allied Territories Organization'], correct: 0, explanation: 'NATO is a political and military alliance formed after World War II for collective defense.' },
+      { category: 'Geopolitics', q: 'What is a "diplomatic embassy" primarily for?', options: ['A country’s military base abroad', 'Representing a country’s government and interests in another country', 'An international bank branch', 'A tourism office only'], correct: 1, explanation: 'Embassies handle official diplomatic relations, including protecting citizens abroad and negotiating with the host country.' },
+      { category: 'Geopolitics', q: 'What does "GDP" measure?', options: ['A country’s total population', 'The total monetary value of goods and services produced in a country over a period', 'A country’s total land area', 'The number of registered businesses'], correct: 1, explanation: 'GDP is one of the main indicators used to gauge the size and health of a country’s economy.' },
+      { category: 'Geopolitics', q: 'What is a "referendum"?', options: ['A court ruling', 'A direct vote by the electorate on a specific policy question', 'An annual budget report', 'A trade tariff'], correct: 1, explanation: 'Referendums let citizens vote directly on a specific issue, rather than through elected representatives.' },
+      { category: 'Geopolitics', q: 'What does "multilateral" mean, as opposed to bilateral?', options: ['Involving exactly two parties', 'Involving three or more parties or countries', 'Involving no formal parties', 'A type of currency exchange'], correct: 1, explanation: 'Multilateral agreements coordinate several countries at once, unlike a bilateral deal between just two.' }
     ];
 
     const BRAIN_CHECK_TIERS = [
@@ -9518,14 +9568,17 @@
       return results[fbMemberKey(currentUser)] || null;
     }
 
+    // Opens the Brain Check modal — called from its Team-page card, and from
+    // the Loona Board's daily nudge / winner-announcement action buttons.
     function bcGoToPage() {
-      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-      const page = document.getElementById('page-braincheck');
-      if (page) page.classList.add('active');
-      const navBtn = document.getElementById('nav-braincheck-btn');
-      if (navBtn) navBtn.classList.add('active');
+      const modal = document.getElementById('braincheck-modal');
+      if (modal) modal.classList.remove('hidden');
       bcOpenPage();
+    }
+
+    function bcCloseModal() {
+      const modal = document.getElementById('braincheck-modal');
+      if (modal) modal.classList.add('hidden');
     }
 
     function bcShowView(name) {
@@ -9797,7 +9850,6 @@
         const ranked = Object.values(resultsObj).slice().sort((a, b) => b.score - a.score || a.durationMs - b.durationMs);
         const rank = ranked.findIndex(r => normName(r.name) === normName(currentUser)) + 1;
         el.innerHTML = `
-          <div class="bc-card-title">Loona Brain Check</div>
           <div class="bc-card-sub">Your score today</div>
           <div class="bc-card-score">${myResult.score} / 10</div>
           <div class="bc-card-tier">${lnEsc(tier.title)}</div>
@@ -9807,7 +9859,6 @@
         return;
       }
       el.innerHTML = `
-        <div class="bc-card-title">Loona Brain Check</div>
         <div class="bc-card-sub">10 questions. One score. No pretending you knew that.</div>
         <div class="bc-card-desc">A daily mix of marketing, finance, social media, branding and business.</div>
         <button class="btn btn-primary" onclick="bcGoToPage()">Start Today's Check</button>
@@ -11370,6 +11421,7 @@
         const actionBtn = a.action==='oracle' ? `<button class="btn btn-primary" style="padding:5px 10px;font-size:11px" onclick="openLoonaOracle()">🔮 ${a.actionLabel?String(a.actionLabel).replace(/</g,'&lt;'):"Read Today's Oracle"}</button>`
           : a.action==='costar' ? `<button class="btn btn-primary" style="padding:5px 10px;font-size:11px" onclick="openCostarModal()">🎬 ${a.actionLabel?String(a.actionLabel).replace(/</g,'&lt;'):'Find Your Co-Star'}</button>`
           : a.action==='braincheck' ? `<button class="btn btn-primary" style="padding:5px 10px;font-size:11px" onclick="bcGoToPage();bcShowLeaderboard()">🧠 ${a.actionLabel?String(a.actionLabel).replace(/</g,'&lt;'):"See Everyone's Scores"}</button>`
+          : a.action==='braincheck-start' ? `<button class="btn btn-primary" style="padding:5px 10px;font-size:11px" onclick="bcGoToPage()">🧠 ${a.actionLabel?String(a.actionLabel).replace(/</g,'&lt;'):"Take Today's Check"}</button>`
           : '';
         return `<div class="lb-item"><div class="lb-meta">${authorIcon}<span class="lb-author">${a.author||'Team'}</span><span class="lb-time">${when}</span>${canDel?`<span class="lb-del" title="Remove" onclick="deleteAnnouncement(${a.id})">✕</span>`:''}</div>${a.text?`<div class="lb-text">${String(a.text).replace(/</g,'&lt;')}</div>`:''}${a.image?`<img class="lb-img" src="${a.image}" alt="">`:''}<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px">${(((a.links&&a.links.length)?a.links:(a.link?[a.link]:[]))||[]).map(L=>`<a class="lb-link" style="margin-top:0" href="${L}" target="_blank" rel="noopener">🔗 ${L.length>50?L.slice(0,50)+'…':L}</a>`).join('')}${recordBtn}${actionBtn}</div></div>`;
       }).join('')+`</div></div>`;
@@ -13618,9 +13670,6 @@
       }
       if (id === 'radio') {
         openRadioPage();
-      }
-      if (id === 'braincheck') {
-        bcOpenPage();
       }
     }
 
@@ -16261,7 +16310,10 @@ ${brandLines}`;
    .radio-redesign) instead of sitting directly on the orange page gradient —
    orange accent text over an orange gradient has no contrast, and every
    other section on this page already assumes a dark backdrop. */
-.bc-theme{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:26px 22px;margin:-4px -4px 0}
+.bc-theme{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:26px 22px}
+.bc-modal-box{position:relative;width:820px;max-width:92vw;max-height:88vh;overflow-y:auto}
+.bc-modal-close{display:block;text-align:right;color:var(--muted);font-size:12.5px;cursor:pointer;padding:4px 0 8px}
+.bc-modal-close:hover{color:var(--text)}
 .bc-hero{max-width:640px;margin:0 auto;text-align:center;padding:36px 20px}
 .bc-hero-title{font-family:var(--card-font);font-weight:900;color:var(--accent);font-size:clamp(30px,4.5vw,44px);margin-bottom:10px}
 .bc-hero-tagline{color:var(--text);font-size:15px;margin-bottom:18px}
@@ -16354,7 +16406,6 @@ ${brandLines}`;
 .bc-lb-note{max-width:640px;margin:16px auto 0;color:var(--muted);font-size:11.5px;text-align:center;font-style:italic}
 .bc-empty-state{color:var(--muted);font-size:13px;text-align:center;padding:20px}
 
-.bc-card{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:20px}
 .bc-card-title{font-family:var(--card-font);font-weight:700;font-size:18px;color:var(--text)}
 .bc-card-sub{color:var(--muted);font-size:12.5px;margin-top:4px}
 .bc-card-desc{color:var(--muted);font-size:12px;margin-top:6px;margin-bottom:14px}

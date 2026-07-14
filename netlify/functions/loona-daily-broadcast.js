@@ -1,15 +1,21 @@
 // ============================================================================
-// LOONA Hub · Daily Oracle + Co-Star broadcast (Netlify Scheduled Function)
+// LOONA Hub · Daily Oracle + Co-Star + Brain Check broadcast (Netlify
+// Scheduled Function)
 // ----------------------------------------------------------------------------
-// Runs once daily at 10:00 IST (see netlify.toml) and posts two Loona Board
+// Runs once daily at 10:00 IST (see netlify.toml) and posts three Loona Board
 // announcements, visible to the whole team:
 //   1. A nudge to check today's Loona Oracle card
 //   2. A nudge to find today's Co-Star
+//   3. A nudge that today's Loona Brain Check is live
 // Each carries an action button (wired client-side in renderLoonaBoard, see
-// index.html) that opens openLoonaOracle()/openCostarModal() for whoever
-// clicks it — those already pick a different card/match per person per day
-// (tarotForToday/workBuddyForToday), so this is one shared post, not one per
-// person; only the reveal itself is personal.
+// index.html). The Oracle/Co-Star ones open openLoonaOracle()/openCostarModal()
+// for whoever clicks it — those already pick a different card/match per
+// person per day (tarotForToday/workBuddyForToday), so this is one shared
+// post, not one per person; only the reveal itself is personal. The Brain
+// Check one opens its modal (bcGoToPage(), see index.html) — today's 10
+// questions are the same for everyone, picked deterministically client-side
+// from a shared question bank (see BRAIN_CHECK_QUESTIONS/BC_PERMUTATION), so
+// there's nothing to compute server-side here beyond the nudge itself.
 //
 // Manual run (for testing): GET /.netlify/functions/loona-daily-broadcast
 // ============================================================================
@@ -73,6 +79,15 @@ exports.handler = async () => {
         timestamp: new Date().toISOString(),
         action: "costar",
         actionLabel: "Find Your Co-Star"
+      },
+      {
+        id: base + 2,
+        text: "Today's Loona Brain Check is live.\n\n10 questions. One score. No pretending you knew that.",
+        author: "Loona Brain Check",
+        emoji: "🧠",
+        timestamp: new Date().toISOString(),
+        action: "braincheck-start",
+        actionLabel: "Take Today's Check"
       }
     ];
     const results = await Promise.all(posts.map((p) => fbPost("/announcements", p)));
