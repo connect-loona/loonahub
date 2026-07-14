@@ -5589,7 +5589,13 @@
 
       <section class="section lv2-mid-grid" id="lv-scores">
         <article class="lv2-panel">
-          <div class="lv2-kicker">◎ Your Personal Score</div>
+          <div class="lv2-sb-header">
+            <div class="lv2-sb-header-icon">👥</div>
+            <div>
+              <div class="lv2-sb-title">Personal Scoreboard</div>
+              <div class="lv2-sb-subtitle">Your daily rating across the Loonaverse</div>
+            </div>
+          </div>
           <div id="lv-personal-score"></div>
         </article>
         <article class="lv2-panel">
@@ -7527,6 +7533,12 @@
       updateTopbarAvatar();
       const adminBtn = document.getElementById('nav-admin-btn');
       if (adminBtn) adminBtn.style.display = normName(name) === 'gokul' ? '' : 'none';
+      if (_db) {
+        _db.ref('loonaverseXp/' + fbMemberKey(name)).on('value', snap => {
+          window.LV_XP = snap.val() || null;
+          if (typeof lvRenderPersonalScore === 'function') lvRenderPersonalScore();
+        });
+      }
       init();
     }
 
@@ -9178,6 +9190,7 @@
         const key = personalityFromTraits(scores);
         if (MEMBER_INFO[currentUser]) MEMBER_INFO[currentUser].loonaPersonality = key;
         if (_db) _db.ref('members/' + fbMemberKey(currentUser) + '/loonaPersonality').set(key);
+        lvAwardOnce('quiz_first', 25);
         renderQuizResult(key);
         renderDailyExtras();
         if (window._openLoonaticProfileName === currentUser && window._loonaticEditMode !== currentUser) {
@@ -9303,6 +9316,7 @@
       if (!currentUser) return;
       const card = tarotForToday(currentUser);
       if (!card) return;
+      lvAwardOnce('oracle_' + bcTodayDateIST(), 5);
       const hour = luckyHourForToday(currentUser);
       document.getElementById('loona-oracle-content').innerHTML = `
         <div class="oracle-card-label">THE LOONA ORACLE</div>
@@ -9356,6 +9370,7 @@
       if (!currentUser) return;
       const result = workBuddyForToday(currentUser);
       if (!result) return;
+      lvAwardOnce('costar_' + bcTodayDateIST(), 5);
       const modal = document.getElementById('costar-modal');
       const center = document.getElementById('costar-center-avatar');
       const title = document.getElementById('costar-title');
@@ -9773,6 +9788,7 @@
       const date = bcTodayDateIST();
       _db.ref('brainCheck/results/' + date + '/' + fbMemberKey(currentUser)).set(result);
       bcUpdateStreak(date);
+      lvAwardOnce('brain_' + date, result.score * 10);
     }
 
     function bcYesterdayDateIST(dateStr) {
@@ -9792,6 +9808,28 @@
         if (cur && cur.lastDate === yesterday) return { count: (cur.count || 0) + 1, lastDate: date };
         return { count: 1, lastDate: date };
       });
+      lvAwardOnce('streak_' + date, 5);
+    }
+
+    // ═══ LOONAVERSE XP ═══
+    // Rule: Brain Check = score×10 (0-100). Streak continuing = +5/day. Oracle
+    // draw / Co-Star reveal = +5 each, once/day. Personality quiz = +25,
+    // one-time (first completion only). Idea submitted = +10, once/day.
+    // "Once" actions are guarded by a flag transaction that only commits (and
+    // only then triggers the actual award) the first time it flips from unset
+    // to true — safe even if the transaction callback retries internally.
+    function lvAwardXp(amount) {
+      if (!_db || !currentUser || !amount) return;
+      const key = fbMemberKey(currentUser);
+      const date = bcTodayDateIST();
+      _db.ref('loonaverseXp/' + key + '/total').transaction(cur => (cur || 0) + amount);
+      _db.ref('loonaverseXp/' + key + '/daily/' + date).transaction(cur => (cur || 0) + amount);
+    }
+    function lvAwardOnce(flagPath, amount) {
+      if (!_db || !currentUser) return;
+      const key = fbMemberKey(currentUser);
+      _db.ref('loonaverseXp/' + key + '/awarded/' + flagPath).transaction(cur => cur ? undefined : true)
+        .then(result => { if (result && result.committed) lvAwardXp(amount); });
     }
 
     function bcRenderScore(result) {
@@ -10000,28 +10038,58 @@
           </div>`;
         return;
       }
-      const pct = myResult.score * 10;
-      const tier = bcTierFor(myResult.score);
       const resultsObj = (window.BRAINCHECK_RESULTS || {})[date] || {};
       const ranked = Object.values(resultsObj).slice().sort((a, b) => b.score - a.score || a.durationMs - b.durationMs);
       const rank = ranked.findIndex(r => normName(r.name) === normName(currentUser)) + 1;
+
       const streak = (window.BC_STREAKS || {})[fbMemberKey(currentUser)];
       const yesterday = bcYesterdayDateIST(date);
       const streakCount = streak && (streak.lastDate === date || streak.lastDate === yesterday) ? streak.count : 1;
+
+      const xp = window.LV_XP || {};
+      const xpTotal = xp.total || 0;
+      const xpToday = (xp.daily || {})[date] || 0;
+
+      // Today's Score is a composite: Brain Check score plus a small streak
+      // bonus (+0.05/day, capped at +1.0) — rewards consistency without
+      // letting the streak alone carry the number away from today's result.
+      const composite = Math.min(10, myResult.score + Math.min(streakCount * 0.05, 1));
+      const compositeStr = composite.toFixed(1);
+      const pct = composite * 10;
+      const captionFor = s => s >= 9 ? 'Great work, Loonatic! 🔥' : s >= 7 ? 'Solid day. Keep it up.' : s >= 5 ? 'Room to climb tomorrow.' : "Rough one — tomorrow's a reset.";
+      const bcQuipFor = s => s >= 8 ? 'Good call.' : s >= 5 ? 'Not bad.' : 'Rough one.';
+
+      const catEntries = Object.entries(myResult.categories || {});
+      let strongest = null, weakest = null;
+      if (catEntries.length) {
+        const rankedCats = catEntries.slice().sort((a, b) => (b[1].correct / b[1].total) - (a[1].correct / a[1].total));
+        strongest = rankedCats[0];
+        weakest = rankedCats[rankedCats.length - 1];
+        if ((weakest[1].correct / weakest[1].total) >= (strongest[1].correct / strongest[1].total)) weakest = null;
+      }
+
       el.innerHTML = `
-        <div class="lv2-score-wrap">
-          <div class="lv2-score-ring" style="background:conic-gradient(var(--accent) 0 ${pct}%,rgba(255,255,255,.12) ${pct}% 100%)">
-            <div class="lv2-score-number">${myResult.score}<small>TODAY'S SCORE</small></div>
+        <div class="lv2-sb-main">
+          <div class="lv2-score-ring-wrap">
+            <div class="lv2-score-ring" style="background:conic-gradient(var(--accent) 0 ${pct}%,rgba(255,255,255,.12) ${pct}% 100%)">
+              <div class="lv2-score-number">${compositeStr}<small>/10</small></div>
+            </div>
+            <div class="lv2-score-sub">Today's Score</div>
+            <div class="lv2-score-caption">${captionFor(composite)}</div>
           </div>
-          <div class="lv2-rating">
-            <h3>${lnEsc(tier.title)}</h3>
-            <p>${lnEsc(tier.desc)}</p>
-            <div class="lv2-metric"><span>Brain Check</span><strong>${myResult.score}/10</strong></div>
-            ${rank ? `<div class="lv2-metric"><span>Current rank</span><strong>#${rank}</strong></div>` : ''}
-            <div class="lv2-metric"><span>Daily streak</span><strong>${streakCount} day${streakCount === 1 ? '' : 's'}</strong></div>
+          <div class="lv2-sb-stats">
+            <div class="lv2-sb-tile"><span class="lv2-sb-tile-icon">🧠</span><div><div class="lv2-sb-tile-label">Brain Check</div><div class="lv2-sb-tile-value">${myResult.score}/10</div><div class="lv2-sb-tile-note">${bcQuipFor(myResult.score)}</div></div></div>
+            <div class="lv2-sb-tile"><span class="lv2-sb-tile-icon">🔥</span><div><div class="lv2-sb-tile-label">Daily Streak</div><div class="lv2-sb-tile-value">${streakCount} day${streakCount === 1 ? '' : 's'}</div><div class="lv2-sb-tile-note">${streakCount >= 5 ? 'On fire! 🔥' : streakCount > 1 ? 'Keep it going.' : 'Just started.'}</div></div></div>
+            <div class="lv2-sb-tile"><span class="lv2-sb-tile-icon">⭐</span><div><div class="lv2-sb-tile-label">Loonaverse XP</div><div class="lv2-sb-tile-value">${xpTotal.toLocaleString()}</div><div class="lv2-sb-tile-note">+${xpToday} today</div></div></div>
+            <div class="lv2-sb-tile"><span class="lv2-sb-tile-icon">🏆</span><div><div class="lv2-sb-tile-label">Team Rank</div><div class="lv2-sb-tile-value">${rank ? '#' + rank : '—'}</div><div class="lv2-sb-tile-note">${rank && rank <= 10 ? 'Top 10 today' : rank ? 'Keep climbing.' : ''}</div></div></div>
           </div>
         </div>
-        <button class="btn" style="width:100%;margin-top:14px" onclick="bcGoToPage();bcShowScore()">View Full Score →</button>`;
+        ${(strongest || weakest) ? `
+        <div class="lv2-sb-cats">
+          ${strongest ? `<div class="lv2-sb-cat"><span class="lv2-sb-tile-icon">🎯</span><div><div class="lv2-sb-tile-label">Strongest Category</div><div class="lv2-sb-tile-value">${lnEsc(strongest[0])}</div></div></div>` : ''}
+          ${weakest ? `<div class="lv2-sb-cat"><span class="lv2-sb-tile-icon">☕</span><div><div class="lv2-sb-tile-label">Needs Coffee</div><div class="lv2-sb-tile-value">${lnEsc(weakest[0])}</div></div></div>` : ''}
+        </div>` : ''}
+        <button class="btn lv2-sb-full-btn" onclick="bcGoToPage();bcShowScore()">View Full Score →</button>`;
     }
 
     function lvRenderLeaderboard() {
@@ -10086,6 +10154,7 @@
       const text = box.value.trim();
       if (!text) return;
       if (_db) _db.ref('loonaverseIdeas').push({ text, author: currentUser, timestamp: new Date().toISOString() });
+      lvAwardOnce('idea_' + bcTodayDateIST(), 10);
       box.value = '';
       const toast = document.getElementById('completion-toast');
       if (toast) {
@@ -16305,16 +16374,29 @@ ${brandLines}`;
 .lv2-mid-grid{display:grid;grid-template-columns:1fr 1.05fr;gap:16px;margin-bottom:26px}
 .lv2-panel{padding:20px;border:1px solid var(--border);border-radius:20px;background:linear-gradient(var(--surface),var(--surface2));box-shadow:0 18px 40px rgba(0,0,0,.25)}
 .lv2-kicker{color:var(--accent2);margin-bottom:12px;font-weight:600;font-size:14px}
+.lv2-sb-header{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px}
+.lv2-sb-header-icon{font-size:22px;color:var(--accent2);line-height:1}
+.lv2-sb-title{font-size:17px;font-weight:700;color:var(--accent2)}
+.lv2-sb-subtitle{font-size:12px;color:var(--muted);margin-top:2px}
 .lv2-score-empty{padding:14px 0}
 .lv2-score-empty p{color:var(--muted);margin:0 0 12px}
-.lv2-score-wrap{display:grid;grid-template-columns:130px 1fr;gap:20px;align-items:center}
-.lv2-score-ring{width:125px;height:125px;border-radius:50%;display:grid;place-items:center;position:relative}
-.lv2-score-ring:before{content:"";position:absolute;inset:9px;border-radius:50%;background:var(--surface)}
-.lv2-score-number{position:relative;text-align:center;font-size:32px;font-weight:800;color:var(--text)}
-.lv2-score-number small{display:block;font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.03em}
-.lv2-rating h3{font-size:20px;margin:0 0 6px;color:var(--text)}
-.lv2-rating p{color:var(--muted);line-height:1.5;font-size:12.5px;margin:0 0 8px}
-.lv2-metric{display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid var(--border);font-size:12.5px;color:var(--text)}
+.lv2-sb-main{display:grid;grid-template-columns:150px 1fr;gap:16px;align-items:stretch;margin-bottom:14px}
+.lv2-score-ring-wrap{background:var(--surface2);border:1px solid var(--border);border-radius:16px;padding:16px 10px;display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:center}
+.lv2-score-ring{width:120px;height:120px;border-radius:50%;display:grid;place-items:center;position:relative;margin-bottom:10px}
+.lv2-score-ring:before{content:"";position:absolute;inset:9px;border-radius:50%;background:var(--surface2)}
+.lv2-score-number{position:relative;text-align:center;font-size:30px;font-weight:800;color:var(--text)}
+.lv2-score-number small{font-size:14px;color:var(--muted);font-weight:600}
+.lv2-score-sub{color:var(--muted);font-size:11.5px;font-weight:600}
+.lv2-score-caption{color:var(--text);font-size:11.5px;margin-top:6px;line-height:1.4}
+.lv2-sb-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.lv2-sb-tile{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:12px;display:flex;gap:10px;align-items:flex-start}
+.lv2-sb-tile-icon{font-size:18px;line-height:1;flex:0 0 auto}
+.lv2-sb-tile-label{font-size:11px;color:var(--muted);margin-bottom:2px}
+.lv2-sb-tile-value{font-size:19px;font-weight:800;color:var(--text);line-height:1.2}
+.lv2-sb-tile-note{font-size:10.5px;color:var(--muted);margin-top:2px}
+.lv2-sb-cats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.lv2-sb-cat{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:12px;display:flex;gap:10px;align-items:center}
+.lv2-sb-full-btn{width:100%;background:transparent;border:1px solid rgba(255,109,41,.55);color:var(--text)}
 .lv2-lb-row{display:grid;grid-template-columns:30px 1fr 55px 55px;gap:8px;padding:9px 4px;border-top:1px solid var(--border);align-items:center;font-size:12.5px;color:var(--text)}
 .lv2-lb-row:first-of-type{border-top:none}
 .lv2-lb-row.you{border:1px solid rgba(255,109,41,.55);border-radius:10px;background:rgba(255,109,41,.08);color:var(--accent2)}
@@ -16347,8 +16429,9 @@ ${brandLines}`;
 }
 @media(max-width:520px){
   .lv2-hero-copy h1{font-size:36px}
-  .lv2-score-wrap{grid-template-columns:1fr}
-  .lv2-score-ring{margin:0 auto}
+  .lv2-sb-main{grid-template-columns:1fr}
+  .lv2-sb-stats{grid-template-columns:1fr 1fr}
+  .lv2-sb-cats{grid-template-columns:1fr}
 }
 </style>
   <style id="loonanotes-css">
