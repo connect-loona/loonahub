@@ -6507,6 +6507,14 @@
           if (currentUser === 'Gokul' && typeof window.renderAttendanceOverview === 'function') window.renderAttendanceOverview();
         });
 
+        // Lifetime completed-task counts (see bumpLifetimeCompleted) — powers
+        // "My Completed %" on Overview without being affected by autoClearCompleted
+        // pruning old completed tasks out of TASKS.
+        _db.ref('taskStats').on('value', snap => {
+          window.TASK_STATS = snap.val() || {};
+          if (currentUser) renderOverview();
+        });
+
         _db.ref('meetingNotes').on('value', snap => {
           const data = snap.val() || {};
           window.MEETING_NOTES = Object.entries(data)
@@ -6904,6 +6912,19 @@
         Object.assign(t, updates);
         renderTasks(); renderOverview(); renderOverdue();
       }
+    }
+
+    // Persistent, monotonically-increasing "tasks completed" counter per member —
+    // kept separate from the live TASKS list on purpose. autoClearCompleted()
+    // deletes old completed tasks to keep the board tidy, but ONLY ever removes
+    // Completed ones (open tasks stick around indefinitely) — so if "My
+    // Completed %" were computed purely from the current TASKS list, tidying up
+    // would keep dragging that percentage down over time even though nothing
+    // about the person's actual performance changed. This counter never
+    // decrements, so clearing old completed tasks can't move it.
+    function bumpLifetimeCompleted(memberName) {
+      if (!_db || !memberName) return;
+      _db.ref('taskStats/' + fbMemberKey(memberName) + '/lifetimeCompleted').transaction(cur => (cur || 0) + 1);
     }
 
     function fbDeleteTaskByKey(key, fallbackIdx) {
@@ -7772,7 +7793,25 @@
       const myIP = myTasks.filter(t => t.status === 'In Progress').length;
       const myNS = myTasks.filter(t => t.status === 'Not Started' || t.status === '').length;
       const myDef = myTasks.filter(t => t.status === 'Deferred').length;
-      const myPct = myTasks.length ? Math.round(myDone / myTasks.length * 100) : 0;
+      // "My Completed %" is anchored to the persistent lifetime-completed counter
+      // (see bumpLifetimeCompleted) plus however many tasks are still open right
+      // now — NOT myDone/myTasks.length. autoClearCompleted() only ever removes
+      // old COMPLETED tasks from TASKS (open ones stick around indefinitely), so
+      // a live-count ratio would keep dragging this percentage down every time
+      // old completed work gets tidied away, which is backwards.
+      const myStatsKey = fbMemberKey(currentUser);
+      const myStats = (window.TASK_STATS || {})[myStatsKey] || {};
+      let myLifetimeCompleted = myStats.lifetimeCompleted;
+      if (myLifetimeCompleted == null) {
+        // One-time backfill for members who haven't had this counter seeded yet —
+        // start it from what's currently visible so shipping this doesn't look
+        // like a regression, then bumpLifetimeCompleted takes over from here.
+        myLifetimeCompleted = myDone;
+        if (_db) _db.ref('taskStats/' + myStatsKey + '/lifetimeCompleted').transaction(cur => cur == null ? myDone : cur);
+      }
+      const myOpenCount = myTasks.filter(t => t.status !== 'Completed').length;
+      const myPctDenom = myLifetimeCompleted + myOpenCount;
+      const myPct = myPctDenom ? Math.round(myLifetimeCompleted / myPctDenom * 100) : 0;
 
       // Today's tasks (due today, for this member)
       const today = new Date().toISOString().slice(0, 10);
@@ -11285,7 +11324,7 @@
         const newStat = req.type === 'deferral' ? 'Deferred' : 'Completed';
         const extra = newStat === 'Completed' ? { completed_at: new Date().toISOString() } : { deferred_at: new Date().toISOString() };
         fbUpdateTask(taskIdx, { status: newStat, ...extra });
-        if (newStat === 'Completed') showCompletionToast(req.member);
+        if (newStat === 'Completed') { bumpLifetimeCompleted(req.member); showCompletionToast(req.member); }
       } else if (decision === 'changes') {
         fbUpdateTask(taskIdx, { status: 'Changes Required' });
       } else if (decision === 'client') {
@@ -13537,6 +13576,7 @@
       });
 
       if (completedNow) {
+        bumpLifetimeCompleted(TASKS[idx].member);
         showCompletionToast(TASKS[idx].member);
         // If a registered employee completed the task, show a motivational quote popup
         if (isRegisteredMember(TASKS[idx].member)) {
