@@ -39,6 +39,12 @@
 [functions."brain-check-winner"]
   schedule = "30 6 * * *"
 
+# Generates the day's "Marketing News in 60 Seconds" card on the Loonaverse
+# page — Claude searches the web and summarizes 5 real current stories.
+# 04:00 UTC = 09:30 IST, ahead of the 10:00 IST daily broadcast.
+[functions."marketing-news-daily"]
+  schedule = "0 4 * * *"
+
 # Set these in Netlify → Site settings → Environment variables (NOT in code):
 #   PETPOOJA_CLIENT_ID
 #   PETPOOJA_CLIENT_SECRET
@@ -46,7 +52,11 @@
 #   FIREBASE_DB_URL   (optional; defaults to the loona-hub RTDB)
 #   BASIC_AUTH_CREDENTIALS   (site-wide password gate — see netlify/edge-functions/basic-auth.ts.
 #                             Format: username:password. Without this set, the site is NOT gated.)
-#   CLAUDE_API_KEY           (used by notes-summarize + tasks-extract for note/task generation)
+#   CLAUDE_API_KEY           (used by notes-summarize + tasks-extract for note/task generation,
+#                             and by marketing-news-daily for the Loonaverse "Marketing News"
+#                             card — that one also needs web search enabled on the API key/org,
+#                             since it uses the web_search_20250305 tool to ground its summaries
+#                             in real, current stories rather than inventing them)
 #   SARVAM_API_KEY           (Sarvam AI batch speech-to-text, used by Loona Notes' meeting
 #                             recorder — see netlify/functions/sarvam-*.js)
 #   GOOGLE_CALENDAR_SERVICE_ACCOUNT   (full JSON key contents for the service account
