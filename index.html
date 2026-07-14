@@ -6439,6 +6439,7 @@
         }
 
         let _tasksInitialized = false;
+        let _announcementsInitialized = false;
         _db.ref('tasks').on('value', snap => {
           const data = snap.val() || {};
           const fresh = Object.entries(data).map(([k, v]) => ({ ...v, _key: k }));
@@ -6485,12 +6486,17 @@
 
         _db.ref('announcements').on('value', snap => {
           const data = snap.val() || {};
+          const fresh = Object.entries(data).map(([k, v]) => ({ ...v, _key: k }));
+          // Desktop notification for genuinely new posts only — same
+          // already-initialized guard as the tasks listener's showSyncNotif,
+          // so the whole history doesn't fire a notification on first load.
+          if (_announcementsInitialized) {
+            const existingKeys = new Set(ANNOUNCEMENTS.map(a => a._key));
+            fresh.filter(a => a && !existingKeys.has(a._key)).forEach(a => sendBoardDesktopNotification(a));
+          }
           ANNOUNCEMENTS.length = 0;
-          ANNOUNCEMENTS.push(
-            ...Object.entries(data)
-              .map(([k, v]) => ({ ...v, _key: k }))
-              .sort((a, b) => (b.id || 0) - (a.id || 0))
-          );
+          ANNOUNCEMENTS.push(...fresh.sort((a, b) => (b.id || 0) - (a.id || 0)));
+          _announcementsInitialized = true;
           if (currentUser) renderReminders();
           // Server-written announcements (calendar-create.js/calendar-sync.js
           // posting a meeting straight to Firebase) only ever reach the client
@@ -6505,14 +6511,6 @@
             .map(([k, v]) => ({ ...v, _key: k }))
             .sort((a, b) => new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0));
           if (currentUser === 'Gokul' && typeof window.renderAttendanceOverview === 'function') window.renderAttendanceOverview();
-        });
-
-        // Lifetime completed-task counts (see bumpLifetimeCompleted) — powers
-        // "My Completed %" on Overview without being affected by autoClearCompleted
-        // pruning old completed tasks out of TASKS.
-        _db.ref('taskStats').on('value', snap => {
-          window.TASK_STATS = snap.val() || {};
-          if (currentUser) renderOverview();
         });
 
         _db.ref('meetingNotes').on('value', snap => {
@@ -6833,6 +6831,30 @@
     // Auto-connect if config embedded in HTML
     (function () { if (FIREBASE_CONFIG) initFirebase(FIREBASE_CONFIG); })();
 
+    // ═══ Desktop notifications for new Loona Board posts ═══
+    // Uses the browser's native Notification API — shows even when the Hub tab
+    // isn't focused (or is in a background tab/minimized window), which the
+    // in-app toast/Loona Board card obviously can't do. Requires the user to
+    // explicitly grant permission first (see requestBoardNotifications) —
+    // browsers block/ignore permission prompts that aren't tied to a real
+    // click, so this is never requested automatically on load.
+    function requestBoardNotifications() {
+      if (!('Notification' in window)) return;
+      Notification.requestPermission().then(() => { if (typeof renderLoonaBoard === 'function') renderLoonaBoard(); });
+    }
+    function sendBoardDesktopNotification(a) {
+      if (!a || !('Notification' in window) || Notification.permission !== 'granted') return;
+      if (normName(a.author) === normName(currentUser)) return; // don't notify people of their own post
+      try {
+        const n = new Notification((a.author || 'Team') + ' · Loona Board', {
+          body: (a.text || '').slice(0, 180),
+          icon: '/icons/icon-192-v2.png',
+          tag: 'loona-board-' + (a.id || a._key)
+        });
+        n.onclick = () => { window.focus(); };
+      } catch (e) { /* some browsers only allow Notification from a user-gesture context — safe to skip */ }
+    }
+
     let _snTimer = null;
     function showSyncNotif(task) {
       // Show a bottom-right popup whenever child_added fires with a new task from Firebase.
@@ -6912,19 +6934,6 @@
         Object.assign(t, updates);
         renderTasks(); renderOverview(); renderOverdue();
       }
-    }
-
-    // Persistent, monotonically-increasing "tasks completed" counter per member —
-    // kept separate from the live TASKS list on purpose. autoClearCompleted()
-    // deletes old completed tasks to keep the board tidy, but ONLY ever removes
-    // Completed ones (open tasks stick around indefinitely) — so if "My
-    // Completed %" were computed purely from the current TASKS list, tidying up
-    // would keep dragging that percentage down over time even though nothing
-    // about the person's actual performance changed. This counter never
-    // decrements, so clearing old completed tasks can't move it.
-    function bumpLifetimeCompleted(memberName) {
-      if (!_db || !memberName) return;
-      _db.ref('taskStats/' + fbMemberKey(memberName) + '/lifetimeCompleted').transaction(cur => (cur || 0) + 1);
     }
 
     function fbDeleteTaskByKey(key, fallbackIdx) {
@@ -7789,29 +7798,9 @@
 
       // My tasks (logged-in member)
       const myTasks = TASKS.filter(t => normName(t.member) === normName(currentUser));
-      const myDone = myTasks.filter(t => t.status === 'Completed').length;
       const myIP = myTasks.filter(t => t.status === 'In Progress').length;
       const myNS = myTasks.filter(t => t.status === 'Not Started' || t.status === '').length;
       const myDef = myTasks.filter(t => t.status === 'Deferred').length;
-      // "My Completed %" is anchored to the persistent lifetime-completed counter
-      // (see bumpLifetimeCompleted) plus however many tasks are still open right
-      // now — NOT myDone/myTasks.length. autoClearCompleted() only ever removes
-      // old COMPLETED tasks from TASKS (open ones stick around indefinitely), so
-      // a live-count ratio would keep dragging this percentage down every time
-      // old completed work gets tidied away, which is backwards.
-      const myStatsKey = fbMemberKey(currentUser);
-      const myStats = (window.TASK_STATS || {})[myStatsKey] || {};
-      let myLifetimeCompleted = myStats.lifetimeCompleted;
-      if (myLifetimeCompleted == null) {
-        // One-time backfill for members who haven't had this counter seeded yet —
-        // start it from what's currently visible so shipping this doesn't look
-        // like a regression, then bumpLifetimeCompleted takes over from here.
-        myLifetimeCompleted = myDone;
-        if (_db) _db.ref('taskStats/' + myStatsKey + '/lifetimeCompleted').transaction(cur => cur == null ? myDone : cur);
-      }
-      const myOpenCount = myTasks.filter(t => t.status !== 'Completed').length;
-      const myPctDenom = myLifetimeCompleted + myOpenCount;
-      const myPct = myPctDenom ? Math.round(myLifetimeCompleted / myPctDenom * 100) : 0;
 
       // Today's tasks (due today, for this member)
       const today = new Date().toISOString().slice(0, 10);
@@ -7823,6 +7812,16 @@
         if (t.status !== 'Not Started' && t.status !== 'In Progress') return false;
         return t.due_date && t.due_date < today;
       });
+
+      // "My Completed %" is a DAILY rate: today's assigned tasks combined with
+      // anything still carried over from before today — so backlog you haven't
+      // cleared drags the percentage down (as it should), and finishing either
+      // today's own work or old pending tasks brings it back up. Deliberately
+      // NOT a lifetime ratio — this is meant to reflect where things stand
+      // right now, backlog included, not an all-time score.
+      const myDailyPool = myTasks.filter(t => t.due_date && t.due_date <= today);
+      const myDone = myDailyPool.filter(t => t.status === 'Completed').length;
+      const myPct = myDailyPool.length ? Math.round(myDone / myDailyPool.length * 100) : 100;
       const allTodayDone = myToday.length > 0 && myTodayDone === myToday.length;
       const pendingDig = document.getElementById('pending-dig');
       if (myPending.length > 0 && !allTodayDone) {
@@ -11324,7 +11323,7 @@
         const newStat = req.type === 'deferral' ? 'Deferred' : 'Completed';
         const extra = newStat === 'Completed' ? { completed_at: new Date().toISOString() } : { deferred_at: new Date().toISOString() };
         fbUpdateTask(taskIdx, { status: newStat, ...extra });
-        if (newStat === 'Completed') { bumpLifetimeCompleted(req.member); showCompletionToast(req.member); }
+        if (newStat === 'Completed') showCompletionToast(req.member);
       } else if (decision === 'changes') {
         fbUpdateTask(taskIdx, { status: 'Changes Required' });
       } else if (decision === 'client') {
@@ -11438,7 +11437,10 @@
       let dismissed; try{ dismissed=getDismissedIds(); }catch(e){ dismissed=new Set(); }
       const items=(ANNOUNCEMENTS||[]).filter(a=>a && !dismissed.has(a.id) && (!a.visibleTo || !a.visibleTo.length || a.visibleTo.some(n=>normName(n)===normName(currentUser)))).slice(0,6);
       if(!items.length){ cont.innerHTML=''; return; }
-      cont.innerHTML=`<div class="loona-board-card"><div class="lb-head">📣 Loona Board<span class="lb-flash" title="${items.length} live update${items.length!==1?'s':''}"><span class="lb-flash-dot"></span>${items.length}</span></div><div class="lb-list">`+items.map(a=>{
+      const notifBtn = ('Notification' in window && Notification.permission === 'default')
+        ? `<button class="lb-notif-btn" onclick="event.stopPropagation();requestBoardNotifications()" title="Get a desktop alert when something new is posted">🔔 Enable alerts</button>`
+        : '';
+      cont.innerHTML=`<div class="loona-board-card"><div class="lb-head">📣 Loona Board<span class="lb-flash" title="${items.length} live update${items.length!==1?'s':''}"><span class="lb-flash-dot"></span>${items.length}</span>${notifBtn}</div><div class="lb-list">`+items.map(a=>{
         const canDel=true;
         const when=a.timestamp?new Date(a.timestamp).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
         const av=(MEMBER_INFO[a.author]||{}).avatar;
@@ -13576,7 +13578,6 @@
       });
 
       if (completedNow) {
-        bumpLifetimeCompleted(TASKS[idx].member);
         showCompletionToast(TASKS[idx].member);
         // If a registered employee completed the task, show a motivational quote popup
         if (isRegisteredMember(TASKS[idx].member)) {
@@ -16871,6 +16872,8 @@ ${brandLines}`;
   .lb-flash{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;background:rgba(224,92,92,.16);color:#ff7a52;border:1px solid rgba(255,109,41,.4);border-radius:20px;padding:2px 8px;letter-spacing:0;text-transform:none}
   .lb-flash-dot{position:relative;width:7px;height:7px;border-radius:50%;background:#ff5a3c}
   .lb-flash-dot::after{content:'';position:absolute;inset:-4px;border-radius:50%;background:#ff5a3c;opacity:.5;animation:ping 1.4s ease-out infinite}
+  .lb-notif-btn{margin-left:auto;background:none;border:1px solid rgba(255,109,41,.4);color:var(--accent2,#ff9457);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;letter-spacing:0;text-transform:none;cursor:pointer;font-family:var(--font);white-space:nowrap}
+  .lb-notif-btn:hover{background:rgba(255,109,41,.12)}
   .lb-list{display:flex;flex-direction:column;gap:12px}
   .lb-item{border-top:1px solid rgba(255,255,255,.06);padding-top:12px}
   .lb-item:first-child{border-top:none;padding-top:0}
