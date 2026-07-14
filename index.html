@@ -5098,33 +5098,6 @@
             Member</button>
         </div>
         <div class="member-grid" id="member-cards"></div>
-        <!-- Personal, once-a-day, deterministic per person — not tied to any one
-             profile, so these live below the whole roster as one grouped set of
-             "daily extras" rather than as three separate stacked sections. -->
-        <div class="section-header" style="margin-top:28px">
-          <div class="section-title">Your Daily <span>Loona Extras</span></div>
-        </div>
-        <div class="loona-extras-grid">
-          <div class="loona-extra-card">
-            <div class="loona-extra-title">🔮 The Loona Oracle</div>
-            <div id="daily-tarot-card"></div>
-          </div>
-          <div class="loona-extra-card">
-            <div class="loona-extra-title">🎬 Find Today's Co-Star</div>
-            <div class="oracle-intro">
-              <div class="oracle-tagline">A different scene partner every day — tap Reveal to find out who's in it with you.</div>
-              <button class="btn btn-primary" onclick="openCostarModal()" style="padding:7px 16px;font-size:12px">Reveal</button>
-            </div>
-          </div>
-          <div class="loona-extra-card">
-            <div class="loona-extra-title">🧭 Find Your Loona Personality</div>
-            <div id="loona-quiz-entry"></div>
-          </div>
-          <div class="loona-extra-card">
-            <div class="loona-extra-title">🧠 Loona Brain Check</div>
-            <div id="braincheck-card"></div>
-          </div>
-        </div>
         <div id="past-employees-section" style="display: none; margin-top: 28px;">
           <div class="section-header">
             <div class="section-title">Past <span>Employees</span></div>
@@ -5561,33 +5534,92 @@
     </div>
 
     <div class="page" id="page-loonaverse">
-      <div class="lv-hero">
-        <div class="lv-title">Loonaverse</div>
-        <div class="lv-subtitle">Our playground for everything we wish existed.</div>
-        <div class="lv-tagline">From wild ideas to useful tools, this is where we build, break, test, and dream out loud.</div>
+      <div class="lv2-subnav">
+        <a class="active" onclick="lvScrollTo('lv-today',this)">Today</a>
+        <a onclick="lvScrollTo('lv-play',this)">Play</a>
+        <a onclick="lvScrollTo('lv-scores',this)">Scores</a>
+        <a onclick="lvScrollTo('lv-build',this)">Build</a>
       </div>
-      <div class="lv-grid">
-        <div class="lv-card" onclick="lvCardClick('Loona Radio')"><div class="lv-card-banner" style="background:radial-gradient(65% 55% at 50% 100%,#ff6d29 0%,transparent 65%),radial-gradient(55% 45% at 50% 0%,#2a0a02 10%,transparent 70%),#c23a12"></div><div class="lv-card-shape"></div><div class="lv-card-name">Loona Radio</div><div class="lv-card-desc">24/7 curated music for creatives.</div><div class="lv-card-code"><span class="lv-card-code-num">001</span><span class="lv-card-code-label">Loona</span></div></div>
-        <div class="lv-card" onclick="lvCardClick('Loona Meet')"><div class="lv-card-banner" style="background:radial-gradient(50% 50% at 30% 20%,#e8ff5c 0%,transparent 60%),radial-gradient(50% 50% at 70% 80%,#7c3aed 0%,transparent 60%),#b8d926"></div><div class="lv-card-shape"></div><div class="lv-card-name">Loona Meet</div><div class="lv-card-desc">Your own branded video-call platform.</div><div class="lv-card-code"><span class="lv-card-code-num">002</span><span class="lv-card-code-label">Loona</span></div></div>
-        <div class="lv-card" onclick="lvCardClick('Loona Notes')"><div class="lv-card-banner" style="background:radial-gradient(60% 55% at 50% 25%,#5eeba0 0%,transparent 65%),#0d3b1f"></div><div class="lv-card-shape"></div><div class="lv-card-name">Loona Notes</div><div class="lv-card-desc">AI meeting recorder with action items.</div><div class="lv-card-live">LIVE</div><div class="lv-card-code"><span class="lv-card-code-num">003</span><span class="lv-card-code-label">Loona</span></div></div>
-        <div class="lv-card" onclick="lvCardClick('Loona GPT')"><div class="lv-card-banner" style="background:radial-gradient(40% 40% at 25% 70%,#ff8fd8 0%,transparent 55%),radial-gradient(40% 40% at 75% 25%,#ff8fd8 0%,transparent 55%),radial-gradient(65% 60% at 50% 50%,#7de0ea 15%,transparent 70%),#0a2e2a"></div><div class="lv-card-shape"></div><div class="lv-card-name">Loona GPT</div><div class="lv-card-desc">Trained on your philosophy and tone.</div><div class="lv-card-code"><span class="lv-card-code-num">004</span><span class="lv-card-code-label">Loona</span></div></div>
-        <div class="lv-card" onclick="lvCardClick('Loona Search')"><div class="lv-card-banner" style="background:radial-gradient(60% 60% at 50% 50%,#2d0a35 0%,#c23fa8 70%,#f48fd6 100%)"></div><div class="lv-card-shape"></div><div class="lv-card-name">Loona Search</div><div class="lv-card-desc">Search every client file, brief, and reference.</div><div class="lv-card-code"><span class="lv-card-code-num">005</span><span class="lv-card-code-label">Loona</span></div></div>
-        <div class="lv-card" onclick="lvCardClick('Loona TV')"><div class="lv-card-banner" style="background:radial-gradient(65% 30% at 50% 55%,#8fdcff 0%,transparent 60%),#0a1a4a"></div><div class="lv-card-shape"></div><div class="lv-card-name">Loona TV</div><div class="lv-card-desc">Behind-the-scenes livestreams.</div><div class="lv-card-code"><span class="lv-card-code-num">006</span><span class="lv-card-code-label">Loona</span></div></div>
-        <div class="lv-card" onclick="lvCardClick('Loona Jobs')"><div class="lv-card-banner" style="background:radial-gradient(55% 50% at 30% 70%,#38b2ac 0%,transparent 60%),radial-gradient(45% 45% at 75% 25%,#9f7aea 0%,transparent 60%),#0d2b2a"></div><div class="lv-card-shape"></div><div class="lv-card-name">Loona Jobs</div><div class="lv-card-desc">Hiring portal with creative challenges.</div><div class="lv-card-code"><span class="lv-card-code-num">007</span><span class="lv-card-code-label">Loona</span></div></div>
-        <div class="lv-card" onclick="lvCardClick('Loona Wiki')"><div class="lv-card-banner" style="background:radial-gradient(55% 50% at 40% 30%,#ff5c9e 0%,transparent 60%),radial-gradient(45% 45% at 70% 75%,#ff9457 0%,transparent 60%),#4a0d2e"></div><div class="lv-card-shape"></div><div class="lv-card-name">Loona Wiki</div><div class="lv-card-desc">Your internal agency brain.</div><div class="lv-card-code"><span class="lv-card-code-num">008</span><span class="lv-card-code-label">Loona</span></div></div>
-        <div class="lv-card" onclick="lvCardClick('Loona Fonts')"><div class="lv-card-banner" style="background:radial-gradient(60% 55% at 50% 80%,#38d9e8 0%,transparent 65%),#0a1f3d"></div><div class="lv-card-shape"></div><div class="lv-card-name">Loona Fonts</div><div class="lv-card-desc">Curated font library.</div><div class="lv-card-code"><span class="lv-card-code-num">009</span><span class="lv-card-code-label">Loona</span></div></div>
-        <div class="lv-card" onclick="lvCardClick('Loona Promptbook')"><div class="lv-card-banner" style="background:radial-gradient(55% 50% at 60% 25%,#f5c842 0%,transparent 60%),radial-gradient(45% 45% at 30% 75%,#e05c5c 0%,transparent 60%),#3d1505"></div><div class="lv-card-shape"></div><div class="lv-card-name">Loona Promptbook</div><div class="lv-card-desc">Searchable prompt database.</div><div class="lv-card-code"><span class="lv-card-code-num">010</span><span class="lv-card-code-label">Loona</span></div></div>
-        <div class="lv-card" onclick="lvCardClick('Loona Moodboard')"><div class="lv-card-banner" style="background:radial-gradient(50% 50% at 35% 25%,#c4f542 0%,transparent 60%),radial-gradient(50% 50% at 70% 75%,#7c3aed 0%,transparent 60%),#241a3d"></div><div class="lv-card-shape"></div><div class="lv-card-name">Loona Moodboard</div><div class="lv-card-desc">AI-generated inspiration boards.</div><div class="lv-card-code"><span class="lv-card-code-num">011</span><span class="lv-card-code-label">Loona</span></div></div>
-        <div class="lv-card" onclick="lvCardClick('Loona Shots')"><div class="lv-card-banner" style="background:radial-gradient(60% 55% at 50% 30%,#2dd4bf 0%,transparent 65%),#0a2e2a"></div><div class="lv-card-shape"></div><div class="lv-card-name">Loona Shots</div><div class="lv-card-desc">AI product photography.</div><div class="lv-card-code"><span class="lv-card-code-num">012</span><span class="lv-card-code-label">Loona</span></div></div>
-        <div class="lv-card" onclick="lvCardClick('Loona Motion')"><div class="lv-card-banner" style="background:radial-gradient(65% 55% at 50% 100%,#ff6d29 0%,transparent 65%),radial-gradient(55% 45% at 50% 0%,#2a0a02 10%,transparent 70%),#c23a12"></div><div class="lv-card-shape"></div><div class="lv-card-name">Loona Motion</div><div class="lv-card-desc">AI motion graphics.</div><div class="lv-card-code"><span class="lv-card-code-num">013</span><span class="lv-card-code-label">Loona</span></div></div>
-        <div class="lv-card" onclick="lvCardClick('Loona Voice')"><div class="lv-card-banner" style="background:radial-gradient(50% 50% at 30% 20%,#e8ff5c 0%,transparent 60%),radial-gradient(50% 50% at 70% 80%,#7c3aed 0%,transparent 60%),#b8d926"></div><div class="lv-card-shape"></div><div class="lv-card-name">Loona Voice</div><div class="lv-card-desc">Clone and manage brand voices.</div><div class="lv-card-code"><span class="lv-card-code-num">014</span><span class="lv-card-code-label">Loona</span></div></div>
-        <div class="lv-card" onclick="lvCardClick('Loona Vision')"><div class="lv-card-banner" style="background:radial-gradient(60% 55% at 50% 25%,#5eeba0 0%,transparent 65%),#0d3b1f"></div><div class="lv-card-shape"></div><div class="lv-card-name">Loona Vision</div><div class="lv-card-desc">Analyze competitors' social feeds instantly.</div><div class="lv-card-code"><span class="lv-card-code-num">015</span><span class="lv-card-code-label">Loona</span></div></div>
-        <div class="lv-card" onclick="lvCardClick('Loona Vault')"><div class="lv-card-banner" style="background:radial-gradient(40% 40% at 25% 70%,#ff8fd8 0%,transparent 55%),radial-gradient(40% 40% at 75% 25%,#ff8fd8 0%,transparent 55%),radial-gradient(65% 60% at 50% 50%,#7de0ea 15%,transparent 70%),#0a2e2a"></div><div class="lv-card-shape"></div><div class="lv-card-name">Loona Vault</div><div class="lv-card-desc">Client assets, brand books, and files.</div><div class="lv-card-code"><span class="lv-card-code-num">016</span><span class="lv-card-code-label">Loona</span></div></div>
-        <div class="lv-card" onclick="lvCardClick('Loona Canvas')"><div class="lv-card-banner" style="background:radial-gradient(60% 60% at 50% 50%,#2d0a35 0%,#c23fa8 70%,#f48fd6 100%)"></div><div class="lv-card-shape"></div><div class="lv-card-name">Loona Canvas</div><div class="lv-card-desc">Collaborative whiteboard.</div><div class="lv-card-code"><span class="lv-card-code-num">017</span><span class="lv-card-code-label">Loona</span></div></div>
-        <div class="lv-card" onclick="lvCardClick('Loona Clips')"><div class="lv-card-banner" style="background:radial-gradient(65% 30% at 50% 55%,#8fdcff 0%,transparent 60%),#0a1a4a"></div><div class="lv-card-shape"></div><div class="lv-card-name">Loona Clips</div><div class="lv-card-desc">AI-generated social edits.</div><div class="lv-card-code"><span class="lv-card-code-num">018</span><span class="lv-card-code-label">Loona</span></div></div>
-        <div class="lv-card" onclick="lvCardClick('Loona Labs')"><div class="lv-card-banner" style="background:radial-gradient(55% 50% at 30% 70%,#38b2ac 0%,transparent 60%),radial-gradient(45% 45% at 75% 25%,#9f7aea 0%,transparent 60%),#0d2b2a"></div><div class="lv-card-shape"></div><div class="lv-card-name">Loona Labs</div><div class="lv-card-desc">Public experiments and prototypes.</div><div class="lv-card-code"><span class="lv-card-code-num">019</span><span class="lv-card-code-label">Loona</span></div></div>
-        <div class="lv-card" onclick="lvCardClick('Loona Browser')"><div class="lv-card-banner" style="background:radial-gradient(55% 50% at 40% 30%,#ff5c9e 0%,transparent 60%),radial-gradient(45% 45% at 70% 75%,#ff9457 0%,transparent 60%),#4a0d2e"></div><div class="lv-card-shape"></div><div class="lv-card-name">Loona Browser</div><div class="lv-card-desc">A browser tailored for marketers and creatives.</div><div class="lv-card-code"><span class="lv-card-code-num">020</span><span class="lv-card-code-label">Loona</span></div></div>
-      </div>
+
+      <section class="lv2-hero" id="lv-today">
+        <img class="lv2-hero-planet" src="assets/loonaverse/hero_planet.jpg" alt="">
+        <div class="lv2-hero-copy">
+          <h1>Welcome to the<br>Loonaverse.</h1>
+          <p class="lv2-hero-kicker">Our playground for everything we wish existed.</p>
+          <p class="lv2-hero-sub">Ideas. Tools. Games. Learning. People.<br>All in one universe. Built by us, for us.</p>
+        </div>
+        <div class="lv2-live-card">
+          <div class="lv2-live-label">⏱ Live Update <span class="lv2-dot"></span></div>
+          <p class="lv2-live-sub">Brain Check closes in</p>
+          <div class="lv2-time" id="lv-bc-countdown">-- : -- : --</div>
+          <button class="btn btn-primary" style="width:100%" onclick="bcGoToPage()">Take Brain Check →</button>
+        </div>
+      </section>
+
+      <section class="section" id="lv-play">
+        <div class="section-header"><div class="section-title">Today in the <span>Loonaverse</span></div></div>
+        <div class="lv2-daily-grid">
+          <article class="lv2-daily-card lv2-oracle">
+            <img class="lv2-card-art" src="assets/loonaverse/oracle_art.jpg" alt="">
+            <h3>The Loona<br>Oracle</h3>
+            <div class="oracle-intro">
+              <div class="oracle-tagline">A little guidance from somewhere beyond the brief.</div>
+              <button class="btn btn-primary" onclick="openLoonaOracle()">🔮 Draw My Card</button>
+            </div>
+          </article>
+          <article class="lv2-daily-card lv2-brain">
+            <img class="lv2-card-art" src="assets/loonaverse/brain_art.jpg" alt="">
+            <h3>Brain Check</h3>
+            <div id="braincheck-card"></div>
+          </article>
+          <article class="lv2-daily-card lv2-costar">
+            <img class="lv2-card-art" src="assets/loonaverse/costar_art.jpg" alt="">
+            <h3>Find Your<br>Co-Star</h3>
+            <div class="oracle-intro">
+              <div class="oracle-tagline">A different scene partner every day — tap Reveal to find out who's in it with you.</div>
+              <button class="btn btn-primary" onclick="openCostarModal()" style="padding:7px 16px;font-size:12px">Reveal</button>
+            </div>
+          </article>
+          <article class="lv2-daily-card lv2-news">
+            <img class="lv2-card-art" src="assets/loonaverse/news_art.jpg" alt="">
+            <h3>Marketing News<br>in 60 Seconds</h3>
+            <div id="lv-news-slot"></div>
+          </article>
+          <article class="lv2-daily-card lv2-quiz">
+            <h3>Find Your Loona<br>Personality</h3>
+            <div id="loona-quiz-entry"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section lv2-mid-grid" id="lv-scores">
+        <article class="lv2-panel">
+          <div class="lv2-kicker">◎ Your Personal Score</div>
+          <div id="lv-personal-score"></div>
+        </article>
+        <article class="lv2-panel">
+          <div class="lv2-kicker">🏆 Today's Leaderboard</div>
+          <div id="lv-leaderboard"></div>
+        </article>
+      </section>
+
+      <section class="section" id="lv-build">
+        <div class="section-header"><div class="section-title">Explore Loonaverse <span>(Build)</span></div></div>
+        <div class="lv2-tools-grid" id="lv-tools-grid"></div>
+        <div class="lv2-idea-banner">
+          <img class="lv2-cube" src="assets/loonaverse/cube_art.jpg" alt="">
+          <div class="lv2-idea-copy">
+            <h3>🟠 We don't do vanilla.</h3>
+            <p>Keep creating. Keep building. Keep making Loona better.</p>
+          </div>
+          <div class="lv2-idea-copy">
+            <h3 style="color:var(--accent)">Share your idea</h3>
+            <p>Have a tool or game idea? Tell us what we should build next.</p>
+            <textarea id="lv-idea-text" class="lv2-idea-input" placeholder="Type your idea…" rows="2"></textarea>
+            <button class="btn btn-primary" onclick="lvSubmitIdea()">Submit Idea →</button>
+          </div>
+        </div>
+      </section>
     </div>
 
     <!-- ======= LOONA NOTES ======= -->
@@ -6590,6 +6622,8 @@
             const modalOpen = document.getElementById('braincheck-modal') && !document.getElementById('braincheck-modal').classList.contains('hidden');
             const lbVisible = document.getElementById('bc-view-leaderboard') && document.getElementById('bc-view-leaderboard').style.display !== 'none';
             if (modalOpen && lbVisible && typeof bcRenderLeaderboard === 'function') bcRenderLeaderboard();
+            if (typeof lvRenderPersonalScore === 'function') lvRenderPersonalScore();
+            if (typeof lvRenderLeaderboard === 'function') lvRenderLeaderboard();
           });
           _db.ref('brainCheck/winner/' + bcDate).on('value', snap => {
             window.BRAINCHECK_WINNER = window.BRAINCHECK_WINNER || {};
@@ -6598,6 +6632,17 @@
             const modalOpen = document.getElementById('braincheck-modal') && !document.getElementById('braincheck-modal').classList.contains('hidden');
             const lbVisible = document.getElementById('bc-view-leaderboard') && document.getElementById('bc-view-leaderboard').style.display !== 'none';
             if (modalOpen && lbVisible && typeof bcRenderLeaderboard === 'function') bcRenderLeaderboard();
+            if (typeof lvRenderPersonalScore === 'function') lvRenderPersonalScore();
+            if (typeof lvRenderLeaderboard === 'function') lvRenderLeaderboard();
+          });
+          _db.ref('brainCheck/streaks').on('value', snap => {
+            window.BC_STREAKS = snap.val() || {};
+            if (typeof lvRenderPersonalScore === 'function') lvRenderPersonalScore();
+          });
+          _db.ref('marketingNews/' + bcDate).on('value', snap => {
+            window.MARKETING_NEWS = window.MARKETING_NEWS || {};
+            window.MARKETING_NEWS[bcDate] = snap.val() || null;
+            if (typeof lvRenderNews === 'function') lvRenderNews();
           });
         })();
 
@@ -9355,16 +9400,11 @@
       document.getElementById('costar-modal').classList.add('hidden');
     }
 
+    // Refreshes the Loonaverse page's stateful "Today" cards — Oracle and
+    // Co-Star are static prompts (always the same button) so they're plain
+    // HTML in the page itself; only Quiz and Brain Check actually change
+    // based on whether you've already done today's.
     function renderDailyExtras() {
-      const tarotEl = document.getElementById('daily-tarot-card');
-      if (!tarotEl) return;
-
-      tarotEl.innerHTML = `
-        <div class="oracle-intro">
-          <div class="oracle-tagline">A little guidance from somewhere beyond the brief.</div>
-          <button class="btn btn-primary" onclick="openLoonaOracle()">🔮 Draw My Card</button>
-        </div>`;
-
       renderQuizEntry();
       if (typeof bcRenderCard === 'function') bcRenderCard();
     }
@@ -9736,6 +9776,26 @@
       if (!_db || !currentUser) return;
       const date = bcTodayDateIST();
       _db.ref('brainCheck/results/' + date + '/' + fbMemberKey(currentUser)).set(result);
+      bcUpdateStreak(date);
+    }
+
+    function bcYesterdayDateIST(dateStr) {
+      return new Date(Date.parse(dateStr + 'T00:00:00Z') - 86400000).toISOString().slice(0, 10);
+    }
+
+    // Daily streak — increments if yesterday also has a completed check for this
+    // person, otherwise resets to 1. Stored server-side (rather than derived by
+    // scanning every past date) since that would mean fetching unbounded history
+    // just to show one number.
+    function bcUpdateStreak(date) {
+      if (!_db || !currentUser) return;
+      const key = fbMemberKey(currentUser);
+      const yesterday = bcYesterdayDateIST(date);
+      _db.ref('brainCheck/streaks/' + key).transaction(cur => {
+        if (cur && cur.lastDate === date) return cur;
+        if (cur && cur.lastDate === yesterday) return { count: (cur.count || 0) + 1, lastDate: date };
+        return { count: 1, lastDate: date };
+      });
     }
 
     function bcRenderScore(result) {
@@ -9886,6 +9946,207 @@
         <div class="bc-card-desc">A daily mix of marketing, finance, social media, branding and business.</div>
         <button class="btn btn-primary" onclick="bcGoToPage()">Start Today's Check</button>
         <div class="bc-card-footer">New questions every morning. The leaderboard resets daily.</div>`;
+    }
+
+    // ═══ LOONAVERSE page ═══
+    function lvScrollTo(id, el) {
+      document.querySelectorAll('.lv2-subnav a').forEach(a => a.classList.remove('active'));
+      if (el) el.classList.add('active');
+      const target = document.getElementById(id);
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function lvOpenPage() {
+      renderDailyExtras();
+      lvRenderPersonalScore();
+      lvRenderLeaderboard();
+      lvRenderToolsGrid();
+      lvRenderNews();
+      lvStartCountdown();
+    }
+
+    // Countdown to the daily Brain Check cut-off (12:00 IST = 06:30 UTC — see
+    // brain-check-winner.js). Started once and left running rather than
+    // recreated on every page visit; the Loonaverse page stays in the DOM
+    // (just hidden) like every other page, so there's only ever one interval.
+    let _lvCountdownInterval = null;
+    function lvBcCountdownTarget() {
+      const now = new Date();
+      const target = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 6, 30, 0));
+      if (now.getTime() >= target.getTime()) target.setUTCDate(target.getUTCDate() + 1);
+      return target;
+    }
+    function lvStartCountdown() {
+      if (_lvCountdownInterval) return;
+      const tick = () => {
+        const el = document.getElementById('lv-bc-countdown');
+        if (!el) return;
+        const diff = Math.max(0, lvBcCountdownTarget().getTime() - Date.now());
+        const h = String(Math.floor(diff / 3600000)).padStart(2, '0');
+        const m = String(Math.floor(diff % 3600000 / 60000)).padStart(2, '0');
+        const s = String(Math.floor(diff % 60000 / 1000)).padStart(2, '0');
+        el.textContent = `${h} : ${m} : ${s}`;
+      };
+      tick();
+      _lvCountdownInterval = setInterval(tick, 1000);
+    }
+
+    function lvRenderPersonalScore() {
+      const el = document.getElementById('lv-personal-score');
+      if (!el) return;
+      const date = bcTodayDateIST();
+      const myResult = bcMyResultToday();
+      if (!myResult) {
+        el.innerHTML = `
+          <div class="lv2-score-empty">
+            <p>You haven't taken today's Brain Check yet.</p>
+            <button class="btn btn-primary" onclick="bcGoToPage()">Start Today's Check →</button>
+          </div>`;
+        return;
+      }
+      const pct = myResult.score * 10;
+      const tier = bcTierFor(myResult.score);
+      const resultsObj = (window.BRAINCHECK_RESULTS || {})[date] || {};
+      const ranked = Object.values(resultsObj).slice().sort((a, b) => b.score - a.score || a.durationMs - b.durationMs);
+      const rank = ranked.findIndex(r => normName(r.name) === normName(currentUser)) + 1;
+      const streak = (window.BC_STREAKS || {})[fbMemberKey(currentUser)];
+      const yesterday = bcYesterdayDateIST(date);
+      const streakCount = streak && (streak.lastDate === date || streak.lastDate === yesterday) ? streak.count : 1;
+      el.innerHTML = `
+        <div class="lv2-score-wrap">
+          <div class="lv2-score-ring" style="background:conic-gradient(var(--accent) 0 ${pct}%,rgba(255,255,255,.12) ${pct}% 100%)">
+            <div class="lv2-score-number">${myResult.score}<small>TODAY'S SCORE</small></div>
+          </div>
+          <div class="lv2-rating">
+            <h3>${lnEsc(tier.title)}</h3>
+            <p>${lnEsc(tier.desc)}</p>
+            <div class="lv2-metric"><span>Brain Check</span><strong>${myResult.score}/10</strong></div>
+            ${rank ? `<div class="lv2-metric"><span>Current rank</span><strong>#${rank}</strong></div>` : ''}
+            <div class="lv2-metric"><span>Daily streak</span><strong>${streakCount} day${streakCount === 1 ? '' : 's'}</strong></div>
+          </div>
+        </div>
+        <button class="btn" style="width:100%;margin-top:14px" onclick="bcGoToPage();bcShowScore()">View Full Score →</button>`;
+    }
+
+    function lvRenderLeaderboard() {
+      const el = document.getElementById('lv-leaderboard');
+      if (!el) return;
+      const date = bcTodayDateIST();
+      const resultsObj = (window.BRAINCHECK_RESULTS || {})[date] || {};
+      const results = Object.values(resultsObj);
+      const active = bcActiveMembers();
+      const ranked = results.slice().sort((a, b) => b.score - a.score || a.durationMs - b.durationMs).slice(0, 5);
+      const rows = ranked.map((r, i) => `
+        <div class="lv2-lb-row${normName(r.name) === normName(currentUser) ? ' you' : ''}">
+          <span>${String(i + 1).padStart(2, '0')}</span>
+          <span>${lnEsc(normName(r.name) === normName(currentUser) ? 'You' : r.name)}</span>
+          <span>${r.score}/10</span>
+          <span>${bcFmtDuration(r.durationMs)}</span>
+        </div>`).join('') || '<div class="lv2-lb-summary">No one’s taken today’s check yet.</div>';
+      el.innerHTML = rows + `<div class="lv2-lb-summary">${results.length} of ${active.length} Loonatics completed today's Brain Check.</div>
+        <button class="btn" style="width:100%;margin-top:12px" onclick="bcGoToPage();bcShowLeaderboard()">View Full Leaderboard →</button>`;
+    }
+
+    // 20 real project cards — data-driven so the grid can grow without repeating
+    // near-identical markup 20 times. lvCardClick() already knows Loona Notes is
+    // the one real page; everything else is a "coming soon" toast.
+    const LV_TOOLS = [
+      ['Loona Radio', '24/7 curated music for creatives.', '001', '◉'],
+      ['Loona Meet', 'Your own branded video-call platform.', '002', '▣'],
+      ['Loona Notes', 'AI meeting recorder with action items.', '003', '◌', true],
+      ['Loona GPT', 'Trained on your philosophy and tone.', '004', '◔'],
+      ['Loona Search', 'Search every client file, brief, and reference.', '005', '⌕'],
+      ['Loona TV', 'Behind-the-scenes livestreams.', '006', '▰'],
+      ['Loona Jobs', 'Hiring portal with creative challenges.', '007', '△'],
+      ['Loona Wiki', 'Your internal agency brain.', '008', '▧'],
+      ['Loona Fonts', 'Curated font library.', '009', '⌁'],
+      ['Loona Promptbook', 'Searchable prompt database.', '010', '▤'],
+      ['Loona Moodboard', 'AI-generated inspiration boards.', '011', '◫'],
+      ['Loona Shots', 'AI product photography.', '012', '✦'],
+      ['Loona Motion', 'AI motion graphics.', '013', '◩'],
+      ['Loona Voice', 'Clone and manage brand voices.', '014', '◇'],
+      ['Loona Vision', "Analyze competitors' social feeds instantly.", '015', '◯'],
+      ['Loona Vault', 'Client assets, brand books, and files.', '016', '▥'],
+      ['Loona Canvas', 'Collaborative whiteboard.', '017', '▦'],
+      ['Loona Clips', 'AI-generated social edits.', '018', '◈'],
+      ['Loona Labs', 'Public experiments and prototypes.', '019', '⌾'],
+      ['Loona Browser', 'A browser tailored for marketers and creatives.', '020', '◨']
+    ];
+    function lvRenderToolsGrid() {
+      const el = document.getElementById('lv-tools-grid');
+      if (!el) return;
+      el.innerHTML = LV_TOOLS.map(([name, desc, num, glyph, live]) => `
+        <article class="lv2-tool-card" onclick="lvCardClick('${name}')">
+          ${live ? '<div class="lv2-tool-live">LIVE</div>' : ''}
+          <div class="lv2-tool-icon">${glyph}</div>
+          <h4>${name}</h4>
+          <p>${desc}</p>
+          <div class="lv2-tool-num">${num}</div>
+        </article>`).join('');
+    }
+
+    function lvSubmitIdea() {
+      const box = document.getElementById('lv-idea-text');
+      const text = box.value.trim();
+      if (!text) return;
+      if (_db) _db.ref('loonaverseIdeas').push({ text, author: currentUser, timestamp: new Date().toISOString() });
+      box.value = '';
+      const toast = document.getElementById('completion-toast');
+      if (toast) {
+        document.getElementById('toast-emoji').textContent = '💡';
+        document.getElementById('toast-msg').textContent = 'Idea shared — thanks!';
+        const sub = document.getElementById('toast-sub');
+        if (sub) sub.textContent = "We'll take a look.";
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 2600);
+      }
+    }
+
+    // Marketing News in 60 Seconds — populated once daily by the
+    // marketing-news-daily Netlify scheduled function (real, web-search-sourced
+    // items, not invented). Falls back to a quiet placeholder if today's hasn't
+    // landed yet (e.g. right after midnight before the function has run).
+    function lvRenderNews() {
+      const el = document.getElementById('lv-news-slot');
+      if (!el) return;
+      const date = bcTodayDateIST();
+      const news = (window.MARKETING_NEWS || {})[date];
+      if (!news || !news.items || !news.items.length) {
+        el.innerHTML = `
+          <div class="oracle-intro">
+            <div class="oracle-tagline">Today's roundup is still being put together — check back soon.</div>
+          </div>`;
+        return;
+      }
+      el.innerHTML = `
+        <div class="oracle-intro">
+          <div class="oracle-tagline">${news.items.length} things moving in marketing today.</div>
+          <button class="btn btn-primary" onclick="lvShowNewsModal()">Read Now →</button>
+        </div>`;
+    }
+
+    function lvShowNewsModal() {
+      const date = bcTodayDateIST();
+      const news = (window.MARKETING_NEWS || {})[date];
+      const items = (news && news.items) || [];
+      let modal = document.getElementById('lv-news-modal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'lv-news-modal';
+        modal.className = 'modal-overlay';
+        modal.onclick = (e) => { if (e.target === modal) modal.classList.add('hidden'); };
+        modal.innerHTML = '<div class="modal" style="max-width:560px;max-height:80vh;overflow-y:auto"><a class="bc-modal-close" onclick="document.getElementById(\'lv-news-modal\').classList.add(\'hidden\')">✕ Close</a><div id="lv-news-modal-body"></div></div>';
+        document.body.appendChild(modal);
+      }
+      document.getElementById('lv-news-modal-body').innerHTML = `
+        <div class="section-title" style="margin-bottom:14px">Marketing News <span>in 60 Seconds</span></div>
+        ${items.length ? items.map(it => `
+          <div style="border-top:1px solid var(--border);padding:12px 0">
+            <div style="font-weight:700;color:var(--text);margin-bottom:4px">${lnEsc(it.title)}</div>
+            <div style="color:var(--muted);font-size:12.5px;line-height:1.5;margin-bottom:4px">${lnEsc(it.blurb)}</div>
+            ${it.source ? `<a href="${lnEsc(it.url || '#')}" target="_blank" style="font-size:11px;color:var(--accent2)">${lnEsc(it.source)} ↗</a>` : ''}
+          </div>`).join('') : '<div class="bc-empty-state">Nothing yet today — check back soon.</div>'}`;
+      modal.classList.remove('hidden');
     }
 
     // ═══ Daily mood/status ═══
@@ -10346,7 +10607,6 @@
 
       renderOrgChart();
       renderLcSignAvatar();
-      renderDailyExtras();
     }
 
     // ═══ PRODUCTION ═══
@@ -13679,6 +13939,9 @@
       if (id === 'radio') {
         openRadioPage();
       }
+      if (id === 'loonaverse') {
+        lvOpenPage();
+      }
     }
 
     // ═══ CALENDAR (per-person meeting records + daily activity) ═══
@@ -16018,32 +16281,81 @@ ${brandLines}`;
 .tl-pct{font-size:9px;font-weight:600;line-height:1}
 </style>
   <style id="loonaverse-css">
-.lv-hero{text-align:center;padding:36px 20px 30px}
-.lv-title{font-size:44px;font-weight:800;letter-spacing:-.01em;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;margin-bottom:10px}
-.lv-subtitle{font-size:17px;color:var(--text);font-weight:600;margin-bottom:12px}
-.lv-tagline{font-size:13px;color:var(--muted);font-style:italic;max-width:580px;margin:0 auto;line-height:1.6}
-.lv-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:14px;padding:0 4px 20px}
-.lv-card{position:relative;overflow:hidden;border-radius:20px;aspect-ratio:1/1.05;background:#141414;transition:transform .15s;cursor:pointer}
-.lv-card:hover{transform:translateY(-3px)}
-.lv-card-live{position:absolute;top:8px;right:8px;z-index:4;background:var(--green);color:#fff;font-size:8px;font-weight:800;letter-spacing:.06em;padding:3px 7px;border-radius:5px}
-.lv-card-banner{position:absolute;inset:0}
-.lv-card-shape{position:absolute;inset:0;background:#141414;z-index:1;clip-path:polygon(0 24%,46% 24%,53% 33%,100% 33%,100% 100%,0 100%)}
-.lv-card-name{position:absolute;top:24%;left:8%;width:48%;font-size:13px;font-weight:800;color:#fff;line-height:1.15;z-index:3;letter-spacing:-.01em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.lv-card-desc{position:absolute;top:47%;left:8%;right:8%;font-size:9px;color:rgba(255,255,255,.5);line-height:1.35;z-index:3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.lv-card-code{position:absolute;left:8%;bottom:7%;display:flex;align-items:baseline;gap:5px;z-index:3}
-.lv-card-code-num{font-size:22px;font-weight:800;color:#fff;line-height:1;letter-spacing:-.02em}
-.lv-card-code-label{font-size:9.5px;color:rgba(255,255,255,.45);font-weight:600}
-@media(max-width:820px){
-  .lv-hero{padding:24px 12px 20px}
-  .lv-title{font-size:30px}
-  .lv-subtitle{font-size:14px}
-  .lv-tagline{font-size:12px}
-  .lv-grid{grid-template-columns:repeat(4,1fr);gap:8px}
-  .lv-card{border-radius:13px}
-  .lv-card-name{font-size:8.5px;top:22%;width:50%}
-  .lv-card-desc{font-size:6.5px;line-height:1.3;top:45%}
-  .lv-card-code-num{font-size:14px}
-  .lv-card-code-label{font-size:6.5px}
+#lv-today,#lv-play,#lv-scores,#lv-build{scroll-margin-top:88px}
+.lv2-subnav{display:flex;gap:8px;margin-bottom:22px;flex-wrap:wrap}
+.lv2-subnav a{padding:9px 16px;border-radius:999px;border:1px solid var(--border);color:var(--muted);font-size:13px;font-weight:600;cursor:pointer}
+.lv2-subnav a:hover,.lv2-subnav a.active{color:var(--text);border-color:var(--accent);background:rgba(255,109,41,.12)}
+.lv2-hero{position:relative;overflow:hidden;min-height:230px;padding:34px 32px;display:grid;grid-template-columns:1.45fr .72fr;gap:24px;align-items:center;border:1px solid rgba(255,109,41,.25);border-radius:24px;background:linear-gradient(120deg,#1a0700,#3d1000 54%,#170704);margin-bottom:26px}
+.lv2-hero-copy h1{font-size:52px;line-height:.98;letter-spacing:-2px;margin:0 0 10px;color:var(--text)}
+.lv2-hero-kicker{color:var(--accent2);font-size:16px;margin:0 0 10px;font-weight:600}
+.lv2-hero-sub{color:var(--muted);font-size:14.5px;line-height:1.6;margin:0}
+.lv2-hero-planet{position:absolute;right:150px;top:0;width:260px;height:260px;object-fit:cover;mix-blend-mode:screen;opacity:.85}
+.lv2-live-card{position:relative;z-index:2;padding:18px;border:1px solid var(--border);border-radius:18px;background:rgba(25,14,11,.93)}
+.lv2-live-label{font-size:13px;color:var(--text);display:flex;align-items:center;gap:6px}
+.lv2-dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block}
+.lv2-live-sub{color:var(--muted);font-size:12.5px;margin:8px 0 4px}
+.lv2-time{font-size:26px;letter-spacing:3px;margin:6px 0 14px;font-weight:700;color:var(--text)}
+
+.lv2-daily-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:26px}
+.lv2-daily-card{position:relative;overflow:hidden;min-height:230px;border-radius:20px;padding:20px;border:1px solid var(--border);display:flex;flex-direction:column;box-shadow:0 18px 40px rgba(0,0,0,.3)}
+.lv2-daily-card h3{font-size:20px;line-height:1.1;margin:0 0 10px;position:relative;z-index:2;color:var(--text)}
+.lv2-daily-card .lv2-card-art{position:absolute;right:-4px;bottom:44px;width:52%;height:50%;object-fit:cover;mix-blend-mode:screen;filter:saturate(1.15);border-radius:40%;opacity:.9}
+.lv2-oracle{background:linear-gradient(155deg,#912300,#210800)}
+.lv2-brain{background:linear-gradient(155deg,#6e8d00,#121900)}
+.lv2-costar{background:linear-gradient(155deg,#571a8d,#170520)}
+.lv2-news{background:linear-gradient(155deg,#008572,#05231f)}
+.lv2-quiz{background:linear-gradient(155deg,#8d1a5e,#1f0512)}
+.lv2-daily-card > div:not(.lv2-card-art){position:relative;z-index:2}
+
+.lv2-mid-grid{display:grid;grid-template-columns:1fr 1.05fr;gap:16px;margin-bottom:26px}
+.lv2-panel{padding:20px;border:1px solid var(--border);border-radius:20px;background:linear-gradient(var(--surface),var(--surface2));box-shadow:0 18px 40px rgba(0,0,0,.25)}
+.lv2-kicker{color:var(--accent2);margin-bottom:12px;font-weight:600;font-size:14px}
+.lv2-score-empty{padding:14px 0}
+.lv2-score-empty p{color:var(--muted);margin:0 0 12px}
+.lv2-score-wrap{display:grid;grid-template-columns:130px 1fr;gap:20px;align-items:center}
+.lv2-score-ring{width:125px;height:125px;border-radius:50%;display:grid;place-items:center;position:relative}
+.lv2-score-ring:before{content:"";position:absolute;inset:9px;border-radius:50%;background:var(--surface)}
+.lv2-score-number{position:relative;text-align:center;font-size:32px;font-weight:800;color:var(--text)}
+.lv2-score-number small{display:block;font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.03em}
+.lv2-rating h3{font-size:20px;margin:0 0 6px;color:var(--text)}
+.lv2-rating p{color:var(--muted);line-height:1.5;font-size:12.5px;margin:0 0 8px}
+.lv2-metric{display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid var(--border);font-size:12.5px;color:var(--text)}
+.lv2-lb-row{display:grid;grid-template-columns:30px 1fr 55px 55px;gap:8px;padding:9px 4px;border-top:1px solid var(--border);align-items:center;font-size:12.5px;color:var(--text)}
+.lv2-lb-row:first-of-type{border-top:none}
+.lv2-lb-row.you{border:1px solid rgba(255,109,41,.55);border-radius:10px;background:rgba(255,109,41,.08);color:var(--accent2)}
+.lv2-lb-summary{color:var(--muted);font-size:12px;margin-top:10px}
+
+.lv2-tools-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:20px}
+.lv2-tool-card{position:relative;min-height:110px;padding:14px;border:1px solid var(--border);border-radius:15px;background:var(--surface);display:flex;flex-direction:column;cursor:pointer;transition:transform .15s}
+.lv2-tool-card:hover{transform:translateY(-2px);border-color:var(--accent)}
+.lv2-tool-live{position:absolute;top:8px;right:8px;background:var(--green);color:#fff;font-size:7.5px;font-weight:800;letter-spacing:.06em;padding:2px 6px;border-radius:5px}
+.lv2-tool-icon{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;margin-bottom:9px;font-size:14px;background:linear-gradient(135deg,var(--accent),#721600)}
+.lv2-tool-card:nth-child(5n+2) .lv2-tool-icon{background:linear-gradient(135deg,#bff02c,#526c00)}
+.lv2-tool-card:nth-child(5n+3) .lv2-tool-icon{background:linear-gradient(135deg,#4be7c6,#08705e)}
+.lv2-tool-card:nth-child(5n+4) .lv2-tool-icon{background:linear-gradient(135deg,var(--purple),#4a0872)}
+.lv2-tool-card:nth-child(5n+5) .lv2-tool-icon{background:linear-gradient(135deg,#ff61bc,#741046)}
+.lv2-tool-card h4{margin:0;font-size:13px;color:var(--text)}
+.lv2-tool-card p{font-size:10.5px;color:var(--muted);line-height:1.35;margin:3px 0 0}
+.lv2-tool-num{margin-top:auto;text-align:right;font-size:17px;color:var(--text);font-weight:700}
+
+.lv2-idea-banner{position:relative;overflow:hidden;padding:24px;border:1px solid rgba(255,109,41,.35);border-radius:20px;background:linear-gradient(90deg,#2c0b00,#120706);display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.lv2-cube{position:absolute;right:0;bottom:-5px;width:190px;height:135px;object-fit:cover;mix-blend-mode:screen;opacity:.9}
+.lv2-idea-copy{position:relative;z-index:2}
+.lv2-idea-copy h3{margin:0 0 8px;color:var(--text);font-size:17px}
+.lv2-idea-copy p{color:var(--muted);margin:0 0 10px;font-size:12.5px;line-height:1.5}
+.lv2-idea-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:10px 12px;font-family:var(--font);font-size:12.5px;box-sizing:border-box;margin-bottom:10px;resize:vertical}
+
+@media(max-width:900px){
+  .lv2-hero{grid-template-columns:1fr;min-height:auto}
+  .lv2-hero-planet{display:none}
+  .lv2-mid-grid{grid-template-columns:1fr}
+  .lv2-idea-banner{grid-template-columns:1fr}
+  .lv2-cube{display:none}
+}
+@media(max-width:520px){
+  .lv2-hero-copy h1{font-size:36px}
+  .lv2-score-wrap{grid-template-columns:1fr}
+  .lv2-score-ring{margin:0 auto}
 }
 </style>
   <style id="loonanotes-css">
