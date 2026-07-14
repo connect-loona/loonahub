@@ -4420,28 +4420,6 @@
         </div>
       </div>
 
-      <!-- Gokul Broadcast Bar -->
-      <div id="gokul-broadcast-bar" style="display:none;margin-bottom:16px">
-        <div
-          style="background:rgba(200,169,110,.06);border:1px solid rgba(200,169,110,.22);border-radius:12px;padding:14px 16px">
-          <div
-            style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.6px;text-transform:uppercase;margin-bottom:8px">
-            📢 Send Reminder / Update to Everyone</div>
-          <div style="display:flex;gap:10px;align-items:flex-end">
-            <textarea id="broadcast-text"
-              placeholder="e.g. Shoot at 3pm today, Navya is on leave, April decks due by Friday…"
-              style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:8px;font-size:13px;font-family:var(--font);resize:none;min-height:52px;outline:none;line-height:1.5"
-              onkeydown="if((event.metaKey||event.ctrlKey)&amp;&amp;event.key==='Enter'){postBroadcast();event.preventDefault()}"
-              oninput="this.style.height='52px';this.style.height=Math.max(52,this.scrollHeight)+'px'"></textarea>
-            <button onclick="postBroadcast()"
-              style="background:var(--accent);border:none;color:#000;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font);white-space:nowrap;flex-shrink:0">Send
-              ↩</button>
-          </div>
-          <div style="font-size:11px;color:var(--muted);margin-top:6px">⌘ Enter to send · visible to everyone on
-            Overview</div>
-        </div>
-      </div>
-
       <!-- Member quick-toggle tabs -->
       <div id="loona-board"></div><div id="board-summary"></div><div class="member-tabs" id="member-tabs-bar"></div>
 
@@ -6509,7 +6487,7 @@
           if (currentUser) renderReminders();
           // Server-written announcements (calendar-create.js/calendar-sync.js
           // posting a meeting straight to Firebase) only ever reach the client
-          // through this listener — unlike postBroadcast()'s own manual posts,
+          // through this listener — unlike submitBroadcast()'s own manual posts,
           // nothing else was re-rendering the Loona Board for them.
           if (typeof renderLoonaBoard === 'function') renderLoonaBoard();
         });
@@ -11426,27 +11404,6 @@
         return `<div class="lb-item"><div class="lb-meta">${authorIcon}<span class="lb-author">${a.author||'Team'}</span><span class="lb-time">${when}</span>${canDel?`<span class="lb-del" title="Remove" onclick="deleteAnnouncement(${a.id})">✕</span>`:''}</div>${a.text?`<div class="lb-text">${String(a.text).replace(/</g,'&lt;')}</div>`:''}${a.image?`<img class="lb-img" src="${a.image}" alt="">`:''}<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px">${(((a.links&&a.links.length)?a.links:(a.link?[a.link]:[]))||[]).map(L=>`<a class="lb-link" style="margin-top:0" href="${L}" target="_blank" rel="noopener">🔗 ${L.length>50?L.slice(0,50)+'…':L}</a>`).join('')}${recordBtn}${actionBtn}</div></div>`;
       }).join('')+`</div></div>`;
     }
-    function postBroadcast() {
-      const el = document.getElementById('broadcast-text');
-      const text = el ? el.value.trim() : '';
-      if (!text) return;
-      fbAddAnnouncement({
-        id: Date.now(),
-        text: text,
-        author: currentUser,
-        timestamp: new Date().toISOString(),
-        emoji: '📢'
-      });
-      if (el) { el.value = ''; el.style.height = '52px'; }
-      // Toast feedback
-      document.getElementById('toast-emoji').textContent = '📢';
-      document.getElementById('toast-msg').textContent = 'Reminder sent to the whole team!';
-      document.getElementById('toast-sub').textContent = 'Visible on everyone\'s Overview';
-      const toast = document.getElementById('completion-toast');
-      toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), 3000);
-    }
-
     function deleteAnnouncement(id) {
       if (!confirm('Delete this Loona Board post for everyone? This cannot be undone.')) return;
       fbDeleteAnnouncement(id);
@@ -12221,10 +12178,6 @@
           reminders.push({ icon: '📅', title: 'Holiday coming up', msg: `${h.name} is on ${when} — plan this week's deadlines and deliverables around it.` });
         }
       });
-
-      // Always show/hide broadcast bar for Gokul regardless of reminder content
-      const broadcastBar = document.getElementById('gokul-broadcast-bar');
-      if (broadcastBar) broadcastBar.style.display = currentUser === 'Gokul' ? 'block' : 'none';
 
       // Always update Gokul's post-update button
       const gokulBtn = document.getElementById('rb-gokul-btn');
@@ -17256,7 +17209,7 @@ ${brandLines}`;
       var dailyCards=teamNames.map(function(n){
         var a=ATT[n], p=perfCompute(n), rec=dayRecord(n,DAILY_SEL);
         return '<div class="att-daily-card" onclick="window.attShowDailyCardDetail(&quot;'+n+'&quot;)" style="cursor:pointer">'+
-          '<div class="adc-head"><div style="display:flex;gap:8px;align-items:center"><div class="lt-avatar-wrap">'+(typeof statusBubbleHTML==="function"?statusBubbleHTML(n):"")+memberAvatarHTML(n)+'</div><div><strong>'+esc(n)+'</strong><span class="sub">'+esc(a.code)+' · '+esc(a.desg)+'</span></div></div>'+pill(rec.status)+'</div>'+
+          '<div class="adc-head"><div style="display:flex;gap:8px;align-items:center"><div class="lt-avatar-wrap">'+memberAvatarHTML(n)+'</div><div><strong>'+esc(n)+'</strong><span class="sub">'+esc(a.code)+' · '+esc(a.desg)+'</span></div></div>'+pill(rec.status)+'</div>'+
           '<div class="adc-meta">Joined '+fmtDate(a.joinDate)+' &middot; '+daysAt(a.joinDate)+' days &middot; '+esc(a.dept)+'</div>'+
           '<div class="adc-rows">'+
             '<div class="adc-row"><span>First Punch</span><span class="v">'+esc(rec.in)+'</span></div>'+
