@@ -103,18 +103,25 @@ Write each story in three parts, in your own original words (never copy sentence
 Respond with ONLY a valid JSON array, no markdown fences, no other text, in this exact shape:
 [{"category": "one of the keys above", "title": "short headline", "whatHappened": "...", "whyItMatters": "...", "loonaTake": "...", "source": "Publication Name", "url": "https://..."}]`;
 
-    // Generous headroom: up to 8 web searches plus a 5-story structured
-    // response (3 written fields per story) is a lot more output than the
-    // original single-blurb format — a tight max_tokens here would cut
-    // Claude off mid-response, before the closing "]" ever gets written,
-    // which extractJsonArray has no way to recover from.
+    // Each web search round-trip feeds its result pages back into context as
+    // input tokens for the next step of Claude's tool loop — with the org's
+    // rate limit at 10,000 input tokens/minute, 8 searches' worth of result
+    // pages was blowing past that ceiling in a single call (seen live as a
+    // Claude API 429 rate_limit_error). Capped lower here to fit comfortably
+    // under that budget; max_tokens stays generous since that governs output
+    // length, not the search-driven input cost. (No internal retry-on-429
+    // here — this same code path also runs synchronously from the client's
+    // "Generate Now" button, which is bound by Netlify's standard function
+    // timeout; a multi-second internal sleep risks the platform killing the
+    // request mid-retry. The UI's own "Try Again" button already covers
+    // retrying, without that risk.)
     const resp = await req("POST", "https://api.anthropic.com/v1/messages", {
       "x-api-key": apiKey,
       "anthropic-version": "2023-06-01"
     }, {
       model: "claude-sonnet-5",
       max_tokens: 6000,
-      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 8 }],
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 4 }],
       messages: [{ role: "user", content: prompt }]
     });
 
