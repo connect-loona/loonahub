@@ -7635,6 +7635,7 @@
         _db.ref('cultureLottery/feedback/' + clKey).on('value', snap => {
           window.CL_FEEDBACK = window.CL_FEEDBACK || {};
           window.CL_FEEDBACK[clKey] = snap.val() || {};
+          if (typeof clRenderMain === 'function' && document.getElementById('page-culturelottery') && document.getElementById('page-culturelottery').classList.contains('active')) clRenderMain();
         });
         _db.ref('cultureLottery/tasteHistory/' + clKey).on('value', snap => {
           window.CL_TASTE_HISTORY = window.CL_TASTE_HISTORY || {};
@@ -9424,10 +9425,24 @@
       const path = 'cultureLottery/feedback/' + key + '/' + date + '/' + itemType;
       // Reaction (loved/interesting/not_for_me) is exclusive; saved/finished are
       // independent flags that can stack alongside a reaction.
-      if (action === 'loved' || action === 'interesting' || action === 'not_for_me') {
+      const exclusive = action === 'loved' || action === 'interesting' || action === 'not_for_me';
+      if (exclusive) {
         _db.ref(path + '/loved').remove(); _db.ref(path + '/interesting').remove(); _db.ref(path + '/not_for_me').remove();
       }
       _db.ref(path + '/' + action).set(true);
+
+      // Update optimistically rather than waiting on the Firebase round trip
+      // — the button should highlight the instant you tap it, not whenever
+      // the listener echo happens to land.
+      window.CL_FEEDBACK = window.CL_FEEDBACK || {};
+      window.CL_FEEDBACK[key] = window.CL_FEEDBACK[key] || {};
+      window.CL_FEEDBACK[key][date] = window.CL_FEEDBACK[key][date] || {};
+      const entry = Object.assign({}, window.CL_FEEDBACK[key][date][itemType]);
+      if (exclusive) { delete entry.loved; delete entry.interesting; delete entry.not_for_me; }
+      entry[action] = true;
+      window.CL_FEEDBACK[key][date][itemType] = entry;
+      if (typeof clRenderMain === 'function') clRenderMain();
+
       clUpdateStatsForFeedback(itemType, action);
     }
 
