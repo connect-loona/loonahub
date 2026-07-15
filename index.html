@@ -5584,13 +5584,17 @@
             <h3>Find Your Loona<br>Personality</h3>
             <div id="loona-quiz-entry"></div>
           </article>
+          <article class="lv2-daily-card lv2-culture">
+            <h3>Culture<br>Lottery</h3>
+            <div id="lv-culture-slot"></div>
+          </article>
         </div>
       </section>
 
       <section class="section lv2-mid-grid" id="lv-scores">
         <article class="lv2-panel">
           <div class="lv2-sb-header">
-            <div class="lv2-sb-header-icon">👥</div>
+            <div class="lv2-sb-header-icon"><img src="assets/loonaverse/icons/team-percentile.png" alt=""></div>
             <div>
               <div class="lv2-sb-title">Personal Scoreboard</div>
               <div class="lv2-sb-subtitle">Your daily rating across the Loonaverse</div>
@@ -5599,7 +5603,7 @@
           <div id="lv-personal-score"></div>
         </article>
         <article class="lv2-panel">
-          <div class="lv2-kicker">🏆 Today's Leaderboard</div>
+          <div class="lv2-kicker"><img class="lv2-kicker-icon" src="assets/loonaverse/icons/team-rank.png" alt=""> Today's Leaderboard</div>
           <div id="lv-leaderboard"></div>
         </article>
       </section>
@@ -9260,7 +9264,36 @@
       window.CL_PROFILE = window.CL_PROFILE || {};
       window.CL_PROFILE[key] = profile;
       clShowView('main');
+      clGenerateNow();
+    }
+
+    // Everyone should be able to get today's draw the moment they need it —
+    // not wait for the once-daily scheduled batch (which also never covers
+    // anyone who onboards after that batch already ran today). Called right
+    // after onboarding, and from the "Get Today's Draw" button on the empty
+    // state below.
+    let _clGenerating = false;
+    function clGenerateNow() {
+      if (!currentUser || _clGenerating) return;
+      _clGenerating = true;
+      const key = fbMemberKey(currentUser);
       clRenderMain();
+      if (typeof clRenderTodayCard === 'function') clRenderTodayCard();
+      fetch('/.netlify/functions/culture-lottery-generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key })
+      }).then(r => r.json()).then(data => {
+        if (data && data.draw) {
+          window.CL_DRAWS = window.CL_DRAWS || {};
+          window.CL_DRAWS[key] = window.CL_DRAWS[key] || {};
+          window.CL_DRAWS[key][bcTodayDateIST()] = data.draw;
+        }
+      }).catch(() => {}).finally(() => {
+        _clGenerating = false;
+        clRenderMain();
+        if (typeof clRenderTodayCard === 'function') clRenderTodayCard();
+      });
     }
 
     function clMyProfile() {
@@ -9275,6 +9308,37 @@
     function clMyFeedback() {
       const date = bcTodayDateIST();
       return ((window.CL_FEEDBACK || {})[fbMemberKey(currentUser)] || {})[date] || {};
+    }
+
+    // Mini state for the "Today in the Loonaverse" card — mirrors the
+    // Oracle/Co-Star/Quiz cards' pattern (renderDailyExtras() calls this on
+    // every Loonaverse open/refresh).
+    function clRenderTodayCard() {
+      const el = document.getElementById('lv-culture-slot');
+      if (!el) return;
+      const profile = clMyProfile();
+      if (!profile || !profile.onboarded) {
+        el.innerHTML = `
+          <div class="oracle-intro">
+            <div class="oracle-tagline">Your daily personalized book, movie, and word draw.</div>
+            <button class="btn btn-primary" onclick="clOpenPage()">🎰 Set Up My Draw</button>
+          </div>`;
+        return;
+      }
+      const draw = clTodayDraw();
+      if (!draw) {
+        el.innerHTML = `
+          <div class="oracle-intro">
+            <div class="oracle-tagline">${_clGenerating ? "Shuffling today's picks for you…" : "Today's draw is ready when you are."}</div>
+            ${_clGenerating ? '' : '<button class="btn btn-primary" onclick="clGenerateNow()">🎰 Get Today\'s Draw</button>'}
+          </div>`;
+        return;
+      }
+      el.innerHTML = `
+        <div class="oracle-intro">
+          <div class="oracle-tagline">Today: ${lnEsc((draw.book && draw.book.title) || '')} · ${lnEsc((draw.movie && draw.movie.title) || '')}</div>
+          <button class="btn btn-primary" onclick="clOpenPage()" style="padding:7px 16px;font-size:12px">Open →</button>
+        </div>`;
     }
 
     function clRenderMain() {
@@ -9303,7 +9367,9 @@
         el.innerHTML = `${evoBanner}
           <div class="cl-empty-state">
             <div class="cl-empty-emoji">🎰</div>
-            <p>Today's draw hasn't landed yet — check back after 10am.</p>
+            ${_clGenerating
+              ? `<p>Shuffling today's picks for you…</p>`
+              : `<p>No draw yet for today.</p><button class="btn btn-primary" onclick="clGenerateNow()">🎰 Get Today's Draw</button>`}
           </div>
           ${badgeShelf}`;
         return;
@@ -9847,6 +9913,7 @@
     function renderDailyExtras() {
       renderQuizEntry();
       if (typeof bcRenderCard === 'function') bcRenderCard();
+      if (typeof clRenderTodayCard === 'function') clRenderTodayCard();
     }
 
     function renderQuizEntry() {
@@ -10507,16 +10574,16 @@
             <div class="lv2-score-caption">${captionFor(composite)}</div>
           </div>
           <div class="lv2-sb-stats">
-            <div class="lv2-sb-tile"><span class="lv2-sb-tile-icon">🧠</span><div><div class="lv2-sb-tile-label">Brain Check</div><div class="lv2-sb-tile-value">${myResult.score}/10</div><div class="lv2-sb-tile-note">${bcQuipFor(myResult.score)}</div></div></div>
-            <div class="lv2-sb-tile"><span class="lv2-sb-tile-icon">🔥</span><div><div class="lv2-sb-tile-label">Daily Streak</div><div class="lv2-sb-tile-value">${streakCount} day${streakCount === 1 ? '' : 's'}</div><div class="lv2-sb-tile-note">${streakCount >= 5 ? 'On fire! 🔥' : streakCount > 1 ? 'Keep it going.' : 'Just started.'}</div></div></div>
-            <div class="lv2-sb-tile"><span class="lv2-sb-tile-icon">⭐</span><div><div class="lv2-sb-tile-label">Loonaverse XP</div><div class="lv2-sb-tile-value">${xpTotal.toLocaleString()}</div><div class="lv2-sb-tile-note">+${xpToday} today</div></div></div>
-            <div class="lv2-sb-tile"><span class="lv2-sb-tile-icon">🏆</span><div><div class="lv2-sb-tile-label">Team Rank</div><div class="lv2-sb-tile-value">${rank ? '#' + rank : '—'}</div><div class="lv2-sb-tile-note">${rank && rank <= 10 ? 'Top 10 today' : rank ? 'Keep climbing.' : ''}</div></div></div>
+            <div class="lv2-sb-tile"><span class="lv2-sb-tile-icon"><img src="assets/loonaverse/icons/brain-check.png" alt=""></span><div><div class="lv2-sb-tile-label">Brain Check</div><div class="lv2-sb-tile-value">${myResult.score}/10</div><div class="lv2-sb-tile-note">${bcQuipFor(myResult.score)}</div></div></div>
+            <div class="lv2-sb-tile"><span class="lv2-sb-tile-icon"><img src="assets/loonaverse/icons/daily-streak.png" alt=""></span><div><div class="lv2-sb-tile-label">Daily Streak</div><div class="lv2-sb-tile-value">${streakCount} day${streakCount === 1 ? '' : 's'}</div><div class="lv2-sb-tile-note">${streakCount >= 5 ? 'On fire! 🔥' : streakCount > 1 ? 'Keep it going.' : 'Just started.'}</div></div></div>
+            <div class="lv2-sb-tile"><span class="lv2-sb-tile-icon"><img src="assets/loonaverse/icons/loonaverse-xp.png" alt=""></span><div><div class="lv2-sb-tile-label">Loonaverse XP</div><div class="lv2-sb-tile-value">${xpTotal.toLocaleString()}</div><div class="lv2-sb-tile-note">+${xpToday} today</div></div></div>
+            <div class="lv2-sb-tile"><span class="lv2-sb-tile-icon"><img src="assets/loonaverse/icons/team-rank.png" alt=""></span><div><div class="lv2-sb-tile-label">Team Rank</div><div class="lv2-sb-tile-value">${rank ? '#' + rank : '—'}</div><div class="lv2-sb-tile-note">${rank && rank <= 10 ? 'Top 10 today' : rank ? 'Keep climbing.' : ''}</div></div></div>
           </div>
         </div>
         ${(strongest || weakest) ? `
         <div class="lv2-sb-cats">
-          ${strongest ? `<div class="lv2-sb-cat"><span class="lv2-sb-tile-icon">🎯</span><div><div class="lv2-sb-tile-label">Strongest Category</div><div class="lv2-sb-tile-value">${lnEsc(strongest[0])}</div></div></div>` : ''}
-          ${weakest ? `<div class="lv2-sb-cat"><span class="lv2-sb-tile-icon">☕</span><div><div class="lv2-sb-tile-label">Needs Coffee</div><div class="lv2-sb-tile-value">${lnEsc(weakest[0])}</div></div></div>` : ''}
+          ${strongest ? `<div class="lv2-sb-cat"><span class="lv2-sb-tile-icon"><img src="assets/loonaverse/icons/strongest-category.png" alt=""></span><div><div class="lv2-sb-tile-label">Strongest Category</div><div class="lv2-sb-tile-value">${lnEsc(strongest[0])}</div></div></div>` : ''}
+          ${weakest ? `<div class="lv2-sb-cat"><span class="lv2-sb-tile-icon"><img src="assets/loonaverse/icons/needs-coffee.png" alt=""></span><div><div class="lv2-sb-tile-label">Needs Coffee</div><div class="lv2-sb-tile-value">${lnEsc(weakest[0])}</div></div></div>` : ''}
         </div>` : ''}
         <button class="btn lv2-sb-full-btn" onclick="bcGoToPage();bcShowScore()">View Full Score →</button>`;
     }
@@ -10563,8 +10630,7 @@
       ['Loona Canvas', 'Collaborative whiteboard.', '017', '▦'],
       ['Loona Clips', 'AI-generated social edits.', '018', '◈'],
       ['Loona Labs', 'Public experiments and prototypes.', '019', '⌾'],
-      ['Loona Browser', 'A browser tailored for marketers and creatives.', '020', '◨'],
-      ['Culture Lottery', 'Your daily personalized book, movie, and word draw.', '021', '🎰', true]
+      ['Loona Browser', 'A browser tailored for marketers and creatives.', '020', '◨']
     ];
     function lvRenderToolsGrid() {
       const el = document.getElementById('lv-tools-grid');
@@ -14915,7 +14981,6 @@
     let lnToast = null;
     function lvCardClick(name) {
       if (name === 'Loona Notes') { openLoonaNotes(); return; }
-      if (name === 'Culture Lottery') { clOpenPage(); return; }
       if (!lnToast) {
         lnToast = document.createElement('div');
         lnToast.style.cssText = 'position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 18px;border-radius:10px;font-size:12.5px;font-weight:600;z-index:9999;opacity:0;transition:opacity .2s;pointer-events:none';
@@ -16800,6 +16865,7 @@ ${brandLines}`;
 .lv2-costar{background:linear-gradient(0deg,rgba(8,2,18,.92) 0%,rgba(8,2,18,.55) 45%,rgba(8,2,18,.15) 100%),url('assets/loonaverse/costar_bg.png');background-size:cover;background-position:70% 40%}
 .lv2-news{background:linear-gradient(0deg,rgba(2,10,8,.92) 0%,rgba(2,10,8,.55) 45%,rgba(2,10,8,.15) 100%),url('assets/loonaverse/news_bg.png');background-size:cover;background-position:65% 45%}
 .lv2-quiz{background:linear-gradient(0deg,rgba(10,2,14,.92) 0%,rgba(10,2,14,.55) 45%,rgba(10,2,14,.15) 100%),url('assets/loonaverse/quiz_bg.png');background-size:cover;background-position:70% 40%}
+.lv2-culture{background:linear-gradient(160deg,rgba(40,10,50,.95) 0%,rgba(24,6,32,.9) 55%,rgba(12,3,16,.85) 100%)}
 .lv2-daily-card > div:not(.lv2-card-art){position:relative;z-index:2}
 
 .lv2-mid-grid{display:grid;grid-template-columns:1fr 1.05fr;gap:16px;margin-bottom:26px}
@@ -16807,6 +16873,8 @@ ${brandLines}`;
 .lv2-kicker{color:var(--accent2);margin-bottom:12px;font-weight:600;font-size:14px}
 .lv2-sb-header{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px}
 .lv2-sb-header-icon{font-size:22px;color:var(--accent2);line-height:1}
+.lv2-sb-header-icon img{width:24px;height:24px;object-fit:contain;display:block}
+.lv2-kicker-icon{width:15px;height:15px;object-fit:contain;vertical-align:-2px;display:inline-block;margin-right:2px}
 .lv2-sb-title{font-size:17px;font-weight:700;color:var(--accent2)}
 .lv2-sb-subtitle{font-size:12px;color:var(--muted);margin-top:2px}
 .lv2-score-empty{padding:14px 0}
@@ -16822,6 +16890,7 @@ ${brandLines}`;
 .lv2-sb-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .lv2-sb-tile{background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:12px;display:flex;gap:10px;align-items:flex-start}
 .lv2-sb-tile-icon{font-size:18px;line-height:1;flex:0 0 auto}
+.lv2-sb-tile-icon img{width:20px;height:20px;object-fit:contain;display:block}
 .lv2-sb-tile-label{font-size:11px;color:var(--muted);margin-bottom:2px}
 .lv2-sb-tile-value{font-size:19px;font-weight:800;color:var(--text);line-height:1.2}
 .lv2-sb-tile-note{font-size:10.5px;color:var(--muted);margin-top:2px}
