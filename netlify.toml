@@ -45,6 +45,16 @@
 [functions."marketing-news-daily"]
   schedule = "0 4 * * *"
 
+# Culture Lottery's daily personalized book/movie/word draw for every onboarded
+# profile. 04:15 UTC = 09:45 IST, ahead of the 10:00 IST daily broadcast.
+[functions."culture-lottery-daily"]
+  schedule = "15 4 * * *"
+
+# Culture Lottery's weekly taste-evolution summary. 04:30 UTC Sunday = 10:00
+# IST Sunday.
+[functions."culture-lottery-weekly"]
+  schedule = "30 4 * * 0"
+
 # Set these in Netlify → Site settings → Environment variables (NOT in code):
 #   PETPOOJA_CLIENT_ID
 #   PETPOOJA_CLIENT_SECRET
@@ -53,10 +63,12 @@
 #   BASIC_AUTH_CREDENTIALS   (site-wide password gate — see netlify/edge-functions/basic-auth.ts.
 #                             Format: username:password. Without this set, the site is NOT gated.)
 #   CLAUDE_API_KEY           (used by notes-summarize + tasks-extract for note/task generation,
-#                             and by marketing-news-daily for the Loonaverse "Marketing News"
-#                             card — that one also needs web search enabled on the API key/org,
-#                             since it uses the web_search_20250305 tool to ground its summaries
-#                             in real, current stories rather than inventing them)
+#                             by marketing-news-daily for the Loonaverse "Marketing News" card —
+#                             that one also needs web search enabled on the API key/org, since it
+#                             uses the web_search_20250305 tool to ground its summaries in real,
+#                             current stories rather than inventing them — and by
+#                             culture-lottery-daily for each person's daily book/movie/word pick,
+#                             which doesn't need web search since it's not time-sensitive)
 #   SARVAM_API_KEY           (Sarvam AI batch speech-to-text, used by Loona Notes' meeting
 #                             recorder — see netlify/functions/sarvam-*.js)
 #   GOOGLE_CALENDAR_SERVICE_ACCOUNT   (full JSON key contents for the service account
