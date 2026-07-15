@@ -20,7 +20,10 @@ exports.handler = async (event) => {
     if (event.httpMethod !== "POST") return { statusCode: 405, body: JSON.stringify({ success: false, message: "POST only" }) };
 
     let key;
-    try { key = (JSON.parse(event.body || "{}") || {}).key; } catch (e) { key = null; }
+    try {
+      const raw = event.isBase64Encoded ? Buffer.from(event.body || "", "base64").toString("utf8") : (event.body || "{}");
+      key = (JSON.parse(raw) || {}).key;
+    } catch (e) { key = null; }
     if (!key) return { statusCode: 400, body: JSON.stringify({ success: false, message: "Missing key" }) };
 
     const apiKey = process.env.CLAUDE_API_KEY;
@@ -29,12 +32,14 @@ exports.handler = async (event) => {
     const date = todayIST();
 
     const existing = await fbGet("/cultureLottery/draws/" + key + "/" + date);
+    if (existing.status < 200 || existing.status >= 300) return { statusCode: 502, body: JSON.stringify({ success: false, message: "Firebase read failed: " + JSON.stringify(existing.body).slice(0, 300) }) };
     if (existing.body) return { statusCode: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ success: true, date, draw: existing.body, skipped: "already generated" }) };
 
     const [profileResp, feedbackResp] = await Promise.all([
       fbGet("/cultureLottery/profiles/" + key),
       fbGet("/cultureLottery/feedback/" + key)
     ]);
+    if (profileResp.status < 200 || profileResp.status >= 300) return { statusCode: 502, body: JSON.stringify({ success: false, message: "Firebase read failed: " + JSON.stringify(profileResp.body).slice(0, 300) }) };
     const profile = profileResp.body;
     if (!profile || !profile.onboarded) return { statusCode: 400, body: JSON.stringify({ success: false, message: "No onboarded profile for this member" }) };
 

@@ -9273,9 +9273,11 @@
     // after onboarding, and from the "Get Today's Draw" button on the empty
     // state below.
     let _clGenerating = false;
+    let _clGenerateError = null;
     function clGenerateNow() {
       if (!currentUser || _clGenerating) return;
       _clGenerating = true;
+      _clGenerateError = null;
       const key = fbMemberKey(currentUser);
       clRenderMain();
       if (typeof clRenderTodayCard === 'function') clRenderTodayCard();
@@ -9283,13 +9285,15 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key })
-      }).then(r => r.json()).then(data => {
+      }).then(r => r.json().catch(() => ({ success: false, message: 'Server returned ' + r.status }))).then(data => {
         if (data && data.draw) {
           window.CL_DRAWS = window.CL_DRAWS || {};
           window.CL_DRAWS[key] = window.CL_DRAWS[key] || {};
           window.CL_DRAWS[key][bcTodayDateIST()] = data.draw;
+        } else {
+          _clGenerateError = (data && data.message) || 'Something went wrong.';
         }
-      }).catch(() => {}).finally(() => {
+      }).catch(e => { _clGenerateError = e && e.message ? e.message : 'Network error — check your connection.'; }).finally(() => {
         _clGenerating = false;
         clRenderMain();
         if (typeof clRenderTodayCard === 'function') clRenderTodayCard();
@@ -9329,8 +9333,8 @@
       if (!draw) {
         el.innerHTML = `
           <div class="oracle-intro">
-            <div class="oracle-tagline">${_clGenerating ? "Shuffling today's picks for you…" : "Today's draw is ready when you are."}</div>
-            ${_clGenerating ? '' : '<button class="btn btn-primary" onclick="clGenerateNow()">🎰 Get Today\'s Draw</button>'}
+            <div class="oracle-tagline">${_clGenerating ? "Shuffling today's picks for you…" : (_clGenerateError ? `Couldn't generate: ${lnEsc(_clGenerateError)}` : "Today's draw is ready when you are.")}</div>
+            ${_clGenerating ? '' : '<button class="btn btn-primary" onclick="clGenerateNow()">🎰 ' + (_clGenerateError ? 'Try Again' : "Get Today's Draw") + '</button>'}
           </div>`;
         return;
       }
@@ -9369,7 +9373,9 @@
             <div class="cl-empty-emoji">🎰</div>
             ${_clGenerating
               ? `<p>Shuffling today's picks for you…</p>`
-              : `<p>No draw yet for today.</p><button class="btn btn-primary" onclick="clGenerateNow()">🎰 Get Today's Draw</button>`}
+              : _clGenerateError
+                ? `<p>Couldn't generate today's draw: ${lnEsc(_clGenerateError)}</p><button class="btn btn-primary" onclick="clGenerateNow()">🎰 Try Again</button>`
+                : `<p>No draw yet for today.</p><button class="btn btn-primary" onclick="clGenerateNow()">🎰 Get Today's Draw</button>`}
           </div>
           ${badgeShelf}`;
         return;
