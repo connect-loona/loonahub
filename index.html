@@ -10722,6 +10722,8 @@
         .map(x => x.it);
     }
 
+    let _newsGenerating = false;
+    let _newsGenerateError = null;
     function lvRenderNews() {
       const el = document.getElementById('lv-news-slot');
       if (!el) return;
@@ -10730,7 +10732,8 @@
       if (!news || !news.items || !news.items.length) {
         el.innerHTML = `
           <div class="oracle-intro">
-            <div class="oracle-tagline">Today's roundup is still being put together — check back soon.</div>
+            <div class="oracle-tagline">${_newsGenerating ? "Putting together today's brief…" : (_newsGenerateError ? `Couldn't generate: ${lnEsc(_newsGenerateError)}` : "Today's roundup is still being put together — check back soon.")}</div>
+            ${_newsGenerating ? '' : `<button class="btn btn-primary" onclick="newsRegenerateNow()">🔄 ${_newsGenerateError ? 'Try Again' : 'Generate Now'}</button>`}
           </div>`;
         return;
       }
@@ -10739,6 +10742,23 @@
           <div class="oracle-tagline">5 things moving business, brands and culture today.</div>
           <button class="btn btn-primary" onclick="lvShowNewsModal()">Read Today's Brief →</button>
         </div>`;
+    }
+
+    // Self-serve escape hatch for the empty state — covers both "nobody's
+    // generated today yet" and "a previous run got stuck" (a prior bug left
+    // the dedup claim set with no data ever written; force=1 bypasses that
+    // claim). Whoever clicks this benefits the whole team, since the result
+    // writes to the shared marketingNews/<date> node everyone reads from.
+    function newsRegenerateNow() {
+      if (_newsGenerating) return;
+      _newsGenerating = true;
+      _newsGenerateError = null;
+      lvRenderNews();
+      fetch('/.netlify/functions/marketing-news-daily?force=1')
+        .then(r => r.json().catch(() => ({ success: false, message: 'Server returned ' + r.status })))
+        .then(data => { if (!data || !data.success) _newsGenerateError = (data && data.message) || 'Something went wrong.'; })
+        .catch(e => { _newsGenerateError = e && e.message ? e.message : 'Network error — check your connection.'; })
+        .finally(() => { _newsGenerating = false; lvRenderNews(); });
     }
 
     function lvShowNewsModal() {
