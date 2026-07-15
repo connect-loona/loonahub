@@ -7618,6 +7618,11 @@
           if (typeof lvRenderPersonalScore === 'function') lvRenderPersonalScore();
         });
         const clKey = fbMemberKey(name);
+        _db.ref('newsPrefs/' + clKey).on('value', snap => {
+          window.NEWS_PREFS = window.NEWS_PREFS || {};
+          window.NEWS_PREFS[clKey] = snap.val() || null;
+          if (typeof lvRenderNews === 'function') lvRenderNews();
+        });
         _db.ref('cultureLottery/profiles/' + clKey).on('value', snap => {
           window.CL_PROFILE = window.CL_PROFILE || {};
           window.CL_PROFILE[clKey] = snap.val() || null;
@@ -10669,10 +10674,54 @@
       }
     }
 
-    // Marketing News in 60 Seconds — populated once daily by the
+    // Marketing News in 60 Seconds — Loona's daily 5-story briefing spanning
+    // marketing, branding, social, AI, business, fashion, art, design, and
+    // culture (not just ad-industry news). Populated once daily by the
     // marketing-news-daily Netlify scheduled function (real, web-search-sourced
     // items, not invented). Falls back to a quiet placeholder if today's hasn't
     // landed yet (e.g. right after midnight before the function has run).
+    const NEWS_CATEGORIES = [
+      { key: 'fashion', emoji: '👗', label: 'Fashion' },
+      { key: 'art', emoji: '🖼', label: 'Art' },
+      { key: 'design', emoji: '🎨', label: 'Design' },
+      { key: 'photography', emoji: '📸', label: 'Photography' },
+      { key: 'film', emoji: '🎬', label: 'Film' },
+      { key: 'branding', emoji: '🏷', label: 'Branding' },
+      { key: 'social', emoji: '📱', label: 'Social Media' },
+      { key: 'ai', emoji: '🤖', label: 'AI' },
+      { key: 'performance', emoji: '📈', label: 'Performance' },
+      { key: 'business', emoji: '💼', label: 'Business' },
+      { key: 'culture', emoji: '🌍', label: 'Culture' },
+      { key: 'copywriting', emoji: '✍️', label: 'Copywriting' }
+    ];
+    function newsCategoryInfo(key) { return NEWS_CATEGORIES.find(c => c.key === key) || NEWS_CATEGORIES.find(c => c.key === 'culture'); }
+
+    // Personalization interests (picked once, reused to reorder the shared
+    // daily list — everyone still gets the same 5 stories as common ground,
+    // this only changes what surfaces first for you).
+    const NEWS_INTERESTS = ['Fashion', 'Art', 'Architecture', 'Photography', 'Cinema', 'Graphic Design', 'Branding', 'AI', 'Business'];
+    const NEWS_INTEREST_TO_CATEGORIES = {
+      Fashion: ['fashion'], Art: ['art'], Architecture: ['design', 'culture'], Photography: ['photography'],
+      Cinema: ['film'], 'Graphic Design': ['design'], Branding: ['branding'], AI: ['ai'], Business: ['business', 'performance']
+    };
+    let _newsFilter = null;
+
+    function newsMyInterests() {
+      return ((window.NEWS_PREFS || {})[fbMemberKey(currentUser)] || {}).interests || [];
+    }
+
+    // Stable sort — items matching one of the reader's interests float to the
+    // top, but relative order within each group (matched / unmatched) is
+    // preserved so the daily editorial sequencing still holds otherwise.
+    function newsSortForMe(items) {
+      const mine = newsMyInterests();
+      if (!mine.length) return items;
+      const matchCats = new Set(mine.flatMap(i => NEWS_INTEREST_TO_CATEGORIES[i] || []));
+      return items.map((it, i) => ({ it, i, hit: matchCats.has(it.category) ? 0 : 1 }))
+        .sort((a, b) => a.hit - b.hit || a.i - b.i)
+        .map(x => x.it);
+    }
+
     function lvRenderNews() {
       const el = document.getElementById('lv-news-slot');
       if (!el) return;
@@ -10687,33 +10736,99 @@
       }
       el.innerHTML = `
         <div class="oracle-intro">
-          <div class="oracle-tagline">${news.items.length} things moving in marketing today.</div>
-          <button class="btn btn-primary" onclick="lvShowNewsModal()">Read Now →</button>
+          <div class="oracle-tagline">5 things moving business, brands and culture today.</div>
+          <button class="btn btn-primary" onclick="lvShowNewsModal()">Read Today's Brief →</button>
         </div>`;
     }
 
     function lvShowNewsModal() {
-      const date = bcTodayDateIST();
-      const news = (window.MARKETING_NEWS || {})[date];
-      const items = (news && news.items) || [];
+      _newsFilter = null;
       let modal = document.getElementById('lv-news-modal');
       if (!modal) {
         modal = document.createElement('div');
         modal.id = 'lv-news-modal';
         modal.className = 'modal-overlay';
         modal.onclick = (e) => { if (e.target === modal) modal.classList.add('hidden'); };
-        modal.innerHTML = '<div class="modal" style="max-width:560px;max-height:80vh;overflow-y:auto"><a class="bc-modal-close" onclick="document.getElementById(\'lv-news-modal\').classList.add(\'hidden\')">✕ Close</a><div id="lv-news-modal-body"></div></div>';
+        modal.innerHTML = '<div class="modal" style="max-width:600px;max-height:82vh;overflow-y:auto"><a class="bc-modal-close" onclick="document.getElementById(\'lv-news-modal\').classList.add(\'hidden\')">✕ Close</a><div id="lv-news-modal-body"></div></div>';
         document.body.appendChild(modal);
       }
-      document.getElementById('lv-news-modal-body').innerHTML = `
-        <div class="section-title" style="margin-bottom:14px">Marketing News <span>in 60 Seconds</span></div>
-        ${items.length ? items.map(it => `
-          <div style="border-top:1px solid var(--border);padding:12px 0">
-            <div style="font-weight:700;color:var(--text);margin-bottom:4px">${lnEsc(it.title)}</div>
-            <div style="color:var(--muted);font-size:12.5px;line-height:1.5;margin-bottom:4px">${lnEsc(it.blurb)}</div>
-            ${it.source ? `<a href="${lnEsc(it.url || '#')}" target="_blank" style="font-size:11px;color:var(--accent2)">${lnEsc(it.source)} ↗</a>` : ''}
-          </div>`).join('') : '<div class="bc-empty-state">Nothing yet today — check back soon.</div>'}`;
+      newsRenderModalBody();
       modal.classList.remove('hidden');
+    }
+
+    function newsRenderModalBody() {
+      const date = bcTodayDateIST();
+      const news = (window.MARKETING_NEWS || {})[date];
+      const items = newsSortForMe((news && news.items) || []);
+      const presentCats = NEWS_CATEGORIES.filter(c => items.some(it => it.category === c.key));
+      const mine = newsMyInterests();
+      const shown = _newsFilter ? items.filter(it => it.category === _newsFilter) : items;
+
+      document.getElementById('lv-news-modal-body').innerHTML = `
+        <div class="section-title" style="margin-bottom:4px">Marketing News <span>in 60 Seconds</span></div>
+        <div style="color:var(--muted);font-size:12px;margin-bottom:12px">5 things moving business, brands and culture today.</div>
+        ${presentCats.length ? `
+        <div class="cl-chip-row" style="margin-bottom:10px">
+          ${presentCats.map(c => `<span class="cl-chip${_newsFilter === c.key ? ' selected' : ''}" onclick="newsToggleFilter('${c.key}')">${c.emoji} ${c.label}</span>`).join('')}
+        </div>` : ''}
+        <div style="margin-bottom:14px">
+          <a onclick="newsOpenPersonalize()" style="font-size:11.5px;color:var(--accent2);cursor:pointer">🎯 ${mine.length ? 'Edit your interests' : 'Personalize your brief'} →</a>
+        </div>
+        <div id="news-personalize-panel" style="display:none;margin-bottom:16px"></div>
+        ${shown.length ? shown.map(it => {
+          const cat = newsCategoryInfo(it.category);
+          return `
+          <div style="border-top:1px solid var(--border);padding:14px 0">
+            <div style="display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--accent2);background:rgba(255,109,41,.1);border:1px solid rgba(255,109,41,.3);border-radius:999px;padding:3px 9px;margin-bottom:8px">${cat.emoji} ${cat.label}</div>
+            <div style="font-weight:700;color:var(--text);font-size:14.5px;margin-bottom:8px">${lnEsc(it.title)}</div>
+            <div style="color:var(--text);font-size:12.5px;line-height:1.55;margin-bottom:6px"><b style="color:var(--muted);font-weight:600">What happened </b>${lnEsc(it.whatHappened || '')}</div>
+            <div style="color:var(--text);font-size:12.5px;line-height:1.55;margin-bottom:8px"><b style="color:var(--muted);font-weight:600">Why it matters </b>${lnEsc(it.whyItMatters || '')}</div>
+            ${it.loonaTake ? `<div style="color:var(--accent2);font-size:12.5px;font-style:italic;line-height:1.5;margin-bottom:8px">"${lnEsc(it.loonaTake)}"</div>` : ''}
+            ${it.source ? `<a href="${lnEsc(it.url || '#')}" target="_blank" style="font-size:11px;color:var(--muted)">${lnEsc(it.source)} ↗</a>` : ''}
+          </div>`;
+        }).join('') : '<div class="bc-empty-state">Nothing in this category today.</div>'}`;
+    }
+
+    function newsToggleFilter(key) {
+      _newsFilter = _newsFilter === key ? null : key;
+      newsRenderModalBody();
+    }
+
+    function newsOpenPersonalize() {
+      const panel = document.getElementById('news-personalize-panel');
+      if (!panel) return;
+      const isOpen = panel.style.display !== 'none';
+      if (isOpen) { panel.style.display = 'none'; return; }
+      const mine = newsMyInterests();
+      panel.innerHTML = `
+        <div style="border:1px solid var(--border);border-radius:14px;padding:14px;background:var(--surface2)">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Pick what you care about most — we'll bring matching stories to the top of your daily brief.</div>
+          <div class="cl-chip-row" id="news-interest-chips" style="margin-bottom:12px">
+            ${NEWS_INTERESTS.map(i => `<span class="cl-chip${mine.includes(i) ? ' selected' : ''}" onclick="newsToggleInterestChip('${i}', this)">${lnEsc(i)}</span>`).join('')}
+          </div>
+          <button class="btn btn-primary" onclick="newsSaveInterests()" style="padding:7px 16px;font-size:12px">Save →</button>
+        </div>`;
+      panel.style.display = 'block';
+      panel._pending = new Set(mine);
+    }
+
+    function newsToggleInterestChip(name, el) {
+      const panel = document.getElementById('news-personalize-panel');
+      if (!panel._pending) panel._pending = new Set(newsMyInterests());
+      if (panel._pending.has(name)) { panel._pending.delete(name); el.classList.remove('selected'); }
+      else { panel._pending.add(name); el.classList.add('selected'); }
+    }
+
+    function newsSaveInterests() {
+      if (!_db || !currentUser) return;
+      const panel = document.getElementById('news-personalize-panel');
+      const interests = Array.from(panel._pending || []);
+      const key = fbMemberKey(currentUser);
+      _db.ref('newsPrefs/' + key).set({ interests });
+      window.NEWS_PREFS = window.NEWS_PREFS || {};
+      window.NEWS_PREFS[key] = { interests };
+      panel.style.display = 'none';
+      newsRenderModalBody();
     }
 
     // ═══ Daily mood/status ═══
