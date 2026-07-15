@@ -11,6 +11,9 @@
 // everyone still gets the same 5 stories as common cultural reference points.
 //
 // Manual run (for testing): GET /.netlify/functions/marketing-news-daily
+// Force a regenerate even if today was already claimed (e.g. to recover from
+// a stuck claim written by an old build, or to refresh a bad edition):
+//   GET /.netlify/functions/marketing-news-daily?force=1
 // ============================================================================
 
 const https = require("https");
@@ -46,27 +49,34 @@ function todayIST() {
 // web_search tool enabled, content also includes server_tool_use /
 // web_search_tool_result blocks interspersed — only the text blocks matter here.
 function extractJsonArray(content) {
-  const text = (content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n");
+  const text = (content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n")
+    .replace(/```json/gi, "").replace(/```/g, "");
   const start = text.indexOf("[");
   const end = text.lastIndexOf("]");
-  if (start === -1 || end === -1 || end < start) throw new Error("No JSON array found in Claude's response");
+  if (start === -1 || end === -1 || end < start) throw new Error("No JSON array found in Claude's response (stop_reason may have truncated it)");
   return JSON.parse(text.slice(start, end + 1));
 }
 
 // Must match NEWS_CATEGORIES in index.html exactly (key values, not labels).
 const NEWS_CATEGORY_KEYS = ["fashion", "art", "design", "photography", "film", "branding", "social", "ai", "performance", "business", "culture", "copywriting"];
 
-exports.handler = async () => {
+exports.handler = async (event) => {
+  const date = todayIST();
+  const force = !!(event && event.queryStringParameters && event.queryStringParameters.force === "1");
+  let claimed = false;
   try {
-    const date = todayIST();
-
     const claim = await fbGet("/marketing_news_created/" + date);
-    if (claim.body) return { statusCode: 200, body: JSON.stringify({ success: true, skipped: "already generated", date }) };
+    if (claim.body && !force) return { statusCode: 200, body: JSON.stringify({ success: true, skipped: "already generated", date }) };
 
     const apiKey = process.env.CLAUDE_API_KEY;
     if (!apiKey) return { statusCode: 500, body: JSON.stringify({ success: false, message: "CLAUDE_API_KEY not set" }) };
 
+    // Claimed before the (slow, web-search-heavy) generation call so a
+    // concurrent invocation doesn't double-generate — but if generation
+    // fails below, the catch block clears this claim again, so a failure
+    // doesn't permanently lock today out with no data ever written.
     await fbPut("/marketing_news_created/" + date, true);
+    claimed = true;
 
     const prompt = `You are assembling "Marketing News in 60 Seconds" — Loona's daily 5-story briefing on what's shaping creative work today. This is broader than ad-industry trade news: it covers marketing, branding, social media, AI, business, fashion, art, design, and culture. Search the web for what's genuinely happening RIGHT NOW (nothing older than the last couple of days) and pick exactly 5 real, current, verifiable stories that fit this mix:
 
@@ -93,12 +103,17 @@ Write each story in three parts, in your own original words (never copy sentence
 Respond with ONLY a valid JSON array, no markdown fences, no other text, in this exact shape:
 [{"category": "one of the keys above", "title": "short headline", "whatHappened": "...", "whyItMatters": "...", "loonaTake": "...", "source": "Publication Name", "url": "https://..."}]`;
 
+    // Generous headroom: up to 8 web searches plus a 5-story structured
+    // response (3 written fields per story) is a lot more output than the
+    // original single-blurb format — a tight max_tokens here would cut
+    // Claude off mid-response, before the closing "]" ever gets written,
+    // which extractJsonArray has no way to recover from.
     const resp = await req("POST", "https://api.anthropic.com/v1/messages", {
       "x-api-key": apiKey,
       "anthropic-version": "2023-06-01"
     }, {
       model: "claude-sonnet-5",
-      max_tokens: 2200,
+      max_tokens: 6000,
       tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 8 }],
       messages: [{ role: "user", content: prompt }]
     });
@@ -121,6 +136,11 @@ Respond with ONLY a valid JSON array, no markdown fences, no other text, in this
 
     return { statusCode: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ success: true, date, items: items.length }) };
   } catch (err) {
+    // Clear the claim on failure — otherwise a single bad run (truncated
+    // response, a parse error, a transient API error) permanently locks
+    // today out with the claim set but no marketingNews/<date> ever written,
+    // and every later invocation just silently "skips" forever.
+    if (claimed) await fbPut("/marketing_news_created/" + date, null);
     return { statusCode: 502, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ success: false, message: String(err && err.message || err) }) };
   }
 };
