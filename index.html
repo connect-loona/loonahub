@@ -5685,6 +5685,81 @@
       </div>
     </div>
 
+    <!-- ======= CULTURE LOTTERY ======= -->
+    <div class="page" id="page-culturelottery">
+      <div class="ln-header">
+        <button class="ln-back" onclick="clBackToLoonaverse()">← Loonaverse</button>
+        <div class="ln-title-row">
+          <div class="section-title" style="margin:0">Culture <span>Lottery</span></div>
+          <div class="ln-sub">Your daily personalized book, movie, and word draw</div>
+        </div>
+      </div>
+
+      <!-- WELCOME VIEW -->
+      <div id="cl-view-welcome">
+        <div class="cl-welcome-card">
+          <div class="cl-welcome-emoji">🎰</div>
+          <div class="cl-welcome-title">Welcome to Culture Lottery</div>
+          <p class="cl-welcome-copy">The better we know your taste, the better your daily draw becomes.</p>
+          <p class="cl-welcome-copy">This takes less than a minute.</p>
+          <p class="cl-welcome-copy">Let's build your profile.</p>
+          <button class="btn btn-primary" onclick="clStartOnboarding()">Continue →</button>
+        </div>
+      </div>
+
+      <!-- ONBOARDING VIEW -->
+      <div id="cl-view-onboarding" style="display:none">
+        <div class="cl-progress">
+          <span class="cl-progress-step">1</span><span class="cl-progress-step">2</span><span class="cl-progress-step">3</span><span class="cl-progress-step">4</span><span class="cl-progress-step">5</span>
+        </div>
+
+        <div class="cl-step" id="cl-step-1">
+          <div class="cl-step-title">Choose your interests</div>
+          <p class="cl-step-sub">Pick everything you're genuinely interested in.</p>
+          <div id="cl-interest-count" class="cl-interest-count">0 selected (choose at least 5)</div>
+          <div id="cl-interests-grid"></div>
+          <button class="btn btn-primary" id="cl-step1-next" disabled onclick="clGoToStep(2)">Continue →</button>
+        </div>
+
+        <div class="cl-step" id="cl-step-2" style="display:none">
+          <div class="cl-step-title">How deep should we go?</div>
+          <div class="cl-radio-list" id="cl-difficulty-grid"></div>
+          <button class="btn btn-primary" id="cl-step2-next" disabled onclick="clGoToStep(3)">Continue →</button>
+        </div>
+
+        <div class="cl-step" id="cl-step-3" style="display:none">
+          <div class="cl-step-title">How much time do you usually have?</div>
+          <div class="cl-radio-list" id="cl-time-grid"></div>
+          <p class="cl-step-note">This helps recommend articles, essays, short films, or long books.</p>
+          <button class="btn btn-primary" id="cl-step3-next" disabled onclick="clGoToStep(4)">Continue →</button>
+        </div>
+
+        <div class="cl-step" id="cl-step-4" style="display:none">
+          <div class="cl-step-title">What do you already like?</div>
+          <p class="cl-step-sub">Choose creators (optional).</p>
+          <div id="cl-creators-grid"></div>
+          <button class="btn btn-primary" onclick="clGoToStep(5)">Continue →</button>
+        </div>
+
+        <div class="cl-step" id="cl-step-5" style="display:none">
+          <div class="cl-step-title">You're ready.</div>
+          <p class="cl-step-sub">Every morning you'll receive:</p>
+          <div class="cl-finish-list">
+            <div>📖 A book</div>
+            <div>🎬 A movie</div>
+            <div>💡 A word</div>
+          </div>
+          <p class="cl-step-sub">Chosen around your interests.</p>
+          <button class="btn btn-primary" onclick="clFinishOnboarding()">Start Tomorrow's Journey</button>
+        </div>
+      </div>
+
+      <!-- MAIN VIEW -->
+      <div id="cl-view-main" style="display:none">
+        <div id="cl-main-content"></div>
+      </div>
+    </div>
+
     <!-- ======= LOONA RADIO ======= -->
     <div class="page radio-redesign" id="page-radio">
 
@@ -7538,6 +7613,28 @@
           window.LV_XP = snap.val() || null;
           if (typeof lvRenderPersonalScore === 'function') lvRenderPersonalScore();
         });
+        const clKey = fbMemberKey(name);
+        _db.ref('cultureLottery/profiles/' + clKey).on('value', snap => {
+          window.CL_PROFILE = window.CL_PROFILE || {};
+          window.CL_PROFILE[clKey] = snap.val() || null;
+        });
+        _db.ref('cultureLottery/draws/' + clKey).on('value', snap => {
+          window.CL_DRAWS = window.CL_DRAWS || {};
+          window.CL_DRAWS[clKey] = snap.val() || {};
+          if (typeof clRenderMain === 'function' && document.getElementById('page-culturelottery') && document.getElementById('page-culturelottery').classList.contains('active')) clRenderMain();
+        });
+        _db.ref('cultureLottery/feedback/' + clKey).on('value', snap => {
+          window.CL_FEEDBACK = window.CL_FEEDBACK || {};
+          window.CL_FEEDBACK[clKey] = snap.val() || {};
+        });
+        _db.ref('cultureLottery/tasteHistory/' + clKey).on('value', snap => {
+          window.CL_TASTE_HISTORY = window.CL_TASTE_HISTORY || {};
+          window.CL_TASTE_HISTORY[clKey] = snap.val() || {};
+        });
+        _db.ref('cultureLottery/achievements/' + clKey).on('value', snap => {
+          window.CL_ACHIEVEMENTS_UNLOCKED = window.CL_ACHIEVEMENTS_UNLOCKED || {};
+          window.CL_ACHIEVEMENTS_UNLOCKED[clKey] = snap.val() || {};
+        });
       }
       init();
     }
@@ -8971,6 +9068,338 @@
       return LUCKY_HOURS[dailyHash(name + '_' + todayISO() + '_hour') % LUCKY_HOURS.length];
     }
 
+    // ═══ CULTURE LOTTERY ═══
+    // A daily personalized book/movie/word draw. Interests/difficulty/time/
+    // creators from onboarding, plus a running history of feedback, get sent
+    // to Claude (see culture-lottery-daily.js) so recommendations actually
+    // sharpen over time instead of being random or hardcoded per combination.
+    const CL_INTERESTS = {
+      'Marketing': ['Branding', 'Advertising', 'Copywriting', 'Social Media', 'Performance Marketing', 'Consumer Psychology', 'PR', 'Strategy'],
+      'Design': ['Graphic Design', 'UI/UX', 'Product Design', 'Typography', 'Motion Design', 'Illustration', 'Packaging'],
+      'Film & Storytelling': ['Cinema', 'Screenwriting', 'Documentaries', 'Animation', 'Photography', 'Directing', 'Editing'],
+      'Business': ['Entrepreneurship', 'Startups', 'Finance', 'Investing', 'Leadership', 'Negotiation', 'Sales'],
+      'Technology': ['AI', 'Programming', 'Product', 'Robotics', 'Future Tech'],
+      'Creativity': ['Architecture', 'Fashion', 'Music', 'Art', 'Writing', 'History', 'Philosophy', 'Psychology'],
+      'Personal Growth': ['Productivity', 'Habits', 'Stoicism', 'Communication', 'Wellness']
+    };
+    const CL_CREATORS = {
+      'Marketing': ['Rory Sutherland', 'David Ogilvy', 'Seth Godin', 'Alex Hormozi', 'Simon Sinek', 'April Dunford'],
+      'Films': ['Nolan', 'Wes Anderson', 'Fincher', 'Miyazaki', 'Villeneuve', 'Tarantino'],
+      'Books': ['Atomic Habits', 'Shoe Dog', 'Creativity Inc.', 'Steal Like an Artist', 'The Almanack of Naval Ravikant', 'Thinking, Fast and Slow']
+    };
+    const CL_DIFFICULTY = [
+      { key: 'beginner', label: 'Beginner', desc: 'I want accessible recommendations.' },
+      { key: 'explorer', label: 'Explorer', desc: 'A mix of classics and new discoveries.' },
+      { key: 'deepdive', label: 'Deep Dive', desc: 'I like challenging books and films.' }
+    ];
+    const CL_TIME = [
+      { key: '15min', label: '15 minutes' },
+      { key: '30min', label: '30 minutes' },
+      { key: '1hour', label: '1 hour' },
+      { key: 'weekends', label: 'Weekends' }
+    ];
+    const CL_FEEDBACK_ACTIONS = [
+      { key: 'loved', label: '❤️ Loved it' },
+      { key: 'interesting', label: '👍 Interesting' },
+      { key: 'not_for_me', label: '😐 Not for me' },
+      { key: 'saved', label: '⭐ Saved' },
+      { key: 'finished', label: '✅ Finished' }
+    ];
+    const CL_ACHIEVEMENTS = [
+      { key: 'classic_collector', emoji: '🏛️', name: 'Classic Collector', desc: 'Finish 10 books.', check: s => (s.booksFinished || 0) >= 10 },
+      { key: 'film_buff', emoji: '🎬', name: 'Film Buff', desc: 'Finish 20 recommended films.', check: s => (s.moviesFinished || 0) >= 20 },
+      { key: 'idea_hunter', emoji: '🧠', name: 'Idea Hunter', desc: 'Save 100 recommendations.', check: s => (s.totalSaved || 0) >= 100 },
+      { key: 'world_builder', emoji: '🌍', name: 'World Builder', desc: 'Explore 10 different categories.', check: s => Object.keys(s.categoriesExplored || {}).length >= 10 },
+      { key: 'genre_hopper', emoji: '🎭', name: 'Genre Hopper', desc: 'Try five genres outside your favourites.', check: s => (s.outsideInterestHits || 0) >= 5 },
+      { key: 'deep_reader', emoji: '📚', name: 'Deep Reader', desc: 'Finish five books from the platform.', check: s => (s.booksFinished || 0) >= 5 }
+    ];
+
+    let _clState = { interests: new Set(), difficulty: null, time: null, creators: new Set(), step: 1 };
+
+    function clOpenPage() {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('page-culturelottery').classList.add('active');
+      const profile = (window.CL_PROFILE || {})[fbMemberKey(currentUser)];
+      if (profile && profile.onboarded) {
+        clShowView('main');
+        clRenderMain();
+      } else {
+        clShowView('welcome');
+      }
+      window.scrollTo(0, 0);
+    }
+
+    function clBackToLoonaverse() {
+      const btn = document.querySelector('.nav-btn[onclick*="loonaverse"]');
+      showPage('loonaverse', btn);
+    }
+
+    function clShowView(view) {
+      ['welcome', 'onboarding', 'main'].forEach(v => {
+        const el = document.getElementById('cl-view-' + v);
+        if (el) el.style.display = (v === view) ? 'block' : 'none';
+      });
+    }
+
+    function clStartOnboarding() {
+      _clState = { interests: new Set(), difficulty: null, time: null, creators: new Set(), step: 1 };
+      clShowView('onboarding');
+      clRenderStep();
+    }
+
+    function clRenderStep() {
+      document.querySelectorAll('.cl-step').forEach(s => s.style.display = 'none');
+      const el = document.getElementById('cl-step-' + _clState.step);
+      if (el) el.style.display = 'block';
+      if (_clState.step === 1) clRenderInterestChips();
+      if (_clState.step === 2) clRenderDifficultyGrid();
+      if (_clState.step === 3) clRenderTimeGrid();
+      if (_clState.step === 4) clRenderCreatorChecklist();
+    }
+
+    function clRenderDifficultyGrid() {
+      const el = document.getElementById('cl-difficulty-grid');
+      if (!el) return;
+      el.innerHTML = CL_DIFFICULTY.map(d => `
+        <div class="cl-radio-card${_clState.difficulty === d.key ? ' selected' : ''}" data-difficulty onclick="clSelectDifficulty('${d.key}', this)">
+          <div class="cl-radio-dot"></div>
+          <div><div class="cl-radio-label">${lnEsc(d.label)}</div><div class="cl-radio-desc">"${lnEsc(d.desc)}"</div></div>
+        </div>`).join('');
+    }
+
+    function clRenderTimeGrid() {
+      const el = document.getElementById('cl-time-grid');
+      if (!el) return;
+      el.innerHTML = CL_TIME.map(t => `
+        <div class="cl-radio-card${_clState.time === t.key ? ' selected' : ''}" data-time onclick="clSelectTime('${t.key}', this)">
+          <div class="cl-radio-dot"></div>
+          <div class="cl-radio-label">${lnEsc(t.label)}</div>
+        </div>`).join('');
+    }
+
+    function clRenderInterestChips() {
+      const el = document.getElementById('cl-interests-grid');
+      if (!el) return;
+      el.innerHTML = Object.entries(CL_INTERESTS).map(([cat, items]) => `
+        <div class="cl-interest-cat">
+          <div class="cl-interest-cat-title">${lnEsc(cat)}</div>
+          <div class="cl-chip-row">
+            ${items.map(item => `<span class="cl-chip${_clState.interests.has(item) ? ' selected' : ''}" onclick="clToggleInterest('${lnEsc(item).replace(/'/g, "\\'")}', this)">${lnEsc(item)}</span>`).join('')}
+          </div>
+        </div>`).join('');
+      clUpdateInterestCount();
+    }
+
+    function clToggleInterest(name, el) {
+      if (_clState.interests.has(name)) { _clState.interests.delete(name); el.classList.remove('selected'); }
+      else { _clState.interests.add(name); el.classList.add('selected'); }
+      clUpdateInterestCount();
+    }
+
+    function clUpdateInterestCount() {
+      const n = _clState.interests.size;
+      const countEl = document.getElementById('cl-interest-count');
+      if (countEl) countEl.textContent = `${n} selected (choose at least 5)`;
+      const btn = document.getElementById('cl-step1-next');
+      if (btn) btn.disabled = n < 5;
+    }
+
+    function clGoToStep(n) {
+      _clState.step = n;
+      clRenderStep();
+    }
+
+    function clSelectDifficulty(key, el) {
+      _clState.difficulty = key;
+      document.querySelectorAll('.cl-radio-card[data-difficulty]').forEach(c => c.classList.remove('selected'));
+      el.classList.add('selected');
+      const btn = document.getElementById('cl-step2-next');
+      if (btn) btn.disabled = false;
+    }
+
+    function clSelectTime(key, el) {
+      _clState.time = key;
+      document.querySelectorAll('.cl-radio-card[data-time]').forEach(c => c.classList.remove('selected'));
+      el.classList.add('selected');
+      const btn = document.getElementById('cl-step3-next');
+      if (btn) btn.disabled = false;
+    }
+
+    function clRenderCreatorChecklist() {
+      const el = document.getElementById('cl-creators-grid');
+      if (!el) return;
+      el.innerHTML = Object.entries(CL_CREATORS).map(([cat, items]) => `
+        <div class="cl-interest-cat">
+          <div class="cl-interest-cat-title">${lnEsc(cat)}</div>
+          <div class="cl-creator-list">
+            ${items.map(name => `
+              <label class="cl-creator-item">
+                <input type="checkbox" ${_clState.creators.has(name) ? 'checked' : ''} onchange="clToggleCreator('${lnEsc(name).replace(/'/g, "\\'")}')">
+                <span>${lnEsc(name)}</span>
+              </label>`).join('')}
+          </div>
+        </div>`).join('');
+    }
+
+    function clToggleCreator(name) {
+      if (_clState.creators.has(name)) _clState.creators.delete(name); else _clState.creators.add(name);
+    }
+
+    function clFinishOnboarding() {
+      if (!_db || !currentUser) return;
+      const key = fbMemberKey(currentUser);
+      const profile = {
+        interests: Array.from(_clState.interests),
+        difficulty: _clState.difficulty,
+        timeCommitment: _clState.time,
+        creators: Array.from(_clState.creators),
+        onboarded: true,
+        createdAt: new Date().toISOString()
+      };
+      _db.ref('cultureLottery/profiles/' + key).set(profile);
+      window.CL_PROFILE = window.CL_PROFILE || {};
+      window.CL_PROFILE[key] = profile;
+      clShowView('main');
+      clRenderMain();
+    }
+
+    function clMyProfile() {
+      return (window.CL_PROFILE || {})[fbMemberKey(currentUser)] || null;
+    }
+
+    function clTodayDraw() {
+      const date = bcTodayDateIST();
+      return ((window.CL_DRAWS || {})[fbMemberKey(currentUser)] || {})[date] || null;
+    }
+
+    function clMyFeedback() {
+      const date = bcTodayDateIST();
+      return ((window.CL_FEEDBACK || {})[fbMemberKey(currentUser)] || {})[date] || {};
+    }
+
+    function clRenderMain() {
+      const el = document.getElementById('cl-main-content');
+      if (!el) return;
+      const draw = clTodayDraw();
+      const feedback = clMyFeedback();
+      const evo = clLatestEvolution();
+
+      const evoBanner = evo ? `
+        <div class="cl-evo-banner">
+          <div class="cl-evo-title">Your taste evolved this week</div>
+          <div class="cl-evo-sub">${lnEsc(evo.summary || '')}</div>
+          <div class="cl-evo-rows">
+            ${(evo.movers || []).map(m => `<div class="cl-evo-row"><span>${m.delta >= 0 ? '📈' : '📉'} ${lnEsc(m.category)}</span><span class="${m.delta >= 0 ? 'cl-evo-up' : 'cl-evo-down'}">${m.delta >= 0 ? '+' : ''}${m.delta}%</span></div>`).join('')}
+          </div>
+        </div>` : '';
+
+      const badges = clUnlockedAchievements();
+      const badgeShelf = badges.length ? `
+        <div class="cl-badge-shelf" title="${badges.map(b => b.name).join(', ')}">
+          ${badges.map(b => `<span class="cl-badge" title="${lnEsc(b.name)} — ${lnEsc(b.desc)}">${b.emoji}</span>`).join('')}
+        </div>` : '';
+
+      if (!draw) {
+        el.innerHTML = `${evoBanner}
+          <div class="cl-empty-state">
+            <div class="cl-empty-emoji">🎰</div>
+            <p>Today's draw hasn't landed yet — check back after 10am.</p>
+          </div>
+          ${badgeShelf}`;
+        return;
+      }
+
+      const itemCard = (type, icon, title, body, why) => `
+        <div class="cl-draw-card">
+          <div class="cl-draw-icon">${icon}</div>
+          <div class="cl-draw-label">${title}</div>
+          <div class="cl-draw-title">${lnEsc(body)}</div>
+          ${why ? `<div class="cl-draw-why">${lnEsc(why)}</div>` : ''}
+          <div class="cl-feedback-row">
+            ${CL_FEEDBACK_ACTIONS.map(a => `<button class="cl-fb-btn${feedback[type] && feedback[type][a.key] ? ' active' : ''}" onclick="clSubmitFeedback('${type}','${a.key}')">${a.label}</button>`).join('')}
+          </div>
+        </div>`;
+
+      el.innerHTML = `${evoBanner}
+        <div class="cl-draw-grid">
+          ${itemCard('book', '📖', 'Book', draw.book && draw.book.title, draw.book && draw.book.why)}
+          ${itemCard('movie', '🎬', 'Movie', draw.movie && draw.movie.title, draw.movie && draw.movie.why)}
+          ${itemCard('word', '💡', 'Word', draw.word && draw.word.term, draw.word && draw.word.meaning)}
+        </div>
+        ${badgeShelf}`;
+    }
+
+    function clLatestEvolution() {
+      const all = (window.CL_TASTE_HISTORY || {})[fbMemberKey(currentUser)] || {};
+      const weeks = Object.keys(all).sort();
+      return weeks.length ? all[weeks[weeks.length - 1]] : null;
+    }
+
+    function clUnlockedAchievements() {
+      const unlocked = (window.CL_ACHIEVEMENTS_UNLOCKED || {})[fbMemberKey(currentUser)] || {};
+      return CL_ACHIEVEMENTS.filter(a => unlocked[a.key]);
+    }
+
+    function clSubmitFeedback(itemType, action) {
+      if (!_db || !currentUser) return;
+      const key = fbMemberKey(currentUser);
+      const date = bcTodayDateIST();
+      const path = 'cultureLottery/feedback/' + key + '/' + date + '/' + itemType;
+      // Reaction (loved/interesting/not_for_me) is exclusive; saved/finished are
+      // independent flags that can stack alongside a reaction.
+      if (action === 'loved' || action === 'interesting' || action === 'not_for_me') {
+        _db.ref(path + '/loved').remove(); _db.ref(path + '/interesting').remove(); _db.ref(path + '/not_for_me').remove();
+      }
+      _db.ref(path + '/' + action).set(true);
+      clUpdateStatsForFeedback(itemType, action);
+    }
+
+    // Real counters behind the achievement checks — incremented once per
+    // action (not re-derived by scanning history) so the check stays cheap.
+    function clUpdateStatsForFeedback(itemType, action) {
+      if (!_db || !currentUser) return;
+      const key = fbMemberKey(currentUser);
+      const draw = clTodayDraw();
+      const profile = clMyProfile();
+      _db.ref('cultureLottery/stats/' + key).transaction(cur => {
+        const s = cur || {};
+        if (action === 'finished' && itemType === 'book') s.booksFinished = (s.booksFinished || 0) + 1;
+        if (action === 'finished' && itemType === 'movie') s.moviesFinished = (s.moviesFinished || 0) + 1;
+        if (action === 'saved') s.totalSaved = (s.totalSaved || 0) + 1;
+        if (draw && draw[itemType] && draw[itemType].category) {
+          s.categoriesExplored = s.categoriesExplored || {};
+          s.categoriesExplored[draw[itemType].category] = true;
+          if (profile && (action === 'loved' || action === 'finished') && !profile.interests.includes(draw[itemType].category)) {
+            s.outsideInterestHits = (s.outsideInterestHits || 0) + 1;
+          }
+        }
+        return s;
+      }).then(result => {
+        if (result && result.committed) clCheckAchievements(result.snapshot.val() || {});
+      });
+    }
+
+    function clCheckAchievements(stats) {
+      if (!_db || !currentUser) return;
+      const key = fbMemberKey(currentUser);
+      CL_ACHIEVEMENTS.forEach(a => {
+        if (!a.check(stats)) return;
+        _db.ref('cultureLottery/achievements/' + key + '/' + a.key).transaction(cur => cur ? undefined : true)
+          .then(result => { if (result && result.committed) clShowAchievementToast(a); });
+      });
+    }
+
+    function clShowAchievementToast(a) {
+      const toast = document.getElementById('completion-toast');
+      if (!toast) return;
+      document.getElementById('toast-emoji').textContent = a.emoji;
+      document.getElementById('toast-msg').textContent = 'Achievement unlocked: ' + a.name;
+      const sub = document.getElementById('toast-sub');
+      if (sub) sub.textContent = a.desc;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
     // ═══ Find Your Loona Personality ═══ — a one-time 20-question quiz (taken
     // once, result saved to the profile). 19 questions are scored against 8
     // hidden traits; question 20 (the moon) is just for fun and isn't scored.
@@ -10134,7 +10563,8 @@
       ['Loona Canvas', 'Collaborative whiteboard.', '017', '▦'],
       ['Loona Clips', 'AI-generated social edits.', '018', '◈'],
       ['Loona Labs', 'Public experiments and prototypes.', '019', '⌾'],
-      ['Loona Browser', 'A browser tailored for marketers and creatives.', '020', '◨']
+      ['Loona Browser', 'A browser tailored for marketers and creatives.', '020', '◨'],
+      ['Culture Lottery', 'Your daily personalized book, movie, and word draw.', '021', '🎰', true]
     ];
     function lvRenderToolsGrid() {
       const el = document.getElementById('lv-tools-grid');
@@ -14485,6 +14915,7 @@
     let lnToast = null;
     function lvCardClick(name) {
       if (name === 'Loona Notes') { openLoonaNotes(); return; }
+      if (name === 'Culture Lottery') { clOpenPage(); return; }
       if (!lnToast) {
         lnToast = document.createElement('div');
         lnToast.style.cssText = 'position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 18px;border-radius:10px;font-size:12.5px;font-weight:600;z-index:9999;opacity:0;transition:opacity .2s;pointer-events:none';
@@ -16856,6 +17287,60 @@ ${brandLines}`;
 }
 @media(max-width:820px){
   .ln-card{padding:16px}
+}
+</style>
+  <style id="culturelottery-css">
+.cl-welcome-card{max-width:480px;margin:60px auto;text-align:center;padding:36px 28px;border:1px solid var(--border);border-radius:20px;background:var(--surface)}
+.cl-welcome-emoji{font-size:44px;margin-bottom:14px}
+.cl-welcome-title{font-size:22px;font-weight:800;color:var(--text);margin-bottom:14px}
+.cl-welcome-copy{color:var(--muted);font-size:13.5px;line-height:1.6;margin:0 0 8px}
+.cl-welcome-card .btn{margin-top:18px;width:100%}
+.cl-progress{display:flex;justify-content:center;gap:8px;margin-bottom:24px}
+.cl-progress-step{width:26px;height:26px;border-radius:50%;border:1px solid var(--border);color:var(--muted);display:grid;place-items:center;font-size:11px;font-weight:700}
+.cl-step{max-width:640px;margin:0 auto}
+.cl-step-title{font-size:20px;font-weight:800;color:var(--text);margin-bottom:6px}
+.cl-step-sub{color:var(--muted);font-size:13px;margin-bottom:16px}
+.cl-step-note{color:var(--muted);font-size:11.5px;margin-top:10px}
+.cl-interest-count{font-size:12px;color:var(--accent2);font-weight:600;margin-bottom:14px}
+.cl-interest-cat{margin-bottom:18px}
+.cl-interest-cat-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px}
+.cl-chip-row{display:flex;flex-wrap:wrap;gap:8px}
+.cl-chip{padding:7px 14px;border-radius:999px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);font-size:12.5px;cursor:pointer;transition:.15s}
+.cl-chip.selected{border-color:var(--accent);color:var(--text);background:rgba(255,109,41,.14);box-shadow:0 0 0 1px rgba(255,109,41,.4)}
+.cl-radio-list{display:flex;flex-direction:column;gap:10px;margin-bottom:18px}
+.cl-radio-card{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:14px;border:1px solid var(--border);background:var(--surface2);cursor:pointer}
+.cl-radio-card.selected{border-color:var(--accent);background:rgba(255,109,41,.1)}
+.cl-radio-dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--muted);flex:0 0 auto}
+.cl-radio-card.selected .cl-radio-dot{border-color:var(--accent);background:var(--accent)}
+.cl-radio-label{font-size:14px;font-weight:700;color:var(--text)}
+.cl-radio-desc{font-size:12px;color:var(--muted);margin-top:2px}
+.cl-creator-list{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px}
+.cl-creator-item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer;padding:4px 0}
+.cl-finish-list{display:flex;gap:18px;font-size:15px;color:var(--text);margin:16px 0;font-weight:600}
+.cl-step-5{text-align:center}
+#cl-step-5 .btn{margin-top:10px}
+.cl-evo-banner{padding:16px;border-radius:16px;border:1px solid var(--border);background:linear-gradient(135deg,rgba(255,109,41,.12),transparent);margin-bottom:18px}
+.cl-evo-title{font-weight:800;color:var(--text);margin-bottom:4px}
+.cl-evo-sub{color:var(--muted);font-size:12.5px;margin-bottom:10px}
+.cl-evo-row{display:flex;justify-content:space-between;font-size:13px;padding:4px 0}
+.cl-evo-up{color:var(--green);font-weight:700}
+.cl-evo-down{color:var(--red);font-weight:700}
+.cl-draw-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.cl-draw-card{border:1px solid var(--border);border-radius:18px;padding:20px;background:var(--surface)}
+.cl-draw-icon{font-size:26px;margin-bottom:8px}
+.cl-draw-label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--accent2);font-weight:700;margin-bottom:6px}
+.cl-draw-title{font-size:16px;font-weight:800;color:var(--text);margin-bottom:8px;line-height:1.3}
+.cl-draw-why{font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:14px}
+.cl-feedback-row{display:flex;flex-wrap:wrap;gap:6px}
+.cl-fb-btn{padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);font-size:11px;cursor:pointer}
+.cl-fb-btn.active{border-color:var(--accent);color:var(--text);background:rgba(255,109,41,.14)}
+.cl-badge-shelf{display:flex;gap:8px;margin-top:20px;opacity:.85}
+.cl-badge{font-size:20px;cursor:default}
+.cl-empty-state{text-align:center;padding:50px 20px;color:var(--muted)}
+.cl-empty-emoji{font-size:36px;margin-bottom:10px}
+@media(max-width:640px){
+  .cl-draw-grid{grid-template-columns:1fr}
+  .cl-creator-list{grid-template-columns:1fr}
 }
 </style>
   <style id="layout-fix">
