@@ -4527,23 +4527,28 @@
         <div class="form-row">
           <div class="form-group">
             <label>Assigned To *</label>
-            <select class="form-control" id="nt-member" onchange="onMemberChange()">
-              <option value="__personal__">📌 Personal To-Do</option>
-              <option disabled="">──────────────</option>
-              <option value="Gokul">Gokul</option>
-              <option value="Anam">Anam</option>
-              <option value="Arya">Arya</option>
-              <option value="Navya">Navya</option>
-              <option value="Ankita">Ankita</option>
-              <option value="Archisha">Archisha</option>
-              <option value="Ricky">Ricky</option>
-              <option value="Muskan">Muskan</option>
-              <option value="Nishant">Nishant</option>
-              <option value="Karnik">Karnik</option>
-              <option value="Chinmay">Chinmay</option>
-              <option value="Majid">Majid</option>
-              <option value="Anurag">Anurag</option>
-            </select>
+            <div id="nt-member-rows">
+              <div class="nt-member-row">
+                <select class="form-control nt-member-select" id="nt-member" onchange="ntOnPrimaryMemberChange()">
+                  <option value="__personal__">📌 Personal To-Do</option>
+                  <option disabled="">──────────────</option>
+                  <option value="Gokul">Gokul</option>
+                  <option value="Anam">Anam</option>
+                  <option value="Arya">Arya</option>
+                  <option value="Navya">Navya</option>
+                  <option value="Ankita">Ankita</option>
+                  <option value="Archisha">Archisha</option>
+                  <option value="Ricky">Ricky</option>
+                  <option value="Muskan">Muskan</option>
+                  <option value="Nishant">Nishant</option>
+                  <option value="Karnik">Karnik</option>
+                  <option value="Chinmay">Chinmay</option>
+                  <option value="Majid">Majid</option>
+                  <option value="Anurag">Anurag</option>
+                </select>
+                <button type="button" class="nt-member-add-btn" id="nt-member-add-btn" onclick="ntAddMemberRow()" title="Assign to more people">+</button>
+              </div>
+            </div>
           </div>
           <div class="form-group">
             <label>Brand *</label>
@@ -14060,9 +14065,51 @@
       const by = document.getElementById('nt-by');
       if (by && by.tagName === 'SELECT' && !by.value) by.value = currentUser || '';
     }
+
+    // "Personal To-Do" only makes sense for the current user alone, so
+    // picking it clears any extra assignee rows and hides the "+" — every
+    // other choice can stack additional people via ntAddMemberRow().
+    function ntOnPrimaryMemberChange() {
+      onMemberChange();
+      const isPersonal = document.getElementById('nt-member').value === '__personal__';
+      document.querySelectorAll('#nt-member-rows .nt-member-row').forEach((row, i) => { if (i > 0) row.remove(); });
+      const addBtn = document.getElementById('nt-member-add-btn');
+      if (addBtn) addBtn.style.visibility = isPersonal ? 'hidden' : 'visible';
+    }
+
+    function ntMemberOptionsHTML() {
+      return ALL_MEMBERS.filter(m => !INACTIVE_MEMBERS.has(m))
+        .map(m => `<option value="${lnEsc(m)}">${lnEsc(m === currentUser ? m + ' (me)' : m)}</option>`).join('');
+    }
+
+    function ntAddMemberRow() {
+      const rows = document.getElementById('nt-member-rows');
+      if (rows.querySelectorAll('.nt-member-row').length >= ALL_MEMBERS.length) return;
+      const row = document.createElement('div');
+      row.className = 'nt-member-row';
+      row.innerHTML = `<select class="form-control nt-member-select">${ntMemberOptionsHTML()}</select><button type="button" class="nt-member-remove-btn" onclick="ntRemoveMemberRow(this)" title="Remove">×</button>`;
+      rows.appendChild(row);
+    }
+
+    function ntRemoveMemberRow(btn) {
+      btn.closest('.nt-member-row').remove();
+    }
+
+    // Every distinct person picked across the primary + any added rows —
+    // deduped so accidentally picking the same person twice only creates
+    // one task for them.
+    function ntSelectedMembers() {
+      const vals = Array.from(document.querySelectorAll('#nt-member-rows .nt-member-select')).map(s => s.value).filter(Boolean);
+      return Array.from(new Set(vals));
+    }
+
     function openAddTask(preselect) {
       ntStopVoice();
       ntSetMicNote('');
+      // Drop any extra assignee rows left over from a previous open.
+      document.querySelectorAll('#nt-member-rows .nt-member-row').forEach((row, i) => { if (i > 0) row.remove(); });
+      const addBtn = document.getElementById('nt-member-add-btn');
+      if (addBtn) addBtn.style.visibility = 'visible';
       // Rebuild member dropdown fresh: Personal To-Do first, then everyone except current user
       const memberSel = document.getElementById('nt-member');
       memberSel.innerHTML = '';
@@ -14087,6 +14134,7 @@
       // Pre-select: if active tab is another member (not self, not All), pick them; else Personal To-Do
       const target = (preselect && preselect !== currentUser) ? preselect : '__personal__';
       memberSel.value = target;
+      if (addBtn) addBtn.style.visibility = (target === '__personal__') ? 'hidden' : 'visible';
       document.getElementById('nt-by').value = currentUser || '';
       document.getElementById('nt-task').value = '';
       document.getElementById('nt-brand').value = '';
@@ -14419,28 +14467,36 @@
     function submitAddTask() {
       const rawMember = document.getElementById('nt-member').value;
       const isPersonal = rawMember === '__personal__';
-      const member = isPersonal ? (currentUser || '') : rawMember;
+      // Personal To-Do is inherently single-assignee (the add-row "+" is
+      // hidden whenever it's selected); everything else can fan out to
+      // however many people were added via ntAddMemberRow().
+      const members = isPersonal ? [currentUser || ''] : ntSelectedMembers();
       const brand = document.getElementById('nt-brand').value;
       const task = document.getElementById('nt-task').value.trim();
       if (!task) { document.getElementById('nt-task').style.borderColor = 'var(--red)'; return; }
       if (!brand) { document.getElementById('nt-brand').style.borderColor = 'var(--red)'; return; }
+      if (!members.length) { return; }
       document.getElementById('nt-task').style.borderColor = '';
       document.getElementById('nt-brand').style.borderColor = '';
       const assignedBy = isPersonal ? 'Myself' : (document.getElementById('nt-by').value || currentUser || '');
-      const newTask = {
-        member, brand, task,
+      const shared = {
+        brand, task,
         is_personal: isPersonal,
         priority: document.getElementById('nt-priority').value,
         status: document.getElementById('nt-status').value,
         due_date: document.getElementById('nt-due').value || '',
         assigned_by: assignedBy,
-        asylum: (MEMBER_INFO[member] || {}).role || '',
         isNew: true
       };
-      fbAddTask(newTask);
+      // One independent task record per assignee — tasks are stored flat
+      // with a single `member` field each, so "assign to everyone at once"
+      // means writing one of these per person rather than one shared record.
+      members.forEach(member => {
+        fbAddTask({ ...shared, member, asylum: (MEMBER_INFO[member] || {}).role || '' });
+      });
       closeAddTask();
-      // Rebuild tabs with this member active, then re-render
-      buildMemberTabs(member);
+      // Rebuild tabs with the first assignee active, then re-render
+      buildMemberTabs(members[0]);
       renderTasks();
       renderOverview();
     }
@@ -17134,6 +17190,13 @@ ${brandLines}`;
 .nt-mic-btn.recording{background:var(--red);border-color:var(--red);animation:ntMicPulse 1s infinite}
 @keyframes ntMicPulse{0%,100%{opacity:1}50%{opacity:.55}}
 .nt-mic-note{font-size:11px;color:var(--yellow);margin-top:6px;line-height:1.4}
+.nt-member-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.nt-member-row:last-child{margin-bottom:0}
+.nt-member-row .form-control{flex:1}
+.nt-member-add-btn,.nt-member-remove-btn{width:38px;height:38px;min-width:38px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--font);line-height:1}
+.nt-member-add-btn:hover{border-color:var(--accent);color:var(--accent)}
+.nt-member-remove-btn{font-size:15px;color:var(--muted)}
+.nt-member-remove-btn:hover{border-color:var(--red);color:var(--red)}
 .rt-task-row{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px}
 .rt-task-input{width:100%;margin-bottom:10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;font-family:var(--font)}
 .rt-task-fields{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
