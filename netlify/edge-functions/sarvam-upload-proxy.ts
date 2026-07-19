@@ -14,6 +14,13 @@
 // Functions run on a different runtime with a much more generous limit, so a
 // full meeting recording can pass through here instead of being limited to a
 // few minutes of audio.
+//
+// The client-to-edge and edge-to-Azure legs are streamed concurrently (request.body
+// piped straight into the upstream fetch) rather than buffered-then-forwarded —
+// buffering the whole body first means the two legs run one after the other, and for
+// a long (49+ minute) recording on anything but a fast connection that sequential
+// double-hop blows past Netlify's 40-second edge function response-header timeout,
+// which silently fails the whole upload. Streaming lets both legs overlap instead.
 
 import type { Context, Config } from "@netlify/edge-functions";
 
@@ -53,15 +60,20 @@ export default async (request: Request, context: Context) => {
   }
 
   try {
-    const bodyBuffer = await request.arrayBuffer();
+    const contentLength = request.headers.get("content-length");
     const upstream = await fetch(target.toString(), {
       method: "PUT",
       headers: {
         "x-ms-blob-type": "BlockBlob",
         "Content-Type": request.headers.get("content-type") || "application/octet-stream",
+        ...(contentLength ? { "Content-Length": contentLength } : {}),
       },
-      body: bodyBuffer,
-    });
+      body: request.body,
+      // Required by the Fetch spec whenever a streaming ReadableStream is passed
+      // as the request body — signals we're not waiting for the full body before
+      // the request can start being sent.
+      duplex: "half",
+    } as RequestInit);
     const text = await upstream.text();
     return new Response(text || null, {
       status: upstream.status,
