@@ -82,7 +82,7 @@ exports.handler = async () => {
       },
       {
         id: base + 2,
-        text: "Today's Loona Brain Check is live.\n\n10 questions. One score. No pretending you knew that.",
+        text: "Today's Loona Brain Check is live.\n\n20 questions. One score. No pretending you knew that.",
         author: "Loona Brain Check",
         emoji: "🧠",
         timestamp: new Date().toISOString(),

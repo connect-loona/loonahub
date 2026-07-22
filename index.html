@@ -5935,7 +5935,7 @@
       <div id="bc-view-opening">
         <div class="bc-hero">
           <div class="bc-hero-title">Loona Brain Check</div>
-          <div class="bc-hero-tagline">10 questions. One score. No pretending you knew that.</div>
+          <div class="bc-hero-tagline">20 questions. One score. No pretending you knew that.</div>
           <div class="bc-covers-label">Today's check covers:</div>
           <div class="bc-covers-list" id="bc-covers-list"></div>
           <div class="bc-rules-row">
@@ -5978,7 +5978,7 @@
       <div id="bc-view-score" style="display:none">
         <div class="bc-score-card">
           <div class="bc-score-label">Today's Loona Brain Check</div>
-          <div class="bc-score-big" id="bc-score-big">0 / 10</div>
+          <div class="bc-score-big" id="bc-score-big">0 / 20</div>
           <div class="bc-score-tier" id="bc-score-tier"></div>
           <div class="bc-score-desc" id="bc-score-desc"></div>
           <div class="bc-cat-breakdown-label">Your category breakdown</div>
@@ -9975,8 +9975,8 @@
       renderQuizResult(key);
     }
 
-    // ═══ LOONA BRAIN CHECK — daily 10-question trivia ═══
-    // Everyone gets the identical 10 questions each day (a deterministic,
+    // ═══ LOONA BRAIN CHECK — daily 20-question trivia ═══
+    // Everyone gets the identical 20 questions each day (a deterministic,
     // seeded slice of the shared bank — no server round-trip needed to agree
     // on "today's questions"). Answers lock on selection, explanations show
     // immediately, and results are written to Firebase so the whole team's
@@ -10195,15 +10195,15 @@
     ];
 
     const BRAIN_CHECK_TIERS = [
-      { min: 10, title: 'The Unpaid CMO', desc: 'You knew everything. This is either deeply impressive or mildly concerning.', share: 'I scored 10/10 on Loona Brain Check. Please route unnecessary opinions through me.' },
-      { min: 9, title: 'Suspiciously Employable', desc: 'One answer stood between you and unbearable confidence.', share: '9/10. I will be discussing the missing point with management.' },
-      { min: 8, title: 'The Deck Closer', desc: 'Sharp, useful and dangerously comfortable with marketing terminology.', share: '8/10. Enough knowledge to lead the meeting.' },
-      { min: 7, title: 'Dangerously Informed', desc: 'You know enough to contribute and just enough to complicate everything.', share: '7/10. Smart enough to have opinions.' },
-      { min: 6, title: 'The Confident Generalist', desc: 'You knew some. You guessed some. Your posture made them look identical.', share: '6/10. The confidence carried it.' },
-      { min: 5, title: 'Briefly Awake', desc: 'Half your brain arrived. The remaining half may still be commuting.', share: '5/10. Technically awake.' },
-      { min: 3, title: 'The Vibes Department', desc: 'The knowledge was missing. The energy was undeniable.', share: 'I did not know the answers, but I supported the experience.' },
-      { min: 1, title: 'Intern of the Internet', desc: 'Today was less of a quiz and more of an intervention.', share: 'Loona Brain Check humbled me publicly.' },
-      { min: 0, title: 'Out of Office Mentally', desc: 'No correct answers. Pure instinct. A performance piece.', share: '0/10. I reject conventional knowledge.' }
+      { min: 20, title: 'The Unpaid CMO', desc: 'You knew everything. This is either deeply impressive or mildly concerning.', share: 'I scored 20/20 on Loona Brain Check. Please route unnecessary opinions through me.' },
+      { min: 18, title: 'Suspiciously Employable', desc: 'One answer stood between you and unbearable confidence.', share: '18/20. I will be discussing the missing points with management.' },
+      { min: 16, title: 'The Deck Closer', desc: 'Sharp, useful and dangerously comfortable with marketing terminology.', share: '16/20. Enough knowledge to lead the meeting.' },
+      { min: 14, title: 'Dangerously Informed', desc: 'You know enough to contribute and just enough to complicate everything.', share: '14/20. Smart enough to have opinions.' },
+      { min: 12, title: 'The Confident Generalist', desc: 'You knew some. You guessed some. Your posture made them look identical.', share: '12/20. The confidence carried it.' },
+      { min: 10, title: 'Briefly Awake', desc: 'Half your brain arrived. The remaining half may still be commuting.', share: '10/20. Technically awake.' },
+      { min: 6, title: 'The Vibes Department', desc: 'The knowledge was missing. The energy was undeniable.', share: 'I did not know the answers, but I supported the experience.' },
+      { min: 2, title: 'Intern of the Internet', desc: 'Today was less of a quiz and more of an intervention.', share: 'Loona Brain Check humbled me publicly.' },
+      { min: 0, title: 'Out of Office Mentally', desc: 'No correct answers. Pure instinct. A performance piece.', share: '0/20. I reject conventional knowledge.' }
     ];
     function bcTierFor(score) { return BRAIN_CHECK_TIERS.find(t => score >= t.min) || BRAIN_CHECK_TIERS[BRAIN_CHECK_TIERS.length - 1]; }
 
@@ -10211,10 +10211,10 @@
     const BC_WRONG_LINES = ['The confidence was impressive, though.', 'Strong choice. Wrong choice.', 'Beautifully incorrect.', 'You answered with your heart. That was the problem.', 'The spreadsheet disagrees.', 'Marketing has left the chat.', 'That answer needed another revision.', 'Confidence: 10/10. Accuracy: unavailable.'];
     const BC_LOADING_LINES = ['Checking your confidence against reality…', 'Measuring marketing instincts…', 'Asking finance to be gentle…', 'Ranking the Loonatics…', 'Preparing your official judgement…'];
     const BC_WINNER_BROADCASTS = [
-      { text: (n, s) => `Today's smartest Loonatic\n\n${n} scored ${s}/10.\n\nNo guesses. No mercy. No pretending.`, actionLabel: "See Everyone's Scores" },
-      { text: (n, s) => `We have a winner\n\n${n} completed today's Brain Check with ${s}/10.\n\nEveryone else may now quietly review their answers.`, actionLabel: 'Open Leaderboard' },
-      { text: (n, s) => `Today's crown goes to ${n}\n\n10 questions. ${s} correct answers.\n\nThis level of competence was not requested.`, actionLabel: 'View Results' },
-      { text: (n, s) => `The leaderboard has spoken\n\n${n} takes today's win with ${s}/10.\n\nPlease direct all unnecessary questions accordingly.`, actionLabel: 'See Leaderboard' }
+      { text: (n, s) => `Today's smartest Loonatic\n\n${n} scored ${s}/20.\n\nNo guesses. No mercy. No pretending.`, actionLabel: "See Everyone's Scores" },
+      { text: (n, s) => `We have a winner\n\n${n} completed today's Brain Check with ${s}/20.\n\nEveryone else may now quietly review their answers.`, actionLabel: 'Open Leaderboard' },
+      { text: (n, s) => `Today's crown goes to ${n}\n\n20 questions. ${s} correct answers.\n\nThis level of competence was not requested.`, actionLabel: 'View Results' },
+      { text: (n, s) => `The leaderboard has spoken\n\n${n} takes today's win with ${s}/20.\n\nPlease direct all unnecessary questions accordingly.`, actionLabel: 'See Leaderboard' }
     ];
 
     function bcRandomFrom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
@@ -10269,18 +10269,23 @@
       const now = new Date(Date.now() + 5.5 * 3600000);
       return now.getUTCHours() >= 12;
     }
+    // Single source of truth for "how many questions in a daily check" — every
+    // other reference (progress labels, score-out-of-N displays, tier
+    // thresholds) reads from this instead of a hardcoded number.
+    const BC_QUESTIONS_PER_DAY = 20;
+
     function bcGetTodaysQuestions(dateStr) {
-      const perCycle = Math.max(1, Math.floor(BRAIN_CHECK_QUESTIONS.length / 10));
+      const perCycle = Math.max(1, Math.floor(BRAIN_CHECK_QUESTIONS.length / BC_QUESTIONS_PER_DAY));
       const daysSince = bcDaysSinceEpoch(dateStr);
       // Re-seeding per full cycle (rather than one fixed permutation forever)
       // means that once every question has had its turn, the next pass
       // regroups them into different daily batches instead of repeating the
-      // exact same 10-question set on the exact same day-of-cycle forever.
+      // exact same question set on the exact same day-of-cycle forever.
       const cycleNumber = Math.floor(daysSince / perCycle);
       const cycleIndex = daysSince % perCycle;
       const permutation = bcSeededShuffle(BRAIN_CHECK_QUESTIONS.map((_, i) => i), 20260101 + cycleNumber);
-      const start = cycleIndex * 10;
-      return permutation.slice(start, start + 10)
+      const start = cycleIndex * BC_QUESTIONS_PER_DAY;
+      return permutation.slice(start, start + BC_QUESTIONS_PER_DAY)
         .map(i => bcShuffleOptionsFor(Object.assign({ _bankIndex: i }, BRAIN_CHECK_QUESTIONS[i]), dateStr));
     }
 
@@ -10292,10 +10297,10 @@
     }
 
     function bcSurvivedLine(n) {
-      if (n === 2) return '2 questions survived';
-      if (n === 5) return 'Halfway. The brain remains online.';
-      if (n === 8) return '8 down. Dignity mostly intact.';
-      return n + ' of 10 survived';
+      if (n === 4) return '4 questions survived';
+      if (n === 10) return 'Halfway. The brain remains online.';
+      if (n === 16) return '16 down. Dignity mostly intact.';
+      return n + ' of ' + BC_QUESTIONS_PER_DAY + ' survived';
     }
 
     function bcActiveMembers() { return ALL_MEMBERS.filter(m => !INACTIVE_MEMBERS.has(m)); }
@@ -10357,11 +10362,11 @@
       const i = window._bcIndex;
       const q = window._bcQuestions[i];
       const progressLabel = document.getElementById('bc-q-progress-label');
-      if (progressLabel) progressLabel.textContent = `Question ${i + 1} of 10 · ${q.category}`;
+      if (progressLabel) progressLabel.textContent = `Question ${i + 1} of ${BC_QUESTIONS_PER_DAY} · ${q.category}`;
       const fill = document.getElementById('bc-progress-fill');
-      if (fill) fill.style.width = ((i) / 10 * 100) + '%';
+      if (fill) fill.style.width = ((i) / BC_QUESTIONS_PER_DAY * 100) + '%';
       const finalNote = document.getElementById('bc-final-note');
-      if (finalNote) finalNote.style.display = i === 9 ? 'block' : 'none';
+      if (finalNote) finalNote.style.display = i === BC_QUESTIONS_PER_DAY - 1 ? 'block' : 'none';
       document.getElementById('bc-q-text').textContent = q.q;
       document.getElementById('bc-q-options').innerHTML = q.options.map((opt, idx) => `
         <button class="bc-option" id="bc-option-${idx}" onclick="bcSelectOption(${idx})">
@@ -10398,15 +10403,15 @@
         <div class="bc-feedback-why"><div class="bc-feedback-why-label">Why?</div>${lnEsc(q.explanation)}</div>`;
 
       const survivedCount = window._bcAnswers.filter(Boolean).length;
-      document.getElementById('bc-survived-label').textContent = i < 9 ? bcSurvivedLine(survivedCount) : '';
+      document.getElementById('bc-survived-label').textContent = i < BC_QUESTIONS_PER_DAY - 1 ? bcSurvivedLine(survivedCount) : '';
       const nextBtn = document.getElementById('bc-next-btn');
-      nextBtn.textContent = i === 9 ? 'See My Score' : (isCorrect ? 'Next Question' : 'Recover and Continue');
+      nextBtn.textContent = i === BC_QUESTIONS_PER_DAY - 1 ? 'See My Score' : (isCorrect ? 'Next Question' : 'Recover and Continue');
       document.getElementById('bc-q-footer').style.display = 'flex';
     }
 
     function bcNextQuestion() {
       if (window._bcAnswers[window._bcIndex] == null) return;
-      if (window._bcIndex >= 9) { bcFinish(); return; }
+      if (window._bcIndex >= BC_QUESTIONS_PER_DAY - 1) { bcFinish(); return; }
       window._bcIndex++;
       bcRenderQuestion();
     }
@@ -10497,7 +10502,7 @@
     }
 
     function bcRenderScore(result) {
-      document.getElementById('bc-score-big').textContent = result.score + ' / 10';
+      document.getElementById('bc-score-big').textContent = result.score + ' / ' + BC_QUESTIONS_PER_DAY;
       const tier = bcTierFor(result.score);
       document.getElementById('bc-score-tier').textContent = tier.title;
       document.getElementById('bc-score-desc').textContent = tier.desc;
@@ -10576,7 +10581,7 @@
         banner.innerHTML = `
           <div class="bc-winner-label">Today's Winner</div>
           <div class="bc-winner-name">🏆 ${lnEsc(winner.name)}</div>
-          <div class="bc-winner-sub">${winner.score} / 10 · Completed in ${bcFmtDuration(winner.durationMs)}</div>`;
+          <div class="bc-winner-sub">${winner.score} / ${BC_QUESTIONS_PER_DAY} · Completed in ${bcFmtDuration(winner.durationMs)}</div>`;
       } else if (results.length) {
         const ranked = results.slice().sort((a, b) => b.score - a.score || a.durationMs - b.durationMs);
         const leader = ranked[0];
@@ -10584,7 +10589,7 @@
         banner.innerHTML = `
           <div class="bc-winner-label">Current Leader</div>
           <div class="bc-winner-name">${lnEsc(leader.name)}</div>
-          <div class="bc-winner-sub">${leader.score} / 10 · ${bcFmtDuration(leader.durationMs)}</div>`;
+          <div class="bc-winner-sub">${leader.score} / ${BC_QUESTIONS_PER_DAY} · ${bcFmtDuration(leader.durationMs)}</div>`;
       } else {
         banner.style.display = 'none';
       }
@@ -10601,7 +10606,7 @@
           <div class="bc-lb-rank">#${i + 1}</div>
           ${avatar}
           <div class="bc-lb-name">${lnEsc(r.name)}</div>
-          <div class="bc-lb-score">${r.score} / 10</div>
+          <div class="bc-lb-score">${r.score} / ${BC_QUESTIONS_PER_DAY}</div>
           <div class="bc-lb-time">${bcFmtDuration(r.durationMs)}</div>
         </div>`;
       }).join('') || '<div class="bc-empty-state">No one’s taken today’s check yet.</div>';
@@ -10619,7 +10624,7 @@
         el.innerHTML = `
           <div class="bc-card-title">Today's Winner</div>
           <div class="bc-card-winner">🏆 ${lnEsc(winner.name)}</div>
-          <div class="bc-card-winner-sub">${winner.score} / 10 · ${bcFmtDuration(winner.durationMs)}</div>
+          <div class="bc-card-winner-sub">${winner.score} / ${BC_QUESTIONS_PER_DAY} · ${bcFmtDuration(winner.durationMs)}</div>
           <div class="bc-card-line">No guesses. No mercy. No pretending.</div>
           <button class="btn btn-primary" onclick="bcGoToPage()">View Full Leaderboard</button>
           <div class="bc-card-footer">The crown resets tomorrow.</div>`;
@@ -10632,7 +10637,7 @@
         const rank = ranked.findIndex(r => normName(r.name) === normName(currentUser)) + 1;
         el.innerHTML = `
           <div class="bc-card-sub">Your score today</div>
-          <div class="bc-card-score">${myResult.score} / 10</div>
+          <div class="bc-card-score">${myResult.score} / ${BC_QUESTIONS_PER_DAY}</div>
           <div class="bc-card-tier">${lnEsc(tier.title)}</div>
           ${rank ? `<div class="bc-card-rank">Current rank: #${rank}</div>` : ''}
           <button class="btn btn-primary" onclick="bcGoToPage()">View Leaderboard</button>
@@ -10640,7 +10645,7 @@
         return;
       }
       el.innerHTML = `
-        <div class="bc-card-sub">10 questions. One score. No pretending you knew that.</div>
+        <div class="bc-card-sub">20 questions. One score. No pretending you knew that.</div>
         <div class="bc-card-desc">A daily mix of marketing, finance, social media, branding and business.</div>
         <button class="btn btn-primary" onclick="bcGoToPage()">Start Today's Check</button>
         <div class="bc-card-footer">New questions every morning. The leaderboard resets daily.</div>`;
@@ -10714,14 +10719,17 @@
       const xpTotal = xp.total || 0;
       const xpToday = (xp.daily || {})[date] || 0;
 
-      // Today's Score is a composite: Brain Check score plus a small streak
-      // bonus (+0.05/day, capped at +1.0) — rewards consistency without
-      // letting the streak alone carry the number away from today's result.
-      const composite = Math.min(10, myResult.score + Math.min(streakCount * 0.05, 1));
+      // Today's Score is a composite, always shown out of 10 regardless of how
+      // many questions the actual Brain Check has (normalize the raw score to
+      // a 0-10 scale first), plus a small streak bonus (+0.05/day, capped at
+      // +1.0) — rewards consistency without letting the streak alone carry
+      // the number away from today's result.
+      const normalizedScore = (myResult.score / BC_QUESTIONS_PER_DAY) * 10;
+      const composite = Math.min(10, normalizedScore + Math.min(streakCount * 0.05, 1));
       const compositeStr = composite.toFixed(1);
       const pct = composite * 10;
       const captionFor = s => s >= 9 ? 'Great work, Loonatic! 🔥' : s >= 7 ? 'Solid day. Keep it up.' : s >= 5 ? 'Room to climb tomorrow.' : "Rough one — tomorrow's a reset.";
-      const bcQuipFor = s => s >= 8 ? 'Good call.' : s >= 5 ? 'Not bad.' : 'Rough one.';
+      const bcQuipFor = s => s >= BC_QUESTIONS_PER_DAY * 0.8 ? 'Good call.' : s >= BC_QUESTIONS_PER_DAY * 0.5 ? 'Not bad.' : 'Rough one.';
 
       const catEntries = Object.entries(myResult.categories || {});
       let strongest = null, weakest = null;
@@ -10742,7 +10750,7 @@
             <div class="lv2-score-caption">${captionFor(composite)}</div>
           </div>
           <div class="lv2-sb-stats">
-            <div class="lv2-sb-tile"><span class="lv2-sb-tile-icon"><img src="assets/loonaverse/icons/brain-check.png" alt=""></span><div><div class="lv2-sb-tile-label">Brain Check</div><div class="lv2-sb-tile-value">${myResult.score}/10</div><div class="lv2-sb-tile-note">${bcQuipFor(myResult.score)}</div></div></div>
+            <div class="lv2-sb-tile"><span class="lv2-sb-tile-icon"><img src="assets/loonaverse/icons/brain-check.png" alt=""></span><div><div class="lv2-sb-tile-label">Brain Check</div><div class="lv2-sb-tile-value">${myResult.score}/${BC_QUESTIONS_PER_DAY}</div><div class="lv2-sb-tile-note">${bcQuipFor(myResult.score)}</div></div></div>
             <div class="lv2-sb-tile"><span class="lv2-sb-tile-icon"><img src="assets/loonaverse/icons/daily-streak.png" alt=""></span><div><div class="lv2-sb-tile-label">Daily Streak</div><div class="lv2-sb-tile-value">${streakCount} day${streakCount === 1 ? '' : 's'}</div><div class="lv2-sb-tile-note">${streakCount >= 5 ? 'On fire! 🔥' : streakCount > 1 ? 'Keep it going.' : 'Just started.'}</div></div></div>
             <div class="lv2-sb-tile"><span class="lv2-sb-tile-icon"><img src="assets/loonaverse/icons/loonaverse-xp.png" alt=""></span><div><div class="lv2-sb-tile-label">Loonaverse XP</div><div class="lv2-sb-tile-value">${xpTotal.toLocaleString()}</div><div class="lv2-sb-tile-note">+${xpToday} today</div></div></div>
             <div class="lv2-sb-tile"><span class="lv2-sb-tile-icon"><img src="assets/loonaverse/icons/team-rank.png" alt=""></span><div><div class="lv2-sb-tile-label">Team Rank</div><div class="lv2-sb-tile-value">${rank ? '#' + rank : '—'}</div><div class="lv2-sb-tile-note">${rank && rank <= 10 ? 'Top 10 today' : rank ? 'Keep climbing.' : ''}</div></div></div>
@@ -10768,7 +10776,7 @@
         <div class="lv2-lb-row${normName(r.name) === normName(currentUser) ? ' you' : ''}">
           <span>${String(i + 1).padStart(2, '0')}</span>
           <span>${lnEsc(normName(r.name) === normName(currentUser) ? 'You' : r.name)}</span>
-          <span>${r.score}/10</span>
+          <span>${r.score}/${BC_QUESTIONS_PER_DAY}</span>
           <span>${bcFmtDuration(r.durationMs)}</span>
         </div>`).join('') || '<div class="lv2-lb-summary">No one’s taken today’s check yet.</div>';
       el.innerHTML = rows + `<div class="lv2-lb-summary">${results.length} of ${active.length} Loonatics completed today's Brain Check.</div>
