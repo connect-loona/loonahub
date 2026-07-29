@@ -4422,6 +4422,7 @@
           <div id="task-count">5 tasks</div>
           <button class="btn" onclick="openBroadcast()" style="padding:7px 16px;font-size:12px">📢 Loona Broadcast</button>
           <button class="btn" id="task-board-record-btn" onclick="openRecordTask()" style="padding:7px 16px;font-size:12px">🎤 Record Task</button>
+          <button class="btn" id="task-board-whatsapp-btn" onclick="openPasteWhatsApp()" style="padding:7px 16px;font-size:12px;display:none">💬 Paste WhatsApp</button>
           <button class="btn btn-primary" id="task-board-addtask-btn" onclick="openAddTask(getActiveMember())"
             style="padding:7px 16px;font-size:12px">+ Add Task</button>
         </div>
@@ -4679,7 +4680,7 @@
     <!-- RECORD TASK MODAL -->
     <div class="modal-overlay hidden" id="record-task-modal">
       <div class="modal" style="max-width:640px">
-        <div class="modal-title">Record <span>Task</span></div>
+        <div class="modal-title" id="rt-modal-title">Record <span>Task</span></div>
 
         <div id="rt-view-record">
           <div class="ln-rec-panel">
@@ -4693,7 +4694,7 @@
           </div>
           <div class="modal-actions">
             <button class="btn btn-ghost" onclick="closeRecordTask()">Cancel</button>
-            <button class="btn btn-primary" onclick="rtExtractTasks()">Stop &amp; Extract Tasks</button>
+            <button class="btn btn-primary" id="rt-extract-btn" onclick="rtExtractTasks()">Stop &amp; Extract Tasks</button>
           </div>
         </div>
 
@@ -8369,7 +8370,12 @@
           </div>
         </div>`;
     }
-    function renderTasks() { currentPage = 1; renderOverdue(); renderApprovalRequests(); renderAssignedOut(); renderTaskPage(); renderBoardSummary(); renderLoonaBoard(); if(!window._autoCleared){ window._autoCleared=true; setTimeout(autoClearCompleted,4000); } }
+    function renderTasks() {
+      currentPage = 1; renderOverdue(); renderApprovalRequests(); renderAssignedOut(); renderTaskPage(); renderBoardSummary(); renderLoonaBoard();
+      const waBtn = document.getElementById('task-board-whatsapp-btn');
+      if (waBtn) waBtn.style.display = (currentUser === 'Gokul') ? 'inline-block' : 'none';
+      if(!window._autoCleared){ window._autoCleared=true; setTimeout(autoClearCompleted,4000); }
+    }
     function renderTaskPage() {
       const filtered = getFilteredTasks();
       document.getElementById('task-count').textContent = `${filtered.length} task${filtered.length !== 1 ? 's' : ''}`;
@@ -14387,9 +14393,12 @@
       document.getElementById('rt-view-result').style.display = 'none';
       document.getElementById('rt-live-transcript').style.display = 'none';
       document.getElementById('rt-manual-transcript').value = '';
+      document.getElementById('rt-manual-transcript').placeholder = 'Type or paste tasks here… e.g. Ricky needs to finish the Shookra moodboard by Friday';
       document.getElementById('rt-rec-status').textContent = '00:00';
       document.getElementById('rt-rec-btn-label').textContent = 'Start Recording';
       document.getElementById('rt-rec-btn').classList.remove('recording');
+      document.getElementById('rt-modal-title').innerHTML = 'Record <span>Task</span>';
+      document.getElementById('rt-extract-btn').textContent = 'Stop & Extract Tasks';
       rtAudioChunks = [];
       rtRecording = false;
       rtSetStatusLine('');
@@ -14400,6 +14409,31 @@
       document.getElementById('rt-rec-status').style.display = supported ? 'block' : 'none';
       document.getElementById('rt-manual-toggle').style.display = supported ? 'block' : 'none';
       document.getElementById('rt-manual-toggle').textContent = '✎ Type tasks manually instead';
+    }
+
+    // Gokul-only: paste a WhatsApp group message straight in and get it split into
+    // assignable tasks — same extraction pipeline as Record Task (tasks-extract.js
+    // already handles typed/pasted text generically), just skipping the mic entirely
+    // and framed for a pasted chat message instead of a transcript.
+    function openPasteWhatsApp() {
+      document.getElementById('record-task-modal').classList.remove('hidden');
+      document.getElementById('rt-view-record').style.display = 'block';
+      document.getElementById('rt-view-result').style.display = 'none';
+      document.getElementById('rt-live-transcript').style.display = 'none';
+      document.getElementById('rt-modal-title').innerHTML = 'Paste <span>WhatsApp Message</span>';
+      const box = document.getElementById('rt-manual-transcript');
+      box.value = '';
+      box.placeholder = 'Paste the WhatsApp message here…';
+      box.style.display = 'block';
+      document.getElementById('rt-rec-btn').style.display = 'none';
+      document.getElementById('rt-rec-status').style.display = 'none';
+      document.getElementById('rt-sr-unsupported-note').style.display = 'none';
+      document.getElementById('rt-manual-toggle').style.display = 'none';
+      document.getElementById('rt-extract-btn').textContent = 'Extract Tasks';
+      rtAudioChunks = [];
+      rtRecording = false;
+      rtSetStatusLine('');
+      box.focus();
     }
 
     function closeRecordTask() {
