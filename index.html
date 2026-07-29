@@ -19225,6 +19225,9 @@ ${brandLines}`;
     window.attShowDailyCardDetail=function(name){
       var a=ATT[name]; if(!a) return;
       var p=perfCompute(name), rec=dayRecord(name,DAILY_SEL);
+      var lineRows=(p.lines&&p.lines.length)
+        ? p.lines.map(function(l){ var pos=l[1]>0; return '<div class="pf-line"><span>'+esc(l[0])+'</span><span class="'+(pos?'pos':'neg')+'">'+(pos?'+':'')+l[1]+'%</span></div>'; }).join('')
+        : '<div class="pf-line"><span>No deductions this month</span><span class="pos">Clean record</span></div>';
       var html='<div style="text-align:left">'+
         '<div class="pf-absrow"><span>Department</span><span>'+esc(a.dept)+'</span></div>'+
         '<div class="pf-absrow"><span>Joined</span><span>'+fmtDate(a.joinDate)+' &middot; '+daysAt(a.joinDate)+'d</span></div>'+
@@ -19232,6 +19235,10 @@ ${brandLines}`;
         '<div class="pf-absrow"><span>Working Hrs</span><span>'+esc(rec.hrs)+'</span></div>'+
         '<div class="pf-absrow"><span>Break Time</span><span>'+esc(rec.brk)+'</span></div>'+
         '<div class="pf-absrow"><span>Performance ('+curMonth()+')</span><span style="color:'+p.band.c+';font-weight:700">'+p.score+'% &middot; '+p.band.l+'</span></div>'+
+        '<div class="pf-lines" style="margin-top:8px">'+
+          '<div class="pf-line"><span>Starting score</span><span>100%</span></div>'+
+          lineRows+
+        '</div>'+
       '</div>';
       popupBox("info-pop","&#128100;",esc(name)+' · '+esc(a.code)+' &middot; '+esc(a.desg),html,null);
     };
