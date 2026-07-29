@@ -12448,9 +12448,13 @@
 
       if (decision === 'approved') {
         const newStat = req.type === 'deferral' ? 'Deferred' : 'Completed';
+        const preUpdateTask = TASKS[taskIdx];
         const extra = newStat === 'Completed' ? { completed_at: new Date().toISOString() } : { deferred_at: new Date().toISOString() };
         fbUpdateTask(taskIdx, { status: newStat, ...extra });
-        if (newStat === 'Completed') showCompletionToast(req.member);
+        if (newStat === 'Completed') {
+          logTaskDelivery(req.member, preUpdateTask ? preUpdateTask.due_date : null, (preUpdateTask && preUpdateTask.submitted_at) || new Date().toISOString());
+          showCompletionToast(req.member);
+        }
       } else if (decision === 'changes') {
         fbUpdateTask(taskIdx, { status: 'Changes Required' });
       } else if (decision === 'client') {
@@ -14756,6 +14760,7 @@
       });
 
       if (completedNow) {
+        logTaskDelivery(t.member, t.due_date, t.submitted_at || new Date().toISOString());
         showCompletionToast(TASKS[idx].member);
         // If a registered employee completed the task, show a motivational quote popup
         if (isRegisteredMember(TASKS[idx].member)) {
@@ -18291,6 +18296,7 @@ ${brandLines}`;
     window.ATT = ATT; // exposed for renderTeam() in the earlier script block
     window.daysAt = daysAt; // exposed for renderTeam() (days since joining)
     window.perfCompute = perfCompute; // exposed for renderTeam() (performance score of the month)
+    window.logTaskDelivery = logTaskDelivery; // exposed for updateStatus()/handleApproval() in the earlier script block
     // ===== Holidays (Gokul-managed; synced via Firebase, localStorage fallback) =====
     var HOLIDAYS=[]; var _holRef=null;
     function cacheHol(){ try{localStorage.setItem("loona_holidays",JSON.stringify(HOLIDAYS));}catch(e){} }
@@ -19225,9 +19231,13 @@ ${brandLines}`;
     window.attShowDailyCardDetail=function(name){
       var a=ATT[name]; if(!a) return;
       var p=perfCompute(name), rec=dayRecord(name,DAILY_SEL);
-      var lineRows=(p.lines&&p.lines.length)
-        ? p.lines.map(function(l){ var pos=l[1]>0; return '<div class="pf-line"><span>'+esc(l[0])+'</span><span class="'+(pos?'pos':'neg')+'">'+(pos?'+':'')+l[1]+'%</span></div>'; }).join('')
-        : '<div class="pf-line"><span>No deductions this month</span><span class="pos">Clean record</span></div>';
+      var lineRowsHTML=function(lines){
+        if(!lines||!lines.length) return '<div class="pf-line"><span>No deductions this month</span><span class="pos">Clean record</span></div>';
+        return lines.map(function(l){ var pos=l[1]>0; return '<div class="pf-line"><span>'+esc(l[0])+'</span><span class="'+(pos?'pos':'neg')+'">'+(pos?'+':'')+l[1]+'%</span></div>'; }).join('');
+      };
+      var deliveredNote=p.task.completed
+        ? p.task.completed+' task'+(p.task.completed===1?'':'s')+' delivered this month · '+p.task.onTime+' on time, '+p.task.late+' late'
+        : 'No tasks delivered yet this month';
       var html='<div style="text-align:left">'+
         '<div class="pf-absrow"><span>Department</span><span>'+esc(a.dept)+'</span></div>'+
         '<div class="pf-absrow"><span>Joined</span><span>'+fmtDate(a.joinDate)+' &middot; '+daysAt(a.joinDate)+'d</span></div>'+
@@ -19235,10 +19245,22 @@ ${brandLines}`;
         '<div class="pf-absrow"><span>Working Hrs</span><span>'+esc(rec.hrs)+'</span></div>'+
         '<div class="pf-absrow"><span>Break Time</span><span>'+esc(rec.brk)+'</span></div>'+
         '<div class="pf-absrow"><span>Performance ('+curMonth()+')</span><span style="color:'+p.band.c+';font-weight:700">'+p.score+'% &middot; '+p.band.l+'</span></div>'+
-        '<div class="pf-lines" style="margin-top:8px">'+
+        '<div class="pf-lines" style="margin-top:10px">'+
+          '<div class="pf-line" style="font-weight:700;color:var(--text)"><span>Attendance · '+Math.round(p.weights.att*100)+'% weight</span><span>'+p.attendance.score+'%</span></div>'+
           '<div class="pf-line"><span>Starting score</span><span>100%</span></div>'+
-          lineRows+
+          lineRowsHTML(p.attendance.lines)+
         '</div>'+
+        '<div class="pf-lines" style="margin-top:10px">'+
+          '<div class="pf-line" style="font-weight:700;color:var(--text)"><span>Task Delivery · '+Math.round(p.weights.task*100)+'% weight</span><span>'+p.task.score+'%</span></div>'+
+          '<div class="pf-line" style="color:#888"><span>'+deliveredNote+'</span></div>'+
+          '<div class="pf-line"><span>Starting score</span><span>100%</span></div>'+
+          lineRowsHTML(p.task.lines)+
+        '</div>'+
+        (p.man!==0
+          ? '<div class="pf-lines" style="margin-top:10px">'+
+              '<div class="pf-line"><span>Manual '+(p.man<0?'deduction':'credit')+(p.manNote?(' · '+esc(p.manNote)):'')+'</span><span class="'+(p.man>0?'pos':'neg')+'">'+(p.man>0?'+':'')+p.man+'%</span></div>'+
+            '</div>'
+          : '')+
       '</div>';
       popupBox("info-pop","&#128100;",esc(name)+' · '+esc(a.code)+' &middot; '+esc(a.desg),html,null);
     };
@@ -19427,12 +19449,16 @@ ${brandLines}`;
       if(fcGrid && header && header.parentNode){ var fcHeader=fcGrid.previousElementSibling; header.parentNode.insertBefore(fcGrid, header); if(fcHeader && fcHeader.classList && fcHeader.classList.contains("section-header")) header.parentNode.insertBefore(fcHeader, fcGrid); }
     }
     // ===================== PERFORMANCE SYSTEM (v15) =====================
-    var PERF_ADJ={}, PERF_EXC={}, PERF_SNAP={}, _perfReady=false, TASK_CAP=30;
+    var PERF_ADJ={}, PERF_EXC={}, PERF_SNAP={}, PERF_TASKLOG={}, _perfReady=false, TASK_CAP=30;
+    // Score = ATT_WEIGHT·attendance + TASK_WEIGHT·task-delivery, then the manual ± override
+    // on top. Delivered-late/on-time credit is capped so no single month of task volume can
+    // swing the score further than these bounds.
+    var ATT_WEIGHT=0.51, TASK_WEIGHT=0.49, LATE_DELIVERY_CAP=20, ONTIME_BONUS_CAP=15;
     function curMonth(){ return TODAY.slice(0,7); }
-    function cachePerf(){ try{localStorage.setItem("loona_perf",JSON.stringify({adj:PERF_ADJ,exc:PERF_EXC,snap:PERF_SNAP,lfg:LATE_FGV,hfg:HALF_FGV,sfg:SHORT_FGV}));}catch(e){} }
+    function cachePerf(){ try{localStorage.setItem("loona_perf",JSON.stringify({adj:PERF_ADJ,exc:PERF_EXC,snap:PERF_SNAP,tasklog:PERF_TASKLOG,lfg:LATE_FGV,hfg:HALF_FGV,sfg:SHORT_FGV}));}catch(e){} }
     function perfRerender(){ if(window.renderAttendanceOverview) window.renderAttendanceOverview(); }
     function initPerf(){
-      try{ var s=localStorage.getItem("loona_perf"); if(s){ var o=JSON.parse(s); PERF_ADJ=o.adj||{}; PERF_EXC=o.exc||{}; PERF_SNAP=o.snap||{}; LATE_FGV=o.lfg||{}; HALF_FGV=o.hfg||{}; SHORT_FGV=o.sfg||{}; } }catch(e){}
+      try{ var s=localStorage.getItem("loona_perf"); if(s){ var o=JSON.parse(s); PERF_ADJ=o.adj||{}; PERF_EXC=o.exc||{}; PERF_SNAP=o.snap||{}; PERF_TASKLOG=o.tasklog||{}; LATE_FGV=o.lfg||{}; HALF_FGV=o.hfg||{}; SHORT_FGV=o.sfg||{}; } }catch(e){}
       whenFirebaseReady(function(){
         _perfReady=true;
         firebase.database().ref("loona_perf_adjust").on("value",function(x){ PERF_ADJ=x.val()||{}; cachePerf(); perfRerender(); });
@@ -19441,6 +19467,7 @@ ${brandLines}`;
         firebase.database().ref("loona_half_forgiven").on("value",function(x){ HALF_FGV=x.val()||{}; cachePerf(); perfRerender(); });
         firebase.database().ref("loona_short_forgiven").on("value",function(x){ SHORT_FGV=x.val()||{}; cachePerf(); perfRerender(); });
         firebase.database().ref("loona_perf_snap").on("value",function(x){ PERF_SNAP=x.val()||{}; cachePerf(); perfRerender(); });
+        firebase.database().ref("loona_perf_tasklog").on("value",function(x){ PERF_TASKLOG=x.val()||{}; cachePerf(); perfRerender(); });
       });
     }
     function perfBand(s){ return s>=95?{l:"Excellent",c:"var(--green)",bg:"#12291d"}:s>=85?{l:"Strong",c:"#7fce9e",bg:"#15241c"}:s>=70?{l:"Needs attention",c:"var(--yellow)",bg:"#2a2410"}:{l:"Formal conversation",c:"var(--red)",bg:"#2a1414"}; }
@@ -19449,39 +19476,72 @@ ${brandLines}`;
     function manualAdj(name){ var m=(PERF_ADJ[curMonth()]||{})[name]; return m&&typeof m.v==="number"?m.v:0; }
     function manualNote(name){ var m=(PERF_ADJ[curMonth()]||{})[name]; return m&&m.note?m.note:""; }
     function perfCompute(name){
-      var a=ATT[name]||{}, lines=[], punct=0, taskRaw=0, taskDed=0;
-      var ONLY_LATE=true;   // for now only late-arrival penalties; task-submission tracking starts next
+      var attLines=[], punct=0;
       var lateN=effLate(name);
-      if(lateN>0){ punct+=lateN*3; lines.push(["Late punch-in ×"+lateN, -lateN*3]); }
-      if(lateN>3){ punct+=5; lines.push(["Late >3× this month (pattern)", -5]); }
+      if(lateN>0){ punct+=lateN*3; attLines.push(["Late punch-in ×"+lateN, -lateN*3]); }
+      if(lateN>3){ punct+=5; attLines.push(["Late >3× this month (pattern)", -5]); }
       // Half Day / short-hours-absence counts are already forgiveness-adjusted (same as lateN above),
       // so approving/forgiving one on the founder board immediately updates the score here too.
       var halfN=effHalf(name);
-      if(halfN>0){ punct+=halfN*3; lines.push(["Half Day ×"+halfN, -halfN*3]); }
+      if(halfN>0){ punct+=halfN*3; attLines.push(["Half Day ×"+halfN, -halfN*3]); }
       var shortN=effShortAbsent(name);
-      if(shortN>0){ punct+=shortN*5; lines.push(["Absent, short hours ×"+shortN, -shortN*5]); }
+      if(shortN>0){ punct+=shortN*5; attLines.push(["Absent, short hours ×"+shortN, -shortN*5]); }
+      var attScore=Math.max(0,Math.min(100,100-punct));
+
+      // Task delivery — how much work actually got done, not just whether they clocked in.
+      // "Still open" penalties come straight from the live TASKS board; on-time/late/volume
+      // credit comes from PERF_TASKLOG, a running ledger written the moment a task is marked
+      // Completed (see logTaskDelivery) — TASKS itself prunes completed items after 4 days,
+      // so it can't be replayed retroactively for "how many did they finish this month".
       var today=new Date().toISOString().slice(0,10);
       var mine=(typeof TASKS!=="undefined"&&TASKS?TASKS:[]).filter(function(t){return t&&normName(t.member)===normName(name);});
       var overdue=mine.filter(function(t){return ["Not Started","In Progress"].indexOf(t.status)>=0 && t.due_date && t.due_date<today;});
-      if(!ONLY_LATE){
-        var ld=LIVEDAYS[name]||{}, mo=curMonth(), noPunch=0, shortDay=0;
-        Object.keys(ld).forEach(function(ds){ if(ds.slice(0,7)!==mo) return; var rr=ld[ds]; if(rr.status==="absent"){ if(rr.im==null) noPunch++; else shortDay++; } });
-        if(noPunch===0 && shortDay===0 && (a.monthAbsent||0)>0) noPunch=a.monthAbsent;
-        var exc=excusedCount(name), noPunchNet=Math.max(0,noPunch-exc);
-        if(noPunchNet>0){ punct+=noPunchNet*5; lines.push(["Absent, no punch ×"+noPunchNet+(exc?(" ("+exc+" excused)"):""), -noPunchNet*5]); }
-        if(shortDay>0){ punct+=shortDay*3; lines.push(["Under required hours ×"+shortDay, -shortDay*3]); }
-        overdue.forEach(function(t){
-          var od=Math.floor((new Date(today)-new Date(t.due_date))/86400000), wks=Math.floor(od/7);
-          if(wks>0){ taskRaw+=wks; lines.push(["Overdue "+wks+"w · "+shortTask(t), -wks]); }
-          if(od>30){ taskRaw+=5; lines.push(["Overdue >30 days · "+shortTask(t), -5]); }
-          taskRaw+=3; lines.push(["Still open at month-close · "+shortTask(t), -3]);
+      var taskLines=[], taskRaw=0;
+      overdue.forEach(function(t){
+        var od=Math.floor((new Date(today)-new Date(t.due_date))/86400000), wks=Math.floor(od/7);
+        if(wks>0){ taskRaw+=wks; taskLines.push(["Overdue "+wks+"w · "+shortTask(t), -wks]); }
+        if(od>30){ taskRaw+=5; taskLines.push(["Overdue >30 days · "+shortTask(t), -5]); }
+        taskRaw+=3; taskLines.push(["Still open at month-close · "+shortTask(t), -3]);
+      });
+      var overdueDed=Math.min(taskRaw,TASK_CAP);
+      if(taskRaw>overdueDed) taskLines.push(["Overdue-task cap (−"+taskRaw+" limited to −"+overdueDed+")", (overdueDed-taskRaw)]);
+
+      var ledger=((PERF_TASKLOG[curMonth()]||{})[name])||{completed:0,onTime:0,late:0};
+      var lateDed=Math.min(ledger.late*3, LATE_DELIVERY_CAP);
+      var onBonus=Math.min(ledger.onTime*1, ONTIME_BONUS_CAP);
+      if(ledger.late>0) taskLines.push(["Delivered late ×"+ledger.late, -lateDed]);
+      if(ledger.onTime>0) taskLines.push(["Delivered on time ×"+ledger.onTime, onBonus]);
+      var taskScore=Math.max(0,Math.min(100, 100 - overdueDed - lateDed + onBonus));
+
+      var man=manualAdj(name);
+      var blended=attScore*ATT_WEIGHT + taskScore*TASK_WEIGHT;
+      var score=Math.max(0,Math.min(100, Math.round(blended) + man));
+      return {
+        score:score, band:perfBand(score),
+        attendance:{score:Math.round(attScore), lines:attLines},
+        task:{score:Math.round(taskScore), lines:taskLines, completed:ledger.completed, onTime:ledger.onTime, late:ledger.late},
+        man:man, manNote:manualNote(name),
+        weights:{att:ATT_WEIGHT, task:TASK_WEIGHT},
+        overdueTasks:overdue.length
+      };
+    }
+    // Called the moment a task flips to Completed (both the direct-completion path in
+    // updateStatus() and the assigner-approval path in handleApproval()) — credits the
+    // *delivery* month (when the assignee actually finished, i.e. submitted_at if this task
+    // went through approval, else right now) rather than whenever an approver got to it.
+    function logTaskDelivery(member, dueDate, deliveredISO){
+      if(!member) return;
+      var delivered=(deliveredISO||new Date().toISOString()).slice(0,10);
+      var monthKey=delivered.slice(0,7);
+      var onTime=!dueDate || delivered<=dueDate;
+      whenFirebaseReady(function(){
+        firebase.database().ref("loona_perf_tasklog/"+monthKey+"/"+member).transaction(function(cur){
+          cur=cur||{completed:0,onTime:0,late:0};
+          cur.completed=(cur.completed||0)+1;
+          if(onTime) cur.onTime=(cur.onTime||0)+1; else cur.late=(cur.late||0)+1;
+          return cur;
         });
-        taskDed=Math.min(taskRaw,TASK_CAP);
-        if(taskRaw>TASK_CAP) lines.push(["Task cap (−"+taskRaw+" limited to −"+TASK_CAP+")", (TASK_CAP-taskRaw)]);
-      }
-      var man=manualAdj(name); if(man!==0) lines.push([(man<0?"Manual deduction":"Manual credit")+(manualNote(name)?(" · "+manualNote(name)):""), man]);
-      var score=Math.max(0,Math.min(100,100 - punct - taskDed + man));
-      return {score:Math.round(score), band:perfBand(Math.round(score)), lines:lines, punct:punct, taskDed:taskDed, taskRaw:taskRaw, man:man, overdueTasks:overdue.length};
+      });
     }
     function avg6(name){
       var d=new Date(TODAY+"T00:00:00"), vals=[];
