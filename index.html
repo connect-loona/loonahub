@@ -14604,7 +14604,14 @@
       return `<div class="rt-task-row" id="rt-task-row-${i}">
         <input type="text" class="rt-task-input" id="rt-task-text-${i}" value="${lnEsc(t.task)}">
         <div class="rt-task-fields">
-          <label class="rt-field-label">Assigned To<select id="rt-task-member-${i}">${rtMemberOptions(t.assignee)}</select></label>
+          <label class="rt-field-label" style="flex:2;min-width:160px">Assigned To
+            <div class="nt-member-rows" id="rt-task-member-rows-${i}">
+              <div class="nt-member-row">
+                <select class="form-control nt-member-select">${rtMemberOptions(t.assignee)}</select>
+                <button type="button" class="nt-member-add-btn" onclick="rtAddMemberRow(${i})" title="Assign to more people">+</button>
+              </div>
+            </div>
+          </label>
           <label class="rt-field-label">Brand<select id="rt-task-brand-${i}">${rtBrandOptions(t.brand)}</select></label>
         </div>
         <div class="rt-task-fields">
@@ -14616,34 +14623,65 @@
       </div>`;
     }
 
+    // Mirrors ntAddMemberRow()/ntRemoveMemberRow()/ntSelectedMembers() from the
+    // Add Task modal, just scoped per extracted-task row instead of one shared
+    // container, since each row here needs its own independent assignee list.
+    function rtAddMemberRow(i) {
+      const rows = document.getElementById('rt-task-member-rows-' + i);
+      if (!rows) return;
+      const activeCount = ALL_MEMBERS.filter(m => !INACTIVE_MEMBERS.has(m)).length;
+      if (rows.querySelectorAll('.nt-member-row').length >= activeCount) return;
+      const row = document.createElement('div');
+      row.className = 'nt-member-row';
+      row.innerHTML = `<select class="form-control nt-member-select">${rtMemberOptions('')}</select><button type="button" class="nt-member-remove-btn" onclick="rtRemoveMemberRow(this)" title="Remove">×</button>`;
+      rows.appendChild(row);
+    }
+
+    function rtRemoveMemberRow(btn) {
+      btn.closest('.nt-member-row').remove();
+    }
+
+    function rtSelectedMembers(i) {
+      const rows = document.getElementById('rt-task-member-rows-' + i);
+      if (!rows) return [];
+      const vals = Array.from(rows.querySelectorAll('.nt-member-select')).map(s => s.value).filter(Boolean);
+      return Array.from(new Set(vals));
+    }
+
     function rtAddTask(i) {
       const t = window._rtPendingTasks[i];
       if (!t) return;
       const taskText = document.getElementById('rt-task-text-' + i).value.trim();
-      const assignee = document.getElementById('rt-task-member-' + i).value;
+      const assignees = rtSelectedMembers(i);
       const brand = document.getElementById('rt-task-brand-' + i).value;
       const priority = document.getElementById('rt-task-priority-' + i).value;
       const due = document.getElementById('rt-task-due-' + i).value;
       const assignedBy = document.getElementById('rt-task-by-' + i).value;
       if (!taskText) { document.getElementById('rt-task-text-' + i).style.borderColor = 'var(--red)'; return; }
       if (!brand) { document.getElementById('rt-task-brand-' + i).style.borderColor = 'var(--red)'; return; }
-      fbAddTask({
-        member: assignee || currentUser || '',
-        brand,
-        task: taskText,
-        priority: priority || 'Medium',
-        status: 'Not Started',
-        due_date: due || '',
-        assigned_by: assignedBy || currentUser || '',
-        asylum: (MEMBER_INFO[assignee] || {}).role || '',
-        isNew: true
+      // One independent task record per assignee, same as submitAddTask() —
+      // and if nobody was picked, fall back to the current user rather than
+      // silently dropping the task.
+      const members = assignees.length ? assignees : [currentUser || ''];
+      members.forEach(member => {
+        fbAddTask({
+          member,
+          brand,
+          task: taskText,
+          priority: priority || 'Medium',
+          status: 'Not Started',
+          due_date: due || '',
+          assigned_by: assignedBy || currentUser || '',
+          asylum: (MEMBER_INFO[member] || {}).role || '',
+          isNew: true
+        });
       });
       const row = document.getElementById('rt-task-row-' + i);
       if (row) {
         const btn = row.querySelector('.rt-task-add');
         btn.textContent = 'Added ✓';
         btn.disabled = true;
-        row.querySelectorAll('input,select').forEach(el => el.disabled = true);
+        row.querySelectorAll('input,select,button').forEach(el => { if (el !== btn) el.disabled = true; });
       }
     }
 
