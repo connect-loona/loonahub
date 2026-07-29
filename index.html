@@ -8344,7 +8344,7 @@
       const cont=document.getElementById('board-summary'); if(!cont) return;
       let m=(typeof getActiveMember==='function'?getActiveMember():'')||currentUser;
       if(!m){ cont.innerHTML=''; return; }
-      (function(){ const tw=document.querySelector('#page-tasks .table-wrap'); if(!tw) return; let h=document.getElementById('my-tasks-header'); if(!h){ h=document.createElement('div'); h.id='my-tasks-header'; h.className='section-header'; h.style.marginTop='6px'; tw.parentNode.insertBefore(h, tw); } const isMe=normName(m)===normName(currentUser); const addBtn=window.innerWidth<=820?'<div style="display:flex;gap:6px"><button class=\"btn\" onclick=\"openRecordTask()\" style=\"padding:6px 10px;font-size:11px\">🎤 Record</button><button class=\"btn btn-primary\" onclick=\"openAddTask(getActiveMember())\" style=\"padding:6px 12px;font-size:11px\">+ Add Task</button></div>':''; h.innerHTML='<div class=\"section-title\">'+(isMe?'My':(m+"'s"))+' <span>Tasks</span></div>'+addBtn; })();
+      (function(){ const tw=document.querySelector('#page-tasks .table-wrap'); if(!tw) return; let h=document.getElementById('my-tasks-header'); if(!h){ h=document.createElement('div'); h.id='my-tasks-header'; h.className='section-header'; h.style.marginTop='6px'; tw.parentNode.insertBefore(h, tw); } const isMe=normName(m)===normName(currentUser); const waBtn=currentUser==='Gokul'?'<button class=\"btn\" onclick=\"openPasteWhatsApp()\" style=\"padding:6px 10px;font-size:11px\">💬 WhatsApp</button>':''; const addBtn=window.innerWidth<=820?'<div style="display:flex;gap:6px"><button class=\"btn\" onclick=\"openRecordTask()\" style=\"padding:6px 10px;font-size:11px\">🎤 Record</button>'+waBtn+'<button class=\"btn btn-primary\" onclick=\"openAddTask(getActiveMember())\" style=\"padding:6px 12px;font-size:11px\">+ Add Task</button></div>':''; h.innerHTML='<div class=\"section-title\">'+(isMe?'My':(m+"'s"))+' <span>Tasks</span></div>'+addBtn; })();
       const mine=(TASKS||[]).filter(t=>t&&normName(t.member)===normName(m)&&!t.is_personal);
       const today=new Date().toISOString().slice(0,10), mo=today.slice(0,7);
       const openS=['Not Started','In Progress','Changes Required','Client Approval','Awaiting Approval','Approval Declined'];
@@ -18001,6 +18001,7 @@ ${brandLines}`;
     /* + Add Task moves down next to "My Tasks", parallel on the right, below the filters */
     #task-board-addtask-btn{display:none!important}
     #task-board-record-btn{display:none!important}
+    #task-board-whatsapp-btn{display:none!important}
     #my-tasks-header{display:flex!important;align-items:center!important;justify-content:space-between!important}
     /* ---- Task Board tables: stay a real table, just narrow enough to fit ---- */
     #page-tasks .table-wrap{overflow-x:auto!important}
