@@ -16,14 +16,14 @@ exports.handler = async (event, context) => {
   }
 
   const { transcript, members, brands } = JSON.parse(event.body);
-  const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
+  const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Content-Type': 'application/json'
   };
 
-  if (!CLAUDE_API_KEY) {
+  if (!OPENAI_API_KEY) {
     return { statusCode: 500, body: JSON.stringify({ error: 'API key not set' }), headers };
   }
 
@@ -41,17 +41,20 @@ exports.handler = async (event, context) => {
   const todayWeekday = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][istDate.getUTCDay()];
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': CLAUDE_API_KEY,
-        'anthropic-version': '2023-06-01'
+        'Authorization': `Bearer ${OPENAI_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5',
+        model: 'gpt-4o-mini',
         max_tokens: 1200,
-        system: `You extract discrete, actionable tasks from a spoken or typed note for a creative agency. The note may be in English, Hindi, or Hinglish (code-mixed Hindi/English). Today is ${todayWeekday}, ${todayStr} (India Standard Time) — double-check your day-of-week arithmetic before resolving a relative date. Known team members: ${memberList || '(none provided)'}. Known brand/client names: ${brandList || '(none provided)'}.
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content: `You extract discrete, actionable tasks from a spoken or typed note for a creative agency. The note may be in English, Hindi, or Hinglish (code-mixed Hindi/English). Today is ${todayWeekday}, ${todayStr} (India Standard Time) — double-check your day-of-week arithmetic before resolving a relative date. Known team members: ${memberList || '(none provided)'}. Known brand/client names: ${brandList || '(none provided)'}.
 
 For each distinct task mentioned, output an object with:
 - "task": a clear, specific description of the action to take, always written in English regardless of the note's language (rewrite for clarity, keep it short)
@@ -60,8 +63,8 @@ For each distinct task mentioned, output an object with:
 - "due_date": "YYYY-MM-DD" if a date or relative date (e.g. "tomorrow", "by Friday", "next week", "17th") is mentioned, computed relative to today's date, else an empty string
 - "priority": "High", "Medium", or "Low" if urgency is stated or clearly implied (e.g. "urgent", "high priority", "whenever", "low priority"), else "Medium"
 
-Reply with ONLY valid JSON, no markdown fences, no commentary, matching this exact shape: {"tasks": [{"task": "...", "assignee": "...", "brand": "...", "due_date": "...", "priority": "..."}]}. If the transcript names multiple tasks, return all of them. If nothing actionable is found, return {"tasks": []}.`,
-        messages: [
+Reply with ONLY valid JSON, no markdown fences, no commentary, matching this exact shape: {"tasks": [{"task": "...", "assignee": "...", "brand": "...", "due_date": "...", "priority": "..."}]}. If the transcript names multiple tasks, return all of them. If nothing actionable is found, return {"tasks": []}.`
+          },
           { role: 'user', content: transcript }
         ]
       })
@@ -69,11 +72,11 @@ Reply with ONLY valid JSON, no markdown fences, no commentary, matching this exa
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Claude API ${response.status}: ${errorText}`);
+      throw new Error(`OpenAI API ${response.status}: ${errorText}`);
     }
 
     const data = await response.json();
-    let raw = (data.content && data.content[0] && data.content[0].text) || '{}';
+    let raw = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '{}';
     raw = raw.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
 
     let parsed;

@@ -40,7 +40,7 @@
   schedule = "30 6 * * *"
 
 # Generates the day's "Marketing News in 60 Seconds" card on the Loonaverse
-# page — Claude searches the web and summarizes 5 real current stories.
+# page — the model searches the web and summarizes 5 real current stories.
 # 04:00 UTC = 09:30 IST, ahead of the 10:00 IST daily broadcast.
 [functions."marketing-news-daily"]
   schedule = "0 4 * * *"
@@ -62,13 +62,14 @@
 #   FIREBASE_DB_URL   (optional; defaults to the loona-hub RTDB)
 #   BASIC_AUTH_CREDENTIALS   (site-wide password gate — see netlify/edge-functions/basic-auth.ts.
 #                             Format: username:password. Without this set, the site is NOT gated.)
-#   CLAUDE_API_KEY           (used by notes-summarize + tasks-extract for note/task generation,
-#                             by marketing-news-daily for the Loonaverse "Marketing News" card —
-#                             that one also needs web search enabled on the API key/org, since it
-#                             uses the web_search_20250305 tool to ground its summaries in real,
-#                             current stories rather than inventing them — and by
-#                             culture-lottery-daily for each person's daily book/movie/word pick,
-#                             which doesn't need web search since it's not time-sensitive)
+#   OPENAI_API_KEY           (used by notes-summarize + tasks-extract for note/task generation,
+#                             by chat.js for the dashboard AI assistant, by marketing-news-daily
+#                             for the Loonaverse "Marketing News" card — that one calls the
+#                             Responses API's web_search_preview tool to ground its summaries in
+#                             real, current stories rather than inventing them, so the key needs
+#                             web search available on the account — and by culture-lottery-daily/
+#                             culture-lottery-generate for each person's daily book/movie/word
+#                             pick, which doesn't need web search since it's not time-sensitive)
 #   SARVAM_API_KEY           (Sarvam AI batch speech-to-text, used by Loona Notes' meeting
 #                             recorder — see netlify/functions/sarvam-*.js)
 #   GOOGLE_CALENDAR_SERVICE_ACCOUNT   (full JSON key contents for the service account

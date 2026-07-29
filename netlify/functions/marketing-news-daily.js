@@ -1,7 +1,7 @@
 // ============================================================================
 // LOONA Hub · Marketing News in 60 Seconds (Netlify Scheduled Function)
 // ----------------------------------------------------------------------------
-// Runs once daily (see netlify.toml), asks Claude to search the web and
+// Runs once daily (see netlify.toml), asks the model to search the web and
 // assemble a 5-story daily briefing spanning marketing, branding, social
 // media, AI, business, fashion, art, design, and culture — not just ad
 // industry news. Stores the result at marketingNews/<date> in Firebase. The
@@ -45,16 +45,26 @@ function todayIST() {
   return now.getUTCFullYear() + "-" + String(now.getUTCMonth() + 1).padStart(2, "0") + "-" + String(now.getUTCDate()).padStart(2, "0");
 }
 
-// Pulls the JSON array out of Claude's response text blocks. With the
-// web_search tool enabled, content also includes server_tool_use /
-// web_search_tool_result blocks interspersed — only the text blocks matter here.
-function extractJsonArray(content) {
-  const text = (content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n")
-    .replace(/```json/gi, "").replace(/```/g, "");
-  const start = text.indexOf("[");
-  const end = text.lastIndexOf("]");
-  if (start === -1 || end === -1 || end < start) throw new Error("No JSON array found in Claude's response (stop_reason may have truncated it)");
-  return JSON.parse(text.slice(start, end + 1));
+// Pulls the plain text out of a Responses API result. Alongside the final
+// "message" item, `output` also includes web_search_call items (the search
+// tool's own tool-use turns) — only the message's output_text parts matter here.
+function extractOutputText(data) {
+  if (typeof data.output_text === "string" && data.output_text.trim()) return data.output_text;
+  const messageItems = (data.output || []).filter((item) => item.type === "message");
+  return messageItems
+    .flatMap((item) => (item.content || []).filter((c) => c.type === "output_text").map((c) => c.text))
+    .join("\n");
+}
+
+// Pulls the JSON array out of that text. response_format can't be combined
+// with the web_search tool on the Responses API, so this still has to guard
+// against markdown fences / stray prose around the array.
+function extractJsonArray(text) {
+  const cleaned = (text || "").replace(/```json/gi, "").replace(/```/g, "");
+  const start = cleaned.indexOf("[");
+  const end = cleaned.lastIndexOf("]");
+  if (start === -1 || end === -1 || end < start) throw new Error("No JSON array found in the model's response (it may have been truncated)");
+  return JSON.parse(cleaned.slice(start, end + 1));
 }
 
 // Must match NEWS_CATEGORIES in index.html exactly (key values, not labels).
@@ -68,8 +78,8 @@ exports.handler = async (event) => {
     const claim = await fbGet("/marketing_news_created/" + date);
     if (claim.body && !force) return { statusCode: 200, body: JSON.stringify({ success: true, skipped: "already generated", date }) };
 
-    const apiKey = process.env.CLAUDE_API_KEY;
-    if (!apiKey) return { statusCode: 500, body: JSON.stringify({ success: false, message: "CLAUDE_API_KEY not set" }) };
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) return { statusCode: 500, body: JSON.stringify({ success: false, message: "OPENAI_API_KEY not set" }) };
 
     // Claimed before the (slow, web-search-heavy) generation call so a
     // concurrent invocation doesn't double-generate — but if generation
@@ -103,33 +113,28 @@ Write each story in three parts, in your own original words (never copy sentence
 Respond with ONLY a valid JSON array, no markdown fences, no other text, in this exact shape:
 [{"category": "one of the keys above", "title": "short headline", "whatHappened": "...", "whyItMatters": "...", "loonaTake": "...", "source": "Publication Name", "url": "https://..."}]`;
 
-    // Each web search round-trip feeds its result pages back into context as
-    // input tokens for the next step of Claude's tool loop — with the org's
-    // rate limit at 10,000 input tokens/minute, 8 searches' worth of result
-    // pages was blowing past that ceiling in a single call (seen live as a
-    // Claude API 429 rate_limit_error). Capped lower here to fit comfortably
-    // under that budget; max_tokens stays generous since that governs output
-    // length, not the search-driven input cost. (No internal retry-on-429
-    // here — this same code path also runs synchronously from the client's
-    // "Generate Now" button, which is bound by Netlify's standard function
-    // timeout; a multi-second internal sleep risks the platform killing the
-    // request mid-retry. The UI's own "Try Again" button already covers
-    // retrying, without that risk.)
-    const resp = await req("POST", "https://api.anthropic.com/v1/messages", {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01"
+    // Uses the Responses API (not Chat Completions) since that's where OpenAI's
+    // hosted web_search_preview tool lives — the model decides how many searches
+    // to run itself, there's no equivalent of Claude's max_uses cap to bound it.
+    // (No internal retry-on-429 here — this same code path also runs
+    // synchronously from the client's "Generate Now" button, which is bound by
+    // Netlify's standard function timeout; a multi-second internal sleep risks
+    // the platform killing the request mid-retry. The UI's own "Try Again"
+    // button already covers retrying, without that risk.)
+    const resp = await req("POST", "https://api.openai.com/v1/responses", {
+      "Authorization": "Bearer " + apiKey
     }, {
-      model: "claude-sonnet-5",
-      max_tokens: 6000,
-      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 4 }],
-      messages: [{ role: "user", content: prompt }]
+      model: "gpt-4o",
+      max_output_tokens: 6000,
+      tools: [{ type: "web_search_preview" }],
+      input: prompt
     });
 
     if (resp.status < 200 || resp.status >= 300) {
-      throw new Error("Claude API " + resp.status + ": " + JSON.stringify(resp.body).slice(0, 500));
+      throw new Error("OpenAI API " + resp.status + ": " + JSON.stringify(resp.body).slice(0, 500));
     }
 
-    const rawItems = extractJsonArray(resp.body.content).slice(0, 5);
+    const rawItems = extractJsonArray(extractOutputText(resp.body)).slice(0, 5);
     const items = rawItems.map((it) => ({
       category: NEWS_CATEGORY_KEYS.includes(it.category) ? it.category : "culture",
       title: it.title || "",
