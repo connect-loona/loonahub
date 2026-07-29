@@ -39,7 +39,7 @@ function todayIST() {
 function extractJson(text) {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
-  if (start === -1 || end === -1 || end < start) throw new Error("No JSON object found in Claude's response");
+  if (start === -1 || end === -1 || end < start) throw new Error("No JSON object found in the model's response");
   return JSON.parse(text.slice(start, end + 1));
 }
 
@@ -84,19 +84,19 @@ Pick ONE real book, ONE real movie, and ONE single word/concept, all genuinely w
 Respond with ONLY valid JSON, no markdown fences, in this exact shape:
 {"book": {"title": "...", "why": "...", "category": "..."}, "movie": {"title": "...", "why": "...", "category": "..."}, "word": {"term": "...", "meaning": "...", "category": "..."}}`;
 
-  const resp = await req("POST", "https://api.anthropic.com/v1/messages", {
-    "x-api-key": apiKey,
-    "anthropic-version": "2023-06-01"
+  const resp = await req("POST", "https://api.openai.com/v1/chat/completions", {
+    "Authorization": "Bearer " + apiKey
   }, {
-    model: "claude-sonnet-5",
+    model: "gpt-4o",
     max_tokens: 800,
+    response_format: { type: "json_object" },
     messages: [{ role: "user", content: prompt }]
   });
 
   if (resp.status < 200 || resp.status >= 300) {
-    throw new Error("Claude API " + resp.status + ": " + JSON.stringify(resp.body).slice(0, 500));
+    throw new Error("OpenAI API " + resp.status + ": " + JSON.stringify(resp.body).slice(0, 500));
   }
-  const text = (resp.body.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n");
+  const text = (resp.body.choices && resp.body.choices[0] && resp.body.choices[0].message && resp.body.choices[0].message.content) || "";
   return extractJson(text);
 }
 

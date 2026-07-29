@@ -26,8 +26,8 @@ exports.handler = async (event) => {
     } catch (e) { key = null; }
     if (!key) return { statusCode: 400, body: JSON.stringify({ success: false, message: "Missing key" }) };
 
-    const apiKey = process.env.CLAUDE_API_KEY;
-    if (!apiKey) return { statusCode: 500, body: JSON.stringify({ success: false, message: "CLAUDE_API_KEY not set" }) };
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) return { statusCode: 500, body: JSON.stringify({ success: false, message: "OPENAI_API_KEY not set" }) };
 
     const date = todayIST();
 

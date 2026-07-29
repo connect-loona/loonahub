@@ -3,7 +3,7 @@
 // Function)
 // ----------------------------------------------------------------------------
 // Runs once daily (see netlify.toml). For every onboarded Culture Lottery
-// profile, asks Claude to generate an original book/movie/word pick tailored
+// profile, asks the model to generate an original book/movie/word pick tailored
 // to that person's interests, difficulty, time commitment, favorite creators,
 // and recent feedback (loved/interesting/not-for-me/saved/finished) — this is
 // the actual personalization engine described in the product spec, done via
@@ -23,8 +23,8 @@ const { fbGet, fbPut, todayIST, generateDrawFor } = require("./lib/culture-lotte
 exports.handler = async () => {
   try {
     const date = todayIST();
-    const apiKey = process.env.CLAUDE_API_KEY;
-    if (!apiKey) return { statusCode: 500, body: JSON.stringify({ success: false, message: "CLAUDE_API_KEY not set" }) };
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) return { statusCode: 500, body: JSON.stringify({ success: false, message: "OPENAI_API_KEY not set" }) };
 
     const claim = await fbGet("/culture_lottery_daily_created/" + date);
     if (claim.body) return { statusCode: 200, body: JSON.stringify({ success: true, skipped: "already generated", date }) };
