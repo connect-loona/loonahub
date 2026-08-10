@@ -3322,6 +3322,20 @@
       vertical-align: middle;
     }
 
+    /* ── LOOP-IN-GOKUL APPROVAL BADGE (task rows) + TOGGLE (Add Task modal) ── */
+    .gokul-approval-badge{font-size:9px;padding:2px 5px;border-radius:4px;background:rgba(237,137,54,.15);color:#ed8936;font-weight:700;margin-left:4px;vertical-align:middle}
+    .gokul-approval-badge.approved{background:rgba(76,175,125,.15);color:#4caf7d}
+    .gokul-approval-badge.declined{background:rgba(224,92,92,.15);color:#e05c5c}
+    .nt-approval-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px}
+    .nt-approval-toggle .nat-label{font-size:13px;font-weight:600;color:var(--text)}
+    .nt-approval-toggle .nat-sub{font-size:11px;color:var(--muted);margin-top:2px}
+    .nt-switch{position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0}
+    .nt-switch input{opacity:0;width:0;height:0}
+    .nt-switch-slider{position:absolute;cursor:pointer;inset:0;background:var(--border);border-radius:22px;transition:.2s}
+    .nt-switch-slider:before{content:"";position:absolute;height:16px;width:16px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
+    .nt-switch input:checked + .nt-switch-slider{background:var(--accent)}
+    .nt-switch input:checked + .nt-switch-slider:before{transform:translateX(18px)}
+
     /* ── ADD MEMBER MODAL ── */
     .amp-emoji-opt {
       font-size: 22px;
@@ -4437,6 +4451,7 @@
 
       <!-- Approval Requests -->
       <div id="approval-requests-section"></div>
+      <div id="gokul-task-approval-section"></div>
       <div id="assigned-out-section"></div>
 
       <div class="filters">
@@ -4610,6 +4625,18 @@
           <div class="form-group">
             <label>Assigned By</label>
             <select class="form-control" id="nt-by"></select>
+          </div>
+        </div>
+        <div class="form-group" id="nt-gokul-approval-group" style="display:none">
+          <div class="nt-approval-toggle">
+            <div>
+              <div class="nat-label">🔔 Loop in Gokul for approval</div>
+              <div class="nat-sub">Also lands on Gokul's board for final sign-off</div>
+            </div>
+            <label class="nt-switch">
+              <input type="checkbox" id="nt-loop-gokul">
+              <span class="nt-switch-slider"></span>
+            </label>
           </div>
         </div>
         <div class="modal-actions">
@@ -8371,7 +8398,7 @@
         </div>`;
     }
     function renderTasks() {
-      currentPage = 1; renderOverdue(); renderApprovalRequests(); renderAssignedOut(); renderTaskPage(); renderBoardSummary(); renderLoonaBoard();
+      currentPage = 1; renderOverdue(); renderApprovalRequests(); renderGokulTaskApprovals(); renderAssignedOut(); renderTaskPage(); renderBoardSummary(); renderLoonaBoard();
       const waBtn = document.getElementById('task-board-whatsapp-btn');
       if (waBtn) waBtn.style.display = (currentUser === 'Gokul') ? 'inline-block' : 'none';
       if(!window._autoCleared){ window._autoCleared=true; setTimeout(autoClearCompleted,4000); }
@@ -8392,7 +8419,7 @@
           return `<tr id="trow-${gi}">
           <td data-label="Member">${memberAvatarHtml}${t.member || '—'}${isPersonal ? ' <span title="Personal To-Do" style="font-size:11px">📌</span>' : ''}</td>
           <td data-label="Brand" onclick="window.showTaskDetail(${gi})"><div class="task-cell"><span style="font-size:11px;padding:2px 8px;background:${isPersonal ? 'rgba(91,156,246,.15)' : 'rgba(200,169,110,.1)'};color:${isPersonal ? 'var(--blue)' : 'var(--accent)'};border-radius:4px">${t.brand || '—'}</span></div></td>
-          <td data-label="Task" style="max-width:260px" onclick="window.showTaskDetail(${gi})"><div class="prio-dot-row"><span class="prio-dot" style="--prio-color:${priorityHeatColor(t.priority, t.status)}"></span><div class="task-cell">${t.task.length > 55 ? t.task.slice(0, 55) + '…' : t.task}${t.is_auto ? ' <span class="auto-task-badge">🤖 AUTO</span>' : ''}</div></div></td>
+          <td data-label="Task" style="max-width:260px" onclick="window.showTaskDetail(${gi})"><div class="prio-dot-row"><span class="prio-dot" style="--prio-color:${priorityHeatColor(t.priority, t.status)}"></span><div class="task-cell">${t.task.length > 55 ? t.task.slice(0, 55) + '…' : t.task}${t.is_auto ? ' <span class="auto-task-badge">🤖 AUTO</span>' : ''}${t.gokul_approval === 'pending' ? ' <span class="gokul-approval-badge" title="Awaiting Gokul\'s approval">🔔 Pending</span>' : t.gokul_approval === 'declined' ? ' <span class="gokul-approval-badge declined" title="Gokul declined this task">✕ Declined</span>' : t.gokul_approval === 'approved' ? ' <span class="gokul-approval-badge approved" title="Approved by Gokul">✓ Approved</span>' : ''}</div></div></td>
           <td data-label="Assigned by" style="color:var(--muted);font-size:12px">${t.assigned_by || '—'}</td>
           <td data-label="Assigned on" style="color:var(--muted);font-size:12px;white-space:nowrap">${t.assigned_on || (t.created_at?fmtStamp(new Date(t.created_at)):'—')}</td>
           <td data-label="Priority" style="${t.status === 'Completed' ? 'opacity:0.35;pointer-events:none' : ''}">${pBadge(t.priority)}</td>
@@ -12537,6 +12564,47 @@
     </div>`;
     }
 
+    // "Loop in Gokul for approval" — separate from the above approval-request
+    // flow (which gates a task's *completion*/*deferral*): this is about a
+    // brand-new task itself needing Gokul's sign-off, flagged right from the
+    // Add Task modal by whoever created it. Lives as a field on the task
+    // record directly (gokul_approval), not in APPROVAL_REQUESTS, since it's
+    // not tied to a status transition — only ever shown to Gokul.
+    function renderGokulTaskApprovals() {
+      const container = document.getElementById('gokul-task-approval-section');
+      if (!container) return;
+      if (currentUser !== 'Gokul') { container.innerHTML = ''; return; }
+
+      const pending = (TASKS || []).filter(t => t && t.gokul_approval === 'pending');
+      if (!pending.length) { container.innerHTML = ''; return; }
+
+      container.innerHTML = `
+    <div class="approval-banner">
+      <div class="approval-header">
+        <div class="ah-title">🔔 Needs Your Approval <span class="ah-count">${pending.length}</span></div>
+      </div>
+      ${pending.map(t => {
+        const gi = TASKS.indexOf(t);
+        const title = t.task.length > 45 ? t.task.slice(0, 45) + '…' : t.task;
+        return `
+        <div class="approval-row">
+          <div class="approval-task">
+            <div class="at-name">${lnEsc(t.member || '—')} — ${lnEsc(title)}</div>
+            <div class="at-meta">${lnEsc(t.brand || '—')} · added by ${lnEsc(t.assigned_by || '—')} · ${t.created_at ? fmtStamp(new Date(t.created_at)) : (t.assigned_on || '')}</div>
+          </div>
+          <button class="btn-approve" onclick="gokulDecideTask(${gi},'approved')">✓ Approve</button>
+          <button class="btn-decline" onclick="gokulDecideTask(${gi},'declined')">✕ Decline</button>
+        </div>`;
+      }).join('')}
+    </div>`;
+    }
+
+    function gokulDecideTask(idx, decision) {
+      fbUpdateTask(idx, { gokul_approval: decision });
+      renderTasks();
+      renderOverview();
+    }
+
     // ═══ ANNOUNCEMENTS ═══
     function postAnnouncement() {
       const text = document.getElementById('announce-text').value.trim();
@@ -14230,6 +14298,19 @@
       document.querySelectorAll('#nt-member-rows .nt-member-row').forEach((row, i) => { if (i > 0) row.remove(); });
       const addBtn = document.getElementById('nt-member-add-btn');
       if (addBtn) addBtn.style.visibility = isPersonal ? 'hidden' : 'visible';
+      ntUpdateGokulApprovalVisibility(isPersonal);
+    }
+
+    // Gokul doesn't need to loop himself in, and a Personal To-Do isn't
+    // delegated work — hide the toggle for either case, and always reset it
+    // off so a previous task's choice never silently carries into the next one.
+    function ntUpdateGokulApprovalVisibility(isPersonal) {
+      const group = document.getElementById('nt-gokul-approval-group');
+      if (!group) return;
+      const show = currentUser !== 'Gokul' && !isPersonal;
+      group.style.display = show ? 'block' : 'none';
+      const cb = document.getElementById('nt-loop-gokul');
+      if (cb) cb.checked = false;
     }
 
     function ntMemberOptionsHTML() {
@@ -14290,6 +14371,7 @@
       const target = (preselect && preselect !== currentUser) ? preselect : '__personal__';
       memberSel.value = target;
       if (addBtn) addBtn.style.visibility = (target === '__personal__') ? 'hidden' : 'visible';
+      ntUpdateGokulApprovalVisibility(target === '__personal__');
       document.getElementById('nt-by').value = currentUser || '';
       document.getElementById('nt-task').value = '';
       document.getElementById('nt-brand').value = '';
@@ -14700,6 +14782,8 @@
       document.getElementById('nt-task').style.borderColor = '';
       document.getElementById('nt-brand').style.borderColor = '';
       const assignedBy = isPersonal ? 'Myself' : (document.getElementById('nt-by').value || currentUser || '');
+      const loopGokulEl = document.getElementById('nt-loop-gokul');
+      const loopGokul = !isPersonal && currentUser !== 'Gokul' && !!(loopGokulEl && loopGokulEl.checked);
       const shared = {
         brand, task,
         is_personal: isPersonal,
@@ -14707,7 +14791,8 @@
         status: document.getElementById('nt-status').value,
         due_date: document.getElementById('nt-due').value || '',
         assigned_by: assignedBy,
-        isNew: true
+        isNew: true,
+        ...(loopGokul ? { gokul_approval: 'pending' } : {})
       };
       // One independent task record per assignee — tasks are stored flat
       // with a single `member` field each, so "assign to everyone at once"
