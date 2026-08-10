@@ -3310,6 +3310,32 @@
       min-width: 120px;
     }
 
+    /* ── "ASK FOR UPDATE" URGENT PROMPT (same full-screen treatment as the deck
+       confirm modal, red accent so it reads as more urgent) ── */
+    #update-request-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .75);
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #update-request-modal.show {
+      display: flex;
+      animation: bannerPop .3s cubic-bezier(.34, 1.56, .64, 1);
+    }
+
+    #update-request-modal .deck-modal {
+      border-color: var(--red);
+      box-shadow: 0 16px 60px rgba(224, 92, 92, .35);
+    }
+
+    #update-request-modal .dm-title {
+      color: var(--red);
+    }
+
     /* ── AUTO TASK BADGE ── */
     .auto-task-badge {
       font-size: 9px;
@@ -4751,6 +4777,22 @@
         <div class="dm-actions">
           <button class="btn btn-ghost" onclick="handleDeckConfirm(false)">No, not yet</button>
           <button class="btn btn-primary" onclick="handleDeckConfirm(true)">Yes, it's updated! 🚀</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ASK-FOR-UPDATE URGENT PROMPT (triggered on the assignee's own client by askForUpdate() elsewhere) -->
+    <div id="update-request-modal">
+      <div class="deck-modal">
+        <div class="dm-emoji">🚨</div>
+        <div class="dm-title">Extremely Important</div>
+        <div class="dm-sub" id="uq-sub">Someone wants an update on this task — right now.</div>
+        <div class="dm-task" id="uq-task"
+          style="font-size:12px;color:var(--red);font-style:italic;margin-bottom:20px;padding:8px 12px;background:rgba(224,92,92,.08);border-radius:8px">
+        </div>
+        <div class="dm-actions">
+          <button class="btn btn-ghost" onclick="dismissUpdateRequestLater()">Later</button>
+          <button class="btn btn-primary" onclick="acknowledgeUpdateRequest()">Got it, I'll update now</button>
         </div>
       </div>
     </div>
@@ -7117,6 +7159,97 @@
       fbDeleteTaskByKey(key, fallbackIdx);
     }
 
+    // ═══ ASK FOR UPDATE (assigner → assignee nudge) ═══
+    // Separate from the completion-approval flow and the Loop-in-Gokul
+    // creation-approval toggle — this is the assigner explicitly asking
+    // whoever a task is assigned to for a status update, right now. Written
+    // to Firebase (not just fired locally) so it still lands the moment the
+    // assignee's client reconnects, even if they're offline right now — see
+    // the `updateRequests` listener in initFirebase() and
+    // queueUpdateRequestPopup() for the receiving side.
+    function askForUpdate(idx) {
+      const t = TASKS[idx];
+      if (!t || !t.member) return;
+      if (_db) {
+        _db.ref('updateRequests').push({
+          task: t.task || '',
+          brand: t.brand || '',
+          member: t.member,
+          requestedBy: currentUser || '',
+          requestedAt: new Date().toISOString(),
+          acknowledged: false
+        });
+      }
+      fbAddAnnouncement({
+        id: Date.now(),
+        text: `🔔 ${t.member}, please send ${currentUser || 'the team'} an update on "${(t.task || 'this task').slice(0, 80)}".`,
+        author: currentUser,
+        timestamp: new Date().toISOString(),
+        emoji: '🔔'
+      });
+      const toast = document.getElementById('completion-toast');
+      document.getElementById('toast-emoji').textContent = '🔔';
+      document.getElementById('toast-msg').textContent = `Nudge sent to ${t.member}!`;
+      document.getElementById('toast-sub').textContent = "They'll get an urgent prompt for an update.";
+      toast.classList.add('show');
+      if (_toastTimer) clearTimeout(_toastTimer);
+      _toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
+    }
+
+    // Receiving side: a short alert-tone beep (synthesized — no audio asset
+    // needed) plus the same urgent full-screen treatment as the deck-confirm
+    // modal. Requests queue if more than one arrives before the person
+    // dismisses the first, so they never stack/overlap.
+    window._updateRequestQueue = [];
+    window._updateRequestShowing = false;
+    function queueUpdateRequestPopup(key, req) {
+      window._updateRequestQueue.push({ key, req });
+      if (!window._updateRequestShowing) showNextUpdateRequestPopup();
+    }
+    function showNextUpdateRequestPopup() {
+      const next = window._updateRequestQueue.shift();
+      if (!next) { window._updateRequestShowing = false; return; }
+      window._updateRequestShowing = true;
+      window._currentUpdateRequest = next;
+      document.getElementById('uq-sub').textContent = `${next.req.requestedBy || 'Someone'} wants an update on this task — right now.`;
+      document.getElementById('uq-task').textContent = `"${next.req.task || 'Untitled task'}"${next.req.brand ? ' · ' + next.req.brand : ''}`;
+      document.getElementById('update-request-modal').classList.add('show');
+      playUpdateAlertSound();
+      sendBoardDesktopNotification({ author: next.req.requestedBy, text: `wants an update on "${next.req.task || 'a task'}"`, id: next.key });
+    }
+    function playUpdateAlertSound() {
+      try {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        const ctx = new Ctx();
+        const beep = (start, freq) => {
+          const osc = ctx.createOscillator(), gain = ctx.createGain();
+          osc.type = 'square'; osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0.0001, ctx.currentTime + start);
+          gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + start + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + start + 0.16);
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.start(ctx.currentTime + start); osc.stop(ctx.currentTime + start + 0.18);
+        };
+        beep(0, 880); beep(0.2, 880); beep(0.4, 1046);
+        setTimeout(() => ctx.close().catch(() => {}), 900);
+      } catch (e) { /* autoplay/audio restrictions — the visual popup still shows either way */ }
+    }
+    function acknowledgeUpdateRequest() {
+      const cur = window._currentUpdateRequest;
+      document.getElementById('update-request-modal').classList.remove('show');
+      if (cur && _db) _db.ref('updateRequests/' + cur.key).update({ acknowledged: true });
+      window._currentUpdateRequest = null;
+      const tasksBtn = document.querySelector('.nav-btn[onclick*="tasks"]');
+      if (typeof showPage === 'function' && tasksBtn) showPage('tasks', tasksBtn);
+      setTimeout(showNextUpdateRequestPopup, 350);
+    }
+    function dismissUpdateRequestLater() {
+      document.getElementById('update-request-modal').classList.remove('show');
+      window._currentUpdateRequest = null;
+      setTimeout(showNextUpdateRequestPopup, 350);
+    }
+
     function fbAddAnnouncement(ann) {
       const clean = Object.assign({}, ann);
       delete clean._key;
@@ -7682,6 +7815,21 @@
         _db.ref('cultureLottery/achievements/' + clKey).on('value', snap => {
           window.CL_ACHIEVEMENTS_UNLOCKED = window.CL_ACHIEVEMENTS_UNLOCKED || {};
           window.CL_ACHIEVEMENTS_UNLOCKED[clKey] = snap.val() || {};
+        });
+
+        // "Ask for update" nudges (askForUpdate()) — attached here, per login,
+        // rather than in initFirebase() (which runs before anyone's identity is
+        // known): child_added only fires once per child for the lifetime of a
+        // listener, so attaching it here — after `name` is known — is what
+        // makes the very first replay-of-existing-children correctly reach the
+        // person it's actually for, including one they missed while offline.
+        _db.ref('updateRequests').on('child_added', snap => {
+          const req = snap.val();
+          if (!req || req.acknowledged || normName(req.member) !== normName(name)) return;
+          window._shownUpdateRequests = window._shownUpdateRequests || new Set();
+          if (window._shownUpdateRequests.has(snap.key)) return;
+          window._shownUpdateRequests.add(snap.key);
+          if (typeof queueUpdateRequestPopup === 'function') queueUpdateRequestPopup(snap.key, req);
         });
       }
       init();
@@ -8446,7 +8594,7 @@
           </td>
           <td data-label="Time" style="color:var(--muted);font-size:12px;white-space:nowrap">${t.status_at || (t.completed_at?fmtStamp(new Date(t.completed_at)):'—')}</td>
           <td data-label="Due" style="white-space:nowrap;color:var(--muted)"><input type="date" value="${t.due_date || ''}" onchange="updateDueDate(${gi},this.value)" title="Shift due date" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px 7px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit"></td>
-          <td data-label="">${(normName(currentUser) === normName(t.assigned_by) || normName(currentUser) === normName(t.member) || normName(currentUser) === 'gokul') ? `<button onclick="confirmDeleteTask('${t._key || ''}',${gi})" style="background:none;border:none;color:#555;cursor:pointer;font-size:16px;padding:0 4px" title="Remove task">×</button>` : ''}</td>
+          <td data-label="">${(normName(currentUser) === normName(t.assigned_by) && normName(currentUser) !== normName(t.member) && t.status !== 'Completed') ? `<button onclick="askForUpdate(${gi})" style="background:none;border:none;color:#888;cursor:pointer;font-size:14px;padding:0 4px" title="Ask ${lnEsc(t.member || 'them')} for an update">🔔</button>` : ''}${(normName(currentUser) === normName(t.assigned_by) || normName(currentUser) === normName(t.member) || normName(currentUser) === 'gokul') ? `<button onclick="confirmDeleteTask('${t._key || ''}',${gi})" style="background:none;border:none;color:#555;cursor:pointer;font-size:16px;padding:0 4px" title="Remove task">×</button>` : ''}</td>
         </tr>`;
         }).join('')
         : '<tr><td colspan="9"><div class="empty">No tasks found</div></td></tr>';
