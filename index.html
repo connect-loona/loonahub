@@ -4568,27 +4568,32 @@
           </div>
           <div class="form-group">
             <label>Brand *</label>
-            <select class="form-control" id="nt-brand">
-              <option value="">— Select Brand —</option>
-              <option value="2100">2100</option>
-              <option value="Barkha Beauty">Barkha Beauty</option>
-              <option value="Carry On">Carry On</option>
-              <option value="Casa Water">Casa Water</option>
-              <option value="Finance">Finance</option>
-              <option value="Goonda">Goonda</option>
-              <option value="INCA">INCA</option>
-              <option value="Loona">Loona</option>
-              <option value="One O One">One O One</option>
-              <option value="Ostilo">Ostilo</option>
-              <option value="RRO">RRO</option>
-              <option value="Red Beryl">Red Beryl</option>
-              <option value="Sakshi">Sakshi</option>
-              <option value="Self Cntrd">Self Cntrd</option>
-              <option value="Shic">Shic</option>
-              <option value="Shookra">Shookra</option>
-              <option value="Terra">Terra</option>
-              <option value="The Third">The Third</option>
-            </select>
+            <div id="nt-brand-rows">
+              <div class="nt-member-row">
+                <select class="form-control nt-brand-select" id="nt-brand">
+                  <option value="">— Select Brand —</option>
+                  <option value="2100">2100</option>
+                  <option value="Barkha Beauty">Barkha Beauty</option>
+                  <option value="Carry On">Carry On</option>
+                  <option value="Casa Water">Casa Water</option>
+                  <option value="Finance">Finance</option>
+                  <option value="Goonda">Goonda</option>
+                  <option value="INCA">INCA</option>
+                  <option value="Loona">Loona</option>
+                  <option value="One O One">One O One</option>
+                  <option value="Ostilo">Ostilo</option>
+                  <option value="RRO">RRO</option>
+                  <option value="Red Beryl">Red Beryl</option>
+                  <option value="Sakshi">Sakshi</option>
+                  <option value="Self Cntrd">Self Cntrd</option>
+                  <option value="Shic">Shic</option>
+                  <option value="Shookra">Shookra</option>
+                  <option value="Terra">Terra</option>
+                  <option value="The Third">The Third</option>
+                </select>
+                <button type="button" class="nt-member-add-btn" id="nt-brand-add-btn" onclick="ntAddBrandRow()" title="Add another brand">+</button>
+              </div>
+            </div>
           </div>
         </div>
         <div class="form-group">
@@ -8179,10 +8184,11 @@
       // Brand & team progress (all time)
       const brandMap = {};
       TASKS.forEach(t => {
-        if (!t.brand) return;
-        if (!brandMap[t.brand]) brandMap[t.brand] = { total: 0, done: 0 };
-        brandMap[t.brand].total++;
-        if (t.status === 'Completed') brandMap[t.brand].done++;
+        taskBrandList(t).forEach(b => {
+          if (!brandMap[b]) brandMap[b] = { total: 0, done: 0 };
+          brandMap[b].total++;
+          if (t.status === 'Completed') brandMap[b].done++;
+        });
       });
       document.getElementById('brand-progress-list').innerHTML = Object.entries(brandMap)
         .sort((a, b) => b[1].total - a[1].total).slice(0, 10)
@@ -8338,8 +8344,8 @@
 
       const filtered = TASKS.filter(t =>
         (!member || normName(t.member) === normName(member)) &&
-        (!search || (t.task + t.brand + t.member).toLowerCase().includes(search)) &&
-        (!brand || normalizeBrandName(t.brand) === normalizeBrandName(brand)) &&
+        (!search || (t.task + taskBrandList(t).join(' ') + t.member).toLowerCase().includes(search)) &&
+        (!brand || taskBrandList(t).some(b => normalizeBrandName(b) === normalizeBrandName(brand))) &&
         (!status || t.status === status) &&
         (!priority || t.priority === priority)
       );
@@ -8418,7 +8424,7 @@
             : `<span style="color:${mColor(t.member)}">●</span> `;
           return `<tr id="trow-${gi}">
           <td data-label="Member">${memberAvatarHtml}${t.member || '—'}${isPersonal ? ' <span title="Personal To-Do" style="font-size:11px">📌</span>' : ''}</td>
-          <td data-label="Brand" onclick="window.showTaskDetail(${gi})"><div class="task-cell"><span style="font-size:11px;padding:2px 8px;background:${isPersonal ? 'rgba(91,156,246,.15)' : 'rgba(200,169,110,.1)'};color:${isPersonal ? 'var(--blue)' : 'var(--accent)'};border-radius:4px">${t.brand || '—'}</span></div></td>
+          <td data-label="Brand" onclick="window.showTaskDetail(${gi})"><div class="task-cell"><span style="font-size:11px;padding:2px 8px;background:${isPersonal ? 'rgba(91,156,246,.15)' : 'rgba(200,169,110,.1)'};color:${isPersonal ? 'var(--blue)' : 'var(--accent)'};border-radius:4px">${taskBrandList(t).join(', ') || '—'}</span></div></td>
           <td data-label="Task" style="max-width:260px" onclick="window.showTaskDetail(${gi})"><div class="prio-dot-row"><span class="prio-dot" style="--prio-color:${priorityHeatColor(t.priority, t.status)}"></span><div class="task-cell">${t.task.length > 55 ? t.task.slice(0, 55) + '…' : t.task}${t.is_auto ? ' <span class="auto-task-badge">🤖 AUTO</span>' : ''}${t.gokul_approval === 'pending' ? ' <span class="gokul-approval-badge" title="Awaiting Gokul\'s approval">🔔 Pending</span>' : t.gokul_approval === 'declined' ? ' <span class="gokul-approval-badge declined" title="Gokul declined this task">✕ Declined</span>' : t.gokul_approval === 'approved' ? ' <span class="gokul-approval-badge approved" title="Approved by Gokul">✓ Approved</span>' : ''}</div></div></td>
           <td data-label="Assigned by" style="color:var(--muted);font-size:12px">${t.assigned_by || '—'}</td>
           <td data-label="Assigned on" style="color:var(--muted);font-size:12px;white-space:nowrap">${t.assigned_on || (t.created_at?fmtStamp(new Date(t.created_at)):'—')}</td>
@@ -11407,7 +11413,7 @@
 
     function renderTeam() {
       const tMap = {};
-      TASKS.forEach(t => { if (!t.member) return; if (!tMap[t.member]) tMap[t.member] = { member: t.member, asylum: t.asylum, total: 0, done: 0, ip: 0, ns: 0, brands: new Set() }; const m = tMap[t.member]; m.total++; if (t.status === 'Completed') m.done++; else if (t.status === 'In Progress') m.ip++; else m.ns++; if (t.brand) m.brands.add(t.brand); });
+      TASKS.forEach(t => { if (!t.member) return; if (!tMap[t.member]) tMap[t.member] = { member: t.member, asylum: t.asylum, total: 0, done: 0, ip: 0, ns: 0, brands: new Set() }; const m = tMap[t.member]; m.total++; if (t.status === 'Completed') m.done++; else if (t.status === 'In Progress') m.ip++; else m.ns++; taskBrandList(t).forEach(b => m.brands.add(b)); });
       // Ensure all active members appear even if they have no tasks
       ALL_MEMBERS.forEach(name => { if (!tMap[name]) tMap[name] = { member: name, asylum: (MEMBER_INFO[name] || {}).role || '', total: 0, done: 0, ip: 0, ns: 0, brands: new Set() }; });
       // Recalculate brand count from BRANDS_ALLOC (actual lead responsibility, not just tasks)
@@ -11875,6 +11881,20 @@
       const n = normalizeBrandName(s);
       return BRAND_NAME_ALIASES[n] || n;
     }
+
+    // A task's full brand list — multi-brand tasks (from the Add Task modal's
+    // brand "+") carry a `brands` array with `brand` kept as brands[0] for
+    // backward compatibility with every older single-brand read site; tasks
+    // that predate this feature (or auto-generated ones) only ever had
+    // `brand`. Every place that counts/filters tasks *by* brand should use
+    // this instead of reading `t.brand` directly, so a multi-brand task
+    // counts toward all of its brands, not just the primary one.
+    function taskBrandList(t) {
+      if (!t) return [];
+      if (Array.isArray(t.brands) && t.brands.length) return t.brands;
+      return t.brand ? [t.brand] : [];
+    }
+    window.taskBrandList = taskBrandList; // exposed for showBrandDetail() in the later script block
 
     function normalizeTaskDesc(s) {
       if (!s) return '';
@@ -12512,7 +12532,7 @@
       const rows = mine.map(t => `
         <tr>
           <td>${(MEMBER_INFO[t.member] || {}).avatar ? `<img src="${MEMBER_INFO[t.member].avatar}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px">` : ''}${t.member || '—'}</td>
-          <td onclick="window.showTaskDetail(${TASKS.indexOf(t)})"><div class="task-cell"><span style="font-size:11px;padding:2px 8px;background:rgba(200,169,110,.1);color:var(--accent);border-radius:4px">${t.brand || '—'}</span></div></td>
+          <td onclick="window.showTaskDetail(${TASKS.indexOf(t)})"><div class="task-cell"><span style="font-size:11px;padding:2px 8px;background:rgba(200,169,110,.1);color:var(--accent);border-radius:4px">${taskBrandList(t).join(', ') || '—'}</span></div></td>
           <td style="max-width:240px" onclick="window.showTaskDetail(${TASKS.indexOf(t)})"><div class="prio-dot-row"><span class="prio-dot" style="--prio-color:${priorityHeatColor(t.priority, t.status)}"></span><div class="task-cell">${t.task && t.task.length > 52 ? t.task.slice(0, 52) + '…' : (t.task || '—')}</div></div></td>
           <td>${statusSelectHTML(t, TASKS.indexOf(t))}</td>
           <td style="color:var(--muted);font-size:12px;white-space:nowrap">${t.assigned_on || (t.created_at ? fmtStamp(new Date(t.created_at)) : '—')}</td>
@@ -12590,7 +12610,7 @@
         <div class="approval-row">
           <div class="approval-task">
             <div class="at-name">${lnEsc(t.member || '—')} — ${lnEsc(title)}</div>
-            <div class="at-meta">${lnEsc(t.brand || '—')} · added by ${lnEsc(t.assigned_by || '—')} · ${t.created_at ? fmtStamp(new Date(t.created_at)) : (t.assigned_on || '')}</div>
+            <div class="at-meta">${lnEsc(taskBrandList(t).join(', ') || '—')} · added by ${lnEsc(t.assigned_by || '—')} · ${t.created_at ? fmtStamp(new Date(t.created_at)) : (t.assigned_on || '')}</div>
           </div>
           <button class="btn-approve" onclick="gokulDecideTask(${gi},'approved')">✓ Approve</button>
           <button class="btn-decline" onclick="gokulDecideTask(${gi},'declined')">✕ Decline</button>
@@ -13493,10 +13513,11 @@
     function renderBrands() {
       const bTaskMap = {};
       TASKS.forEach(t => {
-        if (!t.brand) return;
-        if (!bTaskMap[t.brand]) bTaskMap[t.brand] = { total: 0, done: 0 };
-        bTaskMap[t.brand].total++;
-        if (t.status === 'Completed') bTaskMap[t.brand].done++;
+        taskBrandList(t).forEach(b => {
+          if (!bTaskMap[b]) bTaskMap[b] = { total: 0, done: 0 };
+          bTaskMap[b].total++;
+          if (t.status === 'Completed') bTaskMap[b].done++;
+        });
       });
 
       const active = BRANDS_ALLOC.filter(b => !b.inactive);
@@ -13750,12 +13771,18 @@
           const newNameNorm = normalizeBrandName(newName);
 
           if (oldNameNorm !== newNameNorm) {
-            // Update tasks referencing this brand
+            // Update tasks referencing this brand — including inside a
+            // multi-brand task's `brands` array, not just the primary `brand`
+            // field, so a rename doesn't leave a stale name buried in there.
             TASKS.forEach((t, ti) => {
-              if (normalizeBrandName(t.brand) === oldNameNorm) {
-                fbUpdateTask(ti, { brand: newName });
-                t.brand = newName; // ensure local consistency
-              }
+              const hasBrandsArr = Array.isArray(t.brands) && t.brands.length;
+              const brandsArr = hasBrandsArr ? t.brands : (t.brand ? [t.brand] : []);
+              if (!brandsArr.some(b => normalizeBrandName(b) === oldNameNorm)) return;
+              const updates = {};
+              if (normalizeBrandName(t.brand) === oldNameNorm) updates.brand = newName;
+              if (hasBrandsArr) updates.brands = brandsArr.map(b => normalizeBrandName(b) === oldNameNorm ? newName : b);
+              fbUpdateTask(ti, updates);
+              Object.assign(t, updates); // ensure local consistency
             });
 
             // Move deck link if present
@@ -14183,10 +14210,11 @@
       // Group by brand
       const bMap = {};
       autoTasks.forEach(t => {
-        if (!t.brand) return;
-        if (!bMap[t.brand]) bMap[t.brand] = { total: 0, done: 0 };
-        bMap[t.brand].total++;
-        if (t.status === 'Completed') bMap[t.brand].done++;
+        taskBrandList(t).forEach(b => {
+          if (!bMap[b]) bMap[b] = { total: 0, done: 0 };
+          bMap[b].total++;
+          if (t.status === 'Completed') bMap[b].done++;
+        });
       });
       const entries = Object.entries(bMap).sort((a, b) => b[1].total - a[1].total);
       if (!entries.length) {
@@ -14242,7 +14270,7 @@
         const daysLabel = daysAgo === 1 ? 'yesterday' : `${daysAgo}d overdue`;
         return `<tr>
       <td><span style="color:${mColor(t.member)}">●</span> <strong>${t.member || '—'}</strong></td>
-      <td onclick="window.showTaskDetail(${taskIdx})"><div class="task-cell"><span style="font-size:11px;padding:2px 8px;background:rgba(224,92,92,.1);color:#e05c5c;border-radius:4px">${t.brand || '—'}</span></div></td>
+      <td onclick="window.showTaskDetail(${taskIdx})"><div class="task-cell"><span style="font-size:11px;padding:2px 8px;background:rgba(224,92,92,.1);color:#e05c5c;border-radius:4px">${taskBrandList(t).join(', ') || '—'}</span></div></td>
       <td style="max-width:280px" onclick="window.showTaskDetail(${taskIdx})"><div class="prio-dot-row"><span class="prio-dot" style="--prio-color:${priorityHeatColor(t.priority, t.status)}"></span><div class="task-cell">${t.task}</div></div></td>
       <td style="color:var(--muted);font-size:12px">${t.assigned_by || '—'}</td>
       <td>${pBadge(t.priority)}</td>
@@ -14339,6 +14367,41 @@
       return Array.from(new Set(vals));
     }
 
+    // Mirrors ntAddMemberRow()/ntRemoveMemberRow()/ntSelectedMembers() above,
+    // just for brands instead of assignees — a task can now be tagged with
+    // more than one brand, counting toward each one's task totals and
+    // Monthly Plan progress rather than fanning out into duplicate tasks.
+    function ntBrandOptionsHTML(selected) {
+      const seen = new Set();
+      const brands = BRANDS_ALLOC.filter(b => !b.inactive).map(b => canonicalBrandName(b.brand)).filter(b => {
+        const key = b.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).sort((a, b) => String(a).localeCompare(String(b)));
+      return '<option value="">— Select Brand —</option>' + brands.map(b => `<option value="${lnEsc(b)}" ${b === selected ? 'selected' : ''}>${lnEsc(b)}</option>`).join('');
+    }
+
+    function ntAddBrandRow() {
+      const rows = document.getElementById('nt-brand-rows');
+      if (!rows) return;
+      const activeBrandCount = BRANDS_ALLOC.filter(b => !b.inactive).length;
+      if (rows.querySelectorAll('.nt-member-row').length >= activeBrandCount) return;
+      const row = document.createElement('div');
+      row.className = 'nt-member-row';
+      row.innerHTML = `<select class="form-control nt-brand-select">${ntBrandOptionsHTML('')}</select><button type="button" class="nt-member-remove-btn" onclick="ntRemoveBrandRow(this)" title="Remove">×</button>`;
+      rows.appendChild(row);
+    }
+
+    function ntRemoveBrandRow(btn) {
+      btn.closest('.nt-member-row').remove();
+    }
+
+    function ntSelectedBrands() {
+      const vals = Array.from(document.querySelectorAll('#nt-brand-rows .nt-brand-select')).map(s => s.value).filter(Boolean);
+      return Array.from(new Set(vals));
+    }
+
     function openAddTask(preselect) {
       ntStopVoice();
       ntSetMicNote('');
@@ -14346,6 +14409,9 @@
       document.querySelectorAll('#nt-member-rows .nt-member-row').forEach((row, i) => { if (i > 0) row.remove(); });
       const addBtn = document.getElementById('nt-member-add-btn');
       if (addBtn) addBtn.style.visibility = 'visible';
+      // Drop any extra brand rows too, and let refreshTaskBrandDropdown() (called
+      // from init/renderBrands already) keep #nt-brand's own option list current.
+      document.querySelectorAll('#nt-brand-rows .nt-member-row').forEach((row, i) => { if (i > 0) row.remove(); });
       // Rebuild member dropdown fresh: Personal To-Do first, then everyone except current user
       const memberSel = document.getElementById('nt-member');
       memberSel.innerHTML = '';
@@ -14774,10 +14840,10 @@
       // hidden whenever it's selected); everything else can fan out to
       // however many people were added via ntAddMemberRow().
       const members = isPersonal ? [currentUser || ''] : ntSelectedMembers();
-      const brand = document.getElementById('nt-brand').value;
+      const brands = ntSelectedBrands();
       const task = document.getElementById('nt-task').value.trim();
       if (!task) { document.getElementById('nt-task').style.borderColor = 'var(--red)'; return; }
-      if (!brand) { document.getElementById('nt-brand').style.borderColor = 'var(--red)'; return; }
+      if (!brands.length) { document.getElementById('nt-brand').style.borderColor = 'var(--red)'; return; }
       if (!members.length) { return; }
       document.getElementById('nt-task').style.borderColor = '';
       document.getElementById('nt-brand').style.borderColor = '';
@@ -14785,7 +14851,10 @@
       const loopGokulEl = document.getElementById('nt-loop-gokul');
       const loopGokul = !isPersonal && currentUser !== 'Gokul' && !!(loopGokulEl && loopGokulEl.checked);
       const shared = {
-        brand, task,
+        // brand stays the primary/first pick so every existing single-brand
+        // read site keeps working unchanged; brands carries the full list for
+        // anywhere that needs to count/filter this task under all of them.
+        brand: brands[0], brands, task,
         is_personal: isPersonal,
         priority: document.getElementById('nt-priority').value,
         status: document.getElementById('nt-status').value,
@@ -15474,8 +15543,8 @@
             </div>`;
           }).join('')}` : ''}
           ${meetings.length ? `<div class="ln-section-label">Meeting Records</div>${meetings.map(n => `<div class="cal2-detail-row cal2-detail-row-clickable" onclick="calOpenMeeting('${n._key}')">🎙️ ${lnEsc(n.title)}${n.brand ? ' · ' + lnEsc(n.brand) : ''}</div>`).join('')}` : ''}
-          ${completedTasks.length ? `<div class="ln-section-label">Completed</div>${completedTasks.map(t => `<div class="cal2-detail-row">✓ ${lnEsc(t.task)}${t.brand ? ' · ' + lnEsc(t.brand) : ''}</div>`).join('')}` : ''}
-          ${dueTasks.length ? `<div class="ln-section-label">Due</div>${dueTasks.map(t => `<div class="cal2-detail-row">📌 ${lnEsc(t.task)}${t.brand ? ' · ' + lnEsc(t.brand) : ''} (${t.status})</div>`).join('')}` : ''}
+          ${completedTasks.length ? `<div class="ln-section-label">Completed</div>${completedTasks.map(t => `<div class="cal2-detail-row">✓ ${lnEsc(t.task)}${taskBrandList(t).length ? ' · ' + lnEsc(taskBrandList(t).join(', ')) : ''}</div>`).join('')}` : ''}
+          ${dueTasks.length ? `<div class="ln-section-label">Due</div>${dueTasks.map(t => `<div class="cal2-detail-row">📌 ${lnEsc(t.task)}${taskBrandList(t).length ? ' · ' + lnEsc(taskBrandList(t).join(', ')) : ''} (${t.status})</div>`).join('')}` : ''}
           ${(!meetings.length && !dueTasks.length && !completedTasks.length && !calEvents.length) ? '<div class="ln-note-meta">Nothing recorded for this day.</div>' : ''}
         </div>
       `;
@@ -19456,7 +19525,7 @@ ${brandLines}`;
       var row=function(label,val){ return '<div class="pf-absrow"><span>'+label+'</span><span>'+val+'</span></div>'; };
       var html='<div style="text-align:left">'+
         '<div class="pf-absrow"><span>Task</span><span style="text-align:right;max-width:70%">'+esc(t.task||"—")+'</span></div>'+
-        row("Brand", esc(t.brand||"—"))+
+        row("Brand", esc(window.taskBrandList(t).join(", ")||"—"))+
         row("Member", esc(t.member||"—"))+
         row("Priority", t.priority?('<span style="color:'+prioColor+';font-weight:700">'+esc(t.priority)+'</span>'):"—")+
         row("Status", esc(t.status||"—"))+
@@ -19510,7 +19579,7 @@ ${brandLines}`;
       var idx=(typeof findBrandIndexByName==="function")?findBrandIndexByName(brandName):-1;
       var b=idx>-1?BRANDS_ALLOC[idx]:null; if(!b) return;
       var td={total:0,done:0};
-      (typeof TASKS!=="undefined"?TASKS:[]).forEach(function(t){ if(t.brand===brandName){ td.total++; if(t.status==="Completed") td.done++; } });
+      (typeof TASKS!=="undefined"?TASKS:[]).forEach(function(t){ if(window.taskBrandList(t).indexOf(brandName)>-1){ td.total++; if(t.status==="Completed") td.done++; } });
       var pct=td.total>0?Math.round(td.done/td.total*100):0;
       var row=function(label,val){ return '<div class="pf-absrow"><span>'+label+'</span><span>'+val+'</span></div>'; };
       var html='<div style="text-align:left">';
@@ -19871,7 +19940,7 @@ ${brandLines}`;
     function wipEntryHTML(t){
       return '<div class="wip-row">'+
         '<div><div class="wk">Member</div><div class="wv o wv-member">'+esc(t.member||"—")+'</div></div>'+
-        '<div><div class="wk">Brand</div><div class="wv wv-brand">'+esc(t.brand||"—")+'</div></div>'+
+        '<div><div class="wk">Brand</div><div class="wv wv-brand">'+esc(window.taskBrandList(t).join(", ")||"—")+'</div></div>'+
         '<div><div class="wk">Task</div><div class="wv wv-task">'+esc(t.task||"—")+'</div></div>'+
         '<div><div class="wk">Priority</div><div class="wv o wv-priority">'+esc(t.priority||"—")+'</div></div></div>';
     }
@@ -19895,7 +19964,7 @@ ${brandLines}`;
         card.classList.add("wip-flip");
         setTimeout(function(){
           var set=function(sel,val){var el=card.querySelector(sel); if(el) el.textContent=val;};
-          set(".wv-member",t.member||"—"); set(".wv-brand",t.brand||"—");
+          set(".wv-member",t.member||"—"); set(".wv-brand",window.taskBrandList(t).join(", ")||"—");
           set(".wv-task",t.task||"—"); set(".wv-priority",t.priority||"—");
           var c=card.querySelector(".wip-count"); if(c) c.textContent=(window._wipIdx+1)+" of "+list.length+" active task"+(list.length>1?"s":"");
           card.classList.remove("wip-flip");
