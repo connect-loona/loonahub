@@ -8516,6 +8516,34 @@
       const cutoff=Date.now()-4*86400000;
       (TASKS||[]).slice().forEach(t=>{ if(t && t.status==='Completed' && t.completed_at){ const ts=new Date(t.completed_at).getTime(); if(ts && ts<cutoff){ fbDeleteTaskByKey(t._key||'', TASKS.indexOf(t)); } } });
     }
+
+    // ═══ MORNING "CLEAR COMPLETED TASKS" PROMPT ═══
+    // Separate from autoClearCompleted() above (a silent 4-day-old safety net
+    // that runs regardless of who's looking) — this is an opt-in prompt, asked
+    // fresh every calendar day (IST), only of whoever's actually logged in,
+    // covering their own completed tasks of any age. The localStorage key is
+    // date-stamped rather than permanent, so it naturally re-asks the next
+    // morning instead of only ever firing once.
+    function maybeShowMorningClearPrompt(){
+      if(!currentUser || window._morningClearPromptShown) return;
+      const key='morning_clear_prompt_'+currentUser+'_'+bcTodayDateIST();
+      if(localStorage.getItem(key)) return;
+      const completed=(TASKS||[]).filter(t=>t && t.status==='Completed' && normName(t.member)===normName(currentUser));
+      if(!completed.length) return;
+      window._morningClearPromptShown=true;
+      document.getElementById('mc-body').textContent=`You have ${completed.length} completed task${completed.length===1?'':'s'} sitting on your board. Clear ${completed.length===1?'it':'them'} off?`;
+      document.getElementById('morning-clear-modal').style.display='flex';
+    }
+    function dismissMorningClearPrompt(){
+      document.getElementById('morning-clear-modal').style.display='none';
+      if(currentUser) localStorage.setItem('morning_clear_prompt_'+currentUser+'_'+bcTodayDateIST(),'1');
+    }
+    function confirmMorningClear(){
+      const completed=(TASKS||[]).filter(t=>t && t.status==='Completed' && normName(t.member)===normName(currentUser));
+      completed.forEach(t=>fbDeleteTaskByKey(t._key||'', TASKS.indexOf(t)));
+      dismissMorningClearPrompt();
+      renderTasks(); renderOverview();
+    }
     function bsGauge(score){
       var r=26,cx=32,cy=36,len=Math.PI*r,frac=Math.max(0,Math.min(100,score))/100,fill=(frac*len).toFixed(1);
       var d="M "+(cx-r)+" "+cy+" A "+r+" "+r+" 0 0 1 "+(cx+r)+" "+cy;
@@ -8556,6 +8584,10 @@
       const waBtn = document.getElementById('task-board-whatsapp-btn');
       if (waBtn) waBtn.style.display = (currentUser === 'Gokul') ? 'inline-block' : 'none';
       if(!window._autoCleared){ window._autoCleared=true; setTimeout(autoClearCompleted,4000); }
+      // Same delay/one-shot-per-session scheduling as autoClearCompleted above —
+      // TASKS needs a moment to actually be populated from Firebase first, and
+      // there's no point re-scheduling this check on every single re-render.
+      if(!window._morningPromptScheduled){ window._morningPromptScheduled=true; setTimeout(maybeShowMorningClearPrompt,4000); }
     }
     function renderTaskPage() {
       const filtered = getFilteredTasks();
@@ -17544,6 +17576,19 @@ ${brandLines}`;
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
         <button onclick="closeDueDateChangeModal()" style="background:transparent;border:1px solid #444;color:#888;padding:8px 18px;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit">Cancel</button>
         <button onclick="submitDueDateChangeRequest()" style="background:var(--accent);border:none;color:#000;padding:8px 22px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Send for Approval</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Morning "Clear Completed Tasks" Prompt -->
+  <div id="morning-clear-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;align-items:center;justify-content:center">
+    <div style="background:#1a1a1a;border:1px solid #333;border-radius:14px;padding:26px;width:420px;max-width:92vw;box-shadow:0 24px 80px #000a;text-align:center">
+      <div style="font-size:36px;margin-bottom:10px">🧹</div>
+      <h3 style="color:#fff;margin:0 0 8px;font-size:18px">Good Morning!</h3>
+      <div style="font-size:13px;color:#aaa;line-height:1.6;margin-bottom:20px" id="mc-body"></div>
+      <div style="display:flex;gap:8px;justify-content:center">
+        <button onclick="dismissMorningClearPrompt()" style="background:transparent;border:1px solid #444;color:#888;padding:8px 18px;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit">No, keep them</button>
+        <button onclick="confirmMorningClear()" style="background:var(--accent);border:none;color:#000;padding:8px 22px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Yes, clear them</button>
       </div>
     </div>
   </div>
