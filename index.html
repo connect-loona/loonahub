@@ -8498,10 +8498,17 @@
         (!priority || t.priority === priority)
       );
 
-      // Tier first (active work on top, Deferred below that, Completed always
-      // last regardless of priority), then High/Medium/Low within each tier,
-      // then most-recent-first as the final tiebreak.
-      const statusTier = t => t.status === 'Completed' ? 2 : t.status === 'Deferred' ? 1 : 0;
+      // Tier first — active/incomplete work on top (sorted by priority within
+      // that tier), then Awaiting Approval/Awaiting Deferral (sitting in
+      // someone else's queue, not actionable right now), then Deferred, then
+      // Completed always dead last regardless of priority — then High/Medium/
+      // Low within each tier, then most-recent-first as the final tiebreak.
+      const statusTier = t => {
+        if (t.status === 'Completed') return 3;
+        if (t.status === 'Deferred') return 2;
+        if (t.status === 'Awaiting Approval' || t.status === 'Awaiting Deferral') return 1;
+        return 0;
+      };
       const priorityRank = { High: 0, Medium: 1, Low: 2 };
       return filtered.sort((a, b) => {
         const aTier = statusTier(a), bTier = statusTier(b);
