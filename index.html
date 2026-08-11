@@ -8498,10 +8498,18 @@
         (!priority || t.priority === priority)
       );
 
+      // Tier first (active work on top, Deferred below that, Completed always
+      // last regardless of priority), then High/Medium/Low within each tier,
+      // then most-recent-first as the final tiebreak.
+      const statusTier = t => t.status === 'Completed' ? 2 : t.status === 'Deferred' ? 1 : 0;
+      const priorityRank = { High: 0, Medium: 1, Low: 2 };
       return filtered.sort((a, b) => {
-        const aDeferred = a.status === 'Deferred' ? 1 : 0;
-        const bDeferred = b.status === 'Deferred' ? 1 : 0;
-        if (aDeferred !== bDeferred) return aDeferred - bDeferred;
+        const aTier = statusTier(a), bTier = statusTier(b);
+        if (aTier !== bTier) return aTier - bTier;
+
+        const aPrio = priorityRank[a.priority] ?? 3;
+        const bPrio = priorityRank[b.priority] ?? 3;
+        if (aPrio !== bPrio) return aPrio - bPrio;
 
         const aOrder = a.created_at || a._key || '';
         const bOrder = b.created_at || b._key || '';
