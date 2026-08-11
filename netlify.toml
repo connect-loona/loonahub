@@ -55,6 +55,13 @@
 [functions."culture-lottery-weekly"]
   schedule = "30 4 * * 0"
 
+# Posts a Loona Board notification for every task whose due date was
+# yesterday and is still not done — one shared board, so it's already
+# visible to both whoever it's assigned to and whoever assigned it.
+# 04:20 UTC = 09:50 IST, just ahead of the 10:00 IST daily broadcast.
+[functions."overdue-tasks-daily"]
+  schedule = "20 4 * * *"
+
 # Set these in Netlify → Site settings → Environment variables (NOT in code):
 #   PETPOOJA_CLIENT_ID
 #   PETPOOJA_CLIENT_SECRET
