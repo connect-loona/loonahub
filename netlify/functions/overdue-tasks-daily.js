@@ -5,9 +5,15 @@
 // exactly yesterday (IST) and is still not Completed/Deferred, and posts one
 // Loona Board announcement per task, e.g.
 //   "🔴 Chinmay hasn't finished 'Update captions' for Shookra — due yesterday."
-// The Loona Board is a single shared feed (index.html's renderLoonaBoard()),
-// so this one post is already visible to both the assignee AND whoever
-// assigned it — no separate per-person delivery needed.
+//
+// NOT broadcast to the whole team — each post carries a `visibleTo` allowlist
+// (index.html's renderLoonaBoard() already filters by this, same mechanism
+// used elsewhere for restricted posts) limited to just Gokul and whoever
+// assigned the task, so it shows up on exactly those two people's Loona
+// Board and nowhere else. No push notification is sent for these (push-send's
+// sendPushBroadcast fans out to every subscribed device with no per-recipient
+// targeting, which would leak this outside the allowlist) — the in-app board
+// is the only delivery channel here.
 //
 // Only checks due_date === yesterday (not "any date in the past") so the same
 // task doesn't get reposted every single day it stays overdue — a
@@ -15,14 +21,13 @@
 // double-posting the same task.
 //
 // Personal to-dos (is_personal) are skipped — those are private reminders,
-// not something to call out on a shared board.
+// not something to call out at all.
 //
 // Manual run (for testing): GET /.netlify/functions/overdue-tasks-daily
 // ============================================================================
 
 const https = require("https");
 const { URL } = require("url");
-const { sendPushBroadcast } = require("./lib/push-send");
 
 const FB = (process.env.FIREBASE_DB_URL || "https://loona-hub-c85d7-default-rtdb.firebaseio.com").replace(/\/+$/, "");
 
@@ -95,7 +100,12 @@ exports.handler = async () => {
       text: `${t.member} hasn't finished "${t.task}" for ${taskBrandLabel(t)} — due yesterday.`,
       author: "Loona Board",
       emoji: "🔴",
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      // Gokul always sees it; whoever assigned the task sees it too (often a
+      // different person from the assignee, who is deliberately NOT on this
+      // list — the ask was Gokul + the assigner specifically). Falls back to
+      // just Gokul if the task has no recorded assigner.
+      visibleTo: Array.from(new Set(["Gokul", t.assigned_by].filter(Boolean)))
     }));
 
     const results = await Promise.all(posts.map((p) => fbPost("/announcements", p)));
@@ -105,10 +115,6 @@ exports.handler = async () => {
     // Claim only the ones that actually posted — a failed post should be
     // retried on the next run rather than silently marked as notified.
     await Promise.all(succeeded.map(({ t }) => fbPut("/overdue_notified/" + dueDate + "/" + t.key, true)));
-
-    // Best-effort push — a delivery hiccup shouldn't fail the whole run, the
-    // posts are already live on the Loona Board regardless.
-    await Promise.all(posts.map((p) => sendPushBroadcast(p).catch(() => {})));
 
     return {
       statusCode: 200,
