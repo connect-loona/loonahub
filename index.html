@@ -8125,7 +8125,7 @@
       if (myPending.length > 0 && !allDone) {
         const oldest = myPending[0];
         segments.push(seg('🚨', 't-red', 'PAST DUE ALERT', 't-red', `${myPending.length} task${myPending.length !== 1 ? 's' : ''} overdue — clear the backlog first, ${name1}!`));
-        if (oldest) segments.push(seg('⏰', 't-red', 'OLDEST OVERDUE', '', `"${oldest.task.length > 50 ? oldest.task.slice(0, 50) + '…' : oldest.task}" — still waiting on you!`));
+        if (oldest) segments.push(seg('⏰', 't-red', 'OLDEST OVERDUE', '', `"${(oldest.task || '').length > 50 ? oldest.task.slice(0, 50) + '…' : (oldest.task || 'Untitled task')}" — still waiting on you!`));
       }
 
       // 4 — In progress
@@ -8609,8 +8609,16 @@
           </div>
         </div>`;
     }
+    // One malformed task (e.g. a blank title slipping in from some edge case)
+    // used to be able to throw partway through this chain and silently cancel
+    // every render after it — which is exactly how a single bad row broke
+    // Gokul's whole approval banner (new-task AND due-date-change requests)
+    // even though the requests themselves were saved fine. Each step now runs
+    // in isolation so one broken section can't take the rest down with it.
     function renderTasks() {
-      currentPage = 1; renderOverdue(); renderApprovalRequests(); renderGokulTaskApprovals(); renderAssignedOut(); renderTaskPage(); renderBoardSummary(); renderLoonaBoard();
+      currentPage = 1;
+      const steps = [renderOverdue, renderApprovalRequests, renderGokulTaskApprovals, renderAssignedOut, renderTaskPage, renderBoardSummary, renderLoonaBoard];
+      steps.forEach(fn => { try { fn(); } catch (e) { console.error('renderTasks: ' + fn.name + ' failed', e); } });
       const waBtn = document.getElementById('task-board-whatsapp-btn');
       if (waBtn) waBtn.style.display = (currentUser === 'Gokul') ? 'inline-block' : 'none';
       if(!window._autoCleared){ window._autoCleared=true; setTimeout(autoClearCompleted,4000); }
@@ -12645,7 +12653,7 @@
     function showDeckConfirm(idx, type) {
       const t = TASKS[idx];
       document.getElementById('deck-member-name').textContent = t.member ? t.member.split(' ')[0] : 'Hey';
-      document.getElementById('deck-task-name').textContent = t.task.length > 50 ? t.task.slice(0, 50) + '…' : t.task;
+      document.getElementById('deck-task-name').textContent = (t.task || '').length > 50 ? t.task.slice(0, 50) + '…' : (t.task || 'Untitled task');
       const modal = document.getElementById('deck-confirm-modal');
       // Update modal label for deferral
       const label = modal.querySelector('.deck-action-label');
@@ -12812,7 +12820,7 @@
 
       const creationRows = creationPending.map(t => {
         const gi = TASKS.indexOf(t);
-        const title = t.task.length > 45 ? t.task.slice(0, 45) + '…' : t.task;
+        const title = (t.task || '').length > 45 ? t.task.slice(0, 45) + '…' : (t.task || 'Untitled task');
         return `
         <div class="approval-row">
           <div class="approval-task">
@@ -12829,7 +12837,7 @@
       // the requester's typed explanation.
       const dateRows = datePending.map(t => {
         const gi = TASKS.indexOf(t);
-        const title = t.task.length > 45 ? t.task.slice(0, 45) + '…' : t.task;
+        const title = (t.task || '').length > 45 ? t.task.slice(0, 45) + '…' : (t.task || 'Untitled task');
         return `
         <div class="approval-row">
           <div class="approval-task">
@@ -14152,7 +14160,7 @@
             daysLabel = daysAgo === 0 ? 'today' : daysAgo === 1 ? 'yesterday' : daysAgo > 0 ? `${daysAgo}d overdue` : `due ${Math.abs(daysAgo)}d`;
           }
           const isExtra = i >= PREVIEW;
-          const shortTask = t.task.length > 45 ? t.task.slice(0, 45) + '…' : t.task;
+          const shortTask = (t.task || '').length > 45 ? t.task.slice(0, 45) + '…' : (t.task || 'Untitled task');
           const displayStyle = isExtra ? 'display:none' : '';
           return `<div class="ov-row${isExtra ? ' ov-extra-' + uid : ''}" style="${displayStyle}">
         <div class="ov-row-top">
