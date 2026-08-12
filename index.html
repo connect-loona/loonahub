@@ -7051,6 +7051,9 @@
     function sendBoardDesktopNotification(a) {
       if (!a || !('Notification' in window) || Notification.permission !== 'granted') return;
       if (normName(a.author) === normName(currentUser)) return; // don't notify people of their own post
+      // Restricted posts (visibleTo) must not leak via desktop notification to
+      // people who can't even see the post itself on the board.
+      if (a.visibleTo && a.visibleTo.length && !a.visibleTo.some(n => normName(n) === normName(currentUser))) return;
       try {
         const n = new Notification((a.author || 'Team') + ' · Loona Board', {
           body: (a.text || '').slice(0, 180),
