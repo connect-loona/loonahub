@@ -5201,6 +5201,18 @@
       <div id="admin-pending-section" style="margin-bottom:28px"></div>
 
       <div class="section-header">
+        <div class="section-title">Scheduled <span>Jobs</span></div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 16px;border:1px solid var(--border);border-radius:10px;margin-bottom:28px">
+        <div>
+          <div style="font-weight:600;font-size:13px">🔴 Missed Due Date notifications</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Normally runs automatically every morning at 8:00 IST. Posts a Loona Board note (visible only to Gokul + whoever assigned the task) for anything overdue since yesterday.</div>
+          <div id="admin-run-overdue-result" style="font-size:12px;margin-top:6px;display:none"></div>
+        </div>
+        <button class="btn btn-ghost" id="admin-run-overdue-btn" onclick="adminRunOverdueTasksDaily()" style="white-space:nowrap">▶ Run now</button>
+      </div>
+
+      <div class="section-header">
         <div class="section-title">Employee <span>Directory</span></div>
       </div>
       <div id="admin-directory-list" class="admin-directory-list"></div>
@@ -15426,6 +15438,47 @@
 
     // Background cron runs every 5 min, but this lets someone pull a just-created
     // meeting in immediately instead of waiting on the schedule.
+    // Founder-only manual trigger for the overdue-tasks-daily scheduled function
+    // (see netlify/functions/overdue-tasks-daily.js) — same endpoint the 8am
+    // cron hits, so a manual run here is identical to letting it fire on its
+    // own, just on demand (e.g. to check it worked, or to get today's notice
+    // out early). Safe to click more than once: the function's own
+    // /overdue_notified ledger skips tasks already posted for a given date.
+    async function adminRunOverdueTasksDaily() {
+      const btn = document.getElementById('admin-run-overdue-btn');
+      const resultEl = document.getElementById('admin-run-overdue-result');
+      if (!btn || btn.disabled) return;
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '↻ Running…';
+      if (resultEl) { resultEl.style.display = 'none'; }
+      try {
+        const resp = await fetch('/.netlify/functions/overdue-tasks-daily');
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok || !data.success) throw new Error(data.message || 'Run failed');
+        btn.textContent = '✓ Done';
+        if (resultEl) {
+          resultEl.style.display = 'block';
+          resultEl.style.color = 'var(--muted)';
+          resultEl.textContent = data.posted > 0
+            ? `Posted ${data.posted} notification${data.posted === 1 ? '' : 's'} for tasks due ${data.dueDate}.`
+            : (data.skipped ? 'Nothing new — already notified for this date.' : `No missed due dates found for ${data.dueDate}.`);
+        }
+      } catch (e) {
+        btn.textContent = '✕ Failed';
+        console.error('overdue-tasks-daily manual run failed:', e);
+        if (resultEl) {
+          resultEl.style.display = 'block';
+          resultEl.style.color = '#e06666';
+          resultEl.textContent = 'Run failed: ' + (e.message || e);
+        } else {
+          alert('Run failed: ' + (e.message || e));
+        }
+      } finally {
+        setTimeout(() => { btn.disabled = false; btn.textContent = original; }, 2500);
+      }
+    }
+
     async function calSyncNow() {
       const btn = document.getElementById('cal2-sync-btn');
       if (!btn || btn.disabled) return;
