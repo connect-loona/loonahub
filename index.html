@@ -6267,15 +6267,27 @@
       <div class="ind-scene">
         <div class="ind-sun"></div>
         <div class="ind-gate" aria-hidden="true">
-          <svg viewBox="0 0 300 240" preserveAspectRatio="xMidYMax meet">
-            <rect x="14" y="150" width="6" height="90" fill="currentColor"/>
-            <circle cx="17" cy="144" r="6" fill="currentColor"/>
-            <rect x="90" y="30" width="34" height="210" fill="currentColor"/>
-            <rect x="176" y="30" width="34" height="210" fill="currentColor"/>
-            <rect x="90" y="8" width="120" height="26" fill="currentColor"/>
-            <rect x="132" y="-16" width="36" height="26" fill="currentColor"/>
-            <path d="M132 -16 Q150 -34 168 -16 Z" fill="currentColor"/>
-            <rect x="146" y="-30" width="8" height="14" fill="currentColor"/>
+          <svg viewBox="0 0 300 280" preserveAspectRatio="xMidYMax meet">
+            <!-- lamp post, left of the gate -->
+            <rect x="14" y="170" width="5" height="100" fill="currentColor"/>
+            <circle cx="16.5" cy="164" r="5.5" fill="currentColor"/>
+            <!-- base plinth -->
+            <rect x="48" y="262" width="204" height="10" fill="currentColor"/>
+            <!-- gate body: solid block with a rounded archway cut out (evenodd hole) —
+                 this is the actual India Gate shape (a triumphal-arch war memorial),
+                 not just two plain pillars with a flat gap between them -->
+            <path fill="currentColor" fill-rule="evenodd" d="
+              M64,262 L236,262 L236,60 L64,60 Z
+              M100,262 L100,112 Q100,60 150,60 Q200,60 200,112 L200,262 Z" />
+            <!-- cornice bridging the pillars, slightly overhanging them -->
+            <rect x="58" y="36" width="184" height="24" fill="currentColor"/>
+            <!-- stepped attic -->
+            <rect x="110" y="14" width="80" height="22" fill="currentColor"/>
+            <!-- shallow saucer-dome crown, the detail that actually reads as India Gate -->
+            <path fill="currentColor" d="M110,14 L110,9 Q150,-7 190,9 L190,14 Z" />
+            <!-- distant lamp post, right of the gate -->
+            <rect x="264" y="182" width="3" height="80" fill="currentColor"/>
+            <circle cx="265.5" cy="178" r="3.5" fill="currentColor"/>
           </svg>
         </div>
         <div class="ind-ground"></div>
