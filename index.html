@@ -3366,9 +3366,6 @@
       width: 100%;
       max-width: 720px;
       margin: 0 auto;
-      /* The Canva design (assets/independence-day/red-fort-flag.png) already
-         has its own flag flying in it — no pole/flag overlay needed here,
-         just the photo plus the falling-petals celebration effect on click. */
       aspect-ratio: 596 / 335;
       border-radius: 20px;
       overflow: hidden;
@@ -3376,6 +3373,39 @@
       background-size: cover;
       background-position: center;
       box-shadow: 0 20px 60px rgba(0, 0, 0, .4);
+    }
+    /* Second flag (assets/independence-day/flag-pole.png, cut from the Canva
+       design's page 5) — rises into view on click rather than sitting static
+       like the one already painted into the background photo. */
+    .ind-flag-overlay {
+      position: absolute;
+      left: 3%;
+      bottom: 6%;
+      width: 30%;
+      max-width: 190px;
+      transform-origin: bottom center;
+      transform: translateY(35%) scale(.82);
+      opacity: 0;
+      transition: transform 2.1s cubic-bezier(.22, .85, .3, 1.05), opacity .5s ease-out;
+      z-index: 5;
+      pointer-events: none;
+    }
+    .ind-flag-overlay img {
+      width: 100%;
+      height: auto;
+      display: block;
+      filter: drop-shadow(0 10px 16px rgba(0, 0, 0, .4));
+    }
+    .ind-flag-overlay.ind-flag-shown {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+    .ind-flag-overlay.ind-flag-shown img {
+      animation: ind-flag-sway 2.6s ease-in-out infinite;
+    }
+    @keyframes ind-flag-sway {
+      0%, 100% { transform: rotate(0deg); }
+      50% { transform: rotate(-2.5deg); }
     }
     .ind-petals {
       position: absolute;
@@ -6195,12 +6225,15 @@
     <!-- ======= INDEPENDENCE DAY ======= -->
     <div class="page" id="page-independence">
       <div class="ind-scene">
+        <div class="ind-flag-overlay" id="ind-flag-overlay">
+          <img src="assets/independence-day/flag-pole.png" alt="">
+        </div>
         <div class="ind-petals" id="ind-petals"></div>
       </div>
       <div class="ind-controls">
         <div class="ind-title">🇮🇳 Happy Independence Day</div>
-        <div class="ind-sub">Tap to celebrate.</div>
-        <button class="btn btn-primary" id="ind-hoist-btn" onclick="hoistFlag()">🎊 Celebrate</button>
+        <div class="ind-sub">Hoist the flag when you're ready.</div>
+        <button class="btn btn-primary" id="ind-hoist-btn" onclick="hoistFlag()">Unfurl the Flag</button>
       </div>
     </div>
 
@@ -15583,15 +15616,29 @@
     // design) already has its own flag flying in it, so there's no pole to
     // climb or flag to unfurl here — clicking "Celebrate" just triggers the
     // petals-falling effect plus a synthesized fanfare over the photo.
+    // The flag (assets/independence-day/flag-pole.png) rises into view, then
+    // once it's settled the petals + fanfare fire — timed with a plain
+    // setTimeout matched to .ind-flag-overlay's CSS transition duration
+    // rather than a transitionend listener, same reasoning as the rest of
+    // this file's animation sequencing.
     function hoistFlag() {
       const btn = document.getElementById('ind-hoist-btn');
+      const flag = document.getElementById('ind-flag-overlay');
       const petals = document.getElementById('ind-petals');
       if (!btn || btn.disabled) return;
       btn.disabled = true;
-      btn.textContent = '🇮🇳 Jai Hind!';
-      playHoistFanfare();
-      spawnPetals(petals);
-      setTimeout(() => { btn.disabled = false; btn.textContent = '🎊 Celebrate'; }, 3200);
+      btn.textContent = 'Hoisting…';
+      if (flag) {
+        flag.classList.remove('ind-flag-shown');
+        void flag.offsetWidth; // force reflow so replaying restarts the transition
+        flag.classList.add('ind-flag-shown');
+      }
+      setTimeout(() => {
+        playHoistFanfare();
+        spawnPetals(petals);
+        btn.textContent = '🇮🇳 Jai Hind!';
+        setTimeout(() => { btn.disabled = false; btn.textContent = 'Hoist Again'; }, 3200);
+      }, 2200);
     }
     function spawnPetals(container) {
       if (!container) return;
