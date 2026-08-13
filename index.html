@@ -3374,9 +3374,9 @@
     }
     .ind-sun {
       position: absolute;
-      top: 16%;
-      left: 22%;
-      width: 15%;
+      top: 20%;
+      left: 25%;
+      width: 24%;
       aspect-ratio: 1;
       border-radius: 50%;
       background: radial-gradient(circle at 40% 35%, #ffce7a 0%, #ff5a2b 55%, #d8280f 100%);
@@ -3384,29 +3384,36 @@
     }
     .ind-gate {
       position: absolute;
-      right: 4%;
+      right: -6%;
       bottom: 0;
-      width: 46%;
-      max-width: 320px;
+      width: 58%;
+      max-width: 340px;
       color: #1a0d06;
       filter: drop-shadow(0 -2px 0 rgba(0, 0, 0, .1));
+      z-index: 1;
     }
     .ind-gate svg { display: block; width: 100%; height: auto; }
     .ind-ground {
       position: absolute;
       left: 0; right: 0; bottom: 0;
-      height: 8%;
+      height: 28%;
       background: #0c0602;
-      clip-path: polygon(0 40%, 100% 0, 100% 100%, 0% 100%);
+      /* A rising grassy embankment rather than a flat strip — climbs from the
+         low point at the far left up to a ridge around a quarter of the way
+         across (where the flagpole/lamp post stand), then eases back down
+         across the rest of the scene, in front of the gate's base. */
+      clip-path: polygon(0% 72%, 24% 6%, 48% 30%, 100% 14%, 100% 100%, 0% 100%);
+      z-index: 2;
     }
     .ind-flagpole {
       position: absolute;
       left: 12%;
-      bottom: 8%;
+      bottom: 20%;
       width: 4px;
-      height: 62%;
+      height: 55%;
       display: flex;
       justify-content: center;
+      z-index: 3;
     }
     .ind-pole {
       width: 4px;
@@ -6268,23 +6275,34 @@
         <div class="ind-sun"></div>
         <div class="ind-gate" aria-hidden="true">
           <svg viewBox="0 0 300 280" preserveAspectRatio="xMidYMax meet">
-            <!-- lamp post, left of the gate -->
+            <!-- lamp post, left of the gate, with a small figure at its base for scale -->
             <rect x="14" y="170" width="5" height="100" fill="currentColor"/>
             <circle cx="16.5" cy="164" r="5.5" fill="currentColor"/>
+            <path d="M2,268 Q0,250 4,238 Q8,250 6,268 Z" fill="currentColor"/>
+            <circle cx="4" cy="234" r="4" fill="currentColor"/>
             <!-- base plinth -->
             <rect x="48" y="262" width="204" height="10" fill="currentColor"/>
             <!-- gate body: solid block with a rounded archway cut out (evenodd hole) —
-                 this is the actual India Gate shape (a triumphal-arch war memorial),
-                 not just two plain pillars with a flat gap between them -->
+                 the real India Gate shape (a triumphal-arch war memorial), not just
+                 two plain pillars with a flat gap between them -->
             <path fill="currentColor" fill-rule="evenodd" d="
               M64,262 L236,262 L236,60 L64,60 Z
               M100,262 L100,112 Q100,60 150,60 Q200,60 200,112 L200,262 Z" />
+            <!-- small domed chattri visible through the archway, in the distance -->
+            <g transform="translate(150,232) scale(0.6)">
+              <rect x="-13" y="0" width="26" height="16" fill="currentColor"/>
+              <path d="M-15,0 Q0,-18 15,0 Z" fill="currentColor"/>
+              <line x1="-19" y1="-4" x2="-25" y2="-15" stroke="currentColor" stroke-width="2.4"/>
+              <line x1="19" y1="-4" x2="25" y2="-15" stroke="currentColor" stroke-width="2.4"/>
+            </g>
             <!-- cornice bridging the pillars, slightly overhanging them -->
-            <rect x="58" y="36" width="184" height="24" fill="currentColor"/>
-            <!-- stepped attic -->
-            <rect x="110" y="14" width="80" height="22" fill="currentColor"/>
-            <!-- shallow saucer-dome crown, the detail that actually reads as India Gate -->
-            <path fill="currentColor" d="M110,14 L110,9 Q150,-7 190,9 L190,14 Z" />
+            <rect x="56" y="38" width="188" height="22" fill="currentColor"/>
+            <rect x="56" y="52" width="188" height="1.5" fill="rgba(255,255,255,.1)"/>
+            <!-- flat roof with raised corner pavilions — no dome; this flat-topped
+                 profile with corner blocks is what actually reads as India Gate -->
+            <rect x="56" y="20" width="30" height="18" fill="currentColor"/>
+            <rect x="214" y="20" width="30" height="18" fill="currentColor"/>
+            <rect x="86" y="34" width="128" height="4" fill="currentColor"/>
             <!-- distant lamp post, right of the gate -->
             <rect x="264" y="182" width="3" height="80" fill="currentColor"/>
             <circle cx="265.5" cy="178" r="3.5" fill="currentColor"/>
