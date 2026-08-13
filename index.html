@@ -3364,96 +3364,19 @@
     .ind-scene {
       position: relative;
       width: 100%;
-      min-height: 440px;
+      max-width: 720px;
+      margin: 0 auto;
+      /* The Canva design (assets/independence-day/red-fort-flag.png) already
+         has its own flag flying in it — no pole/flag overlay needed here,
+         just the photo plus the falling-petals celebration effect on click. */
+      aspect-ratio: 596 / 335;
       border-radius: 20px;
       overflow: hidden;
-      background:
-        radial-gradient(34% 22% at 6% 56%, rgba(255, 242, 216, .5) 0%, rgba(255, 150, 66, .26) 34%, transparent 60%),
-        linear-gradient(178deg, #ff6d29 0%, #fb5713 16%, #db3d09 30%, #8f2605 46%, #3e0f02 64%, #150602 82%, #070301 100%);
+      background-image: url('assets/independence-day/red-fort-flag.png');
+      background-size: cover;
+      background-position: center;
       box-shadow: 0 20px 60px rgba(0, 0, 0, .4);
     }
-    .ind-sun {
-      position: absolute;
-      top: 20%;
-      left: 25%;
-      width: 24%;
-      aspect-ratio: 1;
-      border-radius: 50%;
-      background: radial-gradient(circle at 40% 35%, #ffce7a 0%, #ff5a2b 55%, #d8280f 100%);
-      box-shadow: 0 0 60px 10px rgba(255, 100, 40, .35);
-    }
-    .ind-gate {
-      position: absolute;
-      right: -6%;
-      bottom: 0;
-      width: 58%;
-      max-width: 340px;
-      color: #1a0d06;
-      filter: drop-shadow(0 -2px 0 rgba(0, 0, 0, .1));
-      z-index: 1;
-    }
-    .ind-gate svg { display: block; width: 100%; height: auto; }
-    .ind-ground {
-      position: absolute;
-      left: 0; right: 0; bottom: 0;
-      height: 28%;
-      background: #0c0602;
-      /* A rising grassy embankment rather than a flat strip — climbs from the
-         low point at the far left up to a ridge around a quarter of the way
-         across (where the flagpole/lamp post stand), then eases back down
-         across the rest of the scene, in front of the gate's base. */
-      clip-path: polygon(0% 72%, 24% 6%, 48% 30%, 100% 14%, 100% 100%, 0% 100%);
-      z-index: 2;
-    }
-    .ind-flagpole {
-      position: absolute;
-      left: 12%;
-      bottom: 20%;
-      width: 4px;
-      height: 55%;
-      display: flex;
-      justify-content: center;
-      z-index: 3;
-    }
-    .ind-pole {
-      width: 4px;
-      height: 100%;
-      background: linear-gradient(90deg, #6b5a4a, #cbb89a, #6b5a4a);
-      border-radius: 2px;
-    }
-    .ind-pole::before {
-      content: '';
-      position: absolute;
-      top: -6px; left: 50%;
-      width: 10px; height: 10px;
-      transform: translateX(-50%);
-      background: #d4af37;
-      border-radius: 50%;
-      box-shadow: 0 0 8px rgba(212, 175, 55, .8);
-    }
-    .ind-flag-wrap {
-      position: absolute;
-      left: 2px;
-      bottom: 4%;
-      width: 84px;
-      height: 56px;
-      transform-origin: left center;
-      transform: scaleX(.12) scaleY(.55);
-      opacity: .92;
-      transition: bottom 2.4s cubic-bezier(.3, .68, .32, 1), transform 1s cubic-bezier(.34, 1.4, .5, 1) .1s;
-    }
-    .ind-flag-wrap.ind-hoisting { bottom: 88%; }
-    .ind-flag-wrap.ind-unfurled { transform: scaleX(1) scaleY(1); }
-    .ind-flag-inner { width: 100%; height: 100%; }
-    .ind-flag-wrap.ind-unfurled .ind-flag-inner {
-      animation: ind-wave 2.3s ease-in-out infinite;
-      transform-origin: left center;
-    }
-    @keyframes ind-wave {
-      0%, 100% { transform: skewY(0deg) scaleY(1); }
-      50% { transform: skewY(-4deg) scaleY(.97); }
-    }
-    .ind-flag-svg { width: 100%; height: 100%; display: block; }
     .ind-petals {
       position: absolute;
       inset: 0;
@@ -6272,65 +6195,12 @@
     <!-- ======= INDEPENDENCE DAY ======= -->
     <div class="page" id="page-independence">
       <div class="ind-scene">
-        <div class="ind-sun"></div>
-        <div class="ind-gate" aria-hidden="true">
-          <svg viewBox="0 0 300 280" preserveAspectRatio="xMidYMax meet">
-            <!-- lamp post, left of the gate, with a small figure at its base for scale -->
-            <rect x="14" y="170" width="5" height="100" fill="currentColor"/>
-            <circle cx="16.5" cy="164" r="5.5" fill="currentColor"/>
-            <path d="M2,268 Q0,250 4,238 Q8,250 6,268 Z" fill="currentColor"/>
-            <circle cx="4" cy="234" r="4" fill="currentColor"/>
-            <!-- base plinth -->
-            <rect x="48" y="262" width="204" height="10" fill="currentColor"/>
-            <!-- gate body: solid block with a rounded archway cut out (evenodd hole) —
-                 the real India Gate shape (a triumphal-arch war memorial), not just
-                 two plain pillars with a flat gap between them -->
-            <path fill="currentColor" fill-rule="evenodd" d="
-              M64,262 L236,262 L236,60 L64,60 Z
-              M100,262 L100,112 Q100,60 150,60 Q200,60 200,112 L200,262 Z" />
-            <!-- small domed chattri visible through the archway, in the distance -->
-            <g transform="translate(150,232) scale(0.6)">
-              <rect x="-13" y="0" width="26" height="16" fill="currentColor"/>
-              <path d="M-15,0 Q0,-18 15,0 Z" fill="currentColor"/>
-              <line x1="-19" y1="-4" x2="-25" y2="-15" stroke="currentColor" stroke-width="2.4"/>
-              <line x1="19" y1="-4" x2="25" y2="-15" stroke="currentColor" stroke-width="2.4"/>
-            </g>
-            <!-- cornice bridging the pillars, slightly overhanging them -->
-            <rect x="56" y="38" width="188" height="22" fill="currentColor"/>
-            <rect x="56" y="52" width="188" height="1.5" fill="rgba(255,255,255,.1)"/>
-            <!-- flat roof with raised corner pavilions — no dome; this flat-topped
-                 profile with corner blocks is what actually reads as India Gate -->
-            <rect x="56" y="20" width="30" height="18" fill="currentColor"/>
-            <rect x="214" y="20" width="30" height="18" fill="currentColor"/>
-            <rect x="86" y="34" width="128" height="4" fill="currentColor"/>
-            <!-- distant lamp post, right of the gate -->
-            <rect x="264" y="182" width="3" height="80" fill="currentColor"/>
-            <circle cx="265.5" cy="178" r="3.5" fill="currentColor"/>
-          </svg>
-        </div>
-        <div class="ind-ground"></div>
-        <div class="ind-flagpole">
-          <div class="ind-pole"></div>
-          <div class="ind-flag-wrap" id="ind-flag-wrap">
-            <div class="ind-flag-inner">
-              <svg class="ind-flag-svg" viewBox="0 0 120 80" preserveAspectRatio="none">
-                <rect y="0" width="120" height="26.7" fill="#FF9933"/>
-                <rect y="26.7" width="120" height="26.6" fill="#FFFFFF"/>
-                <rect y="53.3" width="120" height="26.7" fill="#138808"/>
-                <g id="ind-chakra" transform="translate(60,40)">
-                  <circle r="12" fill="none" stroke="#0000AA" stroke-width="1.6"/>
-                  <circle r="1.8" fill="#0000AA"/>
-                </g>
-              </svg>
-            </div>
-          </div>
-        </div>
         <div class="ind-petals" id="ind-petals"></div>
       </div>
       <div class="ind-controls">
         <div class="ind-title">🇮🇳 Happy Independence Day</div>
-        <div class="ind-sub">Hoist the flag when you're ready.</div>
-        <button class="btn btn-primary" id="ind-hoist-btn" onclick="hoistFlag()">Unfurl the Flag</button>
+        <div class="ind-sub">Tap to celebrate.</div>
+        <button class="btn btn-primary" id="ind-hoist-btn" onclick="hoistFlag()">🎊 Celebrate</button>
       </div>
     </div>
 
@@ -15708,49 +15578,20 @@
       renderTasks(); renderOverview();
     }
 
-    // ═══ INDEPENDENCE DAY — flag hoist ═══
-    // The Ashoka Chakra's 24 spokes are generated once here rather than
-    // hand-written as 24 <line> elements in the HTML — same shape, far less
-    // markup to maintain. Runs once at script load since #ind-chakra is
-    // static markup present from page load (not conditionally rendered).
-    (function buildChakraSpokes() {
-      const g = document.getElementById('ind-chakra');
-      if (!g) return;
-      const NS = 'http://www.w3.org/2000/svg';
-      for (let i = 0; i < 24; i++) {
-        const line = document.createElementNS(NS, 'line');
-        line.setAttribute('x1', '0'); line.setAttribute('y1', '0');
-        line.setAttribute('x2', '0'); line.setAttribute('y2', '-11');
-        line.setAttribute('stroke', '#0000AA');
-        line.setAttribute('stroke-width', '0.7');
-        line.setAttribute('transform', 'rotate(' + (i * 15) + ')');
-        g.appendChild(line);
-      }
-    })();
-
-    // Climb the pole, then unfurl, then let the petals fall — sequenced with
-    // plain setTimeouts matched to the CSS transition durations on
-    // .ind-flag-wrap (see the `bottom` and `transform` transitions) rather
-    // than listening for transitionend, since two separate transitions run
-    // back-to-back on the same element and juggling both events is more
-    // fragile than just matching the timings once here.
+    // ═══ INDEPENDENCE DAY — celebrate ═══
+    // The background (assets/independence-day/red-fort-flag.png, a Canva
+    // design) already has its own flag flying in it, so there's no pole to
+    // climb or flag to unfurl here — clicking "Celebrate" just triggers the
+    // petals-falling effect plus a synthesized fanfare over the photo.
     function hoistFlag() {
       const btn = document.getElementById('ind-hoist-btn');
-      const wrap = document.getElementById('ind-flag-wrap');
       const petals = document.getElementById('ind-petals');
-      if (!btn || !wrap || btn.disabled) return;
+      if (!btn || btn.disabled) return;
       btn.disabled = true;
-      btn.textContent = 'Hoisting…';
-      wrap.classList.remove('ind-hoisting', 'ind-unfurled');
-      void wrap.offsetWidth; // force reflow so replaying restarts the transition from the bottom
-      wrap.classList.add('ind-hoisting');
-      setTimeout(() => {
-        wrap.classList.add('ind-unfurled');
-        playHoistFanfare();
-        spawnPetals(petals);
-        btn.textContent = '🇮🇳 Jai Hind!';
-        setTimeout(() => { btn.disabled = false; btn.textContent = 'Hoist Again'; }, 3200);
-      }, 2500);
+      btn.textContent = '🇮🇳 Jai Hind!';
+      playHoistFanfare();
+      spawnPetals(petals);
+      setTimeout(() => { btn.disabled = false; btn.textContent = '🎊 Celebrate'; }, 3200);
     }
     function spawnPetals(container) {
       if (!container) return;
