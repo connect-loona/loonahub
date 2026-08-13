@@ -3472,6 +3472,54 @@
       50% { transform: skewY(-4deg) scaleY(.97); }
     }
     .ind-flag-svg { width: 100%; height: 100%; display: block; }
+    /* Flypast — triggered once the flag finishes unfurling, see spawnJets().
+       Each jet is a small delta-wing silhouette flying left→right, with a
+       tricolor smoke trail that grows behind it in lockstep (same duration/
+       timing-function on both the icon's `left` and the trail's scaleX, so
+       the trail's leading edge tracks the jet the whole way across). */
+    .ind-jets {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 4;
+    }
+    .ind-jet-group { position: absolute; left: 0; width: 100%; }
+    .ind-jet-trail {
+      position: absolute;
+      left: 0;
+      top: 50%;
+      width: 100%;
+      height: 5px;
+      transform: translateY(-50%) scaleX(0);
+      transform-origin: left center;
+      background: linear-gradient(to bottom, #FF9933 0 33%, #FFFFFF 33% 66%, #138808 66% 100%);
+      opacity: .75;
+      filter: blur(.5px);
+      animation-name: ind-jet-trail-grow;
+      animation-timing-function: linear;
+      animation-fill-mode: forwards;
+    }
+    .ind-jet-icon {
+      position: absolute;
+      top: 50%;
+      left: -6%;
+      width: 30px;
+      transform: translateY(-50%);
+      filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .35));
+      animation-name: ind-jet-fly;
+      animation-timing-function: linear;
+      animation-fill-mode: forwards;
+    }
+    .ind-jet-icon svg { display: block; width: 100%; height: auto; }
+    @keyframes ind-jet-trail-grow {
+      from { transform: translateY(-50%) scaleX(0); }
+      to { transform: translateY(-50%) scaleX(1); }
+    }
+    @keyframes ind-jet-fly {
+      from { left: -6%; }
+      to { left: 106%; }
+    }
     .ind-petals {
       position: absolute;
       inset: 0;
@@ -6353,6 +6401,7 @@
             </div>
           </div>
         </div>
+        <div class="ind-jets" id="ind-jets"></div>
         <div class="ind-petals" id="ind-petals"></div>
       </div>
       <div class="ind-controls">
@@ -15776,9 +15825,50 @@
       setTimeout(() => {
         wrap.classList.add('ind-unfurled');
         spawnPetals(petals);
+        spawnJets(document.getElementById('ind-jets'));
         btn.textContent = '🇮🇳 Jai Hind!';
         setTimeout(() => { btn.disabled = false; btn.textContent = 'Hoist Again'; }, 5800);
       }, 5500);
+    }
+    // A small formation of delta-wing jets flying left→right once the flag
+    // is fully up, each trailing a tricolour smoke streak (see .ind-jet-trail
+    // — its scaleX animation runs the same duration/easing as the icon's
+    // `left` animation so the trail's edge tracks the jet the whole way
+    // across, rather than the two drifting out of sync).
+    function spawnJets(container) {
+      if (!container) return;
+      container.innerHTML = '';
+      const NS = 'http://www.w3.org/2000/svg';
+      const formation = [
+        { top: '22%', duration: 3.4, delay: 0 },
+        { top: '30%', duration: 3.6, delay: 0.25 },
+        { top: '38%', duration: 3.8, delay: 0.5 }
+      ];
+      formation.forEach(jet => {
+        const group = document.createElement('div');
+        group.className = 'ind-jet-group';
+        group.style.top = jet.top;
+
+        const trail = document.createElement('div');
+        trail.className = 'ind-jet-trail';
+        trail.style.animationDuration = jet.duration + 's';
+        trail.style.animationDelay = jet.delay + 's';
+
+        const icon = document.createElement('div');
+        icon.className = 'ind-jet-icon';
+        icon.style.animationDuration = jet.duration + 's';
+        icon.style.animationDelay = jet.delay + 's';
+        const svg = document.createElementNS(NS, 'svg');
+        svg.setAttribute('viewBox', '0 0 60 24');
+        svg.innerHTML = '<path d="M0,12 L38,9 L46,2 L52,2 L48,10 L60,12 L48,14 L52,22 L46,22 L38,15 Z" fill="#d8d8d8"/><path d="M18,10 L18,4 L23,9 Z" fill="#a8a8a8"/><path d="M18,14 L18,20 L23,15 Z" fill="#a8a8a8"/>';
+        icon.appendChild(svg);
+
+        group.appendChild(trail);
+        group.appendChild(icon);
+        container.appendChild(group);
+      });
+      const maxLife = Math.max(...formation.map(j => j.duration + j.delay)) * 1000 + 400;
+      setTimeout(() => { if (container) container.innerHTML = ''; }, maxLife);
     }
     function spawnPetals(container) {
       if (!container) return;
