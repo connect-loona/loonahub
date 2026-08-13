@@ -3381,7 +3381,7 @@
     .ind-sun {
       position: absolute;
       top: 20%;
-      left: 25%;
+      left: 38%;
       width: 13%;
       aspect-ratio: 1;
       border-radius: 50%;
@@ -3391,6 +3391,26 @@
     @keyframes ind-sun-glow {
       0%, 100% { box-shadow: 0 0 60px 10px rgba(255, 100, 40, .35); }
       50% { box-shadow: 0 0 90px 24px rgba(255, 150, 60, .6); }
+    }
+    /* Restored — dropped by accident when the earlier gate/flag CSS block
+       got pasted back wholesale over this (birds were added in a later
+       commit than the one that revert copied from), which is why they were
+       rendering inert with no positioning or animation at all. */
+    .ind-birds { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+    .ind-bird {
+      position: absolute;
+      font-size: 15px;
+      opacity: .85;
+      animation-name: ind-bird-fly;
+      animation-timing-function: ease-in-out;
+      animation-iteration-count: infinite;
+      animation-direction: alternate;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .3));
+    }
+    @keyframes ind-bird-fly {
+      0% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(70px, -22px) scale(1.05); }
+      100% { transform: translate(140px, 4px) scale(1); }
     }
     .ind-gate {
       position: absolute;
@@ -3534,16 +3554,19 @@
       animation-fill-mode: forwards;
       will-change: transform, opacity;
     }
-    /* Falls all the way to the visible bottom (100%) instead of overshooting
-       to 120% and getting clipped by .ind-petals' overflow:hidden before it
-       visibly lands — the previous version technically fell "far enough"
-       but disappeared into the clip a beat before actually reaching ground. */
+    /* transform: translateY(%) resolves against the PETAL's own tiny box
+       (a single emoji character, ~15px), not the container — so a
+       percentage-based fall here was only ever moving a few pixels
+       regardless of scene size, never visibly reaching the bottom on any
+       device. --petal-fall is set in px by spawnPetals() from the actual
+       container height (inherits down from .ind-petals to every .ind-petal
+       child), so this now travels a real, container-relative distance. */
     @keyframes ind-petal-fall {
-      0% { transform: translateY(-10%) translateX(0) rotate(0deg); opacity: 0; }
+      0% { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0; }
       10% { opacity: 1; }
-      55% { transform: translateY(58%) translateX(20px) rotate(160deg); }
+      55% { transform: translateY(calc(var(--petal-fall, 400px) * .58)) translateX(20px) rotate(160deg); }
       92% { opacity: 1; }
-      100% { transform: translateY(100%) translateX(-14px) rotate(320deg); opacity: 0; }
+      100% { transform: translateY(var(--petal-fall, 400px)) translateX(-14px) rotate(320deg); opacity: 0; }
     }
     .ind-controls {
       display: flex;
@@ -15873,6 +15896,14 @@
     function spawnPetals(container) {
       if (!container) return;
       container.innerHTML = '';
+      // Real fall distance in px, inherited by every .ind-petal child via
+      // the --petal-fall custom property (see the keyframe) — measured from
+      // the actual rendered container instead of a fixed guess, so this
+      // works correctly on a tall desktop scene and a short mobile one
+      // alike. 1.1x so petals visibly cross the bottom edge before fading
+      // rather than stopping exactly at it.
+      const fallPx = Math.max(300, container.getBoundingClientRect().height) * 1.1;
+      container.style.setProperty('--petal-fall', fallPx + 'px');
       const emojis = ['🌸', '🌼', '🏵️', '🌺'];
       for (let i = 0; i < 34; i++) {
         const p = document.createElement('span');
@@ -15903,6 +15934,12 @@
         const Ctx = window.AudioContext || window.webkitAudioContext;
         if (!Ctx) return;
         const ctx = new Ctx();
+        // iOS Safari creates a fresh AudioContext in a "suspended" state even
+        // inside a genuine click handler like this one — scheduled notes
+        // silently never sound unless resume() is called explicitly. resume()
+        // itself returns a promise but scheduling the notes doesn't need to
+        // wait on it, so this doesn't need to be awaited before calling note().
+        if (ctx.state === 'suspended') ctx.resume().catch(() => {});
         const note = (start, freq, dur) => {
           const osc = ctx.createOscillator(), gain = ctx.createGain();
           osc.type = 'triangle'; osc.frequency.value = freq;
