@@ -4,7 +4,17 @@
 // Runs once daily (see netlify.toml). Finds every task whose due_date was
 // exactly yesterday (IST) and is still not Completed/Deferred, and posts one
 // Loona Board announcement per task, e.g.
-//   "🔴 Chinmay hasn't finished 'Update captions' for Shookra — due yesterday."
+//   "🔴 Chinmay hasn't finished 'Update captions' for Shookra — due yesterday. (Status: Not Started)"
+// A task already sitting in Awaiting Approval/Awaiting Deferral gets its own
+// gentler phrasing instead of being lumped in as "hasn't finished" — the
+// assignee DID submit it, it's just still waiting on someone else's review —
+// but it's still surfaced here since the review itself is now overdue too.
+//
+// Each post also carries an "Ask why" action button (wired client-side in
+// renderLoonaBoard(), see index.html's askOverdueWhy()) that pings the
+// assignee for a reason and relays whatever they type back to both Gokul and
+// the assigner, regardless of which of the two clicked it — see
+// index.html's overdueReasonRequests flow for the receiving side.
 //
 // NOT broadcast to the whole team — each post carries a `visibleTo` allowlist
 // (index.html's renderLoonaBoard() already filters by this, same mechanism
@@ -67,6 +77,19 @@ function taskBrandLabel(t) {
   return t.brand || "an unassigned brand";
 }
 
+// Awaiting Approval/Awaiting Deferral means the assignee already submitted
+// their side — calling that "hasn't finished" alongside a genuinely
+// untouched Not Started task was the actual complaint, so these get their
+// own wording plus the raw status always tacked on either way.
+function overdueMessage(t) {
+  const brandLabel = taskBrandLabel(t);
+  const isAwaiting = t.status === "Awaiting Approval" || t.status === "Awaiting Deferral";
+  const text = isAwaiting
+    ? `${t.member} submitted "${t.task}" for ${brandLabel} but it's still ${t.status.toLowerCase()} — due yesterday. (Status: ${t.status})`
+    : `${t.member} hasn't finished "${t.task}" for ${brandLabel} — due yesterday. (Status: ${t.status})`;
+  return { text, emoji: isAwaiting ? "🟠" : "🔴" };
+}
+
 exports.handler = async () => {
   try {
     const date = todayIST();
@@ -95,18 +118,30 @@ exports.handler = async () => {
     }
 
     const base = Date.now();
-    const posts = toPost.map((t, i) => ({
-      id: base + i,
-      text: `${t.member} hasn't finished "${t.task}" for ${taskBrandLabel(t)} — due yesterday.`,
-      author: "Loona Board",
-      emoji: "🔴",
-      timestamp: new Date().toISOString(),
-      // Gokul always sees it; whoever assigned the task sees it too (often a
-      // different person from the assignee, who is deliberately NOT on this
-      // list — the ask was Gokul + the assigner specifically). Falls back to
-      // just Gokul if the task has no recorded assigner.
-      visibleTo: Array.from(new Set(["Gokul", t.assigned_by].filter(Boolean)))
-    }));
+    const posts = toPost.map((t, i) => {
+      const { text, emoji } = overdueMessage(t);
+      return {
+        id: base + i,
+        text,
+        author: "Loona Board",
+        emoji,
+        timestamp: new Date().toISOString(),
+        // Gokul always sees it; whoever assigned the task sees it too (often a
+        // different person from the assignee, who is deliberately NOT on this
+        // list — the ask was Gokul + the assigner specifically). Falls back to
+        // just Gokul if the task has no recorded assigner.
+        visibleTo: Array.from(new Set(["Gokul", t.assigned_by].filter(Boolean))),
+        // Powers the "Ask why" button (askOverdueWhy() in index.html) — kept
+        // as plain fields on the announcement itself (not just baked into the
+        // text) so the client can ping the right person without re-parsing it.
+        action: "overdue-ask-why",
+        taskKey: t.key,
+        taskMember: t.member,
+        taskTitle: t.task,
+        taskBrand: taskBrandLabel(t),
+        taskAssignedBy: t.assigned_by || ""
+      };
+    });
 
     const results = await Promise.all(posts.map((p) => fbPost("/announcements", p)));
     const failed = results.map((r, i) => ({ r, t: toPost[i] })).filter(({ r }) => r.status < 200 || r.status >= 300);

@@ -3336,6 +3336,30 @@
       color: var(--red);
     }
 
+    #overdue-reason-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .75);
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #overdue-reason-modal.show {
+      display: flex;
+      animation: bannerPop .3s cubic-bezier(.34, 1.56, .64, 1);
+    }
+
+    #overdue-reason-modal .deck-modal {
+      border-color: var(--yellow);
+      box-shadow: 0 16px 60px rgba(245, 200, 66, .3);
+    }
+
+    #overdue-reason-modal .dm-title {
+      color: var(--yellow);
+    }
+
     /* ── AUTO TASK BADGE ── */
     .auto-task-badge {
       font-size: 9px;
@@ -4793,6 +4817,23 @@
         <div class="dm-actions">
           <button class="btn btn-ghost" onclick="dismissUpdateRequestLater()">Later</button>
           <button class="btn btn-primary" onclick="acknowledgeUpdateRequest()">Got it, I'll update now</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ASK-WHY URGENT PROMPT (triggered by askOverdueWhy() from a Missed Due Date board post; reply goes to Gokul + the assigner) -->
+    <div id="overdue-reason-modal">
+      <div class="deck-modal">
+        <div class="dm-emoji">❓</div>
+        <div class="dm-title">Extremely Important</div>
+        <div class="dm-sub" id="or-sub">Someone wants to know why this is overdue.</div>
+        <div class="dm-task" id="or-task"
+          style="font-size:12px;color:var(--yellow);font-style:italic;margin-bottom:14px;padding:8px 12px;background:rgba(245,200,66,.08);border-radius:8px">
+        </div>
+        <textarea id="or-reason" placeholder="Why is this still not done?" style="width:100%;min-height:70px;background:#111;border:1px solid #444;border-radius:8px;color:#d0d0d0;padding:10px 12px;font-family:inherit;font-size:13px;box-sizing:border-box;resize:vertical;margin-bottom:16px"></textarea>
+        <div class="dm-actions">
+          <button class="btn btn-ghost" onclick="dismissOverdueReasonLater()">Later</button>
+          <button class="btn btn-primary" onclick="submitOverdueReason()">Send Reason</button>
         </div>
       </div>
     </div>
@@ -7265,6 +7306,86 @@
       setTimeout(showNextUpdateRequestPopup, 350);
     }
 
+    // ═══ ASK WHY (Missed Due Date notification → assignee, reply → Gokul + assigner) ═══
+    // Distinct from askForUpdate() above: this is only reachable from the "Ask
+    // why" button on a Missed Due Date board post (overdue-tasks-daily.js —
+    // that post is itself only visible to Gokul + whoever assigned the task),
+    // and unlike a plain nudge it REQUIRES the assignee to type a reason
+    // before the popup will let go. Whatever they type is posted back
+    // visible to Gokul + the assigner specifically — always both, regardless
+    // of which of the two actually clicked "Ask why".
+    function askOverdueWhy(btn) {
+      const member = btn.dataset.member;
+      if (!member) return;
+      const payload = {
+        taskKey: btn.dataset.taskKey || '',
+        task: btn.dataset.title || '',
+        brand: btn.dataset.brand || '',
+        member,
+        assignedBy: btn.dataset.assignedBy || '',
+        requestedBy: currentUser || '',
+        requestedAt: new Date().toISOString(),
+        reason: null
+      };
+      if (_db) _db.ref('overdueReasonRequests').push(payload);
+      btn.disabled = true;
+      btn.textContent = '✓ Asked';
+      const toast = document.getElementById('completion-toast');
+      document.getElementById('toast-emoji').textContent = '💬';
+      document.getElementById('toast-msg').textContent = `Asked ${member} for a reason`;
+      document.getElementById('toast-sub').textContent = 'Their answer will come back to you and Gokul.';
+      toast.classList.add('show');
+      if (_toastTimer) clearTimeout(_toastTimer);
+      _toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
+    }
+
+    // Receiving side — same urgent-popup/queue mechanics as showNextUpdateRequestPopup
+    // above, but this one won't let go without a typed reason (see submitOverdueReason).
+    window._overdueReasonQueue = [];
+    window._overdueReasonShowing = false;
+    function queueOverdueReasonPopup(key, req) {
+      window._overdueReasonQueue.push({ key, req });
+      if (!window._overdueReasonShowing) showNextOverdueReasonPopup();
+    }
+    function showNextOverdueReasonPopup() {
+      const next = window._overdueReasonQueue.shift();
+      if (!next) { window._overdueReasonShowing = false; return; }
+      window._overdueReasonShowing = true;
+      window._currentOverdueReason = next;
+      document.getElementById('or-sub').textContent = `${next.req.requestedBy || 'Someone'} wants to know why this is overdue.`;
+      document.getElementById('or-task').textContent = `"${next.req.task || 'Untitled task'}"${next.req.brand ? ' · ' + next.req.brand : ''}`;
+      const reasonEl = document.getElementById('or-reason');
+      if (reasonEl) { reasonEl.value = ''; reasonEl.style.borderColor = '#444'; }
+      document.getElementById('overdue-reason-modal').classList.add('show');
+      playUpdateAlertSound();
+      sendBoardDesktopNotification({ author: next.req.requestedBy, text: `wants to know why "${next.req.task || 'a task'}" is overdue`, id: next.key });
+    }
+    function submitOverdueReason() {
+      const cur = window._currentOverdueReason;
+      if (!cur) return;
+      const reasonEl = document.getElementById('or-reason');
+      const reason = reasonEl ? reasonEl.value.trim() : '';
+      if (!reason) { if (reasonEl) reasonEl.style.borderColor = 'var(--red)'; return; }
+      document.getElementById('overdue-reason-modal').classList.remove('show');
+      if (_db) _db.ref('overdueReasonRequests/' + cur.key).update({ reason, respondedAt: new Date().toISOString() });
+      fbAddAnnouncement({
+        id: Date.now(),
+        text: `💬 ${cur.req.member || currentUser} on "${cur.req.task || 'this task'}": "${reason}"`,
+        author: cur.req.member || currentUser,
+        timestamp: new Date().toISOString(),
+        emoji: '💬',
+        // Fixed pair regardless of who clicked "Ask why" — that's the point.
+        visibleTo: Array.from(new Set(['Gokul', cur.req.assignedBy].filter(Boolean)))
+      });
+      window._currentOverdueReason = null;
+      setTimeout(showNextOverdueReasonPopup, 350);
+    }
+    function dismissOverdueReasonLater() {
+      document.getElementById('overdue-reason-modal').classList.remove('show');
+      window._currentOverdueReason = null;
+      setTimeout(showNextOverdueReasonPopup, 350);
+    }
+
     function fbAddAnnouncement(ann) {
       const clean = Object.assign({}, ann);
       delete clean._key;
@@ -7845,6 +7966,18 @@
           if (window._shownUpdateRequests.has(snap.key)) return;
           window._shownUpdateRequests.add(snap.key);
           if (typeof queueUpdateRequestPopup === 'function') queueUpdateRequestPopup(snap.key, req);
+        });
+
+        // "Ask why" (askOverdueWhy()) — same per-login attachment reasoning as
+        // updateRequests just above, and same "only the still-unanswered ones"
+        // guard as its .acknowledged check (here: reason still null).
+        _db.ref('overdueReasonRequests').on('child_added', snap => {
+          const req = snap.val();
+          if (!req || req.reason || normName(req.member) !== normName(name)) return;
+          window._shownOverdueReasons = window._shownOverdueReasons || new Set();
+          if (window._shownOverdueReasons.has(snap.key)) return;
+          window._shownOverdueReasons.add(snap.key);
+          if (typeof queueOverdueReasonPopup === 'function') queueOverdueReasonPopup(snap.key, req);
         });
       }
       init();
@@ -8646,7 +8779,7 @@
           <td data-label="Task" style="max-width:260px" onclick="window.showTaskDetail(${gi})"><div class="prio-dot-row"><span class="prio-dot" style="--prio-color:${priorityHeatColor(t.priority, t.status)}"></span><div class="task-cell">${t.task.length > 55 ? t.task.slice(0, 55) + '…' : t.task}${t.is_auto ? ' <span class="auto-task-badge">🤖 AUTO</span>' : ''}${t.gokul_approval === 'pending' ? ' <span class="gokul-approval-badge" title="Awaiting Gokul\'s approval">🔔 Pending</span>' : t.gokul_approval === 'declined' ? ' <span class="gokul-approval-badge declined" title="Gokul declined this task">✕ Declined</span>' : t.gokul_approval === 'approved' ? ' <span class="gokul-approval-badge approved" title="Approved by Gokul">✓ Approved</span>' : ''}</div></div></td>
           <td data-label="Assigned by" style="color:var(--muted);font-size:12px">${t.assigned_by || '—'}</td>
           <td data-label="Assigned on" style="color:var(--muted);font-size:12px;white-space:nowrap">${t.assigned_on || (t.created_at?fmtStamp(new Date(t.created_at)):'—')}</td>
-          <td data-label="Priority" style="${t.status === 'Completed' ? 'opacity:0.35;pointer-events:none' : ''}">${pBadge(t.priority)}</td>
+          <td data-label="Priority" style="${t.status === 'Completed' ? 'opacity:0.35;pointer-events:none' : ''}">${prioritySelectHTML(t, gi)}</td>
           <td data-label="Status">
             ${(() => {
               const isDone = t.status === 'Completed';
@@ -12920,6 +13053,7 @@
           : a.action==='costar' ? `<button class="btn btn-primary" style="padding:5px 10px;font-size:11px" onclick="openCostarModal()">🎬 ${a.actionLabel?String(a.actionLabel).replace(/</g,'&lt;'):'Find Your Co-Star'}</button>`
           : a.action==='braincheck' ? `<button class="btn btn-primary" style="padding:5px 10px;font-size:11px" onclick="bcGoToPage();bcShowLeaderboard()">🧠 ${a.actionLabel?String(a.actionLabel).replace(/</g,'&lt;'):"See Everyone's Scores"}</button>`
           : a.action==='braincheck-start' ? `<button class="btn btn-primary" style="padding:5px 10px;font-size:11px" onclick="bcGoToPage()">🧠 ${a.actionLabel?String(a.actionLabel).replace(/</g,'&lt;'):"Take Today's Check"}</button>`
+          : a.action==='overdue-ask-why' ? `<button class="btn btn-ghost" style="padding:5px 10px;font-size:11px" data-task-key="${lnEsc(a.taskKey||'')}" data-member="${lnEsc(a.taskMember||'')}" data-title="${lnEsc(a.taskTitle||'')}" data-brand="${lnEsc(a.taskBrand||'')}" data-assigned-by="${lnEsc(a.taskAssignedBy||'')}" onclick="askOverdueWhy(this)">💬 Ask ${lnEsc(a.taskMember||'them')} why</button>`
           : '';
         return `<div class="lb-item"><div class="lb-meta">${authorIcon}<span class="lb-author">${a.author||'Team'}</span><span class="lb-time">${when}</span>${canDel?`<span class="lb-del" title="Remove" onclick="deleteAnnouncement(${a.id})">✕</span>`:''}</div>${a.text?`<div class="lb-text">${String(a.text).replace(/</g,'&lt;')}</div>`:''}${a.image?`<img class="lb-img" src="${a.image}" alt="">`:''}<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px">${(((a.links&&a.links.length)?a.links:(a.link?[a.link]:[]))||[]).map(L=>`<a class="lb-link" style="margin-top:0" href="${L}" target="_blank" rel="noopener">🔗 ${L.length>50?L.slice(0,50)+'…':L}</a>`).join('')}${recordBtn}${actionBtn}</div></div>`;
       }).join('')+`</div></div>`;
@@ -15360,6 +15494,26 @@
     function pBadge(p) {
       const m = { High: 'high', Medium: 'medium', Low: 'low' };
       return p ? `<span class="badge ${m[p] || ''}">${p}</span>` : '';
+    }
+    // Editable priority — same pattern as the Status dropdown (statusSelectHTML
+    // above): priority used to be a read-only badge with no way to change it
+    // once a task was assigned, so this makes it a select that writes straight
+    // through, matching the colors pBadge already uses for each level.
+    const PRIORITY_COLORS = {
+      High: { bg: 'rgba(224,92,92,.15)', text: 'var(--red)', border: 'rgba(224,92,92,.4)' },
+      Medium: { bg: 'rgba(245,200,66,.15)', text: 'var(--yellow)', border: 'rgba(245,200,66,.4)' },
+      Low: { bg: 'rgba(76,175,125,.15)', text: 'var(--green)', border: 'rgba(76,175,125,.4)' }
+    };
+    function prioritySelectHTML(t, gi) {
+      const p = t.priority || 'Medium';
+      const c = PRIORITY_COLORS[p] || PRIORITY_COLORS.Medium;
+      const priorities = ['High', 'Medium', 'Low'];
+      return `<select onchange="updatePriority(${gi},this.value)" style="background:${c.bg};border:1px solid ${c.border};color:${c.text};padding:4px 8px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600">${priorities.map(pr => `<option value="${pr}"${p === pr ? ' selected' : ''}>${pr}</option>`).join('')}</select>`;
+    }
+    function updatePriority(idx, val) {
+      const t = TASKS[idx]; if (!t) return;
+      fbUpdateTask(idx, { priority: val });
+      renderTasks(); renderOverview();
     }
     function priorityHeatColor(p, status) {
       if (status === 'Completed') return 'transparent';
