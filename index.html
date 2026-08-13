@@ -3366,13 +3366,62 @@
       width: 100%;
       max-width: 720px;
       margin: 0 auto;
-      aspect-ratio: 596 / 335;
+      aspect-ratio: 16 / 9;
       border-radius: 20px;
       overflow: hidden;
-      background-image: url('assets/independence-day/red-fort-flag.png');
-      background-size: cover;
-      background-position: center;
+      /* The Canva scene was a single flattened raster — pixel-segmenting a
+         painterly gradient illustration into separate sun/monument layers
+         isn't reliable without real image-segmentation tooling (tried a
+         flood-fill split; the sky's internal glow/vignette variation broke
+         it). Using the hub's own sunset gradient (same formula as the login
+         screen) as the backdrop instead, with the sun/monument/birds as
+         actual separate elements so they can each be animated independently. */
+      background:
+        radial-gradient(34% 22% at 6% 56%, rgba(255, 242, 216, .5) 0%, rgba(255, 150, 66, .26) 34%, transparent 60%),
+        linear-gradient(178deg, #ff6d29 0%, #fb5713 16%, #db3d09 30%, #8f2605 46%, #3e0f02 64%, #150602 82%, #070301 100%);
       box-shadow: 0 20px 60px rgba(0, 0, 0, .4);
+    }
+    .ind-sun {
+      position: absolute;
+      top: 18%;
+      left: 42%;
+      width: 20%;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: radial-gradient(circle at 40% 35%, #ffce7a 0%, #ff5a2b 55%, #d8280f 100%);
+      animation: ind-sun-glow 3.4s ease-in-out infinite;
+      z-index: 1;
+    }
+    @keyframes ind-sun-glow {
+      0%, 100% { box-shadow: 0 0 50px 8px rgba(255, 100, 40, .3); }
+      50% { box-shadow: 0 0 80px 22px rgba(255, 150, 60, .55); }
+    }
+    .ind-fort {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 62%;
+      max-width: 420px;
+      color: #4a1a10;
+      z-index: 2;
+      filter: drop-shadow(0 -2px 0 rgba(0, 0, 0, .15));
+    }
+    .ind-fort svg { display: block; width: 100%; height: auto; }
+    .ind-birds { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+    .ind-bird {
+      position: absolute;
+      font-size: 15px;
+      opacity: .85;
+      animation-name: ind-bird-fly;
+      animation-timing-function: ease-in-out;
+      animation-iteration-count: infinite;
+      animation-direction: alternate;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .3));
+    }
+    @keyframes ind-bird-fly {
+      0% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(70px, -22px) scale(1.05); }
+      100% { transform: translate(140px, 4px) scale(1); }
     }
     /* Second flag (assets/independence-day/flag-pole.png, cut from the Canva
        design's page 5) — rises into view on click rather than sitting static
@@ -3406,6 +3455,30 @@
     @keyframes ind-flag-sway {
       0%, 100% { transform: rotate(0deg); }
       50% { transform: rotate(-2.5deg); }
+    }
+    /* A small spinning chakra layered exactly over the printed (static) one
+       on the flag photo — positioned by pixel-sampling flag-pole.png to find
+       where the chakra actually sits (≈57%, 34% of that image), sized to
+       fully cover it with a matching white backing disc so the still image
+       underneath doesn't show through and clash with the spinning one. */
+    .ind-flag-chakra {
+      position: absolute;
+      left: 57%;
+      top: 34%;
+      width: 15%;
+      aspect-ratio: 1;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: #f4f0e8;
+      box-shadow: 0 0 3px rgba(0, 0, 0, .25);
+    }
+    .ind-flag-chakra svg {
+      width: 100%;
+      height: 100%;
+      animation: ind-chakra-spin 6s linear infinite;
+    }
+    @keyframes ind-chakra-spin {
+      to { transform: rotate(360deg); }
     }
     .ind-petals {
       position: absolute;
@@ -6225,8 +6298,48 @@
     <!-- ======= INDEPENDENCE DAY ======= -->
     <div class="page" id="page-independence">
       <div class="ind-scene">
+        <div class="ind-sun"></div>
+        <div class="ind-fort" aria-hidden="true">
+          <svg viewBox="0 0 420 260" preserveAspectRatio="xMidYMax meet">
+            <!-- crenellated main wall -->
+            <path fill="currentColor" d="
+              M10,260 L10,160 L24,160 L24,148 L38,148 L38,160 L52,160 L52,148 L66,148 L66,160
+              L80,160 L80,148 L94,148 L94,160 L108,160 L108,148 L122,148 L122,160 L136,160 L136,148
+              L150,148 L150,160 L164,160 L164,148 L178,148 L178,160 L192,160 L192,148 L206,148 L206,160
+              L220,160 L220,148 L234,148 L234,160 L248,160 L248,148 L262,148 L262,160 L276,160 L276,148
+              L290,148 L290,160 L290,260 Z" />
+            <!-- corner bastion -->
+            <path fill="currentColor" d="M0,260 L0,120 A18,18 0 0 1 36,120 L36,260 Z"/>
+            <circle cx="18" cy="112" r="6" fill="currentColor"/>
+            <!-- central gate with dome -->
+            <rect x="120" y="80" width="60" height="180" fill="currentColor"/>
+            <path d="M120,80 Q150,50 180,80 Z" fill="currentColor"/>
+            <rect x="145" y="40" width="10" height="16" fill="currentColor"/>
+            <!-- small chattris along the wall -->
+            <path d="M60,148 Q68,132 76,148 Z" fill="currentColor"/>
+            <path d="M224,148 Q232,132 240,148 Z" fill="currentColor"/>
+            <!-- Qutub Minar, tapering tower -->
+            <path fill="currentColor" d="M330,260 L340,60 L350,60 L365,260 Z"/>
+            <rect x="337" y="90" width="16" height="4" fill="currentColor"/>
+            <rect x="338" y="140" width="14" height="4" fill="currentColor"/>
+            <rect x="339" y="190" width="12" height="4" fill="currentColor"/>
+            <circle cx="345" cy="52" r="7" fill="currentColor"/>
+          </svg>
+        </div>
+        <div class="ind-birds" aria-hidden="true">
+          <span class="ind-bird" style="left:30%;top:22%;animation-duration:5.5s">🕊️</span>
+          <span class="ind-bird" style="left:48%;top:14%;animation-duration:6.8s;animation-delay:.6s">🕊️</span>
+          <span class="ind-bird" style="left:38%;top:30%;animation-duration:4.6s;animation-delay:1.2s;font-size:11px">🕊️</span>
+        </div>
         <div class="ind-flag-overlay" id="ind-flag-overlay">
           <img src="assets/independence-day/flag-pole.png" alt="">
+          <div class="ind-flag-chakra">
+            <svg viewBox="0 0 40 40">
+              <circle cx="20" cy="20" r="15" fill="none" stroke="#0000AA" stroke-width="2"/>
+              <circle cx="20" cy="20" r="2.2" fill="#0000AA"/>
+              <g id="ind-flag-chakra-spokes"></g>
+            </svg>
+          </div>
         </div>
         <div class="ind-petals" id="ind-petals"></div>
       </div>
@@ -15612,15 +15725,32 @@
     }
 
     // ═══ INDEPENDENCE DAY — celebrate ═══
-    // The background (assets/independence-day/red-fort-flag.png, a Canva
-    // design) already has its own flag flying in it, so there's no pole to
-    // climb or flag to unfurl here — clicking "Celebrate" just triggers the
-    // petals-falling effect plus a synthesized fanfare over the photo.
+    // Small spinning chakra overlaid on the flag photo (see .ind-flag-chakra)
+    // — same generate-once approach as the very first hand-drawn flag this
+    // page had, before it was replaced with the real Canva photo.
+    (function buildFlagChakraSpokes() {
+      const g = document.getElementById('ind-flag-chakra-spokes');
+      if (!g) return;
+      const NS = 'http://www.w3.org/2000/svg';
+      for (let i = 0; i < 24; i++) {
+        const line = document.createElementNS(NS, 'line');
+        line.setAttribute('x1', '20'); line.setAttribute('y1', '20');
+        line.setAttribute('x2', '20'); line.setAttribute('y2', '6');
+        line.setAttribute('stroke', '#0000AA');
+        line.setAttribute('stroke-width', '0.9');
+        line.setAttribute('transform', 'rotate(' + (i * 15) + ' 20 20)');
+        g.appendChild(line);
+      }
+    })();
+
     // The flag (assets/independence-day/flag-pole.png) rises into view, then
     // once it's settled the petals + fanfare fire — timed with a plain
     // setTimeout matched to .ind-flag-overlay's CSS transition duration
     // rather than a transitionend listener, same reasoning as the rest of
-    // this file's animation sequencing.
+    // this file's animation sequencing. The sun's glow, the chakra's spin,
+    // and the birds all animate continuously via CSS regardless of this
+    // click — only the flag rise + petals + fanfare are the celebration
+    // moment.
     function hoistFlag() {
       const btn = document.getElementById('ind-hoist-btn');
       const flag = document.getElementById('ind-flag-overlay');
