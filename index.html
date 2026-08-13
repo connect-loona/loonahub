@@ -3361,22 +3361,28 @@
     }
 
     /* ── INDEPENDENCE DAY ── */
+    /* Full-bleed — breaks out of #page-independence's normal padded/max-width
+       flow (.page has padding:28px and max-width:1400px) so the scene spans
+       the actual browser viewport edge-to-edge instead of sitting in a
+       rounded card. */
     .ind-scene {
       position: relative;
-      width: 100%;
-      min-height: 440px;
-      border-radius: 20px;
+      width: 100vw;
+      left: 50%;
+      right: 50%;
+      margin-left: -50vw;
+      margin-right: -50vw;
+      min-height: 480px;
       overflow: hidden;
       background:
         radial-gradient(34% 22% at 6% 56%, rgba(255, 242, 216, .5) 0%, rgba(255, 150, 66, .26) 34%, transparent 60%),
         linear-gradient(178deg, #ff6d29 0%, #fb5713 16%, #db3d09 30%, #8f2605 46%, #3e0f02 64%, #150602 82%, #070301 100%);
-      box-shadow: 0 20px 60px rgba(0, 0, 0, .4);
     }
     .ind-sun {
       position: absolute;
       top: 20%;
       left: 25%;
-      width: 24%;
+      width: 13%;
       aspect-ratio: 1;
       border-radius: 50%;
       background: radial-gradient(circle at 40% 35%, #ffce7a 0%, #ff5a2b 55%, #d8280f 100%);
