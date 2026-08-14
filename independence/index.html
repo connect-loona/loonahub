@@ -408,9 +408,10 @@ function spawnJets(container) {
     // Natural orientation: bottom-left -> top-right, nose pointing right.
     { flip: 1, rot: 48.3, duration: 7.5, delay: 0,
       x0: -imgW * 0.7, y0: H * 0.22, x1: W + imgW * 0.1, y1: -imgH * 0.75 },
-    // Mirrored: bottom-right -> top-left, nose pointing left, started
-    // partway into the first flight so the two visibly cross.
-    { flip: -1, rot: -48.3, duration: 7.8, delay: 1.8,
+    // Mirrored: bottom-right -> top-left, nose pointing left. A short
+    // stagger (not the earlier 1.8s, which read as arriving late) so the
+    // two are still slightly offset without one visibly lagging behind.
+    { flip: -1, rot: -48.3, duration: 7.8, delay: 0.4,
       x0: W + imgW * 0.7, y0: H * 0.13, x1: -imgW * 0.1, y1: -imgH * 0.8 }
   ];
   instances.forEach(inst => {
