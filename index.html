@@ -16024,7 +16024,22 @@
         img.style.offsetPath = "path('" + pathFromPoints(pts) + "')";
         img.style.animationDuration = inst.duration + 's';
         img.style.animationDelay = inst.delay + 's';
-        if (inst.flip === -1) img.style.transform = 'scaleX(-1)';
+        // The art's own nose points up-and-right at a fixed ~48.3deg from
+        // horizontal (measured off the source SVG's trail coordinates:
+        // atan2(-685, 610)) — with offset-rotate pinned to 0deg (see CSS),
+        // that baked-in tilt was the jets' literal on-screen angle
+        // regardless of travel direction, so a left/right pass looked like
+        // the nose was pointing up while the formation slid sideways.
+        // rotate(48.3deg) corrects it to point due-right for the
+        // left-to-right instance. For the mirrored instance, naive
+        // "scaleX(-1) then/before rotate" combinations kept landing on
+        // pointing right or diagonally (CSS composes transform functions
+        // in a way that doesn't match the intuitive "mirror the corrected
+        // result" expectation) — confirmed by literally rendering every
+        // candidate order and comparing screenshots rather than guessing.
+        // rotate(131.7deg) scaleX(-1) [180 - 48.3, mirror second] is the
+        // one that actually renders pointing due-left, right-side up.
+        img.style.transform = inst.flip === -1 ? 'rotate(131.7deg) scaleX(-1)' : 'rotate(48.3deg)';
         container.appendChild(img);
       });
 
