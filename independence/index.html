@@ -231,6 +231,40 @@
   }
   @keyframes mic-card-in { from { opacity: 0; transform: scale(.85) translateY(14px); } to { opacity: 1; transform: scale(1) translateY(0); } }
   .mic-modal-card .mic-title { font-size: 21px; }
+
+  /* Camera "pans out" from the flag scene as the map takes over — the
+     scene shrinks and dims behind the modal instead of just sitting there
+     unchanged, so the reveal reads as pulling back to the national scale
+     rather than a card simply appearing on top. */
+  .ind-scene { transition: transform 1.3s cubic-bezier(.4, 0, .2, 1), filter 1.3s ease; }
+  .ind-scene.ind-scene-panned { transform: scale(.88); filter: brightness(.55) saturate(.8); }
+
+  /* India silhouette + hoist-location dots, inside the celebration card.
+     Coordinates use an equirectangular projection over India's rough
+     bounding box (lat 6-38°N, lon 66-99°E) matched 1:1 with the outline
+     path below and with projectToMapXY() in the script — a stylized,
+     hand-drawn approximation (no map data source was available to pull
+     from), not survey-accurate, but recognizable and internally consistent
+     enough that a city's dot lands in the right part of the outline. */
+  .ind-map-wrap { position: relative; width: 100%; max-width: 210px; aspect-ratio: 340 / 400; margin: 2px 0; }
+  .ind-map-svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  .ind-map-outline { fill: rgba(255, 153, 51, .16); stroke: rgba(255, 255, 255, .55); stroke-width: 1.4; stroke-linejoin: round; }
+  .ind-map-dots { position: absolute; inset: 0; }
+  .ind-map-dot {
+    position: absolute; width: 5px; height: 5px; border-radius: 50%;
+    transform: translate(-50%, -50%);
+    animation: ind-map-dot-blink 1.8s ease-in-out infinite;
+  }
+  .ind-map-dot.ind-map-dot-orange { background: #FF9933; box-shadow: 0 0 5px 1px rgba(255, 153, 51, .8); }
+  .ind-map-dot.ind-map-dot-green { background: #138808; box-shadow: 0 0 5px 1px rgba(19, 136, 8, .8); animation-delay: .9s; }
+  @keyframes ind-map-dot-blink { 0%, 100% { opacity: .35; transform: translate(-50%, -50%) scale(.8); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); } }
+  .ind-map-dot-you {
+    position: absolute; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; border-radius: 50%;
+    background: #FFD54A; box-shadow: 0 0 0 4px rgba(255, 213, 74, .3), 0 0 10px 2px rgba(255, 213, 74, .9);
+    animation: ind-map-dot-you-pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes ind-map-dot-you-pulse { 0%, 100% { box-shadow: 0 0 0 4px rgba(255, 213, 74, .3), 0 0 10px 2px rgba(255, 213, 74, .9); } 50% { box-shadow: 0 0 0 8px rgba(255, 213, 74, .12), 0 0 14px 4px rgba(255, 213, 74, 1); } }
+  .ind-map-caption { font-size: 11px; color: rgba(255, 255, 255, .6); margin: 0; }
 </style>
 </head>
 <body>
@@ -310,6 +344,13 @@
   <div class="mic-modal-backdrop" id="share-modal" style="display:none">
     <div class="mic-modal-card">
       <div class="mic-title">🇮🇳 Happy Independence Day</div>
+      <div class="ind-map-wrap">
+        <svg class="ind-map-svg" viewBox="0 0 340 400" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+          <path class="ind-map-outline" d="M113.3,31.3 L128.8,43.8 L134.0,87.5 L154.5,118.8 L216.4,143.8 L234.9,135.0 L252.4,141.3 L314.2,118.8 L322.5,131.3 L303.9,156.3 L288.5,175.0 L278.2,197.5 L262.7,181.3 L237.0,156.3 L235.9,202.5 L204.0,227.5 L178.2,253.8 L147.3,281.3 L147.3,311.3 L142.2,337.5 L118.5,373.8 L106.1,351.3 L90.7,313.8 L80.4,283.8 L70.1,236.3 L70.1,210.0 L37.1,193.8 L22.7,176.3 L51.5,171.3 L43.3,125.0 L87.6,75.0 L87.6,56.3 Z"/>
+        </svg>
+        <div class="ind-map-dots" id="ind-map-dots"></div>
+      </div>
+      <div class="ind-map-caption" id="ind-map-caption"></div>
       <div class="mic-name-row">
         <input id="name-input" type="text" maxlength="24" placeholder="Your name (optional)" autocomplete="off">
       </div>
@@ -545,16 +586,54 @@ function refreshDailyCount() {
 refreshDailyCount();
 setInterval(refreshDailyCount, 6000);
 
+// India's rough bounding box (matches independence-hoist.js's IN_BOUNDS
+// and the hand-drawn outline path's viewBox) — an equirectangular
+// projection, not survey-accurate, but consistent enough that a city's
+// dot lands in the right part of the outline.
+function projectToMapXY(lat, lon) {
+  return { x: (lon - 66) * (340 / 33), y: (38 - lat) * (400 / 32) };
+}
+
+function renderMap(data) {
+  const dotsWrap = document.getElementById('ind-map-dots');
+  const caption = document.getElementById('ind-map-caption');
+  if (!dotsWrap || !data) return;
+  dotsWrap.innerHTML = '';
+  const colorClasses = ['ind-map-dot-orange', 'ind-map-dot-green'];
+  (data.dots || []).forEach((d, i) => {
+    const p = projectToMapXY(d.lat, d.lon);
+    const el = document.createElement('div');
+    el.className = 'ind-map-dot ' + colorClasses[i % 2];
+    el.style.left = (p.x / 340 * 100) + '%';
+    el.style.top = (p.y / 400 * 100) + '%';
+    dotsWrap.appendChild(el);
+  });
+  if (data.dot) {
+    const p = projectToMapXY(data.dot.lat, data.dot.lon);
+    const you = document.createElement('div');
+    you.className = 'ind-map-dot-you';
+    you.style.left = (p.x / 340 * 100) + '%';
+    you.style.top = (p.y / 400 * 100) + '%';
+    dotsWrap.appendChild(you);
+  }
+  if (caption) {
+    caption.textContent = data.dot ? 'Your flag, among flags raised across India'
+      : ((data.dots || []).length ? 'Flags raised across India' : '');
+  }
+}
+
+let lastHoistResult = null;
 function recordHoist() {
   // Still records the hoist (daily count + referral log) even though the
   // popup only shows "Happy Independence Day" now, not a rank sentence —
   // keeps the "X flags hoisted today" line on landing accurate for the
-  // next visitor.
-  fetch(HOIST_ENDPOINT, {
+  // next visitor. Also fetches the map data (this hoist's own approximate
+  // location plus recent others') for the celebration screen's India map.
+  return fetch(HOIST_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ from: referrerSlug || null })
-  }).catch(() => {});
+  }).then(r => r.json()).then(d => { lastHoistResult = d; return d; }).catch(() => null);
 }
 
 // ── Hoist on click, same as the dashboard's "Unfurl the Flag" button ──
@@ -578,14 +657,22 @@ function startClimb() {
     spawnPetals(document.getElementById('ind-petals'));
     spawnJets(document.getElementById('ind-jets'));
     spawnFireworks(document.getElementById('ind-fireworks'));
-    recordHoist();
+    const hoistPromise = recordHoist();
     // Give the unfurl AND the petals/jets/fireworks a real beat to read
     // before the popup covers the scene — 11s so the flag is fully settled
     // and the celebration (petals falling, jets crossing, fireworks) has
     // actually played out before it gets covered by the popup.
+    // The camera "pans out" — the scene shrinks and dims — starting a
+    // beat before the modal itself appears, so the India map reveal reads
+    // as pulling back to the national scale rather than a card just
+    // appearing on top of an unchanged scene.
+    setTimeout(() => {
+      document.getElementById('ind-scene').classList.add('ind-scene-panned');
+    }, 9700);
     setTimeout(() => {
       document.getElementById('mic-controls').style.display = 'none';
       document.getElementById('share-modal').style.display = 'flex';
+      hoistPromise.then((d) => renderMap(d || lastHoistResult));
       prepareStoryAssets();
     }, 11000);
   }, climbDuration * 1000);
@@ -601,6 +688,7 @@ document.getElementById('again-btn').addEventListener('click', () => {
   // rather than silently snapping back to the bottom.
   document.getElementById('share-modal').style.display = 'none';
   document.getElementById('mic-controls').style.display = '';
+  document.getElementById('ind-scene').classList.remove('ind-scene-panned');
   hoistBtn.disabled = true;
   const dropDuration = .5;
   hoistLabel.textContent = 'Lowering…';
