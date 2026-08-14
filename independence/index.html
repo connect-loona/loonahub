@@ -152,7 +152,14 @@
   .ind-jet-art {
     position: absolute; top: 0; left: 0;
     filter: drop-shadow(0 2px 6px rgba(0, 0, 0, .3));
-    animation-name: ind-jet-art-fly; animation-timing-function: linear; animation-fill-mode: forwards;
+    animation-name: ind-jet-art-fly; animation-timing-function: linear;
+    /* "both", not "forwards" — the second jet has a delay before it starts,
+       and "forwards" only holds the *end* state, so during that delay the
+       browser was rendering it at its plain un-animated CSS position
+       (top:0;left:0, fully opaque) — a whole extra formation sitting frozen
+       in the corner until its animation kicked in. "both" also applies the
+       0% keyframe (invisible, off-screen) during the delay. */
+    animation-fill-mode: both;
   }
   @keyframes ind-jet-art-fly {
     0% { transform: translate(var(--jf-x0), var(--jf-y0)) rotate(var(--jf-rot, 0deg)) scaleX(var(--jf-flip, 1)); opacity: 0; }
@@ -393,14 +400,18 @@ function spawnJets(container) {
   const W = Math.max(1, rect.width), H = Math.max(1, rect.height);
   const imgW = Math.max(190, Math.min(400, W * 0.28));
   const imgH = imgW; // jets-formation.svg's viewBox is square (1200x1200)
+  // Both paths stay within the top ~quarter of the screen — the hoisted
+  // flag settles around 32% down (see .ind-flagpole/.ind-hoisting math), so
+  // anything lower reads as flying below/level with the flag instead of a
+  // flypast streaking through the sky above it.
   const instances = [
     // Natural orientation: bottom-left -> top-right, nose pointing right.
     { flip: 1, rot: 48.3, duration: 7.5, delay: 0,
-      x0: -imgW * 0.7, y0: H * 0.55, x1: W + imgW * 0.1, y1: -imgH * 0.55 },
+      x0: -imgW * 0.7, y0: H * 0.22, x1: W + imgW * 0.1, y1: -imgH * 0.75 },
     // Mirrored: bottom-right -> top-left, nose pointing left, started
     // partway into the first flight so the two visibly cross.
     { flip: -1, rot: -48.3, duration: 7.8, delay: 1.8,
-      x0: W + imgW * 0.7, y0: H * 0.4, x1: -imgW * 0.1, y1: -imgH * 0.6 }
+      x0: W + imgW * 0.7, y0: H * 0.13, x1: -imgW * 0.1, y1: -imgH * 0.8 }
   ];
   instances.forEach(inst => {
     const img = document.createElement('img');
