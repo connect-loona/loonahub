@@ -15885,17 +15885,14 @@
         g.appendChild(line);
       }
     })();
-    // "Hoist Again" only re-arms once the song actually finishes, instead of
-    // a fixed timeout that could easily drift out of sync with the real
-    // (now dynamic-duration) climb.
-    (function wireVandeMataramEnded() {
-      const audio = document.getElementById('ind-vande-mataram');
-      if (!audio) return;
-      audio.addEventListener('ended', () => {
-        const btn = document.getElementById('ind-hoist-btn');
-        if (btn) { btn.disabled = false; btn.textContent = 'Hoist Again'; }
-      });
-    })();
+    // Tying "Hoist Again" to the audio's 'ended' event sounded right but
+    // isn't, now that the climb no longer waits for the full song either —
+    // the file's real audible length doesn't match its reported duration
+    // (see hoistFlag's climbDuration comment), so the button would stay
+    // disabled for the rest of the song even after the visual celebration
+    // was already done and sitting idle. Reverted to a fixed delay in
+    // hoistFlag(), timed off the (now fixed, not audio-derived) climb
+    // duration instead.
 
     // Climb the pole slowly (see .ind-flag-wrap's 5.5s transition), unfurl
     // near the top, then let the petals fall — sequenced with plain
@@ -15907,17 +15904,17 @@
       const btn = document.getElementById('ind-hoist-btn');
       const wrap = document.getElementById('ind-flag-wrap');
       const petals = document.getElementById('ind-petals');
-      const audio = document.getElementById('ind-vande-mataram');
       if (!btn || !wrap || btn.disabled) return;
       btn.disabled = true;
       btn.textContent = 'Hoisting…';
-      // Paced to the real song length when it's known (it usually is —
-      // preload="auto" plus the loadedmetadata listener below start fetching
-      // duration well before anyone clicks), falling back to a fixed 5.5s
-      // only if metadata genuinely hasn't loaded yet. Overriding `transition`
-      // inline like this is what actually makes the climb duration dynamic —
-      // the CSS rule's own duration is just that fallback value.
-      const climbDuration = (audio && isFinite(audio.duration) && audio.duration > 0) ? audio.duration : 5.5;
+      // Fixed pace, NOT tied to audio.duration — that seemed like the right
+      // idea (match the song) but the file's reported metadata duration
+      // doesn't match how long it's actually audible for in practice (likely
+      // trailing silence/padding baked into the file), so the music was
+      // finishing well before the flag reached the top. 9s is slower than
+      // the original 5.5s (the actual ask) without the 30s version's problem
+      // of the two drifting apart.
+      const climbDuration = 9;
       wrap.style.transition = 'bottom ' + climbDuration.toFixed(2) + 's cubic-bezier(.3, .68, .32, 1), transform 1.2s cubic-bezier(.34, 1.4, .5, 1) .1s';
       wrap.classList.remove('ind-hoisting', 'ind-unfurled');
       void wrap.offsetWidth; // force reflow so replaying restarts the transition from the bottom
@@ -15928,6 +15925,7 @@
         spawnPetals(petals);
         spawnJets(document.getElementById('ind-jets'));
         btn.textContent = '🇮🇳 Jai Hind!';
+        setTimeout(() => { btn.disabled = false; btn.textContent = 'Hoist Again'; }, 5800);
       }, climbDuration * 1000);
     }
     // A small formation of delta-wing jets flying left→right once the flag
