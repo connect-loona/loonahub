@@ -82,7 +82,11 @@ function getGeo(event) {
     const lat = g.latitude, lon = g.longitude;
     if (typeof lat !== "number" || typeof lon !== "number") return null;
     if (lat < IN_BOUNDS.latMin || lat > IN_BOUNDS.latMax || lon < IN_BOUNDS.lonMin || lon > IN_BOUNDS.lonMax) return null;
-    return { lat, lon };
+    // city is shown next to the hoister's own marker on the map (see
+    // renderMap() in independence/index.html) — best-effort, city can be
+    // missing from the geo lookup even when lat/lon are present.
+    const city = typeof g.city === "string" && g.city ? g.city.slice(0, 40) : null;
+    return { lat, lon, city };
   } catch (e) { return null; }
 }
 
