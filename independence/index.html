@@ -241,30 +241,27 @@
   .ind-map-lines { position: absolute; inset: 0; width: 100%; height: 100%; display: block; overflow: visible; pointer-events: none; }
   .ind-map-line { fill: none; stroke: rgba(255, 213, 74, .3); stroke-width: .9; }
   .ind-map-dots { position: absolute; inset: 0; }
-  .ind-map-pin {
-    position: absolute; width: 13px; height: 17px;
-    transform: translate(-50%, -100%);
-    animation: ind-map-pin-blink 1.8s ease-in-out infinite;
+  /* Soft blinking heatmap-style glow spots (radial gradient, blurred
+     edges), not pins — saffron and green, alternating per hoist. */
+  .ind-map-spot {
+    position: absolute; width: 30px; height: 30px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    filter: blur(1px);
+    animation: ind-map-spot-blink 2.2s ease-in-out infinite;
   }
-  .ind-map-pin path { fill: currentColor; }
-  .ind-map-pin circle { fill: #150a03; }
-  .ind-map-pin-orange { color: #FF9933; filter: drop-shadow(0 0 4px rgba(255, 153, 51, .9)); }
-  .ind-map-pin-green { color: #138808; filter: drop-shadow(0 0 4px rgba(19, 136, 8, .9)); animation-delay: .6s; }
-  .ind-map-pin-white { color: #fbf3e4; filter: drop-shadow(0 0 4px rgba(251, 243, 228, .8)); animation-delay: 1.2s; }
-  @keyframes ind-map-pin-blink { 0%, 100% { opacity: .45; transform: translate(-50%, -100%) scale(.82); } 50% { opacity: 1; transform: translate(-50%, -100%) scale(1); } }
-  .ind-map-pin-you {
-    position: absolute; width: 21px; height: 27px;
-    transform: translate(-50%, -100%);
-    color: #FFD54A;
-    animation: ind-map-pin-you-pulse 1.6s ease-in-out infinite;
+  .ind-map-spot-orange { background: radial-gradient(circle, rgba(255, 153, 51, .95) 0%, rgba(255, 153, 51, .45) 45%, transparent 72%); }
+  .ind-map-spot-green { background: radial-gradient(circle, rgba(19, 136, 8, .95) 0%, rgba(19, 136, 8, .45) 45%, transparent 72%); animation-delay: 1.1s; }
+  @keyframes ind-map-spot-blink { 0%, 100% { opacity: .4; transform: translate(-50%, -50%) scale(.7); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); } }
+  .ind-map-spot-you {
+    position: absolute; width: 52px; height: 52px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 213, 74, 1) 0%, rgba(255, 213, 74, .55) 40%, transparent 72%);
+    filter: blur(1px);
+    animation: ind-map-spot-you-blink 1.7s ease-in-out infinite;
   }
-  .ind-map-pin-you path { fill: currentColor; }
-  .ind-map-pin-you circle { fill: #3e2200; }
-  @keyframes ind-map-pin-you-pulse {
-    0%, 100% { filter: drop-shadow(0 0 6px rgba(255, 213, 74, .7)); }
-    50% { filter: drop-shadow(0 0 15px rgba(255, 213, 74, 1)); }
-  }
-  .ind-map-caption { font-size: 11px; color: rgba(255, 255, 255, .6); margin: 4px 0 0; }
+  @keyframes ind-map-spot-you-blink { 0%, 100% { opacity: .75; transform: translate(-50%, -50%) scale(.88); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); } }
 </style>
 </head>
 <body>
@@ -333,7 +330,6 @@
         <svg class="ind-map-lines" id="ind-map-lines" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
         <div class="ind-map-dots" id="ind-map-dots"></div>
       </div>
-      <div class="ind-map-caption" id="ind-map-caption"></div>
     </div>
 
     <!-- Landing / celebrate: stays anchored at the bottom, same as the
@@ -350,7 +346,6 @@
         <div class="mic-count" id="daily-count-line"></div>
       </div>
       <div id="phase-celebrate" style="display:none">
-        <div class="mic-title">🇮🇳 Happy Independence Day</div>
         <div class="mic-name-row">
           <input id="name-input" type="text" maxlength="24" placeholder="Your name (optional)" autocomplete="off">
         </div>
@@ -602,32 +597,29 @@ function projectToMapXY(lat, lon) {
   };
 }
 
-// A classic map-pin glyph (teardrop + knockout circle), not a plain dot —
-// reused for every marker at different sizes/colors via CSS classes.
-// Positions are percentages of the 1000x1000 viewBox india-map.svg uses.
-const MAP_PIN_PATH = 'M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20C24 5.4 18.6 0 12 0z';
-function mapPinSVG(x, y, cls) {
-  return '<svg class="ind-map-pin ' + cls + '" viewBox="0 0 24 32" style="left:' + (x / 1000 * 100) + '%;top:' + (y / 1000 * 100) + '%">' +
-    '<path d="' + MAP_PIN_PATH + '"/><circle cx="12" cy="12" r="5"/></svg>';
+// A soft blinking heatmap-style glow spot (radial gradient blob), not a
+// pin — positions are percentages of the 1000x1000 viewBox india-map.svg
+// uses.
+function mapSpotHTML(x, y, cls) {
+  return '<div class="' + cls + '" style="left:' + (x / 1000 * 100) + '%;top:' + (y / 1000 * 100) + '%"></div>';
 }
 
 function renderMap(data) {
   const dotsWrap = document.getElementById('ind-map-dots');
   const linesWrap = document.getElementById('ind-map-lines');
-  const caption = document.getElementById('ind-map-caption');
   if (!dotsWrap || !data) return;
   dotsWrap.innerHTML = '';
   if (linesWrap) linesWrap.innerHTML = '';
 
-  const pinClasses = ['ind-map-pin-orange', 'ind-map-pin-green', 'ind-map-pin-white'];
+  const spotClasses = ['ind-map-spot ind-map-spot-orange', 'ind-map-spot ind-map-spot-green'];
   const hub = data.dot ? projectToMapXY(data.dot.lat, data.dot.lon) : null;
   let html = '';
   (data.dots || []).forEach((d, i) => {
     const p = projectToMapXY(d.lat, d.lon);
-    html += mapPinSVG(p.x, p.y, pinClasses[i % 3]);
-    // Soft glowing "network" line from each pin back to your own hoist —
+    html += mapSpotHTML(p.x, p.y, spotClasses[i % 2]);
+    // Soft glowing "network" line from each spot back to your own hoist —
     // purely decorative, matches the connected-network look, skipped
-    // until we actually have a "you" pin to connect everything to.
+    // until we actually have a "you" spot to connect everything to.
     if (linesWrap && hub) {
       const midX = (p.x + hub.x) / 2, midY = Math.min(p.y, hub.y) - 16;
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -637,12 +629,7 @@ function renderMap(data) {
     }
   });
   dotsWrap.innerHTML = html;
-  if (hub) dotsWrap.insertAdjacentHTML('beforeend', mapPinSVG(hub.x, hub.y, 'ind-map-pin-you'));
-
-  if (caption) {
-    caption.textContent = data.dot ? 'Your flag, among flags raised across India'
-      : ((data.dots || []).length ? 'Flags raised across India' : '');
-  }
+  if (hub) dotsWrap.insertAdjacentHTML('beforeend', mapSpotHTML(hub.x, hub.y, 'ind-map-spot-you'));
 }
 
 let lastHoistResult = null;
