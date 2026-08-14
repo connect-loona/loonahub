@@ -3561,10 +3561,12 @@
     }
     .ind-flag-svg { width: 100%; height: 100%; display: block; }
     /* Flypast — triggered once the flag finishes unfurling, see spawnJets().
-       Each jet is a small delta-wing silhouette flying left→right, with a
-       tricolor smoke trail that grows behind it in lockstep (same duration/
-       timing-function on both the icon's `left` and the trail's scaleX, so
-       the trail's leading edge tracks the jet the whole way across). */
+       Each jet follows a gently wavy flight path (CSS motion path, built
+       per-jet in real pixels at spawn time — same "measure the real box,
+       don't guess with %" approach used for the petal-fall fix) instead of
+       a dead-straight line. Three parallel tricolour strokes are "drawn"
+       behind it along that same path via stroke-dashoffset, so the smoke
+       actually traces the curve instead of just scaling a flat rectangle. */
     .ind-jets {
       position: absolute;
       inset: 0;
@@ -3572,71 +3574,32 @@
       pointer-events: none;
       z-index: 4;
     }
-    .ind-jet-group { position: absolute; left: 0; width: 100%; }
-    .ind-jet-trail {
-      position: absolute;
-      left: 0;
-      top: 50%;
-      width: 100%;
-      height: 11px;
-      transform: translateY(-50%) scaleX(0);
-      transform-origin: left center;
-      background: linear-gradient(to bottom, #FF9933 0 33%, #FFFFFF 33% 66%, #138808 66% 100%);
-      /* Soft dissipating smoke instead of a flat painted bar — a mask that
-         fades the OLDEST part of the trail (the end furthest behind the
-         jet, i.e. where it started) toward transparent, like real smoke
-         thinning out the longer it's had to disperse, while the part just
-         released stays solid. Blur is intentionally light — 2.5px on the
-         previous 7px-tall trail blended the three colour bands into a
-         washed-out beige blur, losing the tricolour entirely; taller (11px)
-         plus a much lighter blur keeps the bands readable while still
-         softening the hard edges. */
-      opacity: .68;
-      filter: blur(.8px);
-      mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, .55) 25%, rgba(0, 0, 0, .95) 100%);
-      -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, .55) 25%, rgba(0, 0, 0, .95) 100%);
-      animation-name: ind-jet-trail-grow;
-      animation-timing-function: linear;
-      animation-fill-mode: forwards;
+    .ind-jets svg.ind-jet-trails { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .ind-jet-trail-path {
+      fill: none;
+      stroke-width: 3.2;
+      stroke-linecap: round;
+      opacity: .74;
+      filter: blur(.5px);
+    }
+    @keyframes ind-jet-trail-draw {
+      to { stroke-dashoffset: 0; }
     }
     .ind-jet-icon {
       position: absolute;
-      top: 50%;
-      left: -6%;
+      top: 0;
+      left: 0;
       width: 30px;
-      transform: translateY(-50%);
       filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .35));
-      animation-name: ind-jet-fly;
+      animation-name: ind-jet-fly-path;
       animation-timing-function: linear;
       animation-fill-mode: forwards;
+      offset-rotate: 0deg;
     }
     .ind-jet-icon svg { display: block; width: 100%; height: auto; }
-    @keyframes ind-jet-trail-grow {
-      from { transform: translateY(-50%) scaleX(0); }
-      to { transform: translateY(-50%) scaleX(1); }
-    }
-    @keyframes ind-jet-fly {
-      from { left: -6%; }
-      to { left: 106%; }
-    }
-    /* Right→left formation — mirror of the above rather than a separate
-       trail keyframe: reusing ind-jet-trail-grow and just flipping
-       transform-origin makes the trail grow backward from the right edge
-       instead, which is all that differs visually. The icon needs an
-       actual horizontal flip (scaleX(-1)) so its nose still points the
-       way it's travelling. */
-    .ind-jet-group.ind-jet-rtl .ind-jet-trail {
-      transform-origin: right center;
-      mask-image: linear-gradient(to left, transparent 0%, rgba(0, 0, 0, .55) 25%, rgba(0, 0, 0, .95) 100%);
-      -webkit-mask-image: linear-gradient(to left, transparent 0%, rgba(0, 0, 0, .55) 25%, rgba(0, 0, 0, .95) 100%);
-    }
-    .ind-jet-group.ind-jet-rtl .ind-jet-icon {
-      transform: translateY(-50%) scaleX(-1);
-      animation-name: ind-jet-fly-rtl;
-    }
-    @keyframes ind-jet-fly-rtl {
-      from { left: 106%; }
-      to { left: -6%; }
+    @keyframes ind-jet-fly-path {
+      from { offset-distance: 0%; }
+      to { offset-distance: 100%; }
     }
     .ind-petals {
       position: absolute;
@@ -15978,57 +15941,121 @@
         setTimeout(() => { btn.disabled = false; btn.textContent = 'Hoist Again'; }, 5800);
       }, climbDuration * 1000);
     }
-    // A small formation of delta-wing jets flying left→right once the flag
-    // is fully up, each trailing a tricolour smoke streak (see .ind-jet-trail
-    // — its scaleX animation runs the same duration/easing as the icon's
-    // `left` animation so the trail's edge tracks the jet the whole way
-    // across, rather than the two drifting out of sync).
+    // A small formation of delta-wing jets flying a gentle swirling/wavy
+    // path once the flag is fully up (not a dead-straight line — see
+    // buildWavyPath()), each trailing three tricolour smoke strokes drawn
+    // along that same curve via stroke-dashoffset (see .ind-jet-trail-path)
+    // so the smoke visibly follows the swirl instead of a flat rectangle
+    // scaling in a straight line.
     // Two 3-jet formations — one left→right, one right→left — timed to
     // cross paths mid-flight rather than a single line of jets all going
     // the same way. Lanes are all within the top 12% of the scene,
     // comfortably above where the flag ends up (its hoisted position
     // varies with viewport height, but even on a tall screen it doesn't
     // reach past ~25-30% from the top) so they fly over it, not through it.
+    //
+    // Path geometry is built in real pixels off the container's actual
+    // rendered size (same "measure it, don't guess with %" rule the
+    // petal-fall and mobile full-bleed fixes both apply) using a simple
+    // "smooth quadratic through sampled points" trick: sample N points
+    // along a sine wave from start to end, then connect them with Q/T
+    // commands using each consecutive midpoint as the curve target. No
+    // trig-heavy tangent math needed, just enough points for a natural
+    // S-curve.
+    function buildWavyPoints(xStart, xEnd, baseY, amp, waves, phase, n) {
+      const pts = [];
+      for (let i = 0; i <= n; i++) {
+        const t = i / n;
+        const x = xStart + (xEnd - xStart) * t;
+        // sin(t*PI) envelope tapers the wave to ~0 right at the spawn/exit
+        // edges, so the jet doesn't visibly jump sideways as it enters.
+        const y = baseY + Math.sin(t * Math.PI * waves + phase) * amp * Math.sin(t * Math.PI);
+        pts.push({ x, y });
+      }
+      return pts;
+    }
+    function pathFromPoints(pts) {
+      if (pts.length < 2) return '';
+      let d = 'M ' + pts[0].x.toFixed(1) + ',' + pts[0].y.toFixed(1);
+      for (let i = 1; i < pts.length - 1; i++) {
+        const mx = (pts[i].x + pts[i + 1].x) / 2;
+        const my = (pts[i].y + pts[i + 1].y) / 2;
+        d += ' Q ' + pts[i].x.toFixed(1) + ',' + pts[i].y.toFixed(1) + ' ' + mx.toFixed(1) + ',' + my.toFixed(1);
+      }
+      const last = pts[pts.length - 1];
+      d += ' T ' + last.x.toFixed(1) + ',' + last.y.toFixed(1);
+      return d;
+    }
     function spawnJets(container) {
       if (!container) return;
       container.innerHTML = '';
       const NS = 'http://www.w3.org/2000/svg';
+      const rect = container.getBoundingClientRect();
+      const W = Math.max(1, rect.width), H = Math.max(1, rect.height);
+      const trailSvg = document.createElementNS(NS, 'svg');
+      trailSvg.setAttribute('class', 'ind-jet-trails');
+      trailSvg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+      container.appendChild(trailSvg);
       // Each trio shares one duration/delay — flying in genuine lockstep
       // (a real formation) rather than a staggered sequence that just
-      // looked like 3 separate flybys. Slower too (was 3.2-3.4s, now ~7s)
-      // so the pass actually reads instead of blurring past.
-      const LTR_DURATION = 7, LTR_DELAY = 0;
-      const RTL_DURATION = 7.2, RTL_DELAY = 2.4; // starts partway into the LTR pass so the two formations visibly cross
+      // looked like 3 separate flybys.
+      const LTR_DURATION = 8, LTR_DELAY = 0;
+      const RTL_DURATION = 8.4, RTL_DELAY = 2.4; // starts partway into the LTR pass so the two formations visibly cross
       const formation = [
-        { top: '3%', duration: LTR_DURATION, delay: LTR_DELAY, rtl: false },
-        { top: '6.5%', duration: LTR_DURATION, delay: LTR_DELAY, rtl: false },
-        { top: '10%', duration: LTR_DURATION, delay: LTR_DELAY, rtl: false },
-        { top: '4.5%', duration: RTL_DURATION, delay: RTL_DELAY, rtl: true },
-        { top: '8%', duration: RTL_DURATION, delay: RTL_DELAY, rtl: true },
-        { top: '11.5%', duration: RTL_DURATION, delay: RTL_DELAY, rtl: true }
+        { topPct: 3, duration: LTR_DURATION, delay: LTR_DELAY, rtl: false, phase: 0 },
+        { topPct: 6.5, duration: LTR_DURATION, delay: LTR_DELAY, rtl: false, phase: .4 },
+        { topPct: 10, duration: LTR_DURATION, delay: LTR_DELAY, rtl: false, phase: .8 },
+        { topPct: 4.5, duration: RTL_DURATION, delay: RTL_DELAY, rtl: true, phase: .3 },
+        { topPct: 8, duration: RTL_DURATION, delay: RTL_DELAY, rtl: true, phase: .7 },
+        { topPct: 11.5, duration: RTL_DURATION, delay: RTL_DELAY, rtl: true, phase: 1.1 }
       ];
+      const bandColors = ['#FF9933', '#FFFFFF', '#138808'];
+      const bandGap = 4.5;
+      // A clearly-visible wave, not a huge diagonal sweep — capped in
+      // absolute px regardless of scene height so tall viewports don't
+      // turn this into jets swooping halfway down the screen.
+      const amp = Math.min(85, Math.max(34, H * 0.06));
+      const waves = 2.2;
       formation.forEach(jet => {
-        const group = document.createElement('div');
-        group.className = 'ind-jet-group' + (jet.rtl ? ' ind-jet-rtl' : '');
-        group.style.top = jet.top;
+        const baseY = H * jet.topPct / 100 + amp; // nudge lanes down so the upward half of the swirl doesn't clip offscreen
+        const xStart = jet.rtl ? W * 1.06 : -W * 0.06;
+        const xEnd = jet.rtl ? -W * 0.06 : W * 1.06;
+        const centerPts = buildWavyPoints(xStart, xEnd, baseY, amp, waves, jet.phase, 14);
 
-        const trail = document.createElement('div');
-        trail.className = 'ind-jet-trail';
-        trail.style.animationDuration = jet.duration + 's';
-        trail.style.animationDelay = jet.delay + 's';
+        // Three parallel tricolour strokes, offset a few px perpendicular
+        // (approximated as a constant Y-offset, valid since the path is
+        // mostly horizontal) so together they read as one banded trail.
+        bandColors.forEach((color, bi) => {
+          const bandOffset = (bi - 1) * bandGap;
+          const bandPts = centerPts.map(p => ({ x: p.x, y: p.y + bandOffset }));
+          const path = document.createElementNS(NS, 'path');
+          path.setAttribute('class', 'ind-jet-trail-path');
+          path.setAttribute('d', pathFromPoints(bandPts));
+          path.setAttribute('stroke', color);
+          trailSvg.appendChild(path);
+          const len = path.getTotalLength();
+          path.style.strokeDasharray = len;
+          path.style.strokeDashoffset = len;
+          path.style.animation = 'ind-jet-trail-draw ' + jet.duration + 's linear ' + jet.delay + 's forwards';
+        });
 
         const icon = document.createElement('div');
         icon.className = 'ind-jet-icon';
+        icon.style.offsetPath = "path('" + pathFromPoints(centerPts) + "')";
         icon.style.animationDuration = jet.duration + 's';
         icon.style.animationDelay = jet.delay + 's';
+        // No manual centering transform needed — offset-anchor defaults to
+        // the box's transform-origin (center), so offset-path already
+        // lands the icon's center exactly on the path point. Adding a
+        // translate(-50%,-50%) here double-shifts it off by half the
+        // icon's own size (caught via a scratch-SVG getPointAtLength()
+        // cross-check against the rendered rect during testing).
+        if (jet.rtl) icon.style.transform = 'scaleX(-1)';
         const svg = document.createElementNS(NS, 'svg');
         svg.setAttribute('viewBox', '0 0 60 24');
         svg.innerHTML = '<path d="M0,12 L38,9 L46,2 L52,2 L48,10 L60,12 L48,14 L52,22 L46,22 L38,15 Z" fill="#d8d8d8"/><path d="M18,10 L18,4 L23,9 Z" fill="#a8a8a8"/><path d="M18,14 L18,20 L23,15 Z" fill="#a8a8a8"/>';
         icon.appendChild(svg);
-
-        group.appendChild(trail);
-        group.appendChild(icon);
-        container.appendChild(group);
+        container.appendChild(icon);
       });
       const maxLife = Math.max(...formation.map(j => j.duration + j.delay)) * 1000 + 400;
       setTimeout(() => { if (container) container.innerHTML = ''; }, maxLife);
@@ -16190,6 +16217,34 @@
       if (!scene) return;
       const topbarH = topbar ? topbar.getBoundingClientRect().height : 0;
       scene.style.height = Math.max(480, window.innerHeight - topbarH) + 'px';
+
+      // Full-bleed WIDTH in real measured px, not CSS `100vw` — on mobile
+      // Safari (and some other mobile browsers) plain `vw` units resolve
+      // against the browser's "large viewport" (as if the URL bar were
+      // fully collapsed), which is wider than what's actually visible
+      // while the bar is showing. That silently pushed everything
+      // anchored to the scene's right edge (the India Gate) past the true
+      // right edge of the screen — not actually "gone", just rendered
+      // off-canvas. Neutralize the CSS bleed, measure the scene's true
+      // in-flow position, then redo the bleed math against
+      // `document.documentElement.clientWidth` (always the CURRENT,
+      // correct visible width) — same reasoning as sizing height off
+      // window.innerHeight above instead of a plain 100vh.
+      scene.style.width = 'auto';
+      scene.style.left = 'auto';
+      scene.style.right = 'auto';
+      scene.style.marginLeft = '0';
+      scene.style.marginRight = '0';
+      void scene.offsetWidth; // force reflow so the rect below reflects the neutralized state
+      const natural = scene.getBoundingClientRect();
+      const viewportW = document.documentElement.clientWidth;
+      const bleedLeft = natural.left;
+      const bleedRight = viewportW - natural.right;
+      scene.style.width = (natural.width + bleedLeft + bleedRight) + 'px';
+      scene.style.marginLeft = (-bleedLeft) + 'px';
+      scene.style.marginRight = (-bleedRight) + 'px';
+      scene.style.left = '0';
+      scene.style.right = 'auto';
     }
     window.addEventListener('resize', () => {
       const page = document.getElementById('page-independence');
