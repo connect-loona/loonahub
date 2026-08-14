@@ -85,7 +85,7 @@
     75% { opacity: .9; }
     100% { transform: translate(-50%, -50%) rotate(var(--angle)) translateX(var(--fw-dist, 60px)); opacity: 0; }
   }
-  .ind-birds { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+  .ind-birds { position: absolute; inset: 0; z-index: 6; pointer-events: none; }
   .ind-bird {
     position: absolute; font-size: 15px; opacity: .85;
     animation-name: ind-bird-fly; animation-timing-function: ease-in-out;
@@ -142,7 +142,7 @@
     50% { transform: skewY(-4deg) scaleY(.97); }
   }
   .ind-flag-svg { width: 100%; height: 100%; display: block; }
-  .ind-jets { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 4; }
+  .ind-jets { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 6; }
   /* translate(), not offset-path — offset-path/offset-distance support is
      spottier in the in-app WebViews this microsite gets opened in from a
      shared link (vs. a full modern desktop/mobile browser for the
@@ -167,7 +167,7 @@
     88% { opacity: 1; }
     100% { transform: translate(var(--jf-x1), var(--jf-y1)) rotate(var(--jf-rot, 0deg)) scaleX(var(--jf-flip, 1)); opacity: 0; }
   }
-  .ind-petals { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .ind-petals { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 6; }
   .ind-petal {
     position: absolute; top: -8%;
     animation-name: ind-petal-fall; animation-timing-function: ease-in; animation-fill-mode: forwards;
@@ -208,17 +208,13 @@
 
   /* India map reveal — lives directly IN the scene (no modal/backdrop
      dimming everything else). A commissioned hi-res illustration (sky,
-     sun, jets, birds, petals, and the state-boundary map all pre-rendered
-     as one piece) fades/scales in, replacing the live scene entirely —
-     the live sun/jets/petals/birds/gate/flagpole/ground all fade out
-     since the illustration already has its own versions of all of them,
-     so showing both at once would just duplicate/clash. */
-  .ind-sun, .ind-jets, .ind-petals, .ind-birds,
-  .ind-gate, .ind-flagpole, .ind-ground { transition: opacity .9s ease; }
+     sun, and the state-boundary map pre-rendered as one piece) fades/
+     scales in. The live sun/gate/flagpole/ground fade out since the
+     illustration already has its own sun and no room for the gate/pole —
+     but jets/petals/birds stay live and keep animating over the top,
+     since this illustration doesn't include them itself. */
+  .ind-sun, .ind-gate, .ind-flagpole, .ind-ground { transition: opacity .9s ease; }
   .ind-scene.ind-scene-celebrating .ind-sun,
-  .ind-scene.ind-scene-celebrating .ind-jets,
-  .ind-scene.ind-scene-celebrating .ind-petals,
-  .ind-scene.ind-scene-celebrating .ind-birds,
   .ind-scene.ind-scene-celebrating .ind-gate,
   .ind-scene.ind-scene-celebrating .ind-flagpole,
   .ind-scene.ind-scene-celebrating .ind-ground { opacity: 0; }
@@ -240,12 +236,12 @@
   .ind-scene.ind-scene-celebrating .ind-map-screen { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   .ind-map-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; display: block; user-select: none; pointer-events: none; }
 
-  /* Commissioned illustration (assets/independence-day/celebration-map.jpg)
+  /* Commissioned illustration (assets/independence-day/celebration-map.svg)
      — live heat-spot markers are positioned as percentages calibrated
-     against this specific image (verified against ~13 known cities, e.g.
-     Mumbai lands exactly on the artwork's own Mumbai marker). See
-     projectToMapXY() in the script for the same math. Swapping this image
-     needs the calibration redone. */
+     against this map's underlying generation (verified against ~13 known
+     cities, e.g. Mumbai lands right on the coast where it belongs). See
+     projectToMapXY() in the script for the same math. Swapping to a
+     differently-composed image needs the calibration redone. */
   .ind-map-dots { position: absolute; inset: 0; }
   /* Soft blinking heatmap-style glow spots (radial gradient, blurred
      edges), not pins — saffron and green, alternating per hoist. */
@@ -331,7 +327,7 @@
          and scales in via .ind-scene-celebrating on the parent (see CSS),
          replacing the live sky/jets/petals with this pre-rendered piece. -->
     <div class="ind-map-screen" id="ind-map-screen">
-      <img class="ind-map-bg" src="/assets/independence-day/celebration-map.jpg?v=1" alt="" aria-hidden="true">
+      <img class="ind-map-bg" src="/assets/independence-day/celebration-map.svg?v=2" alt="" aria-hidden="true">
       <div class="ind-map-dots" id="ind-map-dots"></div>
     </div>
 
@@ -585,21 +581,28 @@ function refreshDailyCount() {
 refreshDailyCount();
 setInterval(refreshDailyCount, 6000);
 
-// Calibrated directly against celebration-map.jpg (not a generic India
-// bounding box) — fit from two confidently-identified reference points on
-// this specific artwork (Mumbai's own baked-in marker at 19.1%,55.6%, and
-// Kanyakumari's tip at the southern point of the outline) and verified
-// against ~13 known cities all landing in the correct part of the
-// illustration. This is a hand-fitted approximation of a stylized
-// illustration, not a precise cartographic projection — swapping the
-// image needs this redone (see the matching CSS comment on .ind-map-bg).
+// Exact this time, not hand-fitted — celebration-map.svg's <g id="india-map">
+// uses the identical Simplemaps path data independence-hoist.js's IN_BOUNDS
+// comment used to reference, positioned via a known transform
+// (translate(125 430) scale(0.83)) inside the SVG's 1080x1920 viewBox. So:
+// 1) project lat/lon into that map's own 1000x1000 space, the same
+//    getBBox-measured bounding box (x 99.9, y 45.5, w 800.2, h 909.0) used
+//    when this map was first calibrated and verified against ~14 cities;
+// 2) apply the SVG's transform to land in the 1080x1920 canvas; 3) convert
+// to a percentage of that canvas, which is exactly what .ind-map-screen's
+// box represents (see its CSS comment). Swapping to a different map image
+// needs this redone against its own transform/bounding box.
 function projectToMapXY(lat, lon) {
-  return { x: -163.77 + 2.509 * lon, y: 98.28 - 2.237 * lat };
+  const mapX = 99.9 + (lon - 68.0) / (97.4 - 68.0) * 800.2;
+  const mapY = 45.5 + (37.6 - lat) / (37.6 - 6.5) * 909.0;
+  const canvasX = 125 + mapX * 0.83;
+  const canvasY = 430 + mapY * 0.83;
+  return { x: canvasX / 1080 * 100, y: canvasY / 1920 * 100 };
 }
 
 // A soft blinking heatmap-style glow spot (radial gradient blob) —
 // positions are percentages of the .ind-map-screen box (which is sized to
-// celebration-map.jpg's own aspect ratio, so these line up with the art).
+// celebration-map.svg's own aspect ratio, so these line up with the art).
 function mapSpotHTML(xPct, yPct, cls) {
   return '<div class="' + cls + '" style="left:' + xPct + '%;top:' + yPct + '%"></div>';
 }
