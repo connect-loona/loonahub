@@ -198,6 +198,32 @@
   }
   .mic-name-row input::placeholder { color: rgba(255, 255, 255, .5); }
   .mic-name-row input:focus { border-color: #ff9457; }
+
+  /* Popup shown once the flag finishes unfurling — replaces the earlier
+     "swap the bottom panel's content in place" approach with an actual
+     modal over a backdrop, so the celebration reads as a distinct moment
+     rather than the landing panel just quietly relabeling itself. */
+  .mic-modal-backdrop {
+    position: fixed; inset: 0; z-index: 30;
+    background: rgba(5, 2, 1, .6);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px calc(20px + env(safe-area-inset-right, 0px)) calc(20px + env(safe-area-inset-bottom, 0px)) calc(20px + env(safe-area-inset-left, 0px));
+    animation: mic-backdrop-in .25s ease both;
+  }
+  @keyframes mic-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+  .mic-modal-card {
+    background: linear-gradient(165deg, #1a0d06, #0c0502);
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 22px;
+    padding: 30px 26px calc(26px + env(safe-area-inset-bottom, 0px));
+    max-width: 340px; width: 100%;
+    text-align: center;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, .5);
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    animation: mic-card-in .35s cubic-bezier(.2, .9, .3, 1.2) both;
+  }
+  @keyframes mic-card-in { from { opacity: 0; transform: scale(.85) translateY(14px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+  .mic-modal-card .mic-title { font-size: 24px; }
 </style>
 </head>
 <body>
@@ -257,8 +283,9 @@
     <div class="ind-petals" id="ind-petals"></div>
     <audio id="ind-vande-mataram" src="/assets/independence-day/vande-mataram.mp3" preload="auto"></audio>
 
+    <!-- Landing: stays anchored at the bottom, same as the dashboard's
+         "Unfurl the Flag" control, until the flag is hoisted. -->
     <div class="mic-controls" id="mic-controls">
-      <!-- Phase 1: landing -->
       <div id="phase-landing">
         <div class="mic-referred" id="referred-line" style="display:none"></div>
         <div class="mic-title">Hoist the flag. 🇮🇳</div>
@@ -268,20 +295,22 @@
           <span id="hoist-btn-label">Unfurl the Flag</span>
         </button>
       </div>
+    </div>
+  </div>
 
-      <!-- Phase 2: celebration / share -->
-      <div id="phase-share" style="display:none">
-        <div class="mic-title">🇮🇳 Happy Independence Day</div>
-        <div class="mic-sub" id="rank-line">You raised the flag. Now pass it on.</div>
-        <div class="mic-name-row">
-          <input id="name-input" type="text" maxlength="24" placeholder="Your name (optional)" autocomplete="off">
-        </div>
-        <div class="mic-share-actions">
-          <button class="btn btn-primary" id="share-btn">Share your hoist</button>
-          <button class="btn btn-secondary" id="again-btn">Hoist again</button>
-        </div>
-        <div class="mic-share-status" id="share-status"></div>
+  <!-- Celebration popup: appears once the flag is fully unfurled, instead
+       of the bottom panel just relabeling itself in place. -->
+  <div class="mic-modal-backdrop" id="share-modal" style="display:none">
+    <div class="mic-modal-card">
+      <div class="mic-title">🇮🇳 Happy Independence Day</div>
+      <div class="mic-name-row">
+        <input id="name-input" type="text" maxlength="24" placeholder="Your name (optional)" autocomplete="off">
       </div>
+      <div class="mic-share-actions">
+        <button class="btn btn-primary" id="share-btn">Share your hoist</button>
+        <button class="btn btn-secondary" id="again-btn">Hoist again</button>
+      </div>
+      <div class="mic-share-status" id="share-status"></div>
     </div>
   </div>
 
@@ -477,18 +506,16 @@ fetch(HOIST_ENDPOINT).then(r => r.json()).then(d => {
   el.textContent = d.count > 0 ? d.count.toLocaleString() + ' flag' + (d.count === 1 ? '' : 's') + ' hoisted today' : '';
 }).catch(() => {});
 
-function ordinal(n) {
-  const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
-  return n.toLocaleString() + (s[(v - 20) % 10] || s[v] || s[0]);
-}
 function recordHoist() {
+  // Still records the hoist (daily count + referral log) even though the
+  // popup only shows "Happy Independence Day" now, not a rank sentence —
+  // keeps the "X flags hoisted today" line on landing accurate for the
+  // next visitor.
   fetch(HOIST_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ from: referrerSlug || null })
-  }).then(r => r.json()).then(d => {
-    document.getElementById('rank-line').textContent = "You're the " + ordinal(d.rank) + " person to raise the flag today. Now pass it on.";
-  }).catch(() => { /* rank line already has a sensible default */ });
+  }).catch(() => {});
 }
 
 // ── Hoist on click, same as the dashboard's "Unfurl the Flag" button ──
@@ -513,9 +540,13 @@ function startClimb() {
     spawnJets(document.getElementById('ind-jets'));
     spawnFireworks(document.getElementById('ind-fireworks'));
     recordHoist();
-    document.getElementById('phase-landing').style.display = 'none';
-    document.getElementById('phase-share').style.display = '';
-    prepareStoryAssets();
+    // Give the unfurl itself a beat to actually read before the popup
+    // covers the scene — same 1.3s pause the earlier version used.
+    setTimeout(() => {
+      document.getElementById('mic-controls').style.display = 'none';
+      document.getElementById('share-modal').style.display = 'flex';
+      prepareStoryAssets();
+    }, 1300);
   }, climbDuration * 1000);
 }
 hoistBtn.addEventListener('click', () => {
@@ -527,8 +558,8 @@ document.getElementById('again-btn').addEventListener('click', () => {
   // Same quick-drop-then-climb-again as the dashboard's "Hoist Again" —
   // a real, visible drop (short transition) before the slow climb restarts,
   // rather than silently snapping back to the bottom.
-  document.getElementById('phase-share').style.display = 'none';
-  document.getElementById('phase-landing').style.display = '';
+  document.getElementById('share-modal').style.display = 'none';
+  document.getElementById('mic-controls').style.display = '';
   hoistBtn.disabled = true;
   const dropDuration = .5;
   hoistLabel.textContent = 'Lowering…';
