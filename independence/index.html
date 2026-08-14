@@ -252,13 +252,22 @@
      artwork's actual pixel content. */
   .ind-map-screen {
     position: absolute; left: 50%; top: 50%; z-index: 5;
-    width: min(100%, calc(100dvh * 0.5625));
-    aspect-ratio: 1080 / 1920;
+    width: min(88%, calc(100dvh * 0.5));
     max-height: 100%;
+    display: flex; flex-direction: column; align-items: center;
     transform: translate(-50%, -50%) scale(1);
     opacity: 0; pointer-events: none;
     transition: opacity 1.1s ease .15s, transform 1.1s cubic-bezier(.22, .8, .28, 1.05) .15s;
   }
+  /* The image itself lives in its own aspect-ratio-locked inner box — the
+     caption below it (see .ind-map-caption) sits outside that box. Both
+     divisors here are deliberately smaller than the image's true 0.5625
+     ratio/100% width (88% instead) so the image renders a bit smaller than
+     it otherwise would, in BOTH the width-constrained case (most phones —
+     the 88% cap actually bites) and the height-constrained case (0.5 vs.
+     0.5625) — leaving real headroom for the caption's height instead of
+     the group overflowing .ind-scene on shorter viewports. */
+  .ind-map-imgwrap { position: relative; width: 100%; aspect-ratio: 1080 / 1920; flex-shrink: 0; }
   /* Rests at an exact, uncropped fit (scale 1) — a bigger overshoot
      (previously 1.22) was tried, but the map's own side margins are only
      ~8-10%, so scaling past ~1.1 crops straight into the landmass on
@@ -271,6 +280,9 @@
      actual rendered geometry, so if that box drifts, so does the marker. */
   .ind-scene.ind-scene-celebrating .ind-map-screen { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   .ind-map-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; display: block; user-select: none; pointer-events: none; }
+  .ind-map-caption { margin-top: 14px; padding: 0 16px; text-align: center; flex-shrink: 0; }
+  .ind-map-caption-sanskrit { font-size: 15px; font-weight: 600; color: #ffe6b3; text-shadow: 0 2px 8px rgba(0, 0, 0, .5); margin-bottom: 4px; line-height: 1.4; }
+  .ind-map-caption-en { font-size: 12px; color: rgba(255, 255, 255, .78); }
 
   /* Commissioned illustration (assets/independence-day/celebration-map.jpg)
      — a pre-rendered raster now, not the earlier live SVG-loaded-as-<img>,
@@ -375,8 +387,14 @@
          and scales in via .ind-scene-celebrating on the parent (see CSS),
          replacing the live sky/jets/petals with this pre-rendered piece. -->
     <div class="ind-map-screen" id="ind-map-screen">
-      <img class="ind-map-bg" src="/assets/independence-day/celebration-map.jpg?v=3" alt="" aria-hidden="true">
-      <div class="ind-map-dots" id="ind-map-dots"></div>
+      <div class="ind-map-imgwrap">
+        <img class="ind-map-bg" src="/assets/independence-day/celebration-map.jpg?v=3" alt="" aria-hidden="true">
+        <div class="ind-map-dots" id="ind-map-dots"></div>
+      </div>
+      <div class="ind-map-caption">
+        <div class="ind-map-caption-sanskrit">जननी जन्मभूमिश्च स्वर्गादपि गरीयसी।</div>
+        <div class="ind-map-caption-en">One flag. For the land we all call home.</div>
+      </div>
     </div>
 
     <!-- Landing / celebrate: stays anchored at the bottom, same as the
@@ -667,8 +685,10 @@ function projectToMapXY(lat, lon) {
 }
 
 // A soft blinking heatmap-style glow spot (radial gradient blob) —
-// positions are percentages of the .ind-map-screen box (which is sized to
-// celebration-map.svg's own aspect ratio, so these line up with the art).
+// positions are percentages of the .ind-map-imgwrap box (aspect-ratio
+// locked to celebration-map.jpg's own 1080x1920, so these line up with
+// the art regardless of .ind-map-screen's own size, which now also
+// includes the caption below the image).
 function mapSpotHTML(xPct, yPct, cls) {
   return '<div class="' + cls + '" style="left:' + xPct + '%;top:' + yPct + '%"></div>';
 }
