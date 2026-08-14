@@ -208,19 +208,22 @@
 
   /* India map reveal — lives directly IN the scene (no modal/backdrop
      dimming everything else). It fades and scales in over the existing
-     sky/jets/petals/birds, so the celebration reads as the same continuous
-     view pulling back to the national scale, not a card popping up over
-     it. The India Gate silhouette fades out to make room for it. */
-  .ind-gate { transition: opacity .9s ease; }
-  .ind-scene.ind-scene-celebrating .ind-gate { opacity: 0; }
+     sky/jets/petals/birds/sun/gradient, so the celebration reads as the
+     same continuous view pulling back to the national scale, not a card
+     popping up over it. The India Gate, flagpole, and ground all fade out
+     to give the map the whole page instead of competing with it. */
+  .ind-gate, .ind-flagpole, .ind-ground { transition: opacity .9s ease; }
+  .ind-scene.ind-scene-celebrating .ind-gate,
+  .ind-scene.ind-scene-celebrating .ind-flagpole,
+  .ind-scene.ind-scene-celebrating .ind-ground { opacity: 0; }
   .ind-map-screen {
-    position: absolute; left: 50%; bottom: 25%; z-index: 5;
-    width: min(82%, 300px);
-    transform: translate(-50%, 16px) scale(.82);
+    position: absolute; left: 50%; top: 50%; z-index: 5;
+    width: min(92%, 480px);
+    transform: translate(-50%, -46%) scale(.85);
     opacity: 0; pointer-events: none;
     transition: opacity 1.1s ease .15s, transform 1.1s cubic-bezier(.22, .8, .28, 1.05) .15s;
   }
-  .ind-scene.ind-scene-celebrating .ind-map-screen { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  .ind-scene.ind-scene-celebrating .ind-map-screen { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 
   /* Real India map (Simplemaps, free commercial use, state/UT boundaries),
      not the earlier hand-drawn approximation — already styled to match this
@@ -678,23 +681,22 @@ function startClimb() {
     spawnJets(document.getElementById('ind-jets'));
     spawnFireworks(document.getElementById('ind-fireworks'));
     const hoistPromise = recordHoist();
-    // Give the unfurl AND the petals/jets/fireworks a real beat to read
-    // before the map takes over — 11s so the flag is fully settled and the
-    // celebration (petals falling, jets crossing, fireworks) has actually
-    // played out first. The camera "pans out" (India Gate fades, the map
-    // fades/scales in over the same live scene — jets and petals keep
-    // going right through it, nothing is covered by a popup) a beat before
-    // the map itself finishes appearing, so it reads as one continuous
-    // pull-back to the national scale.
+    // The camera "pans out" right as the jets finish crossing the screen
+    // (their longest flight + delay is 7.8s from this point — see
+    // spawnJets) — the India Gate, flagpole, and ground fade out and the
+    // map fades/scales in to fill the page over the same live sky/sun/
+    // petals, so it reads as one continuous pull-back to the national
+    // scale timed to the flypast finishing, not an arbitrary wait.
+    const jetsDoneAt = 7800;
     setTimeout(() => {
       document.getElementById('ind-scene').classList.add('ind-scene-celebrating');
-    }, 9700);
+    }, jetsDoneAt);
     setTimeout(() => {
       document.getElementById('phase-landing').style.display = 'none';
       document.getElementById('phase-celebrate').style.display = '';
       hoistPromise.then((d) => renderMap(d || lastHoistResult));
       prepareStoryAssets();
-    }, 11000);
+    }, jetsDoneAt + 1300);
   }, climbDuration * 1000);
 }
 hoistBtn.addEventListener('click', () => {

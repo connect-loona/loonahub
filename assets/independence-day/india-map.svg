@@ -25,10 +25,14 @@
     </filter>
 
     <style>
+      /* Outline only, no fill — shown full-page over the scene's own sky
+         gradient (sun, jets, petals all stay visible through it), so the
+         map reads as merged into the existing theme rather than a separate
+         dark shape sitting on top of it. See independence/index.html. */
       #features path {
-        fill: url(#indiaFill);
-        stroke: #F6B287;
-        stroke-width: 1.35;
+        fill: none;
+        stroke: #FFB35C;
+        stroke-width: 2.1;
         stroke-linecap: round;
         stroke-linejoin: round;
         vector-effect: non-scaling-stroke;
