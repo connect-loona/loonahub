@@ -254,11 +254,14 @@
     width: min(100%, calc(100dvh * 0.5625));
     aspect-ratio: 1080 / 1920;
     max-height: 100%;
-    transform: translate(-50%, -50%) scale(.92);
+    transform: translate(-50%, -50%) scale(1);
     opacity: 0; pointer-events: none;
     transition: opacity 1.1s ease .15s, transform 1.1s cubic-bezier(.22, .8, .28, 1.05) .15s;
   }
-  .ind-scene.ind-scene-celebrating .ind-map-screen { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  /* Scaled up past the letterboxed box's own edges (clipped by .ind-scene's
+     overflow:hidden) rather than just filling it exactly — reads as
+     bigger/more immersive than resting at a perfect, uncropped fit. */
+  .ind-scene.ind-scene-celebrating .ind-map-screen { opacity: 1; transform: translate(-50%, -50%) scale(1.22); }
   .ind-map-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; display: block; user-select: none; pointer-events: none; }
 
   /* Commissioned illustration (assets/independence-day/celebration-map.svg)
@@ -678,6 +681,7 @@ function recordHoist() {
 const wrap = document.getElementById('ind-flag-wrap');
 const hoistBtn = document.getElementById('hoist-btn');
 const hoistLabel = document.getElementById('hoist-btn-label');
+let jetsLoopInterval = null;
 const climbDuration = 7.5;
 
 function startClimb() {
@@ -703,6 +707,14 @@ function startClimb() {
     const jetsDoneAt = 7800;
     setTimeout(() => {
       document.getElementById('ind-scene').classList.add('ind-scene-celebrating');
+      // Jets keep flying on top of the map once it's showing, not just the
+      // one flypast before it — re-spawn on a loop for as long as the
+      // celebration is up. z-index already puts .ind-jets (6) above
+      // .ind-map-screen (5) so they visibly cross over the map.
+      if (jetsLoopInterval) clearInterval(jetsLoopInterval);
+      jetsLoopInterval = setInterval(() => {
+        spawnJets(document.getElementById('ind-jets'));
+      }, 9000);
     }, jetsDoneAt);
     setTimeout(() => {
       document.getElementById('phase-landing').style.display = 'none';
@@ -730,6 +742,7 @@ document.getElementById('again-btn').addEventListener('click', () => {
   document.getElementById('share-modal').style.display = 'none';
   document.getElementById('phase-landing').style.display = '';
   document.getElementById('ind-scene').classList.remove('ind-scene-celebrating');
+  if (jetsLoopInterval) { clearInterval(jetsLoopInterval); jetsLoopInterval = null; }
   hoistBtn.disabled = true;
   const dropDuration = .5;
   hoistLabel.textContent = 'Lowering…';
