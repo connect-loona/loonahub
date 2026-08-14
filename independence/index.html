@@ -193,7 +193,7 @@
   .mic-title { font-size: 20px; font-weight: 800; color: #fff; text-shadow: 0 2px 8px rgba(0, 0, 0, .5); margin: 0; }
   .mic-sub { font-size: 9.8px; color: rgba(255, 255, 255, .82); margin: 0 0 8px; max-width: none; white-space: nowrap; }
   .mic-count { font-size: 11.5px; color: rgba(255, 255, 255, .65); margin: 8px 0 0; min-height: 16px; }
-  .mic-hoist-btn { padding: 13px 30px; font-size: 14px; }
+  .mic-hoist-btn { padding: 13px 30px; font-size: 14px; margin-top: 16px; }
   .mic-hoist-btn:disabled { opacity: .75; cursor: default; }
   .mic-share-actions { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; justify-content: center; }
   .mic-share-actions .btn { padding: 13px 24px; font-size: 14px; }
@@ -532,10 +532,18 @@ let mySlug = randomSlug();
 
 const HOIST_ENDPOINT = '/.netlify/functions/independence-hoist';
 
-fetch(HOIST_ENDPOINT).then(r => r.json()).then(d => {
-  const el = document.getElementById('daily-count-line');
-  el.textContent = d.count > 0 ? d.count.toLocaleString() + ' flag' + (d.count === 1 ? '' : 's') + ' hoisted today' : '';
-}).catch(() => {});
+// Polls rather than fetching once — this number keeps changing as other
+// people hoist while a visitor is sitting on the landing screen, so it
+// should visibly update live instead of only reflecting the count as of
+// whenever this particular visitor's page happened to load.
+function refreshDailyCount() {
+  fetch(HOIST_ENDPOINT).then(r => r.json()).then(d => {
+    const el = document.getElementById('daily-count-line');
+    el.textContent = d.count > 0 ? d.count.toLocaleString() + ' flag' + (d.count === 1 ? '' : 's') + ' hoisted today with Loona' : '';
+  }).catch(() => {});
+}
+refreshDailyCount();
+setInterval(refreshDailyCount, 6000);
 
 function recordHoist() {
   // Still records the hoist (daily count + referral log) even though the
