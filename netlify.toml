@@ -8,6 +8,26 @@
 [functions]
   node_bundler = "esbuild"
 
+# flag.loona.in — a clean, branded custom domain for the Independence Day
+# microsite so an Instagram bio/caption link never has to show the
+# loonahub.netlify.app domain. Add "flag.loona.in" as a custom domain on
+# this Netlify site (Site settings → Domain management), then point a CNAME
+# for "flag" at loonahub.netlify.app in loona.in's DNS (GoDaddy). Scoped to
+# that one domain via the absolute "from" URL — every other domain/path on
+# this site (including the dashboard's own domain) is untouched. force is
+# required because "/" already resolves to the dashboard's index.html.
+# Only the exact root path is rewritten (no wildcard) — the microsite's own
+# requests for /assets/independence-day/* and /.netlify/functions/* need to
+# keep resolving normally on this domain too, not get double-prefixed with
+# /independence/ on top of their already-absolute paths. The query string
+# (e.g. ?from=slug on a shared referral link) is forwarded automatically.
+# The login gate is also bypassed for this host — see basic-auth.ts.
+[[redirects]]
+  from = "https://flag.loona.in/"
+  to = "/independence/"
+  status = 200
+  force = true
+
 # Live read endpoint (hub calls this): /.netlify/functions/petpooja-attendance
 #
 # Daily scheduled sync into Firebase (persists history for everyone).
