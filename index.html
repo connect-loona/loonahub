@@ -3588,14 +3588,27 @@
       opacity: .74;
       filter: blur(.5px);
     }
-    /* A short dash (length set per-path via --trail-dash) sliding along the
-       full path from fully-before-start to fully-past-end, rather than the
-       dashoffset going to 0 — that earlier version kept REVEALING more of
-       the path over time, so by the end of the flight the "trail" was the
-       jet's entire route drawn solid (a long streak spanning the screen)
-       instead of a short puff that travels with the jet. */
+    /* A short dash (length --trail-dash) whose LEADING edge tracks the
+       jet's exact position along the path — the dash's leading edge sits
+       at arc-length (dash - offset), so animating offset from `dash` (edge
+       at 0, matching the icon's start) to `dash - totalLen` (edge at
+       totalLen, matching the icon's end) makes it travel the exact same
+       distance in the exact same time as the icon's own offset-distance
+       0%->100% animation. An earlier version animated to `-dash` instead
+       of `dash - totalLen`, which made the dash's leading edge travel
+       totalLen + 2*dash instead of just totalLen over the same duration —
+       faster than the icon, so it visibly raced ahead and detached from
+       the jet by the end of the flight ("smoke comes separate later").
+       --trail-dash/--trail-len must be set as `px` lengths (not bare
+       numbers) — calc() of two unitless <number> custom properties
+       produces a <number>, which isn't a valid stroke-dashoffset value
+       even though a literal bare number is; that silently invalidated the
+       whole keyframe and froze the animation at its starting value, which
+       looked like the same "trail doesn't move with the jet" bug from a
+       different angle (caught via getAnimations()/computed-style diffing
+       across samples, not just visually). */
     @keyframes ind-jet-trail-draw {
-      to { stroke-dashoffset: calc(-1 * var(--trail-dash, 70)); }
+      to { stroke-dashoffset: calc(var(--trail-dash, 70px) - var(--trail-len, 1000px)); }
     }
     .ind-jet-icon {
       position: absolute;
@@ -15935,11 +15948,11 @@
       // idea (match the song) but the file's reported metadata duration
       // doesn't match how long it's actually audible for in practice (likely
       // trailing silence/padding baked into the file), so the music was
-      // finishing well before the flag reached the top. 9s was slower than
-      // the original 5.5s ask; nudged slightly further to 10.5s so the
-      // climb reads as more deliberate right as it reaches the top and
-      // unfurls, rather than arriving and popping open in a hurry.
-      const climbDuration = 10.5;
+      // finishing well before the flag reached the top. Went 9s -> 10.5s
+      // for a more deliberate climb, but that read as taking too long to
+      // unfurl once at the top — dialed back down to 7.5s, faster than
+      // both previous values.
+      const climbDuration = 7.5;
       wrap.style.transition = 'bottom ' + climbDuration.toFixed(2) + 's cubic-bezier(.3, .68, .32, 1), transform 1.2s cubic-bezier(.34, 1.4, .5, 1) .1s';
       wrap.classList.remove('ind-hoisting', 'ind-unfurled');
       void wrap.offsetWidth; // force reflow so replaying restarts the transition from the bottom
@@ -16038,11 +16051,10 @@
         // Three parallel tricolour strokes, offset a few px perpendicular
         // (approximated as a constant Y-offset, valid since the path is
         // mostly horizontal) so together they read as one banded trail.
-        // Each is a SHORT dash that slides the length of the path (dash +
-        // a gap bigger than the whole path, so only one dash is ever
-        // visible) rather than a dashoffset animating to 0 — that would
-        // keep revealing more of the path forever, ending as the jet's
-        // entire route drawn solid instead of a short puff moving with it.
+        // Each is a SHORT dash whose leading edge tracks the icon's exact
+        // position (see @keyframes ind-jet-trail-draw for the arc-length
+        // math) so it travels with the jet instead of at a different
+        // speed.
         bandColors.forEach((color, bi) => {
           const bandOffset = (bi - 1) * bandGap;
           const bandPts = centerPts.map(p => ({ x: p.x, y: p.y + bandOffset }));
@@ -16054,8 +16066,9 @@
           const len = path.getTotalLength();
           const dash = Math.min(90, Math.max(36, len * 0.11));
           path.style.strokeDasharray = dash + ' ' + (len * 2);
-          path.style.strokeDashoffset = len + dash;
-          path.style.setProperty('--trail-dash', dash);
+          path.style.strokeDashoffset = dash; // leading edge at arc-length 0, matching the icon's starting position
+          path.style.setProperty('--trail-dash', dash + 'px');
+          path.style.setProperty('--trail-len', len + 'px');
           path.style.animation = 'ind-jet-trail-draw ' + jet.duration + 's linear ' + jet.delay + 's forwards';
         });
 
