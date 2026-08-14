@@ -14,8 +14,19 @@
 //     Header: X-Admin-Password: <password>
 //     -> 401 {error} if it doesn't match INDEPENDENCE_ADMIN_PASSWORD (or
 //        that env var was never set — fails closed, not open).
-//     -> 200 { entries: [{ key, name, city, lat, lon, ts, date, from }] },
-//        most recent first, capped at the last 500 hoists.
+//     -> 200 { entries, todayCount, truncated }
+//        entries: [{ key, name, city, lat, lon, ts, date, from }], most
+//        recent first, capped at LOG_LIMIT hoists (see below — the log
+//        accumulates across every day this has ever run, not just
+//        today, so the cap is generous rather than tied to one day's
+//        expected volume).
+//        todayCount: today's real total from the same daily counter the
+//        public "X flags hoisted today" line uses — independent of the
+//        capped log fetch, so it stays accurate even once truncated.
+//        truncated: true if today's own hoists alone already hit
+//        LOG_LIMIT, meaning some of today's entries got pushed out of
+//        the returned set (shows up on the admin page as a banner) —
+//        raise LOG_LIMIT if this ever actually happens.
 //
 // name/city/lat/lon here are exactly what independence-hoist.js already
 // writes to /independenceHoists/log for every hoist (name arrives
@@ -28,10 +39,28 @@ const { URL } = require("url");
 
 const FB = (process.env.FIREBASE_DB_URL || "https://loona-hub-c85d7-default-rtdb.firebaseio.com").replace(/\/+$/, "");
 const PASSWORD = process.env.INDEPENDENCE_ADMIN_PASSWORD;
+// A single day's realistic ceiling is nowhere near this even for a very
+// successful campaign — generous on purpose since Firebase RTDB's
+// limitToLast is a cheap, single indexed read regardless of size.
+const LOG_LIMIT = 5000;
+
+function todayIST() {
+  const now = new Date(Date.now() + 5.5 * 3600000);
+  return now.getUTCFullYear() + "-" + String(now.getUTCMonth() + 1).padStart(2, "0") + "-" + String(now.getUTCDate()).padStart(2, "0");
+}
 
 function fbGetQuery(path, query) {
   return new Promise((resolve) => {
     const u = new URL(FB + path + ".json?" + query);
+    https.get({ hostname: u.hostname, path: u.pathname + u.search, headers: { Accept: "application/json" } }, (res) => {
+      let buf = ""; res.on("data", (c) => (buf += c));
+      res.on("end", () => { let b; try { b = JSON.parse(buf); } catch (e) { b = null; } resolve(b); });
+    }).on("error", () => resolve(null));
+  });
+}
+function fbGet(path) {
+  return new Promise((resolve) => {
+    const u = new URL(FB + path + ".json");
     https.get({ hostname: u.hostname, path: u.pathname + u.search, headers: { Accept: "application/json" } }, (res) => {
       let buf = ""; res.on("data", (c) => (buf += c));
       res.on("end", () => { let b; try { b = JSON.parse(buf); } catch (e) { b = null; } resolve(b); });
@@ -56,7 +85,13 @@ exports.handler = async (event) => {
     return { statusCode: 401, headers: { ...CORS, "Content-Type": "application/json" }, body: JSON.stringify({ error: "Wrong password" }) };
   }
 
-  const raw = await fbGetQuery("/independenceHoists/log", 'orderBy="ts"&limitToLast=500');
+  const today = todayIST();
+  const [raw, todayCountRaw] = await Promise.all([
+    fbGetQuery("/independenceHoists/log", 'orderBy="ts"&limitToLast=' + LOG_LIMIT),
+    fbGet("/independenceHoists/daily/" + today + "/count"),
+  ]);
+  const todayCount = typeof todayCountRaw === "number" ? todayCountRaw : 0;
+
   const entries = [];
   if (raw && typeof raw === "object") {
     Object.entries(raw).forEach(([key, entry]) => {
@@ -75,9 +110,12 @@ exports.handler = async (event) => {
   }
   entries.sort((a, b) => (b.ts || 0) - (a.ts || 0));
 
+  const todayEntries = entries.filter((e) => e.date === today).length;
+  const truncated = todayEntries < todayCount;
+
   return {
     statusCode: 200,
     headers: { ...CORS, "Content-Type": "application/json" },
-    body: JSON.stringify({ entries }),
+    body: JSON.stringify({ entries, todayCount, truncated }),
   };
 };
