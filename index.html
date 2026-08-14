@@ -3406,19 +3406,19 @@
     .ind-fireworks { position: absolute; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
     .ind-firework { position: absolute; }
     .ind-firework-flash {
-      position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; border-radius: 50%;
+      position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; border-radius: 50%;
       transform: translate(-50%, -50%) scale(0);
-      background: radial-gradient(circle, #fff 0%, var(--fw-color, #FF9933) 55%, transparent 75%);
-      box-shadow: 0 0 22px 7px var(--fw-color, #FF9933);
-      animation: ind-firework-flash .55s ease-out forwards;
+      background: radial-gradient(circle, #fff 0%, var(--fw-color, #FFD54A) 55%, transparent 75%);
+      box-shadow: 0 0 34px 12px var(--fw-color, #FFD54A);
+      animation: ind-firework-flash .6s ease-out forwards;
     }
     @keyframes ind-firework-flash {
       0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
       35% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-      100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+      100% { transform: translate(-50%, -50%) scale(1.6); opacity: 0; }
     }
     .ind-firework-particle {
-      position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; border-radius: 50%;
+      position: absolute; left: 50%; top: 50%; width: 5px; height: 5px; border-radius: 50%;
       opacity: 0; will-change: transform, opacity;
       animation-name: ind-firework-particle;
       animation-timing-function: cubic-bezier(.15, .6, .4, 1);
@@ -16039,20 +16039,30 @@
     // `--angle` (set per particle so one shared @keyframes can drive every
     // burst). Positioned in the upper-mid sky band so they read behind the
     // gate silhouette and don't collide with the jets' low-altitude lanes.
+    //
+    // Dropped plain saffron (#FF9933) from the palette — it's nearly the
+    // same hue as the sunset-orange sky background, so a burst in that
+    // color was next to invisible (this is almost certainly why "fireworks
+    // not showing" was reported: some random draws were just landing on a
+    // color indistinguishable from the sky). Replaced with a sky-blue that
+    // actually contrasts. Also made the very first burst fire at delay 0
+    // instead of a randomized ~0-450ms, so something is guaranteed to pop
+    // the instant the flag finishes unfurling rather than possibly being
+    // missed if it happened to land during a quiet stretch.
     function spawnFireworks(container) {
       if (!container) return;
       container.innerHTML = '';
-      const colors = ['#FF9933', '#FFFFFF', '#138808', '#FFD54A'];
-      const burstCount = 6;
+      const colors = ['#FFFFFF', '#138808', '#FFD54A', '#29B6F6'];
+      const burstCount = 8;
       let maxLife = 0;
       for (let i = 0; i < burstCount; i++) {
-        const delay = i * 750 + Math.random() * 450;
+        const delay = i === 0 ? 0 : i * 700 + Math.random() * 350;
         const left = 10 + Math.random() * 78; // %, keep clear of the very edges
         const top = 6 + Math.random() * 32; // %, upper sky band
         const color = colors[Math.floor(Math.random() * colors.length)];
-        const particleCount = 14 + Math.floor(Math.random() * 6);
-        const dist = 46 + Math.random() * 34;
-        const duration = 1 + Math.random() * .5;
+        const particleCount = 16 + Math.floor(Math.random() * 6);
+        const dist = 52 + Math.random() * 36;
+        const duration = 1.1 + Math.random() * .5;
         setTimeout(() => {
           if (!container.isConnected) return;
           const fw = document.createElement('div');
@@ -16069,7 +16079,7 @@
             particle.style.setProperty('--angle', (p * (360 / particleCount) + Math.random() * 10) + 'deg');
             particle.style.setProperty('--fw-dist', dist + 'px');
             particle.style.background = color;
-            particle.style.boxShadow = '0 0 4px 1px ' + color;
+            particle.style.boxShadow = '0 0 8px 2px ' + color;
             particle.style.animationDuration = duration + 's';
             fw.appendChild(particle);
           }
