@@ -3414,10 +3414,16 @@
       animation-direction: alternate;
       filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .3));
     }
+    /* vw, not px — a fixed 140px traversal barely registered as "flying"
+       on a wide full-bleed scene, just a flutter near the spawn point.
+       ±42vw from each bird's own starting `left` (set inline per bird)
+       genuinely crosses most of the screen; animation-direction:alternate
+       (below) then reads as flying to one edge and back rather than a
+       jarring snap-to-start loop. */
     @keyframes ind-bird-fly {
-      0% { transform: translate(0, 0) scale(1); }
-      50% { transform: translate(70px, -22px) scale(1.05); }
-      100% { transform: translate(140px, 4px) scale(1); }
+      0% { transform: translate(-42vw, 8px) scale(1); }
+      50% { transform: translate(0vw, -20px) scale(1.05); }
+      100% { transform: translate(42vw, 6px) scale(1); }
     }
     /* Sized by the scene's HEIGHT now, not width — width-based sizing (with
        a deliberate -6% right bleed for a tighter old, short/boxed scene)
@@ -3443,6 +3449,18 @@
       z-index: 1;
     }
     .ind-gate svg { display: block; width: 100%; height: 100%; }
+    /* Phone: the desktop gate/sun proportions (68% scene height, 13% width)
+       don't translate to a narrow-but-tall portrait screen — the gate's
+       aspect-ratio-locked width ends up wide enough on a narrow viewport to
+       crowd right up against the flag, and the sun reads as small against
+       so much vertical sky. Shrinks the gate and pushes it further right
+       (its right:2% anchor stays, but a shorter height also means a
+       narrower width via aspect-ratio, which is what actually creates the
+       extra clearance from the flag) and grows the sun. */
+    @media(max-width:820px){
+      .ind-gate { height: 28%; right: 4%; }
+      .ind-sun { width: 22%; }
+    }
     .ind-ground {
       position: absolute;
       left: 0; right: 0; bottom: 0;
@@ -6425,9 +6443,9 @@
       <div class="ind-scene" id="ind-scene">
         <div class="ind-sun"></div>
         <div class="ind-birds" aria-hidden="true">
-          <span class="ind-bird" style="left:30%;top:22%;animation-duration:5.5s">🕊️</span>
-          <span class="ind-bird" style="left:48%;top:14%;animation-duration:6.8s;animation-delay:.6s">🕊️</span>
-          <span class="ind-bird" style="left:38%;top:30%;animation-duration:4.6s;animation-delay:1.2s;font-size:11px">🕊️</span>
+          <span class="ind-bird" style="left:30%;top:22%;animation-duration:13s">🕊️</span>
+          <span class="ind-bird" style="left:48%;top:14%;animation-duration:15.5s;animation-delay:.6s">🕊️</span>
+          <span class="ind-bird" style="left:38%;top:30%;animation-duration:11s;animation-delay:1.2s;font-size:11px">🕊️</span>
         </div>
         <div class="ind-gate" aria-hidden="true">
           <svg viewBox="0 0 300 280" preserveAspectRatio="xMidYMax meet">
