@@ -43,6 +43,10 @@
   .name { font-weight: 600; }
   .table-wrap { max-height: 70vh; overflow: auto; border-radius: 12px; border: 1px solid rgba(255,255,255,.1); }
   .empty { text-align: center; padding: 40px 20px; color: rgba(255,255,255,.5); font-size: 13px; }
+  .truncated-banner {
+    background: rgba(224, 92, 92, .15); border: 1px solid rgba(224, 92, 92, .4); border-radius: 10px;
+    padding: 10px 14px; font-size: 12.5px; color: #ffb3b3; margin-bottom: 14px;
+  }
 
   .gate { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
   .gate-box { background: #1a0d06; border: 1px solid rgba(255,255,255,.12); border-radius: 18px; padding: 30px 28px; width: 320px; max-width: 100%; text-align: center; }
@@ -82,9 +86,13 @@
     </div>
   </div>
   <div class="stat-row">
-    <div class="stat"><div class="n" id="stat-total">—</div><div class="l">Total hoists</div></div>
+    <div class="stat"><div class="n" id="stat-today">—</div><div class="l">Hoists today</div></div>
+    <div class="stat"><div class="n" id="stat-total">—</div><div class="l">Shown below</div></div>
     <div class="stat"><div class="n" id="stat-named">—</div><div class="l">With a name</div></div>
     <div class="stat"><div class="n" id="stat-located">—</div><div class="l">With a location</div></div>
+  </div>
+  <div class="truncated-banner" id="truncated-banner" style="display:none">
+    ⚠️ Today alone has more hoists than this page loads at once — the list below is missing some of today's entries. Ask for the log limit to be raised.
   </div>
   <div class="table-wrap">
     <table>
@@ -113,11 +121,13 @@ function esc(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function render(entries) {
+function render(entries, todayCount, truncated) {
+  document.getElementById('stat-today').textContent = todayCount;
   document.getElementById('stat-total').textContent = entries.length;
   document.getElementById('stat-named').textContent = entries.filter(e => e.name).length;
   document.getElementById('stat-located').textContent = entries.filter(e => e.lat != null).length;
   document.getElementById('last-updated').textContent = new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: true });
+  document.getElementById('truncated-banner').style.display = truncated ? 'block' : 'none';
 
   const rows = document.getElementById('rows');
   document.getElementById('empty-msg').style.display = entries.length ? 'none' : 'block';
@@ -145,7 +155,7 @@ async function poll() {
       return;
     }
     const data = await res.json();
-    render(data.entries || []);
+    render(data.entries || [], data.todayCount || 0, !!data.truncated);
   } catch (e) { /* transient network hiccup — next poll will retry */ }
 }
 
