@@ -89,6 +89,13 @@
 #   FIREBASE_DB_URL   (optional; defaults to the loona-hub RTDB)
 #   BASIC_AUTH_CREDENTIALS   (site-wide password gate — see netlify/edge-functions/basic-auth.ts.
 #                             Format: username:password. Without this set, the site is NOT gated.)
+#   INDEPENDENCE_ADMIN_PASSWORD   (gates /independence/admin/, the internal live-participants
+#                             list for the Independence Day microsite — see
+#                             netlify/functions/independence-admin.js. /independence/* is
+#                             excluded from BASIC_AUTH_CREDENTIALS above so the public hoist
+#                             flow stays login-free, which is exactly why this admin subpath
+#                             needs its own separate password. Without this set, the admin
+#                             page rejects every password — fails closed, not open.)
 #   OPENAI_API_KEY           (used by notes-summarize + tasks-extract for note/task generation,
 #                             by chat.js for the dashboard AI assistant, by marketing-news-daily
 #                             for the Loonaverse "Marketing News" card — that one calls the

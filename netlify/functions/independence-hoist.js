@@ -131,29 +131,47 @@ exports.handler = async (event) => {
   }
 
   if (event.httpMethod === "POST") {
-    let from = null;
-    try {
-      const parsed = JSON.parse(event.body || "{}");
-      if (parsed && typeof parsed.from === "string") from = parsed.from.slice(0, 60);
-    } catch (e) { /* ignore malformed body, just don't log a referrer */ }
+    let parsed = {};
+    try { parsed = JSON.parse(event.body || "{}"); } catch (e) { /* ignore malformed body */ }
 
+    // Attaching a name to an already-recorded hoist, not recording a new
+    // one — the name is typed into the share modal well after the hoist
+    // itself fires (see recordHoist() in independence/index.html), so it
+    // arrives as this separate follow-up call keyed by the log entry's
+    // own Firebase push ID (returned as `logKey` from the hoist POST
+    // below). Used by the admin participant list (independence-admin.js)
+    // — nothing on the public microsite reads names back.
+    if (parsed && parsed.action === "setName") {
+      const key = typeof parsed.key === "string" ? parsed.key : null;
+      const name = typeof parsed.name === "string" ? parsed.name.slice(0, 40) : "";
+      if (key && /^[^.#$\[\]/]+$/.test(key) && name) {
+        await fbPut("/independenceHoists/log/" + key + "/name", name);
+      }
+      return { statusCode: 200, headers: { ...CORS, "Content-Type": "application/json" }, body: JSON.stringify({ ok: true }) };
+    }
+
+    const from = typeof parsed.from === "string" ? parsed.from.slice(0, 60) : null;
     const geo = getGeo(event);
 
-    const [dayRes, allRes] = await Promise.all([
+    const [dayRes, allRes, logRes] = await Promise.all([
       fbPut("/independenceHoists/daily/" + date + "/count", { ".sv": { increment: 1 } }),
       fbPut("/independenceHoists/allTimeCount", { ".sv": { increment: 1 } }),
+      // Awaited now (was fire-and-forget before) so the generated push ID
+      // can be handed back as `logKey` — the setName follow-up above needs
+      // it to know which entry to attach a name to. lat/lon/city are
+      // simply omitted (JSON.stringify drops undefined values) when geo
+      // lookup failed or fell outside India's bounding box.
+      fbPost("/independenceHoists/log", {
+        date, from, ts: { ".sv": "timestamp" },
+        lat: geo ? geo.lat : undefined,
+        lon: geo ? geo.lon : undefined,
+        city: geo ? geo.city : undefined,
+      }),
     ]);
-    // Best-effort log, doesn't block the response either way. lat/lon are
-    // simply omitted (JSON.stringify drops undefined values) when geo
-    // lookup failed or fell outside India's bounding box.
-    fbPost("/independenceHoists/log", {
-      date, from, ts: { ".sv": "timestamp" },
-      lat: geo ? geo.lat : undefined,
-      lon: geo ? geo.lon : undefined,
-    });
 
     const count = typeof dayRes.body === "number" ? dayRes.body : 1;
     const allTimeCount = typeof allRes.body === "number" ? allRes.body : count;
+    const logKey = logRes.body && typeof logRes.body.name === "string" ? logRes.body.name : null;
     // Recent dots for the map, refreshed to include this very hoist —
     // one extra query on the write path, but this endpoint is nowhere
     // near hot enough for that to matter.
@@ -161,7 +179,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       headers: { ...CORS, "Content-Type": "application/json" },
-      body: JSON.stringify({ count, allTimeCount, rank: count, dot: geo, dots }),
+      body: JSON.stringify({ count, allTimeCount, rank: count, dot: geo, dots, logKey }),
     };
   }
 
