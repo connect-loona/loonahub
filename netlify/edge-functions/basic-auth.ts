@@ -139,5 +139,11 @@ export const config: Config = {
     "/icons/*",
     "/apple-touch-icon.png",
     "/apple-touch-icon-precomposed.png",
+    // The public Independence Day microsite (loona.in/independence) is
+    // deliberately outside the dashboard entirely — no login, so anyone who
+    // taps a shared link can actually hoist the flag themselves rather than
+    // hitting this site-wide gate first. See independence/index.html.
+    "/independence",
+    "/independence/*",
   ],
 };
