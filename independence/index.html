@@ -234,12 +234,13 @@
   /* India map reveal — lives directly IN the scene (no modal/backdrop
      dimming everything else). A commissioned hi-res illustration (sky,
      sun, and the state-boundary map pre-rendered as one piece) fades/
-     scales in. The live sun/gate/flagpole/ground fade out since the
-     illustration already has its own sun and no room for the gate/pole —
-     but jets/petals/birds stay live and keep animating over the top,
-     since this illustration doesn't include them itself. */
-  .ind-sun, .ind-gate, .ind-flagpole, .ind-ground { transition: opacity .9s ease; }
-  .ind-scene.ind-scene-celebrating .ind-sun,
+     scales in over the still-live scene. The gate/flagpole/ground fade
+     out since there's no room for them once the map takes over — but the
+     live sun and its gradient sky stay exactly as they were on the hoist
+     screen, showing through/behind the map, and jets/petals/birds keep
+     animating over the top too, since the illustration doesn't include
+     any of that itself. */
+  .ind-gate, .ind-flagpole, .ind-ground { transition: opacity .9s ease; }
   .ind-scene.ind-scene-celebrating .ind-gate,
   .ind-scene.ind-scene-celebrating .ind-flagpole,
   .ind-scene.ind-scene-celebrating .ind-ground { opacity: 0; }
@@ -283,15 +284,22 @@
   .ind-map-spot-orange { background: radial-gradient(circle, rgba(255, 153, 51, .95) 0%, rgba(255, 153, 51, .45) 45%, transparent 72%); }
   .ind-map-spot-green { background: radial-gradient(circle, rgba(19, 136, 8, .95) 0%, rgba(19, 136, 8, .45) 45%, transparent 72%); animation-delay: 1.1s; }
   @keyframes ind-map-spot-blink { 0%, 100% { opacity: .4; transform: translate(-50%, -50%) scale(.7); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); } }
-  .ind-map-spot-you {
-    position: absolute; width: 52px; height: 52px;
-    transform: translate(-50%, -50%);
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(255, 213, 74, 1) 0%, rgba(255, 213, 74, .55) 40%, transparent 72%);
-    filter: blur(1px);
-    animation: ind-map-spot-you-blink 1.7s ease-in-out infinite;
+  /* The hoister's own marker — a small flag + ripple rings + city-name
+     label (mumbai_marker_asset_combined.svg), not a blinking dot like the
+     others. Positioned so the SVG's own ripple-ring anchor point (66,130
+     in its 260x210 viewBox) lands exactly on the calculated lat/lon spot —
+     translate() is that anchor as a % of the element's own box. */
+  .ind-map-you-marker {
+    position: absolute; width: 100px; aspect-ratio: 260 / 210;
+    transform: translate(-25.4%, -61.9%);
+    pointer-events: none;
+    animation: ind-you-marker-pulse 1.8s ease-in-out infinite;
   }
-  @keyframes ind-map-spot-you-blink { 0%, 100% { opacity: .75; transform: translate(-50%, -50%) scale(.88); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); } }
+  .ind-map-you-marker svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  @keyframes ind-you-marker-pulse {
+    0%, 100% { filter: drop-shadow(0 0 4px rgba(255, 180, 60, .5)); }
+    50% { filter: drop-shadow(0 0 10px rgba(255, 180, 60, .9)); }
+  }
 </style>
 </head>
 <body>
@@ -644,6 +652,55 @@ function mapSpotHTML(xPct, yPct, cls) {
   return '<div class="' + cls + '" style="left:' + xPct + '%;top:' + yPct + '%"></div>';
 }
 
+// The hoister's own marker — small flag + ripple rings + city-name label
+// (from mumbai_marker_asset_combined.svg), not a blinking dot. Falls back
+// to "Your flag" when the geo lookup didn't come back with a city name.
+function mapYouMarkerHTML(xPct, yPct, cityName) {
+  let label = (cityName || 'Your flag').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  if (label.length > 16) label = label.slice(0, 15) + '…';
+  const labelWidth = Math.max(60, label.length * 8 + 24);
+  const boxX = 66 - labelWidth / 2;
+  return '<div class="ind-map-you-marker" style="left:' + xPct + '%;top:' + yPct + '%">' +
+    '<svg viewBox="0 0 260 210" xmlns="http://www.w3.org/2000/svg">' +
+    '<defs>' +
+    '<filter id="youSoftGlow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="3.2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>' +
+    '<filter id="youLabelShadow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000000" flood-opacity="0.35"/></filter>' +
+    '<linearGradient id="youPoleGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#D7D7D7"/><stop offset="100%" stop-color="#9A9A9A"/></linearGradient>' +
+    '<radialGradient id="youSunDot" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#FFF2C0"/><stop offset="100%" stop-color="#F4B251"/></radialGradient>' +
+    '</defs>' +
+    '<g transform="translate(66 130)">' +
+    '<circle cx="0" cy="0" r="8.5" fill="url(#youSunDot)" filter="url(#youSoftGlow)"/>' +
+    '<circle cx="0" cy="0" r="16" fill="none" stroke="#F39D38" stroke-opacity="0.75" stroke-width="1.8"/>' +
+    '<circle cx="0" cy="0" r="26" fill="none" stroke="#F39D38" stroke-opacity="0.45" stroke-width="1.6"/>' +
+    '<circle cx="0" cy="0" r="36" fill="none" stroke="#F39D38" stroke-opacity="0.24" stroke-width="1.4"/>' +
+    '</g>' +
+    '<g transform="translate(58 78)">' +
+    '<rect x="0" y="0" width="3.2" height="54" rx="1.6" fill="url(#youPoleGrad)"/>' +
+    '<circle cx="1.6" cy="0.6" r="3.6" fill="#E6C869"/>' +
+    '<g transform="translate(3.5 4)">' +
+    '<rect x="0" y="0" width="46" height="28" rx="1.3" fill="#FFFFFF"/>' +
+    '<rect x="0" y="0" width="46" height="9.333" rx="1.3" fill="#F7931E"/>' +
+    '<rect x="0" y="18.667" width="46" height="9.333" fill="#138A36"/>' +
+    '<circle cx="23" cy="14" r="4.4" fill="none" stroke="#273C9B" stroke-width="1.3"/>' +
+    '<circle cx="23" cy="14" r="0.85" fill="#273C9B"/>' +
+    '<g stroke="#273C9B" stroke-width="0.6" stroke-linecap="round" transform="translate(23 14)">' +
+    '<line x1="0" y1="-4" x2="0" y2="-2.1"/><line x1="2.00" y1="-3.46" x2="1.05" y2="-1.82"/>' +
+    '<line x1="3.46" y1="-2.00" x2="1.82" y2="-1.05"/><line x1="4" y1="0" x2="2.1" y2="0"/>' +
+    '<line x1="3.46" y1="2.00" x2="1.82" y2="1.05"/><line x1="2.00" y1="3.46" x2="1.05" y2="1.82"/>' +
+    '<line x1="0" y1="4" x2="0" y2="2.1"/><line x1="-2.00" y1="3.46" x2="-1.05" y2="1.82"/>' +
+    '<line x1="-3.46" y1="2.00" x2="-1.82" y2="1.05"/><line x1="-4" y1="0" x2="-2.1" y2="0"/>' +
+    '<line x1="-3.46" y1="-2.00" x2="-1.82" y2="-1.05"/><line x1="-2.00" y1="-3.46" x2="-1.05" y2="-1.82"/>' +
+    '</g>' +
+    '<rect x="0" y="0" width="46" height="28" rx="1.3" fill="none" stroke="rgba(0,0,0,0.12)" stroke-width="0.8"/>' +
+    '</g>' +
+    '</g>' +
+    '<g filter="url(#youLabelShadow)">' +
+    '<rect x="' + boxX + '" y="154" width="' + labelWidth + '" height="28" rx="7.5" fill="#5A2B19" fill-opacity="0.9" stroke="#C88547" stroke-width="1.2"/>' +
+    '<text x="' + (boxX + labelWidth / 2) + '" y="172.5" text-anchor="middle" font-family="Inter, Arial, Helvetica, sans-serif" font-size="15" font-weight="500" fill="#FFF7EA">' + label + '</text>' +
+    '</g>' +
+    '</svg></div>';
+}
+
 function renderMap(data) {
   const dotsWrap = document.getElementById('ind-map-dots');
   if (!dotsWrap || !data) return;
@@ -656,7 +713,7 @@ function renderMap(data) {
   });
   if (data.dot) {
     const p = projectToMapXY(data.dot.lat, data.dot.lon);
-    html += mapSpotHTML(p.x, p.y, 'ind-map-spot-you');
+    html += mapYouMarkerHTML(p.x, p.y, data.dot.city);
   }
   dotsWrap.innerHTML = html;
 }
