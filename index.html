@@ -3419,17 +3419,22 @@
       50% { transform: translate(70px, -22px) scale(1.05); }
       100% { transform: translate(140px, 4px) scale(1); }
     }
+    /* Sized by the scene's HEIGHT now, not width — width-based sizing (with
+       a deliberate -6% right bleed for a tighter old, short/boxed scene)
+       left it looking small and clipped once the scene became full
+       viewport height, since its rendered size stayed capped around
+       ~340px regardless of how tall the scene actually was. right:2% keeps
+       it fully inside the frame instead of intentionally bleeding off it. */
     .ind-gate {
       position: absolute;
-      right: -6%;
+      right: 2%;
       bottom: 0;
-      width: 58%;
-      max-width: 340px;
+      height: 46%;
       color: #1a0d06;
       filter: drop-shadow(0 -2px 0 rgba(0, 0, 0, .1));
       z-index: 1;
     }
-    .ind-gate svg { display: block; width: 100%; height: auto; }
+    .ind-gate svg { display: block; height: 100%; width: auto; }
     .ind-ground {
       position: absolute;
       left: 0; right: 0; bottom: 0;
@@ -3546,6 +3551,21 @@
     @keyframes ind-jet-fly {
       from { left: -6%; }
       to { left: 106%; }
+    }
+    /* Right→left formation — mirror of the above rather than a separate
+       trail keyframe: reusing ind-jet-trail-grow and just flipping
+       transform-origin makes the trail grow backward from the right edge
+       instead, which is all that differs visually. The icon needs an
+       actual horizontal flip (scaleX(-1)) so its nose still points the
+       way it's travelling. */
+    .ind-jet-group.ind-jet-rtl .ind-jet-trail { transform-origin: right center; }
+    .ind-jet-group.ind-jet-rtl .ind-jet-icon {
+      transform: translateY(-50%) scaleX(-1);
+      animation-name: ind-jet-fly-rtl;
+    }
+    @keyframes ind-jet-fly-rtl {
+      from { left: 106%; }
+      to { left: -6%; }
     }
     .ind-petals {
       position: absolute;
@@ -15872,18 +15892,27 @@
     // — its scaleX animation runs the same duration/easing as the icon's
     // `left` animation so the trail's edge tracks the jet the whole way
     // across, rather than the two drifting out of sync).
+    // Two 3-jet formations — one left→right, one right→left — timed to
+    // cross paths mid-flight rather than a single line of jets all going
+    // the same way. Lanes are all within the top 12% of the scene,
+    // comfortably above where the flag ends up (its hoisted position
+    // varies with viewport height, but even on a tall screen it doesn't
+    // reach past ~25-30% from the top) so they fly over it, not through it.
     function spawnJets(container) {
       if (!container) return;
       container.innerHTML = '';
       const NS = 'http://www.w3.org/2000/svg';
       const formation = [
-        { top: '22%', duration: 3.4, delay: 0 },
-        { top: '30%', duration: 3.6, delay: 0.25 },
-        { top: '38%', duration: 3.8, delay: 0.5 }
+        { top: '3%', duration: 3.2, delay: 0, rtl: false },
+        { top: '6%', duration: 3.3, delay: 0.15, rtl: false },
+        { top: '9%', duration: 3.4, delay: 0.3, rtl: false },
+        { top: '4.5%', duration: 3.2, delay: 0.9, rtl: true },
+        { top: '7.5%', duration: 3.3, delay: 1.05, rtl: true },
+        { top: '10.5%', duration: 3.4, delay: 1.2, rtl: true }
       ];
       formation.forEach(jet => {
         const group = document.createElement('div');
-        group.className = 'ind-jet-group';
+        group.className = 'ind-jet-group' + (jet.rtl ? ' ind-jet-rtl' : '');
         group.style.top = jet.top;
 
         const trail = document.createElement('div');
