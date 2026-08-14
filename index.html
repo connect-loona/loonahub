@@ -15992,7 +15992,7 @@
       container.innerHTML = '';
       const rect = container.getBoundingClientRect();
       const W = Math.max(1, rect.width), H = Math.max(1, rect.height);
-      const imgW = Math.max(160, Math.min(340, W * 0.24));
+      const imgW = Math.max(190, Math.min(400, W * 0.28));
       const imgH = imgW; // jets-formation.svg's viewBox is square (1200x1200)
 
       // Gentle wave, capped in absolute px regardless of scene height so
@@ -16031,15 +16031,14 @@
         // regardless of travel direction, so a left/right pass looked like
         // the nose was pointing up while the formation slid sideways.
         // rotate(48.3deg) corrects it to point due-right for the
-        // left-to-right instance. For the mirrored instance, naive
-        // "scaleX(-1) then/before rotate" combinations kept landing on
-        // pointing right or diagonally (CSS composes transform functions
-        // in a way that doesn't match the intuitive "mirror the corrected
-        // result" expectation) — confirmed by literally rendering every
-        // candidate order and comparing screenshots rather than guessing.
-        // rotate(131.7deg) scaleX(-1) [180 - 48.3, mirror second] is the
-        // one that actually renders pointing due-left, right-side up.
-        img.style.transform = inst.flip === -1 ? 'rotate(131.7deg) scaleX(-1)' : 'rotate(48.3deg)';
+        // left-to-right instance. For the mirrored instance, an earlier
+        // attempt (rotate(131.7deg) scaleX(-1)) actually rendered pointing
+        // RIGHT, not left — misread at a tiny thumbnail size the first
+        // time around; re-checked at full size with explicit LEFT/RIGHT
+        // markers and it was clearly wrong. rotate(-48.3deg) scaleX(-1)
+        // (the +180deg-rotated alternative) is the one that actually
+        // renders pointing due-left, right-side up.
+        img.style.transform = inst.flip === -1 ? 'rotate(-48.3deg) scaleX(-1)' : 'rotate(48.3deg)';
         container.appendChild(img);
       });
 
