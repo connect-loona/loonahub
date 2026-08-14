@@ -14,6 +14,14 @@
       <stop offset="100%" stop-color="#100706"/>
     </linearGradient>
 
+    <!-- Outline stroke gradient (gold -> saffron -> deep orange, top to
+         bottom) — used instead of a flat stroke color. -->
+    <linearGradient id="indiaStroke" x1="0" y1="0" x2="0" y2="1000" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFD54A"/>
+      <stop offset="45%" stop-color="#FF9933"/>
+      <stop offset="100%" stop-color="#FF6A1A"/>
+    </linearGradient>
+
     <filter id="softOrangeGlow" x="-20%" y="-20%" width="140%" height="140%">
       <feGaussianBlur stdDeviation="4.5" result="blur"/>
       <feFlood flood-color="#FF6A1A" flood-opacity="0.58" result="glowColor"/>
@@ -31,8 +39,8 @@
          dark shape sitting on top of it. See independence/index.html. */
       #features path {
         fill: none;
-        stroke: #FFB35C;
-        stroke-width: 2.1;
+        stroke: url(#indiaStroke);
+        stroke-width: 1.1;
         stroke-linecap: round;
         stroke-linejoin: round;
         vector-effect: non-scaling-stroke;
