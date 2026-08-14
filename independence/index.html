@@ -10,7 +10,7 @@
      URL itself gets pasted somewhere (distinct from the generated Story image,
      which is what shows up when the IMAGE is shared to Instagram). -->
 <meta property="og:title" content="Hoist the Flag 🇮🇳 — Loona">
-<meta property="og:description" content="A little Independence Day ritual. Hold to hoist, then pass it on.">
+<meta property="og:description" content="A little Independence Day ritual. Hoist the flag, then pass it on.">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🇮🇳</text></svg>">
 <style>
@@ -36,9 +36,9 @@
     border: 1px solid rgba(255, 255, 255, .25);
   }
   .mic-logo {
-    position: fixed; top: 18px; left: 20px; z-index: 20;
-    color: #fff; font-size: 17px; letter-spacing: .06em; font-weight: 700;
-    opacity: .9; text-shadow: 0 2px 8px rgba(0, 0, 0, .5);
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 20;
+    height: 26px; display: block;
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, .5));
   }
 
   /* ══════════ Scene (adapted from the Loona Hub dashboard's Independence
@@ -124,17 +124,16 @@
     transform: translateX(-50%); background: #d4af37; border-radius: 50%;
     box-shadow: 0 0 8px rgba(212, 175, 55, .8);
   }
-  /* No bottom/transform transition on the base rule, unlike the dashboard
-     version — here bottom/transform are driven frame-by-frame from the
-     hold-to-hoist interaction (see hoistFrame()), and a transition would
-     just fight/lag behind those per-frame writes. Explicit short
-     transitions are set inline in JS only for the two *discrete* moments
-     that need one: releasing early (ease back down) and "Hoist again"
-     (reset). */
+  /* Same class-toggle + CSS-transition approach as the dashboard's
+     Independence Day page (not the hold-to-hoist rAF interaction this
+     microsite used at first) — a single click auto-plays the climb, same
+     as "Unfurl the Flag" on the hub. */
   .ind-flag-wrap {
     position: absolute; left: 2px; bottom: 4%; width: 84px; height: 56px;
     transform-origin: left center; transform: scaleX(.12) scaleY(.55); opacity: .92;
+    transition: bottom 7.5s cubic-bezier(.3, .68, .32, 1), transform 1.2s cubic-bezier(.34, 1.4, .5, 1) .1s;
   }
+  .ind-flag-wrap.ind-hoisting { bottom: 88%; }
   .ind-flag-wrap.ind-unfurled { transform: scaleX(1) scaleY(1); }
   .ind-flag-inner { width: 100%; height: 100%; }
   .ind-flag-wrap.ind-unfurled .ind-flag-inner { animation: ind-wave 2.3s ease-in-out infinite; transform-origin: left center; }
@@ -144,17 +143,22 @@
   }
   .ind-flag-svg { width: 100%; height: 100%; display: block; }
   .ind-jets { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 4; }
+  /* translate(), not offset-path — offset-path/offset-distance support is
+     spottier in the in-app WebViews this microsite gets opened in from a
+     shared link (vs. a full modern desktop/mobile browser for the
+     dashboard), and silently not rendering at all is a worse failure mode
+     than losing the wavy-swirl flourish. Straight diagonal pass instead,
+     same technique this used before the swirl was added. */
   .ind-jet-art {
     position: absolute; top: 0; left: 0;
     filter: drop-shadow(0 2px 6px rgba(0, 0, 0, .3));
     animation-name: ind-jet-art-fly; animation-timing-function: linear; animation-fill-mode: forwards;
-    offset-rotate: 0deg;
   }
   @keyframes ind-jet-art-fly {
-    0% { offset-distance: 0%; opacity: 0; }
+    0% { transform: translate(var(--jf-x0), var(--jf-y0)) rotate(var(--jf-rot, 0deg)) scaleX(var(--jf-flip, 1)); opacity: 0; }
     8% { opacity: 1; }
     88% { opacity: 1; }
-    100% { offset-distance: 100%; opacity: 0; }
+    100% { transform: translate(var(--jf-x1), var(--jf-y1)) rotate(var(--jf-rot, 0deg)) scaleX(var(--jf-flip, 1)); opacity: 0; }
   }
   .ind-petals { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
   .ind-petal {
@@ -182,16 +186,8 @@
   .mic-title { font-size: 26px; font-weight: 800; color: #fff; text-shadow: 0 2px 8px rgba(0, 0, 0, .5); margin: 0; }
   .mic-sub { font-size: 14px; color: rgba(255, 255, 255, .82); margin: 0 0 6px; max-width: 320px; }
   .mic-count { font-size: 12.5px; color: rgba(255, 255, 255, .65); margin-bottom: 4px; min-height: 16px; }
-  .mic-hold-btn {
-    padding: 18px 40px; font-size: 16px; touch-action: none; position: relative; overflow: hidden;
-    transition: transform .15s ease;
-  }
-  .mic-hold-btn.is-holding { transform: scale(.96); }
-  .mic-hold-fill {
-    position: absolute; inset: 0; left: 0; width: 0%;
-    background: rgba(255, 255, 255, .3); pointer-events: none;
-  }
-  .mic-hint { font-size: 12px; color: rgba(255, 255, 255, .55); margin-top: 2px; }
+  .mic-hoist-btn { padding: 18px 40px; font-size: 16px; }
+  .mic-hoist-btn:disabled { opacity: .75; cursor: default; }
   .mic-share-actions { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; justify-content: center; }
   .mic-share-actions .btn { padding: 13px 24px; font-size: 14px; }
   .mic-share-status { font-size: 12.5px; color: #ffd54a; max-width: 320px; margin-top: 4px; min-height: 16px; line-height: 1.4; }
@@ -205,7 +201,7 @@
 </style>
 </head>
 <body>
-  <div class="mic-logo">LOONA</div>
+  <img class="mic-logo" src="data:image/png;base64,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" alt="Loona">
 
   <div class="ind-scene" id="ind-scene">
     <div class="ind-sun"></div>
@@ -262,17 +258,15 @@
     <audio id="ind-vande-mataram" src="/assets/independence-day/vande-mataram.mp3" preload="auto"></audio>
 
     <div class="mic-controls" id="mic-controls">
-      <!-- Phase 1: landing / hold-to-hoist -->
+      <!-- Phase 1: landing -->
       <div id="phase-landing">
         <div class="mic-referred" id="referred-line" style="display:none"></div>
         <div class="mic-title">Hoist the flag. 🇮🇳</div>
         <div class="mic-sub">A little Independence Day ritual by Loona.</div>
         <div class="mic-count" id="daily-count-line"></div>
-        <button class="btn btn-primary mic-hold-btn" id="hold-btn">
-          <span class="mic-hold-fill" id="hold-fill"></span>
-          <span id="hold-btn-label">Hold to Hoist</span>
+        <button class="btn btn-primary mic-hoist-btn" id="hoist-btn">
+          <span id="hoist-btn-label">Unfurl the Flag</span>
         </button>
-        <div class="mic-hint">Press and hold until it reaches the top.</div>
       </div>
 
       <!-- Phase 2: celebration / share -->
@@ -323,68 +317,67 @@ function applyIndGateResponsiveCrop() {
 applyIndGateResponsiveCrop();
 window.addEventListener('resize', applyIndGateResponsiveCrop);
 
-// ── Jet flypast + fireworks + petals — unchanged from the dashboard's
-// Independence Day page (index.html); see that file's comments for the
-// full history of why these are built the way they are (vector asset over
-// hand-drawn/photo jets, gradient-faded trail baked into the art, wavy
-// offset-path confined to a top lane, etc).
-function buildWavyPoints(xStart, xEnd, baseY, amp, waves, phase, n) {
-  const pts = [];
-  for (let i = 0; i <= n; i++) {
-    const t = i / n;
-    const x = xStart + (xEnd - xStart) * t;
-    const y = baseY + Math.sin(t * Math.PI * waves + phase) * amp * Math.sin(t * Math.PI);
-    pts.push({ x, y });
-  }
-  return pts;
-}
-function pathFromPoints(pts) {
-  if (pts.length < 2) return '';
-  let d = 'M ' + pts[0].x.toFixed(1) + ',' + pts[0].y.toFixed(1);
-  for (let i = 1; i < pts.length - 1; i++) {
-    const mx = (pts[i].x + pts[i + 1].x) / 2;
-    const my = (pts[i].y + pts[i + 1].y) / 2;
-    d += ' Q ' + pts[i].x.toFixed(1) + ',' + pts[i].y.toFixed(1) + ' ' + mx.toFixed(1) + ',' + my.toFixed(1);
-  }
-  const last = pts[pts.length - 1];
-  d += ' T ' + last.x.toFixed(1) + ',' + last.y.toFixed(1);
-  return d;
+// ── Jet flypast — a simpler straight diagonal pass (CSS custom properties
+// + translate(), not the dashboard's offset-path-driven wavy swirl) since
+// offset-path support is spottier in the in-app WebViews a shared link
+// tends to get opened in, and a jet that silently never renders is a worse
+// failure than a jet that flies a straight line instead of a curve.
+// Fireworks and petals below ARE unchanged from the dashboard.
+// Cancels a container's own previously-scheduled cleanup (if any) before
+// clearing it and scheduling a new one. Without this, "Hoist Again" fired
+// quickly enough that a second spawn call lands just before the FIRST
+// call's cleanup timer fires — that stale timer still does an unconditional
+// `container.innerHTML = ''`, wiping out the second call's freshly-added
+// content a moment after it appeared (confirmed via a Playwright test that
+// deliberately hoists twice in a row: jets rendered fine on the first
+// hoist, came back empty on the second).
+function scheduleCleanup(container, delay) {
+  if (container._cleanupTimer) clearTimeout(container._cleanupTimer);
+  container._cleanupTimer = setTimeout(() => {
+    if (container) container.innerHTML = '';
+    container._cleanupTimer = null;
+  }, delay);
 }
 function spawnJets(container) {
   if (!container) return;
+  if (container._cleanupTimer) clearTimeout(container._cleanupTimer);
   container.innerHTML = '';
   const rect = container.getBoundingClientRect();
   const W = Math.max(1, rect.width), H = Math.max(1, rect.height);
   const imgW = Math.max(190, Math.min(400, W * 0.28));
-  const imgH = imgW;
-  const amp = Math.min(70, Math.max(28, H * 0.045));
-  const waves = 2.2;
+  const imgH = imgW; // jets-formation.svg's viewBox is square (1200x1200)
   const instances = [
-    { flip: 1, duration: 8, delay: 0, baseYPct: 20, phase: 0 },
-    { flip: -1, duration: 8.3, delay: 1.8, baseYPct: 13, phase: .6 }
+    // Natural orientation: bottom-left -> top-right, nose pointing right.
+    { flip: 1, rot: 48.3, duration: 7.5, delay: 0,
+      x0: -imgW * 0.7, y0: H * 0.55, x1: W + imgW * 0.1, y1: -imgH * 0.55 },
+    // Mirrored: bottom-right -> top-left, nose pointing left, started
+    // partway into the first flight so the two visibly cross.
+    { flip: -1, rot: -48.3, duration: 7.8, delay: 1.8,
+      x0: W + imgW * 0.7, y0: H * 0.4, x1: -imgW * 0.1, y1: -imgH * 0.6 }
   ];
   instances.forEach(inst => {
-    const baseY = H * inst.baseYPct / 100;
-    const xStart = inst.flip === -1 ? W + imgW * 0.6 : -imgW * 0.6;
-    const xEnd = inst.flip === -1 ? -imgW * 0.6 : W + imgW * 0.6;
-    const pts = buildWavyPoints(xStart, xEnd, baseY, amp, waves, inst.phase, 12);
     const img = document.createElement('img');
     img.className = 'ind-jet-art';
     img.src = '/assets/independence-day/jets-formation.svg';
     img.alt = '';
     img.style.width = imgW + 'px';
     img.style.height = imgH + 'px';
-    img.style.offsetPath = "path('" + pathFromPoints(pts) + "')";
     img.style.animationDuration = inst.duration + 's';
     img.style.animationDelay = inst.delay + 's';
-    img.style.transform = inst.flip === -1 ? 'rotate(-48.3deg) scaleX(-1)' : 'rotate(48.3deg)';
+    img.style.setProperty('--jf-flip', inst.flip);
+    img.style.setProperty('--jf-rot', inst.rot + 'deg');
+    img.style.setProperty('--jf-x0', inst.x0.toFixed(1) + 'px');
+    img.style.setProperty('--jf-y0', inst.y0.toFixed(1) + 'px');
+    img.style.setProperty('--jf-x1', inst.x1.toFixed(1) + 'px');
+    img.style.setProperty('--jf-y1', inst.y1.toFixed(1) + 'px');
     container.appendChild(img);
   });
   const maxLife = Math.max(...instances.map(i => i.duration + i.delay)) * 1000 + 400;
-  setTimeout(() => { if (container) container.innerHTML = ''; }, maxLife);
+  scheduleCleanup(container, maxLife);
 }
 function spawnFireworks(container) {
   if (!container) return;
+  if (container._cleanupTimer) clearTimeout(container._cleanupTimer);
   container.innerHTML = '';
   const colors = ['#FFFFFF', '#138808', '#FFD54A', '#29B6F6'];
   const burstCount = 8;
@@ -422,10 +415,11 @@ function spawnFireworks(container) {
     }, delay);
     maxLife = Math.max(maxLife, delay + duration * 1000 + 300);
   }
-  setTimeout(() => { if (container) container.innerHTML = ''; }, maxLife + 200);
+  scheduleCleanup(container, maxLife + 200);
 }
 function spawnPetals(container) {
   if (!container) return;
+  if (container._cleanupTimer) clearTimeout(container._cleanupTimer);
   container.innerHTML = '';
   const fallPx = Math.max(300, container.getBoundingClientRect().height) * 1.1;
   container.style.setProperty('--petal-fall', fallPx + 'px');
@@ -440,7 +434,7 @@ function spawnPetals(container) {
     p.style.animationDelay = (Math.random() * 1.4) + 's';
     container.appendChild(p);
   }
-  setTimeout(() => { if (container) container.innerHTML = ''; }, 8000);
+  scheduleCleanup(container, 8000);
 }
 function playVandeMataram() {
   const audio = document.getElementById('ind-vande-mataram');
@@ -497,101 +491,50 @@ function recordHoist() {
   }).catch(() => { /* rank line already has a sensible default */ });
 }
 
-// ── The hold-to-hoist interaction itself ──
-// Driven frame-by-frame from a single requestAnimationFrame loop rather
-// than the dashboard's fixed-duration CSS-transition approach, since here
-// the climb speed is literally however long the person holds — a genuine
-// physical "raise it yourself" gesture (pointer events cover mouse, touch,
-// and pen uniformly) instead of a single tap that plays a canned animation.
+// ── Hoist on click, same as the dashboard's "Unfurl the Flag" button ──
+// A single click auto-plays the whole climb via the CSS class-toggle +
+// transition approach (see .ind-flag-wrap), not a held-down gesture.
 const wrap = document.getElementById('ind-flag-wrap');
-const holdBtn = document.getElementById('hold-btn');
-const holdFill = document.getElementById('hold-fill');
-const holdLabel = document.getElementById('hold-btn-label');
-const HOLD_MS = 2200;
-let holding = false, holdStart = 0, rafId = null, completed = false;
+const hoistBtn = document.getElementById('hoist-btn');
+const hoistLabel = document.getElementById('hoist-btn-label');
+const climbDuration = 7.5;
 
-function setFlagProgress(t) {
-  // t: 0..1. Climb for the first 100%, with the unfurl (scale) only
-  // kicking in over the final 30% so it visually "pops open" right as it
-  // nears the top, echoing the dashboard version's climb-then-unfurl beat
-  // instead of stretching open gradually the whole way up.
-  const eased = 1 - Math.pow(1 - t, 2);
-  wrap.style.bottom = (4 + eased * 84) + '%';
-  const unfurlT = Math.max(0, Math.min(1, (t - 0.7) / 0.3));
-  wrap.style.transform = 'scaleX(' + (.12 + unfurlT * .88).toFixed(3) + ') scaleY(' + (.55 + unfurlT * .45).toFixed(3) + ')';
-}
-
-function hoistFrame() {
-  if (!holding) return;
-  const t = Math.min(1, (Date.now() - holdStart) / HOLD_MS);
-  setFlagProgress(t);
-  holdFill.style.width = (t * 100) + '%';
-  if (t >= 1) { completeHoist(); return; }
-  rafId = requestAnimationFrame(hoistFrame);
-}
-function startHold(e) {
-  if (e.cancelable) e.preventDefault();
-  if (completed) return;
-  holding = true;
-  holdStart = Date.now();
-  holdBtn.classList.add('is-holding');
-  holdLabel.textContent = 'Keep holding…';
-  wrap.style.transition = 'none';
+function startClimb() {
+  hoistBtn.disabled = true;
+  hoistLabel.textContent = 'Hoisting…';
+  wrap.style.transition = 'bottom ' + climbDuration.toFixed(2) + 's cubic-bezier(.3, .68, .32, 1), transform 1.2s cubic-bezier(.34, 1.4, .5, 1) .1s';
+  wrap.classList.remove('ind-hoisting', 'ind-unfurled');
+  void wrap.offsetWidth; // force reflow so replaying restarts the transition from the bottom
+  wrap.classList.add('ind-hoisting');
   playVandeMataram();
-  rafId = requestAnimationFrame(hoistFrame);
-}
-function endHold() {
-  if (!holding) return;
-  holding = false;
-  holdBtn.classList.remove('is-holding');
-  if (rafId) cancelAnimationFrame(rafId);
-  if (!completed) {
-    holdLabel.textContent = 'Hold to Hoist';
-    holdFill.style.width = '0%';
-    wrap.style.transition = 'bottom .6s ease-out, transform .6s ease-out';
-    wrap.style.bottom = '4%';
-    wrap.style.transform = 'scaleX(.12) scaleY(.55)';
-    const audio = document.getElementById('ind-vande-mataram');
-    if (audio) { try { audio.pause(); } catch (err) {} }
-  }
-}
-holdBtn.addEventListener('pointerdown', startHold);
-window.addEventListener('pointerup', endHold);
-window.addEventListener('pointercancel', endHold);
-// Releasing outside the button (finger/mouse drags off while holding) should
-// still count as letting go — pointerleave on the button alone would miss
-// drags that leave fast, so this listens on the window instead scoped by
-// the `holding` flag rather than relying on the target still being the btn.
-
-function completeHoist() {
-  holding = false;
-  completed = true;
-  wrap.style.transition = '';
-  wrap.style.bottom = '';
-  wrap.style.transform = '';
-  wrap.classList.add('ind-unfurled');
-  spawnPetals(document.getElementById('ind-petals'));
-  spawnJets(document.getElementById('ind-jets'));
-  spawnFireworks(document.getElementById('ind-fireworks'));
-  recordHoist();
   setTimeout(() => {
+    wrap.classList.add('ind-unfurled');
+    spawnPetals(document.getElementById('ind-petals'));
+    spawnJets(document.getElementById('ind-jets'));
+    spawnFireworks(document.getElementById('ind-fireworks'));
+    recordHoist();
     document.getElementById('phase-landing').style.display = 'none';
     document.getElementById('phase-share').style.display = '';
     prepareStoryAssets();
-  }, 1300);
+  }, climbDuration * 1000);
 }
+hoistBtn.addEventListener('click', () => {
+  if (hoistBtn.disabled) return;
+  startClimb();
+});
 
 document.getElementById('again-btn').addEventListener('click', () => {
-  completed = false;
-  wrap.classList.remove('ind-unfurled');
-  wrap.style.transition = 'bottom .5s ease-in, transform .5s ease-in';
-  wrap.style.bottom = '4%';
-  wrap.style.transform = 'scaleX(.12) scaleY(.55)';
-  setTimeout(() => { wrap.style.transition = 'none'; }, 550);
-  holdFill.style.width = '0%';
-  holdLabel.textContent = 'Hold to Hoist';
+  // Same quick-drop-then-climb-again as the dashboard's "Hoist Again" —
+  // a real, visible drop (short transition) before the slow climb restarts,
+  // rather than silently snapping back to the bottom.
   document.getElementById('phase-share').style.display = 'none';
   document.getElementById('phase-landing').style.display = '';
+  hoistBtn.disabled = true;
+  const dropDuration = .5;
+  hoistLabel.textContent = 'Lowering…';
+  wrap.style.transition = 'bottom ' + dropDuration + 's ease-in, transform ' + dropDuration + 's ease-in';
+  wrap.classList.remove('ind-hoisting', 'ind-unfurled');
+  setTimeout(() => { hoistBtn.disabled = false; startClimb(); }, dropDuration * 1000 + 60);
 });
 
 // ── Name -> personalized referral link, and the shareable Story image ──
