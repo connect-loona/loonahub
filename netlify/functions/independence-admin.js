@@ -16,23 +16,36 @@
 //        that env var was never set — fails closed, not open).
 //     -> 200 { entries, todayCount, truncated }
 //        entries: [{ key, name, city, lat, lon, ts, date, from }] for
-//        TODAY only (see WHY_DATE_FILTER below), most recent first.
+//        TODAY only, most recent first.
 //        todayCount: today's real total from the same daily counter the
 //        public "X flags hoisted today" line uses — fetched
-//        independently of the entries query above as a cross-check (see
+//        independently of the entries query below as a cross-check (see
 //        `truncated`), not derived from entries.length.
-//        truncated: true if entries came back short of todayCount —
-//        would mean some of today's log writes are missing their `date`
-//        field somehow, since the query below is no longer capped by
-//        count at all (shows up on the admin page as a banner).
+//        truncated: true if entries came back short of todayCount.
+//     -> 502 {error, firebaseError} if the Firebase read itself failed
+//        (distinct from "no entries yet" — see FIREBASE_ERROR_HANDLING).
 //
-// WHY_DATE_FILTER: this used to fetch the whole all-time log capped at N
-// most-recent entries (first 500, then 5000) — but that cap was always
-// arbitrary no matter what N was, since it had nothing to do with how
-// many people actually hoisted today. Filtering server-side to today's
-// `date` field instead scales itself: it naturally returns exactly one
-// day's real turnout, however large or small that turns out to be, with
-// no number to eyeball or ever need raising again.
+// FIREBASE_ERROR_HANDLING: an earlier version queried Firebase directly
+// with orderBy="date"&equalTo=<today> to avoid an arbitrary count cap —
+// but this path already has an index declared on "ts" (fetchDots() in
+// independence-hoist.js has queried orderBy="ts" successfully all
+// along), and once ANY index is declared on a path, Firebase's REST API
+// rejects queries ordered by a field that ISN'T one of the declared
+// indexes, with an error response — it does NOT just fall back to an
+// unindexed scan. That error response is still a 200 with a JSON body
+// like {"error": "Index not defined..."}, and the old code never checked
+// res.statusCode or looked for that shape, so it silently iterated an
+// {error: "..."} object as if it were hoist entries, found nothing
+// object-shaped, and returned an empty list with no indication anything
+// had gone wrong — exactly what showed up live (todayCount: 22,
+// entries: 0). Fixed two ways: (1) back to orderBy="ts" (the field
+// that's actually indexed), filtering by `date` in JS afterward instead
+// of in the query itself — still scales to one day's real turnout, no
+// arbitrary cap, just done after the fetch instead of by Firebase; (2)
+// fbGetQuery now recognizes a Firebase error-shaped response and the
+// handler returns a real 502 instead of quietly treating it as "zero
+// hoists today", so this class of bug fails loudly next time instead of
+// looking identical to an empty log.
 //
 // name/city/lat/lon here are exactly what independence-hoist.js already
 // writes to /independenceHoists/log for every hoist (name arrives
@@ -51,13 +64,21 @@ function todayIST() {
   return now.getUTCFullYear() + "-" + String(now.getUTCMonth() + 1).padStart(2, "0") + "-" + String(now.getUTCDate()).padStart(2, "0");
 }
 
+// Resolves to { ok: true, data } normally, or { ok: false, error } if
+// Firebase itself returned an error-shaped body (e.g. a missing-index
+// rejection) or the request failed outright — callers must check `ok`
+// rather than assuming a parsed JSON body means the read succeeded.
 function fbGetQuery(path, query) {
   return new Promise((resolve) => {
     const u = new URL(FB + path + ".json?" + query);
     https.get({ hostname: u.hostname, path: u.pathname + u.search, headers: { Accept: "application/json" } }, (res) => {
       let buf = ""; res.on("data", (c) => (buf += c));
-      res.on("end", () => { let b; try { b = JSON.parse(buf); } catch (e) { b = null; } resolve(b); });
-    }).on("error", () => resolve(null));
+      res.on("end", () => {
+        let b; try { b = JSON.parse(buf); } catch (e) { resolve({ ok: false, error: "Non-JSON response: " + buf.slice(0, 200) }); return; }
+        if (b && typeof b === "object" && typeof b.error === "string") { resolve({ ok: false, error: b.error }); return; }
+        resolve({ ok: true, data: b });
+      });
+    }).on("error", (e) => resolve({ ok: false, error: String(e) }));
   });
 }
 function fbGet(path) {
@@ -88,22 +109,30 @@ exports.handler = async (event) => {
   }
 
   const today = todayIST();
-  // orderBy="date"&equalTo="<today>" — no limitToLast at all, so there's
-  // no count to ever run out of. Works fine without a Firebase `.indexOn`
-  // rule for "date" (RTDB just does an unindexed scan and logs a console
-  // recommendation to add one) — worth adding server-side in the Firebase
-  // console if this project's log ever gets genuinely huge, but not
-  // required for correctness at the scale a one-day event produces.
-  const [raw, todayCountRaw] = await Promise.all([
-    fbGetQuery("/independenceHoists/log", 'orderBy="date"&equalTo="' + today + '"'),
+  // orderBy="ts" — the field this path actually has an index on (see
+  // FIREBASE_ERROR_HANDLING above) — then filtered down to today's date
+  // in JS below. limitToLast is still generous rather than tight, as a
+  // ceiling against pulling in old days' entries too, not because
+  // there's any realistic risk of today alone exceeding it.
+  const [logRes, todayCountRaw] = await Promise.all([
+    fbGetQuery("/independenceHoists/log", 'orderBy="ts"&limitToLast=5000'),
     fbGet("/independenceHoists/daily/" + today + "/count"),
   ]);
   const todayCount = typeof todayCountRaw === "number" ? todayCountRaw : 0;
 
+  if (!logRes.ok) {
+    return {
+      statusCode: 502,
+      headers: { ...CORS, "Content-Type": "application/json" },
+      body: JSON.stringify({ error: "Firebase read failed", firebaseError: logRes.error }),
+    };
+  }
+
   const entries = [];
+  const raw = logRes.data;
   if (raw && typeof raw === "object") {
     Object.entries(raw).forEach(([key, entry]) => {
-      if (!entry || typeof entry !== "object") return;
+      if (!entry || typeof entry !== "object" || entry.date !== today) return;
       entries.push({
         key,
         name: typeof entry.name === "string" ? entry.name : null,
