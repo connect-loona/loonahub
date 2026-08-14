@@ -278,9 +278,23 @@
   .ind-scene.ind-scene-celebrating .ind-map-screen { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   .ind-map-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; display: block; user-select: none; pointer-events: none; }
   /* Overlaid on the image's own dark bottom margin (the landmass ends
-     around 80% down; this sits well below that) instead of taking extra
-     space below the image, so the map itself renders at full size. */
-  .ind-map-caption { position: absolute; left: 0; right: 0; bottom: 5%; padding: 0 20px; text-align: center; }
+     around 80% down; this sits well above the very bottom edge, clear of
+     both the mic-controls gradient (z-index 6, sits on top of this) and
+     any phone's home-indicator safe area) instead of taking extra space
+     below the image, so the map itself renders at full size. */
+  .ind-map-caption { position: absolute; left: 0; right: 0; bottom: 13%; padding: 0 20px; text-align: center; }
+  /* "You're flag #N raised today" — this hoist's own daily rank, count-up
+     animated in (see animateCountTo/renderMap) and kept live-ticking for
+     as long as the celebrate screen is up (see startRankPolling), so it
+     visibly climbs as other people hoist too, not just a static number. */
+  .ind-map-caption-rank {
+    display: inline-block; margin-bottom: 10px; padding: 6px 16px;
+    border-radius: 999px; background: rgba(10, 5, 2, .4);
+    border: 1px solid rgba(255, 153, 51, .55);
+    font-size: 13px; font-weight: 800; color: #fff;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, .6);
+  }
+  .ind-map-caption-rank span { font-variant-numeric: tabular-nums; }
   .ind-map-caption-sanskrit { font-size: 14px; font-weight: 600; color: #ffe6b3; text-shadow: 0 2px 8px rgba(0, 0, 0, .6); margin-bottom: 4px; line-height: 1.4; }
   .ind-map-caption-en { font-size: 11.5px; color: rgba(255, 255, 255, .78); text-shadow: 0 1px 4px rgba(0, 0, 0, .6); }
 
@@ -392,6 +406,7 @@
         <div class="ind-map-dots" id="ind-map-dots"></div>
       </div>
       <div class="ind-map-caption">
+        <div class="ind-map-caption-rank" id="ind-map-caption-rank" style="display:none">You're flag <span id="ind-rank-num">0</span> raised today 🇮🇳</div>
         <div class="ind-map-caption-sanskrit">जननी जन्मभूमिश्च स्वर्गादपि गरीयसी।</div>
         <div class="ind-map-caption-en">One flag. For the land we all call home.</div>
       </div>
@@ -757,6 +772,58 @@ function renderMap(data) {
     html += mapYouMarkerHTML(p.x, p.y, data.dot.city);
   }
   dotsWrap.innerHTML = html;
+
+  showRankLine(data);
+}
+
+// Ease-out count-up: ticks el's number from `from` to `to` over `duration`ms
+// (rAF-driven, not a fixed-step timer, so it stays smooth regardless of
+// frame rate). Used both for the initial reveal and for each live bump as
+// the polling below picks up other people's hoists.
+function animateCountTo(el, from, to, duration) {
+  if (!el || to <= from) { if (el) el.textContent = Math.max(0, to).toLocaleString(); return; }
+  const start = performance.now();
+  function tick(now) {
+    const t = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.textContent = Math.round(from + (to - from) * eased).toLocaleString();
+    if (t < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+// "You're flag #N raised today" — N is this hoist's own daily rank (the
+// POST response's `rank`, i.e. today's count right after this hoist was
+// recorded). Counts up from 0 on first reveal, then keeps live-ticking
+// upward for as long as the celebrate screen stays up (see
+// startRankPolling) as more people hoist elsewhere — same real daily
+// count already polled for the pre-hoist "X flags hoisted today" line,
+// just kept visible (and animated) through the celebration too.
+let shownRankCount = 0;
+let rankPollInterval = null;
+function showRankLine(data) {
+  const line = document.getElementById('ind-map-caption-rank');
+  const numEl = document.getElementById('ind-rank-num');
+  const rank = typeof data.rank === 'number' ? data.rank : (typeof data.count === 'number' ? data.count : null);
+  if (!line || !numEl || !rank) return;
+  line.style.display = '';
+  animateCountTo(numEl, shownRankCount, rank, 1400);
+  shownRankCount = rank;
+  startRankPolling();
+}
+function startRankPolling() {
+  if (rankPollInterval) return;
+  rankPollInterval = setInterval(() => {
+    const celebrating = document.getElementById('ind-scene').classList.contains('ind-scene-celebrating');
+    if (!celebrating) { clearInterval(rankPollInterval); rankPollInterval = null; return; }
+    fetch(HOIST_ENDPOINT).then(r => r.json()).then(d => {
+      const numEl = document.getElementById('ind-rank-num');
+      if (numEl && typeof d.count === 'number' && d.count > shownRankCount) {
+        animateCountTo(numEl, shownRankCount, d.count, 900);
+        shownRankCount = d.count;
+      }
+    }).catch(() => {});
+  }, 7000);
 }
 
 let lastHoistResult = null;
@@ -841,6 +908,9 @@ document.getElementById('again-btn').addEventListener('click', () => {
   document.getElementById('phase-landing').style.display = '';
   document.getElementById('ind-scene').classList.remove('ind-scene-celebrating');
   if (jetsLoopInterval) { clearInterval(jetsLoopInterval); jetsLoopInterval = null; }
+  if (rankPollInterval) { clearInterval(rankPollInterval); rankPollInterval = null; }
+  shownRankCount = 0;
+  document.getElementById('ind-map-caption-rank').style.display = 'none';
   hoistBtn.disabled = true;
   const dropDuration = .5;
   hoistLabel.textContent = 'Lowering…';
