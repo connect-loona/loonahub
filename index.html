@@ -3425,16 +3425,24 @@
        viewport height, since its rendered size stayed capped around
        ~340px regardless of how tall the scene actually was. right:2% keeps
        it fully inside the frame instead of intentionally bleeding off it. */
+    /* aspect-ratio instead of relying on width:auto deriving from the SVG's
+       height:100% — that "shrink-to-fit width from an auto-sized replaced
+       child" computation is exactly the kind of thing that's inconsistent
+       across browsers for an absolutely-positioned parent, and evidently
+       collapsed to 0 width somewhere (gate vanished entirely). Matches the
+       viewBox (300x280) directly instead, so both dimensions are always
+       explicit. */
     .ind-gate {
       position: absolute;
       right: 2%;
       bottom: 0;
       height: 46%;
+      aspect-ratio: 300 / 280;
       color: #1a0d06;
       filter: drop-shadow(0 -2px 0 rgba(0, 0, 0, .1));
       z-index: 1;
     }
-    .ind-gate svg { display: block; height: 100%; width: auto; }
+    .ind-gate svg { display: block; width: 100%; height: 100%; }
     .ind-ground {
       position: absolute;
       left: 0; right: 0; bottom: 0;
@@ -6460,6 +6468,7 @@
         </div>
         <div class="ind-jets" id="ind-jets"></div>
         <div class="ind-petals" id="ind-petals"></div>
+        <audio id="ind-vande-mataram" src="assets/independence-day/vande-mataram.mp3" preload="auto"></audio>
         <div class="ind-controls">
           <div class="ind-title">🇮🇳 Happy Independence Day</div>
           <div class="ind-sub">Hoist the flag when you're ready.</div>
@@ -15972,37 +15981,18 @@
     // the familiar rising-then-flowing contour, timed to roughly span the
     // flag's climb. If a real recording gets uploaded later, swap this out
     // for an <audio> element instead — that'll sound far better than this.
+    // Real recording now (assets/independence-day/vande-mataram.mp3) instead
+    // of the earlier synthesized approximation — same trigger point (right
+    // as the climb starts), just actual audio playback instead of Web
+    // Audio oscillator notes.
     function playVandeMataram() {
+      const audio = document.getElementById('ind-vande-mataram');
+      if (!audio) return;
       try {
-        const Ctx = window.AudioContext || window.webkitAudioContext;
-        if (!Ctx) return;
-        const ctx = new Ctx();
-        // iOS Safari creates a fresh AudioContext in a "suspended" state even
-        // inside a genuine click handler like this one — scheduled notes
-        // silently never sound unless resume() is called explicitly. resume()
-        // itself returns a promise but scheduling the notes doesn't need to
-        // wait on it, so this doesn't need to be awaited before calling note().
-        if (ctx.state === 'suspended') ctx.resume().catch(() => {});
-        const note = (start, freq, dur) => {
-          const osc = ctx.createOscillator(), gain = ctx.createGain();
-          osc.type = 'triangle'; osc.frequency.value = freq;
-          gain.gain.setValueAtTime(0.0001, ctx.currentTime + start);
-          gain.gain.exponentialRampToValueAtTime(0.22, ctx.currentTime + start + 0.04);
-          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + start + dur);
-          osc.connect(gain); gain.connect(ctx.destination);
-          osc.start(ctx.currentTime + start); osc.stop(ctx.currentTime + start + dur + 0.05);
-        };
-        const G4 = 392.0, A4 = 440.0, C5 = 523.25, D5 = 587.33, E4 = 329.63;
-        // "Vande Mataram" rising phrase, repeated, then a flowing resolve —
-        // roughly 5.3s total to land near the top of the climb.
-        note(0.00, G4, 0.32); note(0.35, A4, 0.32); note(0.70, C5, 0.42);
-        note(1.15, A4, 0.32); note(1.50, G4, 0.5);
-        note(2.20, G4, 0.32); note(2.55, A4, 0.32); note(2.90, C5, 0.32);
-        note(3.25, D5, 0.42); note(3.70, C5, 0.32); note(4.05, A4, 0.32);
-        note(4.40, G4, 0.5);
-        note(5.05, E4, 0.4); note(5.4, G4, 0.55);
-        setTimeout(() => ctx.close().catch(() => {}), 6200);
-      } catch (e) { /* autoplay/audio restrictions — the animation still plays either way */ }
+        audio.currentTime = 0;
+        const p = audio.play();
+        if (p && p.catch) p.catch(() => { /* autoplay restrictions — the animation still plays either way */ });
+      } catch (e) { /* same as above */ }
     }
     function priorityHeatColor(p, status) {
       if (status === 'Completed') return 'transparent';
