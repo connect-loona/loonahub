@@ -207,39 +207,45 @@
   .mic-name-row input:focus { border-color: #ff9457; }
 
   /* India map reveal — lives directly IN the scene (no modal/backdrop
-     dimming everything else). It fades and scales in over the existing
-     sky/jets/petals/birds/sun/gradient, so the celebration reads as the
-     same continuous view pulling back to the national scale, not a card
-     popping up over it. The India Gate, flagpole, and ground all fade out
-     to give the map the whole page instead of competing with it. */
+     dimming everything else). A commissioned hi-res illustration (sky,
+     sun, jets, birds, petals, and the state-boundary map all pre-rendered
+     as one piece) fades/scales in, replacing the live scene entirely —
+     the live sun/jets/petals/birds/gate/flagpole/ground all fade out
+     since the illustration already has its own versions of all of them,
+     so showing both at once would just duplicate/clash. */
+  .ind-sun, .ind-jets, .ind-petals, .ind-birds,
   .ind-gate, .ind-flagpole, .ind-ground { transition: opacity .9s ease; }
+  .ind-scene.ind-scene-celebrating .ind-sun,
+  .ind-scene.ind-scene-celebrating .ind-jets,
+  .ind-scene.ind-scene-celebrating .ind-petals,
+  .ind-scene.ind-scene-celebrating .ind-birds,
   .ind-scene.ind-scene-celebrating .ind-gate,
   .ind-scene.ind-scene-celebrating .ind-flagpole,
   .ind-scene.ind-scene-celebrating .ind-ground { opacity: 0; }
+  /* Sized to the illustration's own aspect ratio (1080x1920) via
+     aspect-ratio + a width capped by viewport height, same technique the
+     source design uses for its "stage" — guarantees the image is never
+     cropped, which matters because the live heat-spot markers below are
+     positioned as percentages of this exact box to line up with the
+     artwork's actual pixel content. */
   .ind-map-screen {
     position: absolute; left: 50%; top: 50%; z-index: 5;
-    width: min(92%, 480px);
-    transform: translate(-50%, -46%) scale(.85);
+    width: min(100%, calc(100dvh * 0.5625));
+    aspect-ratio: 1080 / 1920;
+    max-height: 100%;
+    transform: translate(-50%, -50%) scale(.92);
     opacity: 0; pointer-events: none;
     transition: opacity 1.1s ease .15s, transform 1.1s cubic-bezier(.22, .8, .28, 1.05) .15s;
   }
   .ind-scene.ind-scene-celebrating .ind-map-screen { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  .ind-map-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; display: block; user-select: none; pointer-events: none; }
 
-  /* Real India map (Simplemaps, free commercial use, state/UT boundaries),
-     not the earlier hand-drawn approximation — already styled to match this
-     page's palette. Coordinates are calibrated against its actual drawn
-     bounding box (measured via getBBox on #features: x 99.9, y 45.5,
-     w 800.2, h 909.0 within its 1000x1000 viewBox) and India's real
-     geographic extent (lat 6.5-37.6°N, lon 68-97.4°E, mainland + islands)
-     — a plain equirectangular scaling, verified against ~14 known cities
-     (Delhi, Mumbai, Chennai, Guwahati, Port Blair, etc.) all landing in
-     the right place. See projectToMapXY() in the script for the same math.
-     If the map SVG is ever swapped for a different file, this calibration
-     (and projectToMapXY's constants) needs redoing against the new one. */
-  .ind-map-wrap { position: relative; width: 100%; aspect-ratio: 1 / 1; }
-  .ind-map-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: contain; }
-  .ind-map-lines { position: absolute; inset: 0; width: 100%; height: 100%; display: block; overflow: visible; pointer-events: none; }
-  .ind-map-line { fill: none; stroke: rgba(255, 213, 74, .3); stroke-width: .9; }
+  /* Commissioned illustration (assets/independence-day/celebration-map.jpg)
+     — live heat-spot markers are positioned as percentages calibrated
+     against this specific image (verified against ~13 known cities, e.g.
+     Mumbai lands exactly on the artwork's own Mumbai marker). See
+     projectToMapXY() in the script for the same math. Swapping this image
+     needs the calibration redone. */
   .ind-map-dots { position: absolute; inset: 0; }
   /* Soft blinking heatmap-style glow spots (radial gradient, blurred
      edges), not pins — saffron and green, alternating per hoist. */
@@ -323,13 +329,10 @@
 
     <!-- India map reveal — sits directly in the scene, not a popup. Fades
          and scales in via .ind-scene-celebrating on the parent (see CSS),
-         over the same sky/jets/petals rather than covering them. -->
+         replacing the live sky/jets/petals with this pre-rendered piece. -->
     <div class="ind-map-screen" id="ind-map-screen">
-      <div class="ind-map-wrap">
-        <img class="ind-map-svg" src="/assets/independence-day/india-map.svg?v=1" alt="" aria-hidden="true">
-        <svg class="ind-map-lines" id="ind-map-lines" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
-        <div class="ind-map-dots" id="ind-map-dots"></div>
-      </div>
+      <img class="ind-map-bg" src="/assets/independence-day/celebration-map.jpg?v=1" alt="" aria-hidden="true">
+      <div class="ind-map-dots" id="ind-map-dots"></div>
     </div>
 
     <!-- Landing / celebrate: stays anchored at the bottom, same as the
@@ -582,54 +585,40 @@ function refreshDailyCount() {
 refreshDailyCount();
 setInterval(refreshDailyCount, 6000);
 
-// Calibrated against india-map.svg's actual drawn bounding box (measured
-// via getBBox on its #features group: x 99.9, y 45.5, w 800.2, h 909.0,
-// within its 1000x1000 viewBox) and India's real geographic extent —
-// verified against ~14 known cities (Delhi, Mumbai, Chennai, Guwahati,
-// Port Blair, etc.) all landing in the right place. See the matching CSS
-// comment on .ind-map-wrap. Swapping the map SVG needs this redone.
-const MAP_BBOX = { x: 99.9, y: 45.5, width: 800.2, height: 909.0 };
-const MAP_LAT_MIN = 6.5, MAP_LAT_MAX = 37.6, MAP_LON_MIN = 68.0, MAP_LON_MAX = 97.4;
+// Calibrated directly against celebration-map.jpg (not a generic India
+// bounding box) — fit from two confidently-identified reference points on
+// this specific artwork (Mumbai's own baked-in marker at 19.1%,55.6%, and
+// Kanyakumari's tip at the southern point of the outline) and verified
+// against ~13 known cities all landing in the correct part of the
+// illustration. This is a hand-fitted approximation of a stylized
+// illustration, not a precise cartographic projection — swapping the
+// image needs this redone (see the matching CSS comment on .ind-map-bg).
 function projectToMapXY(lat, lon) {
-  return {
-    x: MAP_BBOX.x + (lon - MAP_LON_MIN) / (MAP_LON_MAX - MAP_LON_MIN) * MAP_BBOX.width,
-    y: MAP_BBOX.y + (MAP_LAT_MAX - lat) / (MAP_LAT_MAX - MAP_LAT_MIN) * MAP_BBOX.height
-  };
+  return { x: -163.77 + 2.509 * lon, y: 98.28 - 2.237 * lat };
 }
 
-// A soft blinking heatmap-style glow spot (radial gradient blob), not a
-// pin — positions are percentages of the 1000x1000 viewBox india-map.svg
-// uses.
-function mapSpotHTML(x, y, cls) {
-  return '<div class="' + cls + '" style="left:' + (x / 1000 * 100) + '%;top:' + (y / 1000 * 100) + '%"></div>';
+// A soft blinking heatmap-style glow spot (radial gradient blob) —
+// positions are percentages of the .ind-map-screen box (which is sized to
+// celebration-map.jpg's own aspect ratio, so these line up with the art).
+function mapSpotHTML(xPct, yPct, cls) {
+  return '<div class="' + cls + '" style="left:' + xPct + '%;top:' + yPct + '%"></div>';
 }
 
 function renderMap(data) {
   const dotsWrap = document.getElementById('ind-map-dots');
-  const linesWrap = document.getElementById('ind-map-lines');
   if (!dotsWrap || !data) return;
-  dotsWrap.innerHTML = '';
-  if (linesWrap) linesWrap.innerHTML = '';
 
   const spotClasses = ['ind-map-spot ind-map-spot-orange', 'ind-map-spot ind-map-spot-green'];
-  const hub = data.dot ? projectToMapXY(data.dot.lat, data.dot.lon) : null;
   let html = '';
   (data.dots || []).forEach((d, i) => {
     const p = projectToMapXY(d.lat, d.lon);
     html += mapSpotHTML(p.x, p.y, spotClasses[i % 2]);
-    // Soft glowing "network" line from each spot back to your own hoist —
-    // purely decorative, matches the connected-network look, skipped
-    // until we actually have a "you" spot to connect everything to.
-    if (linesWrap && hub) {
-      const midX = (p.x + hub.x) / 2, midY = Math.min(p.y, hub.y) - 16;
-      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      path.setAttribute('class', 'ind-map-line');
-      path.setAttribute('d', 'M' + p.x.toFixed(1) + ',' + p.y.toFixed(1) + ' Q' + midX.toFixed(1) + ',' + midY.toFixed(1) + ' ' + hub.x.toFixed(1) + ',' + hub.y.toFixed(1));
-      linesWrap.appendChild(path);
-    }
   });
+  if (data.dot) {
+    const p = projectToMapXY(data.dot.lat, data.dot.lon);
+    html += mapSpotHTML(p.x, p.y, 'ind-map-spot-you');
+  }
   dotsWrap.innerHTML = html;
-  if (hub) dotsWrap.insertAdjacentHTML('beforeend', mapSpotHTML(hub.x, hub.y, 'ind-map-spot-you'));
 }
 
 let lastHoistResult = null;
