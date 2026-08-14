@@ -3365,6 +3365,11 @@
        flow (.page has padding:28px and max-width:1400px) so the scene spans
        the actual browser viewport edge-to-edge instead of sitting in a
        rounded card. */
+    /* Full viewport, not just full width — height is set in px by
+       sizeIndScene() (window.innerHeight minus the topbar's real measured
+       height, not a guessed vh calc()) so this fills the actual visible
+       screen below the sticky topbar with nothing else on the page, rather
+       than being a boxed section with the title/button stacked below it. */
     .ind-scene {
       position: relative;
       width: 100vw;
@@ -3372,6 +3377,8 @@
       right: 50%;
       margin-left: -50vw;
       margin-right: -50vw;
+      margin-top: -28px;
+      height: 100vh;
       min-height: 480px;
       overflow: hidden;
       background:
@@ -3569,16 +3576,23 @@
       100% { transform: translateY(var(--petal-fall, 400px)) translateX(-14px) rotate(320deg); opacity: 0; }
     }
     .ind-controls {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 6px;
-      margin-top: 22px;
+      padding: 60px 20px 40px;
       text-align: center;
+      z-index: 6;
+      /* Scrim so the title/button stay legible over whatever's directly
+         behind them (ground, gate, sky) without flattening the scene into
+         a solid bar the way a card background would. */
+      background: linear-gradient(180deg, transparent 0%, rgba(7, 3, 1, .55) 45%, rgba(7, 3, 1, .85) 100%);
     }
-    .ind-title { font-size: 20px; font-weight: 800; color: var(--text); }
-    .ind-sub { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
-    #ind-hoist-btn { padding: 11px 26px; font-size: 14px; }
+    .ind-title { font-size: 24px; font-weight: 800; color: #fff; text-shadow: 0 2px 8px rgba(0, 0, 0, .5); }
+    .ind-sub { font-size: 14px; color: rgba(255, 255, 255, .8); margin-bottom: 10px; }
+    #ind-hoist-btn { padding: 12px 28px; font-size: 15px; }
 
     /* ── AUTO TASK BADGE ── */
     .auto-task-badge {
@@ -6365,7 +6379,7 @@
 
     <!-- ======= INDEPENDENCE DAY ======= -->
     <div class="page" id="page-independence">
-      <div class="ind-scene">
+      <div class="ind-scene" id="ind-scene">
         <div class="ind-sun"></div>
         <div class="ind-birds" aria-hidden="true">
           <span class="ind-bird" style="left:30%;top:22%;animation-duration:5.5s">🕊️</span>
@@ -6426,11 +6440,11 @@
         </div>
         <div class="ind-jets" id="ind-jets"></div>
         <div class="ind-petals" id="ind-petals"></div>
-      </div>
-      <div class="ind-controls">
-        <div class="ind-title">🇮🇳 Happy Independence Day</div>
-        <div class="ind-sub">Hoist the flag when you're ready.</div>
-        <button class="btn btn-primary" id="ind-hoist-btn" onclick="hoistFlag()">Unfurl the Flag</button>
+        <div class="ind-controls">
+          <div class="ind-title">🇮🇳 Happy Independence Day</div>
+          <div class="ind-sub">Hoist the flag when you're ready.</div>
+          <button class="btn btn-primary" id="ind-hoist-btn" onclick="hoistFlag()">Unfurl the Flag</button>
+        </div>
       </div>
     </div>
 
@@ -15995,7 +16009,28 @@
       if (id === 'loonaverse') {
         lvOpenPage();
       }
+      if (id === 'independence') {
+        sizeIndScene();
+      }
     }
+
+    // Full-viewport sizing for the Independence Day scene — measured from
+    // the topbar's real rendered height (it wraps to a taller multi-line
+    // layout on mobile, see the max-width:820px media query, so a fixed
+    // guess would be wrong on half of all screens) rather than a plain
+    // 100vh calc(), which is what actually makes this "the whole page"
+    // instead of a boxed section with a chunk of screen left over below it.
+    function sizeIndScene() {
+      const scene = document.getElementById('ind-scene');
+      const topbar = document.querySelector('.topbar');
+      if (!scene) return;
+      const topbarH = topbar ? topbar.getBoundingClientRect().height : 0;
+      scene.style.height = Math.max(480, window.innerHeight - topbarH) + 'px';
+    }
+    window.addEventListener('resize', () => {
+      const page = document.getElementById('page-independence');
+      if (page && page.classList.contains('active')) sizeIndScene();
+    });
 
     // ═══ CALENDAR (per-person meeting records + daily activity) ═══
     // Reuses existing data only for now — Loona Notes meetings (by createdBy) and TASKS
