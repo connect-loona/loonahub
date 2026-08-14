@@ -191,8 +191,9 @@
   }
   .mic-referred { font-size: 12px; color: #ffd54a; font-weight: 600; margin-bottom: 2px; }
   .mic-title { font-size: 20px; font-weight: 800; color: #fff; text-shadow: 0 2px 8px rgba(0, 0, 0, .5); margin: 0; }
-  .mic-sub { font-size: 12.5px; color: rgba(255, 255, 255, .82); margin: 0 0 6px; max-width: 300px; }
-  .mic-count { font-size: 11.5px; color: rgba(255, 255, 255, .65); margin-bottom: 4px; min-height: 16px; }
+  .mic-sub { font-size: 12.5px; color: rgba(255, 255, 255, .82); margin: 0; max-width: 300px; }
+  .mic-byline { font-size: 11px; color: rgba(255, 255, 255, .55); margin: 0 0 6px; font-style: italic; }
+  .mic-count { font-size: 11.5px; color: rgba(255, 255, 255, .65); margin: 8px 0 0; min-height: 16px; }
   .mic-hoist-btn { padding: 13px 30px; font-size: 14px; }
   .mic-hoist-btn:disabled { opacity: .75; cursor: default; }
   .mic-share-actions { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; justify-content: center; }
@@ -295,12 +296,13 @@
     <div class="mic-controls" id="mic-controls">
       <div id="phase-landing">
         <div class="mic-referred" id="referred-line" style="display:none"></div>
-        <div class="mic-title">Hoist the flag. 🇮🇳</div>
-        <div class="mic-sub">A little Independence Day ritual by Loona.</div>
-        <div class="mic-count" id="daily-count-line"></div>
+        <div class="mic-title">Let's raise the flag. 🇮🇳</div>
+        <div class="mic-sub">For every sacrifice that gave us the right to call this country home.</div>
+        <div class="mic-byline">A quiet tribute to the nation, by Loona</div>
         <button class="btn btn-primary mic-hoist-btn" id="hoist-btn">
           <span id="hoist-btn-label">Unfurl the Flag</span>
         </button>
+        <div class="mic-count" id="daily-count-line"></div>
       </div>
     </div>
   </div>
@@ -558,7 +560,7 @@ const climbDuration = 7.5;
 
 function startClimb() {
   hoistBtn.disabled = true;
-  hoistLabel.textContent = 'Hoisting…';
+  hoistLabel.textContent = 'Jai Hind';
   wrap.style.transition = 'bottom ' + climbDuration.toFixed(2) + 's cubic-bezier(.3, .68, .32, 1), transform 1.2s cubic-bezier(.34, 1.4, .5, 1) .1s';
   wrap.classList.remove('ind-hoisting', 'ind-unfurled');
   void wrap.offsetWidth; // force reflow so replaying restarts the transition from the bottom
