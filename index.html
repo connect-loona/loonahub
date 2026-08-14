@@ -3583,10 +3583,12 @@
     .ind-jets svg.ind-jet-trails { position: absolute; inset: 0; width: 100%; height: 100%; }
     .ind-jet-trail-path {
       fill: none;
-      stroke-width: 3.2;
       stroke-linecap: round;
-      opacity: .74;
-      filter: blur(.5px);
+      /* stroke-width/opacity/filter set per fade layer in JS (see
+         spawnJets) — several stacked dashes of increasing length and
+         decreasing opacity approximate a long trail that dissipates
+         gradually with distance from the jet, instead of one uniform dash
+         with a hard edge. */
     }
     /* A short dash (length --trail-dash) whose LEADING edge tracks the
        jet's exact position along the path — the dash's leading edge sits
@@ -16051,25 +16053,47 @@
         // Three parallel tricolour strokes, offset a few px perpendicular
         // (approximated as a constant Y-offset, valid since the path is
         // mostly horizontal) so together they read as one banded trail.
-        // Each is a SHORT dash whose leading edge tracks the icon's exact
-        // position (see @keyframes ind-jet-trail-draw for the arc-length
-        // math) so it travels with the jet instead of at a different
-        // speed.
+        // Each color is drawn as SEVERAL stacked dashes of increasing
+        // length and decreasing opacity/growing blur — a longer, fainter,
+        // blurrier dash underneath a short, bright, crisp one on top — to
+        // approximate smoke that reaches back a good distance behind the
+        // jet and dissipates gradually, rather than a single dash with a
+        // hard edge. All layers share the same leading-edge-tracks-the-
+        // icon math (see @keyframes ind-jet-trail-draw), so every layer
+        // stays exactly attached to the jet — verified in testing to
+        // sub-pixel drift for the base case; layering it doesn't change
+        // that math, only how much of the recent path each one reveals.
+        const FADE_LAYERS = [
+          { distFrac: .60, minPx: 240, maxPx: 480, opacity: .09, width: 6.5, blur: 3.5 },
+          { distFrac: .38, minPx: 150, maxPx: 300, opacity: .16, width: 5, blur: 2 },
+          { distFrac: .20, minPx: 80, maxPx: 170, opacity: .30, width: 4, blur: 1 },
+          { distFrac: .08, minPx: 34, maxPx: 85, opacity: .8, width: 3, blur: .4 }
+        ];
         bandColors.forEach((color, bi) => {
           const bandOffset = (bi - 1) * bandGap;
           const bandPts = centerPts.map(p => ({ x: p.x, y: p.y + bandOffset }));
-          const path = document.createElementNS(NS, 'path');
-          path.setAttribute('class', 'ind-jet-trail-path');
-          path.setAttribute('d', pathFromPoints(bandPts));
-          path.setAttribute('stroke', color);
-          trailSvg.appendChild(path);
-          const len = path.getTotalLength();
-          const dash = Math.min(90, Math.max(36, len * 0.11));
-          path.style.strokeDasharray = dash + ' ' + (len * 2);
-          path.style.strokeDashoffset = dash; // leading edge at arc-length 0, matching the icon's starting position
-          path.style.setProperty('--trail-dash', dash + 'px');
-          path.style.setProperty('--trail-len', len + 'px');
-          path.style.animation = 'ind-jet-trail-draw ' + jet.duration + 's linear ' + jet.delay + 's forwards';
+          const d = pathFromPoints(bandPts);
+          const measure = document.createElementNS(NS, 'path');
+          measure.setAttribute('d', d);
+          trailSvg.appendChild(measure);
+          const len = measure.getTotalLength();
+          trailSvg.removeChild(measure);
+          FADE_LAYERS.forEach(layer => {
+            const dash = Math.min(layer.maxPx, Math.max(layer.minPx, len * layer.distFrac));
+            const path = document.createElementNS(NS, 'path');
+            path.setAttribute('class', 'ind-jet-trail-path');
+            path.setAttribute('d', d);
+            path.setAttribute('stroke', color);
+            path.style.strokeWidth = layer.width;
+            path.style.opacity = layer.opacity;
+            path.style.filter = 'blur(' + layer.blur + 'px)';
+            trailSvg.appendChild(path);
+            path.style.strokeDasharray = dash + ' ' + (len * 2);
+            path.style.strokeDashoffset = dash; // leading edge at arc-length 0, matching the icon's starting position
+            path.style.setProperty('--trail-dash', dash + 'px');
+            path.style.setProperty('--trail-len', len + 'px');
+            path.style.animation = 'ind-jet-trail-draw ' + jet.duration + 's linear ' + jet.delay + 's forwards';
+          });
         });
 
         const icon = document.createElement('div');
