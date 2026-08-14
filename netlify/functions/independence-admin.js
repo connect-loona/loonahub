@@ -15,18 +15,24 @@
 //     -> 401 {error} if it doesn't match INDEPENDENCE_ADMIN_PASSWORD (or
 //        that env var was never set — fails closed, not open).
 //     -> 200 { entries, todayCount, truncated }
-//        entries: [{ key, name, city, lat, lon, ts, date, from }], most
-//        recent first, capped at LOG_LIMIT hoists (see below — the log
-//        accumulates across every day this has ever run, not just
-//        today, so the cap is generous rather than tied to one day's
-//        expected volume).
+//        entries: [{ key, name, city, lat, lon, ts, date, from }] for
+//        TODAY only (see WHY_DATE_FILTER below), most recent first.
 //        todayCount: today's real total from the same daily counter the
-//        public "X flags hoisted today" line uses — independent of the
-//        capped log fetch, so it stays accurate even once truncated.
-//        truncated: true if today's own hoists alone already hit
-//        LOG_LIMIT, meaning some of today's entries got pushed out of
-//        the returned set (shows up on the admin page as a banner) —
-//        raise LOG_LIMIT if this ever actually happens.
+//        public "X flags hoisted today" line uses — fetched
+//        independently of the entries query above as a cross-check (see
+//        `truncated`), not derived from entries.length.
+//        truncated: true if entries came back short of todayCount —
+//        would mean some of today's log writes are missing their `date`
+//        field somehow, since the query below is no longer capped by
+//        count at all (shows up on the admin page as a banner).
+//
+// WHY_DATE_FILTER: this used to fetch the whole all-time log capped at N
+// most-recent entries (first 500, then 5000) — but that cap was always
+// arbitrary no matter what N was, since it had nothing to do with how
+// many people actually hoisted today. Filtering server-side to today's
+// `date` field instead scales itself: it naturally returns exactly one
+// day's real turnout, however large or small that turns out to be, with
+// no number to eyeball or ever need raising again.
 //
 // name/city/lat/lon here are exactly what independence-hoist.js already
 // writes to /independenceHoists/log for every hoist (name arrives
@@ -39,10 +45,6 @@ const { URL } = require("url");
 
 const FB = (process.env.FIREBASE_DB_URL || "https://loona-hub-c85d7-default-rtdb.firebaseio.com").replace(/\/+$/, "");
 const PASSWORD = process.env.INDEPENDENCE_ADMIN_PASSWORD;
-// A single day's realistic ceiling is nowhere near this even for a very
-// successful campaign — generous on purpose since Firebase RTDB's
-// limitToLast is a cheap, single indexed read regardless of size.
-const LOG_LIMIT = 5000;
 
 function todayIST() {
   const now = new Date(Date.now() + 5.5 * 3600000);
@@ -86,8 +88,14 @@ exports.handler = async (event) => {
   }
 
   const today = todayIST();
+  // orderBy="date"&equalTo="<today>" — no limitToLast at all, so there's
+  // no count to ever run out of. Works fine without a Firebase `.indexOn`
+  // rule for "date" (RTDB just does an unindexed scan and logs a console
+  // recommendation to add one) — worth adding server-side in the Firebase
+  // console if this project's log ever gets genuinely huge, but not
+  // required for correctness at the scale a one-day event produces.
   const [raw, todayCountRaw] = await Promise.all([
-    fbGetQuery("/independenceHoists/log", 'orderBy="ts"&limitToLast=' + LOG_LIMIT),
+    fbGetQuery("/independenceHoists/log", 'orderBy="date"&equalTo="' + today + '"'),
     fbGet("/independenceHoists/daily/" + today + "/count"),
   ]);
   const todayCount = typeof todayCountRaw === "number" ? todayCountRaw : 0;
@@ -110,8 +118,7 @@ exports.handler = async (event) => {
   }
   entries.sort((a, b) => (b.ts || 0) - (a.ts || 0));
 
-  const todayEntries = entries.filter((e) => e.date === today).length;
-  const truncated = todayEntries < todayCount;
+  const truncated = entries.length < todayCount;
 
   return {
     statusCode: 200,
