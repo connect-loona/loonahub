@@ -299,10 +299,10 @@
   /* Soft blinking heatmap-style glow spots (radial gradient, blurred
      edges), not pins — saffron and green, alternating per hoist. */
   .ind-map-spot {
-    position: absolute; width: 30px; height: 30px;
+    position: absolute; width: 9px; height: 9px;
     transform: translate(-50%, -50%);
     border-radius: 50%;
-    filter: blur(1px);
+    filter: blur(.5px);
     animation: ind-map-spot-blink 2.2s ease-in-out infinite;
   }
   .ind-map-spot-orange { background: radial-gradient(circle, rgba(255, 153, 51, .95) 0%, rgba(255, 153, 51, .45) 45%, transparent 72%); }
