@@ -80,6 +80,13 @@ function loginPageHTML(opts: { error?: boolean; username?: string; redirectTo: s
 }
 
 export default async (request: Request, context: Context) => {
+  // flag.loona.in exists solely to serve the public Independence Day
+  // microsite (see the redirect in netlify.toml) — never gate it, on any
+  // path, regardless of how that redirect's rewrite interacts with this
+  // function's ordering. Every other domain (including the dashboard's
+  // own) keeps going through the normal excludedPath checks below.
+  if (new URL(request.url).hostname === "flag.loona.in") return context.next();
+
   const credentials = Netlify.env.get("BASIC_AUTH_CREDENTIALS");
   if (!credentials) return context.next();
 
