@@ -3567,14 +3567,16 @@
     }
     .ind-flag-svg { width: 100%; height: 100%; display: block; }
     /* Flypast — triggered once the flag finishes unfurling, see
-       spawnJets(). Several rounds of hand-drawn CSS/SVG jets+smoke never
-       read as well as the real reference photo the user attached, so this
-       uses that photo directly (chroma-keyed to a transparent PNG — see
-       assets/independence-day/jets-formation.png) instead of redrawing it.
-       Each instance just translates in a straight diagonal line (matching
-       the photo's own natural climbing-formation angle) from off-screen
-       bottom to off-screen top, computed in real pixels off the
-       container's actual size at spawn time (see spawnJets()). */
+       spawnJets(). A hand-drawn photo-realistic attempt, then a raster
+       reference photo, both gave way to this: a purpose-built vector
+       asset (assets/independence-day/jets-formation.svg — 3 jets, each
+       trail a gradient-faded stroke from transparent at the tail to full
+       colour near the jet, so it dissipates smoothly with exact,
+       artifact-free edges no chroma-keyed photo can match). Each instance
+       just translates in a straight diagonal line (matching the art's own
+       climbing-formation angle) from off-screen bottom to off-screen top,
+       computed in real pixels off the container's actual size at spawn
+       time (see spawnJets()). */
     .ind-jets {
       position: absolute;
       inset: 0;
@@ -3582,16 +3584,16 @@
       pointer-events: none;
       z-index: 4;
     }
-    .ind-jet-photo {
+    .ind-jet-art {
       position: absolute;
       top: 0;
       left: 0;
       filter: drop-shadow(0 2px 6px rgba(0, 0, 0, .3));
-      animation-name: ind-jet-photo-fly;
+      animation-name: ind-jet-art-fly;
       animation-timing-function: linear;
       animation-fill-mode: forwards;
     }
-    @keyframes ind-jet-photo-fly {
+    @keyframes ind-jet-art-fly {
       0% { transform: translate(var(--jf-x0), var(--jf-y0)) scaleX(var(--jf-flip, 1)); opacity: 0; }
       8% { opacity: 1; }
       88% { opacity: 1; }
@@ -15938,16 +15940,15 @@
         setTimeout(() => { btn.disabled = false; btn.textContent = 'Hoist Again'; }, 5800);
       }, climbDuration * 1000);
     }
-    // Flypast using the real reference photo (assets/independence-day/
-    // jets-formation.png — 3 delta-wing jets with a tricolour smoke trail,
-    // chroma-keyed to transparent from the user's attached image) instead
-    // of hand-drawn CSS/SVG jets, which never read as convincingly after
-    // several rounds of trying. The photo's own artwork already shows the
-    // formation climbing up-and-to-the-right at a natural angle, so each
-    // instance just translates straight along that same direction — jets
-    // flying nose-first the way they're drawn pointing, physically
-    // consistent — from off-screen bottom to off-screen top.
-    // Two instances: the photo as-is (bottom-left -> top-right), and a
+    // Flypast using a purpose-built vector asset (assets/independence-day/
+    // jets-formation.svg — 3 jets, each trailing a gradient-faded stroke)
+    // instead of hand-drawn CSS/SVG jets or a chroma-keyed reference photo,
+    // neither of which read as convincingly. The art's own formation
+    // climbs up-and-to-the-right at a natural angle, so each instance just
+    // translates straight along that same direction — jets flying
+    // nose-first the way they're drawn pointing, physically consistent —
+    // from off-screen bottom to off-screen top.
+    // Two instances: the art as-is (bottom-left -> top-right), and a
     // horizontally-mirrored one (scaleX(-1), so its jets point up-and-
     // left, bottom-right -> top-left), delayed to start partway into the
     // first so the two visibly cross paths, same "formation vs a single
@@ -15955,30 +15956,30 @@
     // Positions are computed in real pixels off the container's actual
     // rendered size (same "measure it, don't guess with %" rule the
     // petal-fall and mobile full-bleed fixes both apply), set via CSS
-    // custom properties consumed by @keyframes ind-jet-photo-fly.
+    // custom properties consumed by @keyframes ind-jet-art-fly.
     function spawnJets(container) {
       if (!container) return;
       container.innerHTML = '';
       const rect = container.getBoundingClientRect();
       const W = Math.max(1, rect.width), H = Math.max(1, rect.height);
-      const NATURAL_W = 886, NATURAL_H = 997;
-      const imgW = Math.max(130, Math.min(300, W * 0.22));
+      const NATURAL_W = 1200, NATURAL_H = 1200; // matches jets-formation.svg's viewBox
+      const imgW = Math.max(160, Math.min(340, W * 0.24));
       const imgH = imgW * (NATURAL_H / NATURAL_W);
 
       const instances = [
         // Natural orientation: bottom-left -> top-right.
         { flip: 1, duration: 7.5, delay: 0,
-          x0: -imgW * 0.85, y0: H * 0.5, x1: W + imgW * 0.2, y1: -imgH * 0.7 },
+          x0: -imgW * 0.7, y0: H * 0.55, x1: W + imgW * 0.1, y1: -imgH * 0.55 },
         // Mirrored: bottom-right -> top-left, started partway into the
         // first flight so the two cross, on a slightly different band.
         { flip: -1, duration: 7.8, delay: 1.8,
-          x0: W + imgW * 0.85, y0: H * 0.36, x1: -imgW * 0.2, y1: -imgH * 0.75 }
+          x0: W + imgW * 0.7, y0: H * 0.4, x1: -imgW * 0.1, y1: -imgH * 0.6 }
       ];
 
       instances.forEach(inst => {
         const img = document.createElement('img');
-        img.className = 'ind-jet-photo';
-        img.src = 'assets/independence-day/jets-formation.png';
+        img.className = 'ind-jet-art';
+        img.src = 'assets/independence-day/jets-formation.svg';
         img.alt = '';
         img.style.width = imgW + 'px';
         img.style.height = imgH + 'px';
