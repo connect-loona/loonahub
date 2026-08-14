@@ -153,25 +153,37 @@ exports.handler = async (event) => {
     const from = typeof parsed.from === "string" ? parsed.from.slice(0, 60) : null;
     const geo = getGeo(event);
 
-    const [dayRes, allRes, logRes] = await Promise.all([
+    // Self-generated key (not Firebase's auto-generated push ID) so it's
+    // known synchronously, with no need to await the log write to learn
+    // it — that write went back to fire-and-forget below after briefly
+    // being awaited: awaiting it added a 3rd real Firebase round-trip to
+    // every single hoist's critical response path (on top of the two
+    // counter increments AND fetchDots() below), which under real
+    // concurrent load could plausibly slow a hoist response enough to
+    // occasionally drop the map reveal's own marker rendering — the
+    // client only renders `dot`/`dots` from whatever this response
+    // contains, so a slow/timed-out response reasonably could mean no
+    // marker. `from`/`lat`/`lon`/etc. below aren't part of the key, just
+    // safe base36 chars, so this needs no sanitizing the way a
+    // user-supplied string would.
+    const logKey = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+
+    const [dayRes, allRes] = await Promise.all([
       fbPut("/independenceHoists/daily/" + date + "/count", { ".sv": { increment: 1 } }),
       fbPut("/independenceHoists/allTimeCount", { ".sv": { increment: 1 } }),
-      // Awaited now (was fire-and-forget before) so the generated push ID
-      // can be handed back as `logKey` — the setName follow-up above needs
-      // it to know which entry to attach a name to. lat/lon/city are
-      // simply omitted (JSON.stringify drops undefined values) when geo
-      // lookup failed or fell outside India's bounding box.
-      fbPost("/independenceHoists/log", {
-        date, from, ts: { ".sv": "timestamp" },
-        lat: geo ? geo.lat : undefined,
-        lon: geo ? geo.lon : undefined,
-        city: geo ? geo.city : undefined,
-      }),
     ]);
+    // Best-effort log, doesn't block the response either way. lat/lon/
+    // city are simply omitted (JSON.stringify drops undefined values)
+    // when geo lookup failed or fell outside India's bounding box.
+    fbPut("/independenceHoists/log/" + logKey, {
+      date, from, ts: { ".sv": "timestamp" },
+      lat: geo ? geo.lat : undefined,
+      lon: geo ? geo.lon : undefined,
+      city: geo ? geo.city : undefined,
+    });
 
     const count = typeof dayRes.body === "number" ? dayRes.body : 1;
     const allTimeCount = typeof allRes.body === "number" ? allRes.body : count;
-    const logKey = logRes.body && typeof logRes.body.name === "string" ? logRes.body.name : null;
     // Recent dots for the map, refreshed to include this very hoist —
     // one extra query on the write path, but this endpoint is nowhere
     // near hot enough for that to matter.
