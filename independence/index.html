@@ -265,12 +265,17 @@
   .ind-scene.ind-scene-celebrating .ind-map-screen { opacity: 1; transform: translate(-50%, -50%) scale(1.22); }
   .ind-map-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; display: block; user-select: none; pointer-events: none; }
 
-  /* Commissioned illustration (assets/independence-day/celebration-map.svg)
-     — live heat-spot markers are positioned as percentages calibrated
-     against this map's underlying generation (verified against ~13 known
-     cities, e.g. Mumbai lands right on the coast where it belongs). See
-     projectToMapXY() in the script for the same math. Swapping to a
-     differently-composed image needs the calibration redone. */
+  /* Commissioned illustration (assets/independence-day/celebration-map.jpg)
+     — a pre-rendered raster now, not the earlier live SVG-loaded-as-<img>,
+     so there's no dependency on the viewer's browser supporting SVG
+     filters (blur/drop-shadow) inside an externally-loaded image — some
+     mobile browsers render those inconsistently or not at all, which was
+     the likely cause of the map silently failing for some visitors. Live
+     heat-spot markers are positioned as percentages calibrated against
+     this exact image (verified against ~13 known cities, e.g. Mumbai
+     lands right on the coast where it belongs). See projectToMapXY() in
+     the script for the same math. Swapping to a differently-composed
+     image needs the calibration redone. */
   .ind-map-dots { position: absolute; inset: 0; }
   /* Soft blinking heatmap-style glow spots (radial gradient, blurred
      edges), not pins — saffron and green, alternating per hoist. */
@@ -363,7 +368,7 @@
          and scales in via .ind-scene-celebrating on the parent (see CSS),
          replacing the live sky/jets/petals with this pre-rendered piece. -->
     <div class="ind-map-screen" id="ind-map-screen">
-      <img class="ind-map-bg" src="/assets/independence-day/celebration-map.svg?v=2" alt="" aria-hidden="true">
+      <img class="ind-map-bg" src="/assets/independence-day/celebration-map.jpg?v=3" alt="" aria-hidden="true">
       <div class="ind-map-dots" id="ind-map-dots"></div>
     </div>
 
@@ -624,19 +629,14 @@ function refreshDailyCount() {
 refreshDailyCount();
 setInterval(refreshDailyCount, 6000);
 
-// Exact, not hand-fitted — celebration-map.svg's <g id="india-map"> uses
-// the same Simplemaps path data this was originally calibrated against,
-// positioned via a known transform inside the SVG's 1080x1920 viewBox
-// (currently matrix(1.10 0 0 1.06 -18 262) — a "fixed" positioning pass
-// from the source design, replacing an earlier translate/scale transform;
-// update the two matrix lines below if the SVG's transform ever changes
-// again). So: 1) project lat/lon into the map's own 1000x1000 space, the
-// same getBBox-measured bounding box (x 99.9, y 45.5, w 800.2, h 909.0)
-// used when this map was first calibrated and verified against ~14
-// cities; 2) apply the SVG's matrix transform to land in the 1080x1920
-// canvas; 3) convert to a percentage of that canvas, which is exactly
-// what .ind-map-screen's box represents (see its CSS comment). Swapping
-// to a differently-composed map image needs this redone from scratch.
+// celebration-map.jpg is a flattened raster export of the same SVG
+// composition this was calibrated against (matrix(1.10 0 0 1.06 -18 262)
+// applied to the Simplemaps path data's 1000x1000 space, inside a
+// 1080x1920 canvas) — reconfirmed by projecting ~14 known cities onto the
+// actual JPEG pixels and checking they land correctly (Mumbai on the
+// coast, Port Blair on the Andamans, etc.), not just trusted by math
+// alone. If celebration-map.jpg is ever swapped for a re-exported or
+// differently-composed image, redo that same verification.
 function projectToMapXY(lat, lon) {
   const mapX = 99.9 + (lon - 68.0) / (97.4 - 68.0) * 800.2;
   const mapY = 45.5 + (37.6 - lat) / (37.6 - 6.5) * 909.0;
