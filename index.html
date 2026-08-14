@@ -3567,16 +3567,20 @@
     }
     .ind-flag-svg { width: 100%; height: 100%; display: block; }
     /* Flypast — triggered once the flag finishes unfurling, see
-       spawnJets(). A hand-drawn photo-realistic attempt, then a raster
-       reference photo, both gave way to this: a purpose-built vector
-       asset (assets/independence-day/jets-formation.svg — 3 jets, each
-       trail a gradient-faded stroke from transparent at the tail to full
-       colour near the jet, so it dissipates smoothly with exact,
-       artifact-free edges no chroma-keyed photo can match). Each instance
-       just translates in a straight diagonal line (matching the art's own
-       climbing-formation angle) from off-screen bottom to off-screen top,
-       computed in real pixels off the container's actual size at spawn
-       time (see spawnJets()). */
+       spawnJets(). Uses a purpose-built vector asset
+       (assets/independence-day/jets-formation.svg — 3 jets, each trail a
+       gradient-faded stroke baked into the art, so it moves rigidly with
+       the formation with no separate trail animation needed) instead of
+       hand-drawn CSS/SVG jets or a chroma-keyed reference photo. Each
+       instance follows a gently wavy CSS motion path (offset-path, built
+       per-instance in real pixels off the container's actual size — same
+       "measure it, don't guess with %" rule the petal-fall and mobile
+       full-bleed fixes both apply) confined to a band near the top of the
+       scene: one instance left→right, one right→left (mirrored via
+       scaleX(-1)), delayed to start partway into the first so the two
+       visibly cross. offset-rotate stays fixed at 0deg rather than "auto"
+       — the art's own baked-in trail angle is the visual cue, not the
+       path's instantaneous tangent. */
     .ind-jets {
       position: absolute;
       inset: 0;
@@ -3592,12 +3596,13 @@
       animation-name: ind-jet-art-fly;
       animation-timing-function: linear;
       animation-fill-mode: forwards;
+      offset-rotate: 0deg;
     }
     @keyframes ind-jet-art-fly {
-      0% { transform: translate(var(--jf-x0), var(--jf-y0)) scaleX(var(--jf-flip, 1)); opacity: 0; }
+      0% { offset-distance: 0%; opacity: 0; }
       8% { opacity: 1; }
       88% { opacity: 1; }
-      100% { transform: translate(var(--jf-x1), var(--jf-y1)) scaleX(var(--jf-flip, 1)); opacity: 0; }
+      100% { offset-distance: 100%; opacity: 0; }
     }
     .ind-petals {
       position: absolute;
@@ -15940,56 +15945,86 @@
         setTimeout(() => { btn.disabled = false; btn.textContent = 'Hoist Again'; }, 5800);
       }, climbDuration * 1000);
     }
+    // Builds a gentle wavy path (sine wave from xStart to xEnd, envelope
+    // tapered to ~0 right at the spawn/exit edges so nothing jumps
+    // sideways as it enters/leaves) as a smooth SVG path string, using a
+    // "quadratic through sampled points" trick — each consecutive
+    // midpoint becomes the curve target — rather than hand-deriving
+    // tangents. Shared by every jet instance's offset-path.
+    function buildWavyPoints(xStart, xEnd, baseY, amp, waves, phase, n) {
+      const pts = [];
+      for (let i = 0; i <= n; i++) {
+        const t = i / n;
+        const x = xStart + (xEnd - xStart) * t;
+        const y = baseY + Math.sin(t * Math.PI * waves + phase) * amp * Math.sin(t * Math.PI);
+        pts.push({ x, y });
+      }
+      return pts;
+    }
+    function pathFromPoints(pts) {
+      if (pts.length < 2) return '';
+      let d = 'M ' + pts[0].x.toFixed(1) + ',' + pts[0].y.toFixed(1);
+      for (let i = 1; i < pts.length - 1; i++) {
+        const mx = (pts[i].x + pts[i + 1].x) / 2;
+        const my = (pts[i].y + pts[i + 1].y) / 2;
+        d += ' Q ' + pts[i].x.toFixed(1) + ',' + pts[i].y.toFixed(1) + ' ' + mx.toFixed(1) + ',' + my.toFixed(1);
+      }
+      const last = pts[pts.length - 1];
+      d += ' T ' + last.x.toFixed(1) + ',' + last.y.toFixed(1);
+      return d;
+    }
     // Flypast using a purpose-built vector asset (assets/independence-day/
-    // jets-formation.svg — 3 jets, each trailing a gradient-faded stroke)
-    // instead of hand-drawn CSS/SVG jets or a chroma-keyed reference photo,
-    // neither of which read as convincingly. The art's own formation
-    // climbs up-and-to-the-right at a natural angle, so each instance just
-    // translates straight along that same direction — jets flying
-    // nose-first the way they're drawn pointing, physically consistent —
-    // from off-screen bottom to off-screen top.
-    // Two instances: the art as-is (bottom-left -> top-right), and a
-    // horizontally-mirrored one (scaleX(-1), so its jets point up-and-
-    // left, bottom-right -> top-left), delayed to start partway into the
-    // first so the two visibly cross paths, same "formation vs a single
-    // repeated flyby" idea as the earlier hand-drawn version.
-    // Positions are computed in real pixels off the container's actual
+    // jets-formation.svg — 3 jets, each trailing a gradient-faded stroke
+    // baked into the art) instead of hand-drawn CSS/SVG jets or a
+    // chroma-keyed reference photo, neither of which read as convincingly.
+    // Two instances fly a gently wavy pass confined to a band near the top
+    // of the scene — one left→right, one right→left (mirrored via
+    // scaleX(-1)) — delayed to start partway into the first so the two
+    // visibly cross, rather than each just repeating the same flyby. The
+    // trail moves rigidly with the formation since it's baked into the
+    // single image, so unlike the earlier hand-drawn version there's no
+    // separate trail-path animation to keep in sync with the icon.
+    // Path geometry is computed in real pixels off the container's actual
     // rendered size (same "measure it, don't guess with %" rule the
-    // petal-fall and mobile full-bleed fixes both apply), set via CSS
-    // custom properties consumed by @keyframes ind-jet-art-fly.
+    // petal-fall and mobile full-bleed fixes both apply).
     function spawnJets(container) {
       if (!container) return;
       container.innerHTML = '';
       const rect = container.getBoundingClientRect();
       const W = Math.max(1, rect.width), H = Math.max(1, rect.height);
-      const NATURAL_W = 1200, NATURAL_H = 1200; // matches jets-formation.svg's viewBox
       const imgW = Math.max(160, Math.min(340, W * 0.24));
-      const imgH = imgW * (NATURAL_H / NATURAL_W);
+      const imgH = imgW; // jets-formation.svg's viewBox is square (1200x1200)
+
+      // Gentle wave, capped in absolute px regardless of scene height so
+      // tall viewports don't turn this into jets swooping across half the
+      // screen — same reasoning/values as the earlier hand-drawn swirl.
+      const amp = Math.min(70, Math.max(28, H * 0.045));
+      const waves = 2.2;
 
       const instances = [
-        // Natural orientation: bottom-left -> top-right.
-        { flip: 1, duration: 7.5, delay: 0,
-          x0: -imgW * 0.7, y0: H * 0.55, x1: W + imgW * 0.1, y1: -imgH * 0.55 },
-        // Mirrored: bottom-right -> top-left, started partway into the
-        // first flight so the two cross, on a slightly different band.
-        { flip: -1, duration: 7.8, delay: 1.8,
-          x0: W + imgW * 0.7, y0: H * 0.4, x1: -imgW * 0.1, y1: -imgH * 0.6 }
+        // Left -> right, upper lane.
+        { flip: 1, duration: 8, delay: 0, baseYPct: 20, phase: 0 },
+        // Right -> left (mirrored), started partway into the first flight
+        // so the two cross, on a slightly different band.
+        { flip: -1, duration: 8.3, delay: 1.8, baseYPct: 13, phase: .6 }
       ];
 
       instances.forEach(inst => {
+        const baseY = H * inst.baseYPct / 100;
+        const xStart = inst.flip === -1 ? W + imgW * 0.6 : -imgW * 0.6;
+        const xEnd = inst.flip === -1 ? -imgW * 0.6 : W + imgW * 0.6;
+        const pts = buildWavyPoints(xStart, xEnd, baseY, amp, waves, inst.phase, 12);
+
         const img = document.createElement('img');
         img.className = 'ind-jet-art';
         img.src = 'assets/independence-day/jets-formation.svg';
         img.alt = '';
         img.style.width = imgW + 'px';
         img.style.height = imgH + 'px';
+        img.style.offsetPath = "path('" + pathFromPoints(pts) + "')";
         img.style.animationDuration = inst.duration + 's';
         img.style.animationDelay = inst.delay + 's';
-        img.style.setProperty('--jf-flip', inst.flip);
-        img.style.setProperty('--jf-x0', inst.x0.toFixed(1) + 'px');
-        img.style.setProperty('--jf-y0', inst.y0.toFixed(1) + 'px');
-        img.style.setProperty('--jf-x1', inst.x1.toFixed(1) + 'px');
-        img.style.setProperty('--jf-y1', inst.y1.toFixed(1) + 'px');
+        if (inst.flip === -1) img.style.transform = 'scaleX(-1)';
         container.appendChild(img);
       });
 
