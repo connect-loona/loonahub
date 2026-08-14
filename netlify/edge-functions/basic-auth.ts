@@ -145,5 +145,15 @@ export const config: Config = {
     // hitting this site-wide gate first. See independence/index.html.
     "/independence",
     "/independence/*",
+    // The microsite's own jets SVG + anthem MP3 live under /assets, which
+    // otherwise stays behind the gate — without this, a visitor who never
+    // logged into the dashboard got the login page's HTML back in place of
+    // the actual image/audio file (silently, no auth prompt, since this is
+    // a cookie-based gate not a native WWW-Authenticate challenge), so the
+    // jets never rendered and the anthem never played for anyone but a
+    // logged-in teammate. This is the actual fix for that — no amount of
+    // cache-busting or SW changes in independence/index.html could ever
+    // have fixed it, since the asset request itself was being intercepted.
+    "/assets/independence-day/*",
   ],
 };
