@@ -3566,13 +3566,15 @@
       50% { transform: skewY(-4deg) scaleY(.97); }
     }
     .ind-flag-svg { width: 100%; height: 100%; display: block; }
-    /* Flypast — triggered once the flag finishes unfurling, see spawnJets().
-       Each jet follows a gently wavy flight path (CSS motion path, built
-       per-jet in real pixels at spawn time — same "measure the real box,
-       don't guess with %" approach used for the petal-fall fix) instead of
-       a dead-straight line. Three parallel tricolour strokes are "drawn"
-       behind it along that same path via stroke-dashoffset, so the smoke
-       actually traces the curve instead of just scaling a flat rectangle. */
+    /* Flypast — triggered once the flag finishes unfurling, see
+       spawnJets(). Several rounds of hand-drawn CSS/SVG jets+smoke never
+       read as well as the real reference photo the user attached, so this
+       uses that photo directly (chroma-keyed to a transparent PNG — see
+       assets/independence-day/jets-formation.png) instead of redrawing it.
+       Each instance just translates in a straight diagonal line (matching
+       the photo's own natural climbing-formation angle) from off-screen
+       bottom to off-screen top, computed in real pixels off the
+       container's actual size at spawn time (see spawnJets()). */
     .ind-jets {
       position: absolute;
       inset: 0;
@@ -3580,53 +3582,20 @@
       pointer-events: none;
       z-index: 4;
     }
-    .ind-jets svg.ind-jet-trails { position: absolute; inset: 0; width: 100%; height: 100%; }
-    .ind-jet-trail-path {
-      fill: none;
-      stroke-linecap: round;
-      /* stroke-width/opacity/filter set per fade layer in JS (see
-         spawnJets) — several stacked dashes of increasing length and
-         decreasing opacity approximate a long trail that dissipates
-         gradually with distance from the jet, instead of one uniform dash
-         with a hard edge. */
-    }
-    /* A short dash (length --trail-dash) whose LEADING edge tracks the
-       jet's exact position along the path — the dash's leading edge sits
-       at arc-length (dash - offset), so animating offset from `dash` (edge
-       at 0, matching the icon's start) to `dash - totalLen` (edge at
-       totalLen, matching the icon's end) makes it travel the exact same
-       distance in the exact same time as the icon's own offset-distance
-       0%->100% animation. An earlier version animated to `-dash` instead
-       of `dash - totalLen`, which made the dash's leading edge travel
-       totalLen + 2*dash instead of just totalLen over the same duration —
-       faster than the icon, so it visibly raced ahead and detached from
-       the jet by the end of the flight ("smoke comes separate later").
-       --trail-dash/--trail-len must be set as `px` lengths (not bare
-       numbers) — calc() of two unitless <number> custom properties
-       produces a <number>, which isn't a valid stroke-dashoffset value
-       even though a literal bare number is; that silently invalidated the
-       whole keyframe and froze the animation at its starting value, which
-       looked like the same "trail doesn't move with the jet" bug from a
-       different angle (caught via getAnimations()/computed-style diffing
-       across samples, not just visually). */
-    @keyframes ind-jet-trail-draw {
-      to { stroke-dashoffset: calc(var(--trail-dash, 70px) - var(--trail-len, 1000px)); }
-    }
-    .ind-jet-icon {
+    .ind-jet-photo {
       position: absolute;
       top: 0;
       left: 0;
-      width: 30px;
-      filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .35));
-      animation-name: ind-jet-fly-path;
+      filter: drop-shadow(0 2px 6px rgba(0, 0, 0, .3));
+      animation-name: ind-jet-photo-fly;
       animation-timing-function: linear;
       animation-fill-mode: forwards;
-      offset-rotate: 0deg;
     }
-    .ind-jet-icon svg { display: block; width: 100%; height: auto; }
-    @keyframes ind-jet-fly-path {
-      from { offset-distance: 0%; }
-      to { offset-distance: 100%; }
+    @keyframes ind-jet-photo-fly {
+      0% { transform: translate(var(--jf-x0), var(--jf-y0)) scaleX(var(--jf-flip, 1)); opacity: 0; }
+      8% { opacity: 1; }
+      88% { opacity: 1; }
+      100% { transform: translate(var(--jf-x1), var(--jf-y1)) scaleX(var(--jf-flip, 1)); opacity: 0; }
     }
     .ind-petals {
       position: absolute;
@@ -15969,152 +15938,61 @@
         setTimeout(() => { btn.disabled = false; btn.textContent = 'Hoist Again'; }, 5800);
       }, climbDuration * 1000);
     }
-    // A small formation of delta-wing jets flying a gentle swirling/wavy
-    // path once the flag is fully up (not a dead-straight line — see
-    // buildWavyPath()), each trailing three tricolour smoke strokes drawn
-    // along that same curve via stroke-dashoffset (see .ind-jet-trail-path)
-    // so the smoke visibly follows the swirl instead of a flat rectangle
-    // scaling in a straight line.
-    // Two 3-jet formations — one left→right, one right→left — timed to
-    // cross paths mid-flight rather than a single line of jets all going
-    // the same way. Lanes are all within the top 12% of the scene,
-    // comfortably above where the flag ends up (its hoisted position
-    // varies with viewport height, but even on a tall screen it doesn't
-    // reach past ~25-30% from the top) so they fly over it, not through it.
-    //
-    // Path geometry is built in real pixels off the container's actual
+    // Flypast using the real reference photo (assets/independence-day/
+    // jets-formation.png — 3 delta-wing jets with a tricolour smoke trail,
+    // chroma-keyed to transparent from the user's attached image) instead
+    // of hand-drawn CSS/SVG jets, which never read as convincingly after
+    // several rounds of trying. The photo's own artwork already shows the
+    // formation climbing up-and-to-the-right at a natural angle, so each
+    // instance just translates straight along that same direction — jets
+    // flying nose-first the way they're drawn pointing, physically
+    // consistent — from off-screen bottom to off-screen top.
+    // Two instances: the photo as-is (bottom-left -> top-right), and a
+    // horizontally-mirrored one (scaleX(-1), so its jets point up-and-
+    // left, bottom-right -> top-left), delayed to start partway into the
+    // first so the two visibly cross paths, same "formation vs a single
+    // repeated flyby" idea as the earlier hand-drawn version.
+    // Positions are computed in real pixels off the container's actual
     // rendered size (same "measure it, don't guess with %" rule the
-    // petal-fall and mobile full-bleed fixes both apply) using a simple
-    // "smooth quadratic through sampled points" trick: sample N points
-    // along a sine wave from start to end, then connect them with Q/T
-    // commands using each consecutive midpoint as the curve target. No
-    // trig-heavy tangent math needed, just enough points for a natural
-    // S-curve.
-    function buildWavyPoints(xStart, xEnd, baseY, amp, waves, phase, n) {
-      const pts = [];
-      for (let i = 0; i <= n; i++) {
-        const t = i / n;
-        const x = xStart + (xEnd - xStart) * t;
-        // sin(t*PI) envelope tapers the wave to ~0 right at the spawn/exit
-        // edges, so the jet doesn't visibly jump sideways as it enters.
-        const y = baseY + Math.sin(t * Math.PI * waves + phase) * amp * Math.sin(t * Math.PI);
-        pts.push({ x, y });
-      }
-      return pts;
-    }
-    function pathFromPoints(pts) {
-      if (pts.length < 2) return '';
-      let d = 'M ' + pts[0].x.toFixed(1) + ',' + pts[0].y.toFixed(1);
-      for (let i = 1; i < pts.length - 1; i++) {
-        const mx = (pts[i].x + pts[i + 1].x) / 2;
-        const my = (pts[i].y + pts[i + 1].y) / 2;
-        d += ' Q ' + pts[i].x.toFixed(1) + ',' + pts[i].y.toFixed(1) + ' ' + mx.toFixed(1) + ',' + my.toFixed(1);
-      }
-      const last = pts[pts.length - 1];
-      d += ' T ' + last.x.toFixed(1) + ',' + last.y.toFixed(1);
-      return d;
-    }
+    // petal-fall and mobile full-bleed fixes both apply), set via CSS
+    // custom properties consumed by @keyframes ind-jet-photo-fly.
     function spawnJets(container) {
       if (!container) return;
       container.innerHTML = '';
-      const NS = 'http://www.w3.org/2000/svg';
       const rect = container.getBoundingClientRect();
       const W = Math.max(1, rect.width), H = Math.max(1, rect.height);
-      const trailSvg = document.createElementNS(NS, 'svg');
-      trailSvg.setAttribute('class', 'ind-jet-trails');
-      trailSvg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
-      container.appendChild(trailSvg);
-      // Each trio shares one duration/delay — flying in genuine lockstep
-      // (a real formation) rather than a staggered sequence that just
-      // looked like 3 separate flybys.
-      const LTR_DURATION = 8, LTR_DELAY = 0;
-      const RTL_DURATION = 8.4, RTL_DELAY = 2.4; // starts partway into the LTR pass so the two formations visibly cross
-      const formation = [
-        { topPct: 3, duration: LTR_DURATION, delay: LTR_DELAY, rtl: false, phase: 0 },
-        { topPct: 6.5, duration: LTR_DURATION, delay: LTR_DELAY, rtl: false, phase: .4 },
-        { topPct: 10, duration: LTR_DURATION, delay: LTR_DELAY, rtl: false, phase: .8 },
-        { topPct: 4.5, duration: RTL_DURATION, delay: RTL_DELAY, rtl: true, phase: .3 },
-        { topPct: 8, duration: RTL_DURATION, delay: RTL_DELAY, rtl: true, phase: .7 },
-        { topPct: 11.5, duration: RTL_DURATION, delay: RTL_DELAY, rtl: true, phase: 1.1 }
+      const NATURAL_W = 886, NATURAL_H = 997;
+      const imgW = Math.max(130, Math.min(300, W * 0.22));
+      const imgH = imgW * (NATURAL_H / NATURAL_W);
+
+      const instances = [
+        // Natural orientation: bottom-left -> top-right.
+        { flip: 1, duration: 7.5, delay: 0,
+          x0: -imgW * 0.85, y0: H * 0.5, x1: W + imgW * 0.2, y1: -imgH * 0.7 },
+        // Mirrored: bottom-right -> top-left, started partway into the
+        // first flight so the two cross, on a slightly different band.
+        { flip: -1, duration: 7.8, delay: 1.8,
+          x0: W + imgW * 0.85, y0: H * 0.36, x1: -imgW * 0.2, y1: -imgH * 0.75 }
       ];
-      const bandColors = ['#FF9933', '#FFFFFF', '#138808'];
-      const bandGap = 4.5;
-      // A clearly-visible wave, not a huge diagonal sweep — capped in
-      // absolute px regardless of scene height so tall viewports don't
-      // turn this into jets swooping halfway down the screen.
-      const amp = Math.min(85, Math.max(34, H * 0.06));
-      const waves = 2.2;
-      formation.forEach(jet => {
-        const baseY = H * jet.topPct / 100 + amp; // nudge lanes down so the upward half of the swirl doesn't clip offscreen
-        const xStart = jet.rtl ? W * 1.06 : -W * 0.06;
-        const xEnd = jet.rtl ? -W * 0.06 : W * 1.06;
-        const centerPts = buildWavyPoints(xStart, xEnd, baseY, amp, waves, jet.phase, 14);
 
-        // Three parallel tricolour strokes, offset a few px perpendicular
-        // (approximated as a constant Y-offset, valid since the path is
-        // mostly horizontal) so together they read as one banded trail.
-        // Each color is drawn as SEVERAL stacked dashes of increasing
-        // length and decreasing opacity/growing blur — a longer, fainter,
-        // blurrier dash underneath a short, bright, crisp one on top — to
-        // approximate smoke that reaches back a good distance behind the
-        // jet and dissipates gradually, rather than a single dash with a
-        // hard edge. All layers share the same leading-edge-tracks-the-
-        // icon math (see @keyframes ind-jet-trail-draw), so every layer
-        // stays exactly attached to the jet — verified in testing to
-        // sub-pixel drift for the base case; layering it doesn't change
-        // that math, only how much of the recent path each one reveals.
-        const FADE_LAYERS = [
-          { distFrac: .60, minPx: 240, maxPx: 480, opacity: .09, width: 6.5, blur: 3.5 },
-          { distFrac: .38, minPx: 150, maxPx: 300, opacity: .16, width: 5, blur: 2 },
-          { distFrac: .20, minPx: 80, maxPx: 170, opacity: .30, width: 4, blur: 1 },
-          { distFrac: .08, minPx: 34, maxPx: 85, opacity: .8, width: 3, blur: .4 }
-        ];
-        bandColors.forEach((color, bi) => {
-          const bandOffset = (bi - 1) * bandGap;
-          const bandPts = centerPts.map(p => ({ x: p.x, y: p.y + bandOffset }));
-          const d = pathFromPoints(bandPts);
-          const measure = document.createElementNS(NS, 'path');
-          measure.setAttribute('d', d);
-          trailSvg.appendChild(measure);
-          const len = measure.getTotalLength();
-          trailSvg.removeChild(measure);
-          FADE_LAYERS.forEach(layer => {
-            const dash = Math.min(layer.maxPx, Math.max(layer.minPx, len * layer.distFrac));
-            const path = document.createElementNS(NS, 'path');
-            path.setAttribute('class', 'ind-jet-trail-path');
-            path.setAttribute('d', d);
-            path.setAttribute('stroke', color);
-            path.style.strokeWidth = layer.width;
-            path.style.opacity = layer.opacity;
-            path.style.filter = 'blur(' + layer.blur + 'px)';
-            trailSvg.appendChild(path);
-            path.style.strokeDasharray = dash + ' ' + (len * 2);
-            path.style.strokeDashoffset = dash; // leading edge at arc-length 0, matching the icon's starting position
-            path.style.setProperty('--trail-dash', dash + 'px');
-            path.style.setProperty('--trail-len', len + 'px');
-            path.style.animation = 'ind-jet-trail-draw ' + jet.duration + 's linear ' + jet.delay + 's forwards';
-          });
-        });
-
-        const icon = document.createElement('div');
-        icon.className = 'ind-jet-icon';
-        icon.style.offsetPath = "path('" + pathFromPoints(centerPts) + "')";
-        icon.style.animationDuration = jet.duration + 's';
-        icon.style.animationDelay = jet.delay + 's';
-        // No manual centering transform needed — offset-anchor defaults to
-        // the box's transform-origin (center), so offset-path already
-        // lands the icon's center exactly on the path point. Adding a
-        // translate(-50%,-50%) here double-shifts it off by half the
-        // icon's own size (caught via a scratch-SVG getPointAtLength()
-        // cross-check against the rendered rect during testing).
-        if (jet.rtl) icon.style.transform = 'scaleX(-1)';
-        const svg = document.createElementNS(NS, 'svg');
-        svg.setAttribute('viewBox', '0 0 60 24');
-        svg.innerHTML = '<path d="M0,12 L38,9 L46,2 L52,2 L48,10 L60,12 L48,14 L52,22 L46,22 L38,15 Z" fill="#d8d8d8"/><path d="M18,10 L18,4 L23,9 Z" fill="#a8a8a8"/><path d="M18,14 L18,20 L23,15 Z" fill="#a8a8a8"/>';
-        icon.appendChild(svg);
-        container.appendChild(icon);
+      instances.forEach(inst => {
+        const img = document.createElement('img');
+        img.className = 'ind-jet-photo';
+        img.src = 'assets/independence-day/jets-formation.png';
+        img.alt = '';
+        img.style.width = imgW + 'px';
+        img.style.height = imgH + 'px';
+        img.style.animationDuration = inst.duration + 's';
+        img.style.animationDelay = inst.delay + 's';
+        img.style.setProperty('--jf-flip', inst.flip);
+        img.style.setProperty('--jf-x0', inst.x0.toFixed(1) + 'px');
+        img.style.setProperty('--jf-y0', inst.y0.toFixed(1) + 'px');
+        img.style.setProperty('--jf-x1', inst.x1.toFixed(1) + 'px');
+        img.style.setProperty('--jf-y1', inst.y1.toFixed(1) + 'px');
+        container.appendChild(img);
       });
-      const maxLife = Math.max(...formation.map(j => j.duration + j.delay)) * 1000 + 400;
+
+      const maxLife = Math.max(...instances.map(i => i.duration + i.delay)) * 1000 + 400;
       setTimeout(() => { if (container) container.innerHTML = ''; }, maxLife);
     }
     // A handful of tricolour bursts in the sky behind the gate/flag, staggered
