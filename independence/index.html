@@ -277,12 +277,15 @@
      actual rendered geometry, so if that box drifts, so does the marker. */
   .ind-scene.ind-scene-celebrating .ind-map-screen { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   .ind-map-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; display: block; user-select: none; pointer-events: none; }
-  /* Overlaid on the image's own dark bottom margin (the landmass ends
-     around 80% down; this sits well above the very bottom edge, clear of
-     both the mic-controls gradient (z-index 6, sits on top of this) and
-     any phone's home-indicator safe area) instead of taking extra space
-     below the image, so the map itself renders at full size. */
-  .ind-map-caption { position: absolute; left: 0; right: 0; bottom: 13%; padding: 0 20px; text-align: center; }
+  /* Overlaid on the image's own dark bottom margin (the landmass's own
+     bottom-most pixel measures at 79.7% down, so this needs to stay
+     within the remaining ~20% margin below that or it visibly sits on
+     top of the map instead of below it — bumping this up to 13% earlier,
+     combined with the 3rd line added since, pushed the block's top edge
+     back up into the landmass, which is exactly what this now fixes).
+     Still clear of the mic-controls gradient (z-index 6, sits on top of
+     this) and any phone's home-indicator safe area at the very bottom. */
+  .ind-map-caption { position: absolute; left: 0; right: 0; bottom: 4%; padding: 0 20px; text-align: center; }
   .ind-map-caption-sanskrit { font-size: 14px; font-weight: 600; color: #ffe6b3; text-shadow: 0 2px 8px rgba(0, 0, 0, .6); margin-bottom: 4px; line-height: 1.4; }
   .ind-map-caption-en { font-size: 11.5px; color: rgba(255, 255, 255, .78); text-shadow: 0 1px 4px rgba(0, 0, 0, .6); }
   /* Third line, below the shloka + tagline: "Your flag is the 42nd to rise
