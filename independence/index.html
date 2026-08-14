@@ -636,19 +636,25 @@ function refreshDailyCount() {
 refreshDailyCount();
 setInterval(refreshDailyCount, 6000);
 
-// celebration-map.jpg is a flattened raster export of the same SVG
-// composition this was calibrated against (matrix(1.10 0 0 1.06 -18 262)
-// applied to the Simplemaps path data's 1000x1000 space, inside a
-// 1080x1920 canvas) — reconfirmed by projecting ~14 known cities onto the
-// actual JPEG pixels and checking they land correctly (Mumbai on the
-// coast, Port Blair on the Andamans, etc.), not just trusted by math
-// alone. If celebration-map.jpg is ever swapped for a re-exported or
-// differently-composed image, redo that same verification.
+// Calibrated directly against celebration-map.jpg's own pixels (1080x1920),
+// NOT carried over from the earlier SVG's transform — that math turned out
+// not to actually match this specific JPEG (likely cropped/exported
+// slightly differently than the SVG it was based on), which a user
+// confirmed by screenshot: their own "Mumbai" marker landed well inland,
+// nowhere near the coast. Rebuilt from four of the map's own extreme tips,
+// identified directly on this image via a pixel grid overlay:
+//   north (Kashmir ~35.5N,77.0E) -> (400,425)
+//   south (Kanyakumari 8.078N,77.540E) -> (350,1520)
+//   west (Kutch ~23.9N,68.2E) -> (128,780)
+//   east (Arunachal ~28.5N,97.4E) -> (1048,750)
+// then verified against ~17 known cities actually landing correctly
+// (Mumbai on the coast, Port Blair on the Andamans, etc.) — if
+// celebration-map.jpg is ever swapped for a re-exported or differently-
+// composed image, redo that same verification, don't just carry the math
+// forward again.
 function projectToMapXY(lat, lon) {
-  const mapX = 99.9 + (lon - 68.0) / (97.4 - 68.0) * 800.2;
-  const mapY = 45.5 + (37.6 - lat) / (37.6 - 6.5) * 909.0;
-  const canvasX = 1.10 * mapX - 18;
-  const canvasY = 1.06 * mapY + 262;
+  const canvasX = -2020.7 + 31.51 * lon;
+  const canvasY = 1842.5 - 39.93 * lat;
   return { x: canvasX / 1080 * 100, y: canvasY / 1920 * 100 };
 }
 
