@@ -911,7 +911,13 @@ function startClimb() {
       // Jets keep flying on top of the map once it's showing, not just the
       // one flypast before it — re-spawn on a loop for as long as the
       // celebration is up. z-index already puts .ind-jets (6) above
-      // .ind-map-screen (5) so they visibly cross over the map.
+      // .ind-map-screen (5) so they visibly cross over the map. The very
+      // first flight (spawned back at climb-end, above) is long done by
+      // now — a single flight only lasts ~7.8s and this fires 7.8s after
+      // that spawn — so this needs its own immediate spawn right here,
+      // not just setInterval(), which wouldn't fire for another 9s and
+      // left the map revealing to an empty sky the whole time.
+      spawnJets(document.getElementById('ind-jets'));
       if (jetsLoopInterval) clearInterval(jetsLoopInterval);
       jetsLoopInterval = setInterval(() => {
         spawnJets(document.getElementById('ind-jets'));
