@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200">
+  <defs>
+    <linearGradient id="trail-grad-saffron" gradientUnits="userSpaceOnUse" x1="85" y1="925" x2="690" y2="205">
+      <stop offset="0%" stop-color="#FF7A2A" stop-opacity="0"/>
+      <stop offset="18%" stop-color="#FF7A2A" stop-opacity=".35"/>
+      <stop offset="100%" stop-color="#FF7A2A" stop-opacity=".95"/>
+    </linearGradient>
+    <linearGradient id="trail-grad-white" gradientUnits="userSpaceOnUse" x1="180" y1="1015" x2="835" y2="165">
+      <stop offset="0%" stop-color="#E6E6E6" stop-opacity="0"/>
+      <stop offset="18%" stop-color="#E6E6E6" stop-opacity=".35"/>
+      <stop offset="100%" stop-color="#E6E6E6" stop-opacity=".95"/>
+    </linearGradient>
+    <linearGradient id="trail-grad-green" gradientUnits="userSpaceOnUse" x1="260" y1="1020" x2="870" y2="335">
+      <stop offset="0%" stop-color="#20B66D" stop-opacity="0"/>
+      <stop offset="18%" stop-color="#20B66D" stop-opacity=".35"/>
+      <stop offset="100%" stop-color="#20B66D" stop-opacity=".95"/>
+    </linearGradient>
+    <filter id="trail-soften" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="4"/>
+    </filter>
+  </defs>
+  <g id="saffron-flight">
+    <path id="trail-saffron" d="M85 925 L690 205" fill="none" stroke="url(#trail-grad-saffron)" stroke-width="14" stroke-linecap="round" filter="url(#trail-soften)"/>
+    <path d="M85 925 L690 205" fill="none" stroke="url(#trail-grad-saffron)" stroke-width="6" stroke-linecap="round"/>
+    <g id="jet-saffron" transform="translate(715 175) rotate(-45) scale(1.15)">
+      <path d="M94 0 C82-5 67-8 48-8 L31-25 20-25 27-8 2-8 -8-19 -16-19 -12-6 -34-5 -44-15 -52-15 -48-3 -71-2 -84-10 -90-10 -84 0 -90 10 -84 10 -71 2 -48 3 -52 15 -44 15 -34 5 -12 6 -16 19 -8 19 2 8 27 8 20 25 31 25 48 8 C67 8 82 5 94 0 Z" fill="#7c8b92"/>
+      <path d="M30-6 C45-9 59-7 72-3 L83 0 72 3 C59 7 45 9 30 6 Z" fill="#3f4b50"/>
+      <path d="M-50-3 L-33-13 -22-13 -31-2 Z" fill="#344047"/>
+      <path d="M-50 3 L-33 13 -22 13 -31 2 Z" fill="#344047"/>
+    </g>
+  </g>
+  <g id="white-flight">
+    <path id="trail-white" d="M180 1015 L835 165" fill="none" stroke="url(#trail-grad-white)" stroke-width="14" stroke-linecap="round" filter="url(#trail-soften)"/>
+    <path d="M180 1015 L835 165" fill="none" stroke="url(#trail-grad-white)" stroke-width="6" stroke-linecap="round"/>
+    <g id="jet-white" transform="translate(860 135) rotate(-45) scale(1.15)">
+      <path d="M94 0 C82-5 67-8 48-8 L31-25 20-25 27-8 2-8 -8-19 -16-19 -12-6 -34-5 -44-15 -52-15 -48-3 -71-2 -84-10 -90-10 -84 0 -90 10 -84 10 -71 2 -48 3 -52 15 -44 15 -34 5 -12 6 -16 19 -8 19 2 8 27 8 20 25 31 25 48 8 C67 8 82 5 94 0 Z" fill="#7c8b92"/>
+      <path d="M30-6 C45-9 59-7 72-3 L83 0 72 3 C59 7 45 9 30 6 Z" fill="#3f4b50"/>
+      <path d="M-50-3 L-33-13 -22-13 -31-2 Z" fill="#344047"/>
+      <path d="M-50 3 L-33 13 -22 13 -31 2 Z" fill="#344047"/>
+    </g>
+  </g>
+  <g id="green-flight">
+    <path id="trail-green" d="M260 1020 L870 335" fill="none" stroke="url(#trail-grad-green)" stroke-width="14" stroke-linecap="round" filter="url(#trail-soften)"/>
+    <path d="M260 1020 L870 335" fill="none" stroke="url(#trail-grad-green)" stroke-width="6" stroke-linecap="round"/>
+    <g id="jet-green" transform="translate(895 305) rotate(-45) scale(1.15)">
+      <path d="M94 0 C82-5 67-8 48-8 L31-25 20-25 27-8 2-8 -8-19 -16-19 -12-6 -34-5 -44-15 -52-15 -48-3 -71-2 -84-10 -90-10 -84 0 -90 10 -84 10 -71 2 -48 3 -52 15 -44 15 -34 5 -12 6 -16 19 -8 19 2 8 27 8 20 25 31 25 48 8 C67 8 82 5 94 0 Z" fill="#7c8b92"/>
+      <path d="M30-6 C45-9 59-7 72-3 L83 0 72 3 C59 7 45 9 30 6 Z" fill="#3f4b50"/>
+      <path d="M-50-3 L-33-13 -22-13 -31-2 Z" fill="#344047"/>
+      <path d="M-50 3 L-33 13 -22 13 -31 2 Z" fill="#344047"/>
+    </g>
+  </g>
+</svg>
