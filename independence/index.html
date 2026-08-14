@@ -202,6 +202,17 @@
   .mic-share-actions { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; justify-content: center; }
   .mic-share-actions .btn { padding: 13px 24px; font-size: 14px; }
   .mic-share-status { font-size: 12.5px; color: #ffd54a; max-width: 320px; margin-top: 4px; min-height: 16px; line-height: 1.4; }
+  /* Stamp preview modal — same card chrome as the share modal (see
+     .mic-modal-backdrop/.mic-modal-card), just swapped out rather than
+     stacked on top of it (see stamp-btn's click handler), so there's only
+     ever one dimmed backdrop up at a time. */
+  .mic-stamp-close {
+    align-self: flex-end; margin: -8px -8px 0 0; width: 30px; height: 30px;
+    border-radius: 50%; background: rgba(255, 255, 255, .1); color: #fff;
+    border: 1px solid rgba(255, 255, 255, .2); font-size: 16px; line-height: 1;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .mic-stamp-img { width: 100%; max-height: 58vh; object-fit: contain; border-radius: 12px; }
   .mic-name-row { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
   .mic-name-row input {
     background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .25); border-radius: 999px;
@@ -456,13 +467,29 @@
       </div>
       <div class="mic-share-actions">
         <button class="btn btn-primary" id="share-btn">Share your hoist</button>
+        <button class="btn btn-primary" id="stamp-btn">Get your stamp</button>
         <button class="btn btn-secondary" id="again-btn">Hoist again</button>
       </div>
       <div class="mic-share-status" id="share-status"></div>
     </div>
   </div>
 
+  <!-- Personalized commemorative stamp — swapped in for share-modal (not
+       stacked on top of it) when "Get your stamp" is clicked; "Back"
+       returns to it. The image itself is built fresh on each open by
+       compositing today's date/shloka/the name typed into name-input onto
+       assets/independence-day/stamp-bg.jpg (see buildStampImage()). -->
+  <div class="mic-modal-backdrop" id="stamp-modal" style="display:none">
+    <div class="mic-modal-card">
+      <button class="mic-stamp-close" id="stamp-close-btn" aria-label="Back">✕</button>
+      <img class="mic-stamp-img" id="stamp-img" alt="Your personalized Independence Day stamp">
+      <button class="btn btn-primary" id="save-stamp-btn">Save</button>
+      <div class="mic-share-status" id="stamp-status"></div>
+    </div>
+  </div>
+
   <canvas id="story-canvas" width="1080" height="1920" style="display:none" aria-hidden="true"></canvas>
+  <canvas id="stamp-canvas" width="1080" height="1920" style="display:none" aria-hidden="true"></canvas>
 
 <script>
 // The dashboard (index.html) registers /sw.js with the default (root)
@@ -947,6 +974,7 @@ document.getElementById('again-btn').addEventListener('click', () => {
   // rather than silently snapping back to the bottom.
   document.getElementById('phase-celebrate').style.display = 'none';
   document.getElementById('share-modal').style.display = 'none';
+  document.getElementById('stamp-modal').style.display = 'none';
   document.getElementById('phase-landing').style.display = '';
   document.getElementById('ind-scene').classList.remove('ind-scene-celebrating');
   if (jetsLoopInterval) { clearInterval(jetsLoopInterval); jetsLoopInterval = null; }
@@ -1058,6 +1086,125 @@ document.getElementById('share-btn').addEventListener('click', async () => {
   };
   if (latestStoryBlob) finish(latestStoryBlob);
   else buildStoryImage(url, finish);
+});
+
+// ── Personalized commemorative stamp ──
+// Composites today's date, the shloka, and a thank-you (using whatever
+// name is in name-input, same field the share flow already uses) onto
+// the plain stamp-bg.jpg artwork — same on-canvas approach as
+// buildStoryImage above, just a different background/layout.
+const stampBg = new Image();
+let stampBgReady = false;
+stampBg.onload = () => { stampBgReady = true; };
+stampBg.src = '/assets/independence-day/stamp-bg.jpg?v=1';
+
+// Greedy word-wrap: splits `text` into lines that each fit `maxWidth` at
+// ctx's current font. Falls back to a single (overflowing) line for a
+// single word longer than maxWidth on its own, rather than looping
+// forever trying to shrink it.
+function wrapText(ctx, text, maxWidth) {
+  const words = text.split(' ');
+  const lines = [];
+  let line = '';
+  words.forEach(word => {
+    const attempt = line ? line + ' ' + word : word;
+    if (ctx.measureText(attempt).width > maxWidth && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = attempt;
+    }
+  });
+  if (line) lines.push(line);
+  return lines;
+}
+
+let latestStampBlob = null;
+function buildStampImage(name, callback) {
+  const canvas = document.getElementById('stamp-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  const draw = () => {
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(stampBg, 0, 0, W, H);
+    ctx.textAlign = 'center';
+
+    // The artwork's own stamp graphic ends around y=1400 — everything
+    // below that is the plain background gradient, free for this text.
+    ctx.font = '700 32px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = '#ffe6b3';
+    ctx.letterSpacing = '1px';
+    ctx.fillText('15.08.2026', W / 2, 1500);
+    ctx.letterSpacing = '0px';
+
+    ctx.font = '600 38px "Noto Sans Devanagari", Inter, system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = '#ffe6b3';
+    ctx.fillText('जननी जन्मभूमिश्च स्वर्गादपि गरीयसी।', W / 2, 1572);
+
+    const thanks = name
+      ? 'Thank you ' + name + ' for raising the flag today'
+      : 'Thank you for raising the flag today';
+    ctx.font = '500 34px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,.92)';
+    const lines = wrapText(ctx, thanks, W - 160);
+    let y = 1660;
+    lines.forEach(l => { ctx.fillText(l, W / 2, y); y += 46; });
+
+    ctx.font = '600 28px system-ui, -apple-system, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,.75)';
+    ctx.fillText('- Team Loona', W / 2, y + 30);
+
+    canvas.toBlob(blob => callback(blob), 'image/jpeg', 0.92);
+  };
+  if (stampBgReady) draw();
+  else stampBg.onload = () => { stampBgReady = true; draw(); };
+}
+
+const shareModal = document.getElementById('share-modal');
+const stampModal = document.getElementById('stamp-modal');
+document.getElementById('stamp-btn').addEventListener('click', () => {
+  const stampBtn = document.getElementById('stamp-btn');
+  stampBtn.disabled = true;
+  buildStampImage(nameInput.value.trim(), (blob) => {
+    stampBtn.disabled = false;
+    if (!blob) return;
+    latestStampBlob = blob;
+    document.getElementById('stamp-img').src = URL.createObjectURL(blob);
+    document.getElementById('stamp-status').textContent = '';
+    shareModal.style.display = 'none';
+    stampModal.style.display = 'flex';
+  });
+});
+document.getElementById('stamp-close-btn').addEventListener('click', () => {
+  stampModal.style.display = 'none';
+  shareModal.style.display = 'flex';
+});
+document.getElementById('save-stamp-btn').addEventListener('click', async () => {
+  if (!latestStampBlob) return;
+  const status = document.getElementById('stamp-status');
+  let saved = false;
+  // Same dual-path as the share button: on iOS in particular there's no
+  // direct "save to Photos" web API, but routing a File through the
+  // native share sheet surfaces a "Save Image" option there — falling
+  // back to a plain download link (works everywhere else, and still
+  // works on iOS, just opens the image instead of saving it directly).
+  if (navigator.canShare) {
+    try {
+      const file = new File([latestStampBlob], 'loona-independence-stamp.jpg', { type: 'image/jpeg' });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'My Independence Day stamp 🇮🇳' });
+        saved = true;
+      }
+    } catch (e) { /* user cancelled the native share sheet, or share failed — fall through */ }
+  }
+  if (!saved) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(latestStampBlob);
+    a.download = 'loona-independence-stamp.jpg';
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+  status.textContent = 'Saved! 🇮🇳';
 });
 </script>
 </body>
