@@ -3399,6 +3399,36 @@
       0%, 100% { box-shadow: 0 0 60px 10px rgba(255, 100, 40, .35); }
       50% { box-shadow: 0 0 90px 24px rgba(255, 150, 60, .6); }
     }
+    /* Fireworks live in the sky, behind the gate/ground/flag — z-index:1
+       (same tier as the gate) but earlier in DOM, so the gate silhouette
+       and ground ridge still paint over any burst that overlaps them, and
+       the flagpole/flag (z-index:3) always stays in front. */
+    .ind-fireworks { position: absolute; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
+    .ind-firework { position: absolute; }
+    .ind-firework-flash {
+      position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; border-radius: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      background: radial-gradient(circle, #fff 0%, var(--fw-color, #FF9933) 55%, transparent 75%);
+      box-shadow: 0 0 22px 7px var(--fw-color, #FF9933);
+      animation: ind-firework-flash .55s ease-out forwards;
+    }
+    @keyframes ind-firework-flash {
+      0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+      35% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+      100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+    }
+    .ind-firework-particle {
+      position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; border-radius: 50%;
+      opacity: 0; will-change: transform, opacity;
+      animation-name: ind-firework-particle;
+      animation-timing-function: cubic-bezier(.15, .6, .4, 1);
+      animation-fill-mode: forwards;
+    }
+    @keyframes ind-firework-particle {
+      0% { transform: translate(-50%, -50%) rotate(var(--angle)) translateX(0); opacity: 1; }
+      75% { opacity: .9; }
+      100% { transform: translate(-50%, -50%) rotate(var(--angle)) translateX(var(--fw-dist, 60px)); opacity: 0; }
+    }
     /* Restored — dropped by accident when the earlier gate/flag CSS block
        got pasted back wholesale over this (birds were added in a later
        commit than the one that revert copied from), which is why they were
@@ -6442,6 +6472,7 @@
     <div class="page" id="page-independence">
       <div class="ind-scene" id="ind-scene">
         <div class="ind-sun"></div>
+        <div class="ind-fireworks" id="ind-fireworks" aria-hidden="true"></div>
         <div class="ind-birds" aria-hidden="true">
           <span class="ind-bird" style="left:30%;top:22%;animation-duration:13s">🕊️</span>
           <span class="ind-bird" style="left:48%;top:14%;animation-duration:15.5s;animation-delay:.6s">🕊️</span>
@@ -15942,6 +15973,7 @@
         wrap.classList.add('ind-unfurled');
         spawnPetals(petals);
         spawnJets(document.getElementById('ind-jets'));
+        spawnFireworks(document.getElementById('ind-fireworks'));
         btn.textContent = '🇮🇳 Jai Hind!';
         setTimeout(() => { btn.disabled = false; btn.textContent = 'Hoist Again'; }, 5800);
       }, climbDuration * 1000);
@@ -16000,6 +16032,53 @@
       });
       const maxLife = Math.max(...formation.map(j => j.duration + j.delay)) * 1000 + 400;
       setTimeout(() => { if (container) container.innerHTML = ''; }, maxLife);
+    }
+    // A handful of tricolour bursts in the sky behind the gate/flag, staggered
+    // like a real fireworks show rather than all popping at once. Each burst
+    // is a bright flash plus a ring of particles animating outward along
+    // `--angle` (set per particle so one shared @keyframes can drive every
+    // burst). Positioned in the upper-mid sky band so they read behind the
+    // gate silhouette and don't collide with the jets' low-altitude lanes.
+    function spawnFireworks(container) {
+      if (!container) return;
+      container.innerHTML = '';
+      const colors = ['#FF9933', '#FFFFFF', '#138808', '#FFD54A'];
+      const burstCount = 6;
+      let maxLife = 0;
+      for (let i = 0; i < burstCount; i++) {
+        const delay = i * 750 + Math.random() * 450;
+        const left = 10 + Math.random() * 78; // %, keep clear of the very edges
+        const top = 6 + Math.random() * 32; // %, upper sky band
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        const particleCount = 14 + Math.floor(Math.random() * 6);
+        const dist = 46 + Math.random() * 34;
+        const duration = 1 + Math.random() * .5;
+        setTimeout(() => {
+          if (!container.isConnected) return;
+          const fw = document.createElement('div');
+          fw.className = 'ind-firework';
+          fw.style.left = left + '%';
+          fw.style.top = top + '%';
+          fw.style.setProperty('--fw-color', color);
+          const flash = document.createElement('div');
+          flash.className = 'ind-firework-flash';
+          fw.appendChild(flash);
+          for (let p = 0; p < particleCount; p++) {
+            const particle = document.createElement('span');
+            particle.className = 'ind-firework-particle';
+            particle.style.setProperty('--angle', (p * (360 / particleCount) + Math.random() * 10) + 'deg');
+            particle.style.setProperty('--fw-dist', dist + 'px');
+            particle.style.background = color;
+            particle.style.boxShadow = '0 0 4px 1px ' + color;
+            particle.style.animationDuration = duration + 's';
+            fw.appendChild(particle);
+          }
+          container.appendChild(fw);
+          setTimeout(() => { if (fw.parentNode) fw.parentNode.removeChild(fw); }, duration * 1000 + 200);
+        }, delay);
+        maxLife = Math.max(maxLife, delay + duration * 1000 + 300);
+      }
+      setTimeout(() => { if (container) container.innerHTML = ''; }, maxLife + 200);
     }
     function spawnPetals(container) {
       if (!container) return;
