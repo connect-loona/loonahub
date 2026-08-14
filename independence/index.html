@@ -601,13 +601,13 @@ function spawnJets(container) {
   // flypast streaking through the sky above it.
   const instances = [
     // Natural orientation: bottom-left -> top-right, nose pointing right.
-    { flip: 1, rot: 48.3, duration: 7.5, delay: 0,
+    { flip: 1, rot: 48.3, duration: 5.5, delay: 0,
       x0: -imgW * 0.7, y0: H * 0.22, x1: W + imgW * 0.1, y1: -imgH * 0.75 },
     // Mirrored: bottom-right -> top-left, nose pointing left. Starts
     // together with the first (no delay — even 0.4s still read as late),
     // and flattened out: more horizontal travel across to the left, less
     // steep climb, so it doesn't read as shooting straight up.
-    { flip: -1, rot: -27, duration: 7.8, delay: 0,
+    { flip: -1, rot: -27, duration: 5.8, delay: 0,
       x0: W + imgW * 0.7, y0: H * 0.16, x1: -imgW * 1.3, y1: -imgH * 0.35 }
   ];
   instances.forEach(inst => {
@@ -963,12 +963,13 @@ function startClimb() {
     spawnFireworks(document.getElementById('ind-fireworks'));
     const hoistPromise = recordHoist();
     // The camera "pans out" right as the jets finish crossing the screen
-    // (their longest flight + delay is 7.8s from this point — see
-    // spawnJets) — the India Gate, flagpole, and ground fade out and the
-    // map fades/scales in to fill the page over the same live sky/sun/
-    // petals, so it reads as one continuous pull-back to the national
-    // scale timed to the flypast finishing, not an arbitrary wait.
-    const jetsDoneAt = 7800;
+    // (their longest flight + delay is 5.8s from this point — see
+    // spawnJets, shortened from 7.8s so the map reveals sooner overall)
+    // — the India Gate, flagpole, and ground fade out and the map fades/
+    // scales in to fill the page over the same live sky/sun/petals, so
+    // it reads as one continuous pull-back to the national scale timed
+    // to the flypast finishing, not an arbitrary wait.
+    const jetsDoneAt = 5800;
     setTimeout(() => {
       document.getElementById('ind-scene').classList.add('ind-scene-celebrating');
       // Jets keep flying on top of the map once it's showing, not just the
