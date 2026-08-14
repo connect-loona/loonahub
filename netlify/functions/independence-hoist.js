@@ -68,11 +68,11 @@ function todayIST() {
   return now.getUTCFullYear() + "-" + String(now.getUTCMonth() + 1).padStart(2, "0") + "-" + String(now.getUTCDate()).padStart(2, "0");
 }
 
-// India's rough bounding box (mainland + islands give a bit of slack) —
-// used both to sanity-filter out bogus/foreign geo lookups before they'd
-// ever land as a stray dot floating off the drawn map, and matches the
-// projection independence/index.html uses to place dots on the outline.
-const IN_BOUNDS = { latMin: 6, latMax: 38, lonMin: 66, lonMax: 99 };
+// India's real geographic extent (mainland + islands) — matches the exact
+// calibration independence/index.html's projectToMapXY() uses for the
+// india-map.svg asset, so anything accepted here actually lands ON the
+// drawn map instead of floating off one of its edges.
+const IN_BOUNDS = { latMin: 6.5, latMax: 37.6, lonMin: 68.0, lonMax: 97.4 };
 
 function getGeo(event) {
   try {

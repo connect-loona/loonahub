@@ -222,20 +222,20 @@
   }
   .ind-scene.ind-scene-celebrating .ind-map-screen { opacity: 1; transform: translate(-50%, 0) scale(1); }
 
-  /* Coordinates use an equirectangular projection over India's rough
-     bounding box (lat 6-38°N, lon 66-99°E) matched 1:1 with the outline
-     path below and with projectToMapXY() in the script — a stylized,
-     hand-drawn approximation (no map data source was available to pull
-     from), not survey-accurate, but recognizable and internally consistent
-     enough that a city's pin lands in the right part of the outline. */
-  .ind-map-wrap { position: relative; width: 100%; aspect-ratio: 340 / 400; filter: drop-shadow(0 10px 34px rgba(0, 0, 0, .5)); }
-  .ind-map-svg, .ind-map-lines { position: absolute; inset: 0; width: 100%; height: 100%; display: block; overflow: visible; }
-  .ind-map-outline {
-    fill: rgba(20, 10, 4, .82);
-    stroke: #ffb35c; stroke-width: 1.6; stroke-linejoin: round;
-    filter: drop-shadow(0 0 5px rgba(255, 153, 51, .65)) drop-shadow(0 0 12px rgba(255, 153, 51, .35));
-  }
-  .ind-map-lines { pointer-events: none; }
+  /* Real India map (Simplemaps, free commercial use, state/UT boundaries),
+     not the earlier hand-drawn approximation — already styled to match this
+     page's palette. Coordinates are calibrated against its actual drawn
+     bounding box (measured via getBBox on #features: x 99.9, y 45.5,
+     w 800.2, h 909.0 within its 1000x1000 viewBox) and India's real
+     geographic extent (lat 6.5-37.6°N, lon 68-97.4°E, mainland + islands)
+     — a plain equirectangular scaling, verified against ~14 known cities
+     (Delhi, Mumbai, Chennai, Guwahati, Port Blair, etc.) all landing in
+     the right place. See projectToMapXY() in the script for the same math.
+     If the map SVG is ever swapped for a different file, this calibration
+     (and projectToMapXY's constants) needs redoing against the new one. */
+  .ind-map-wrap { position: relative; width: 100%; aspect-ratio: 1 / 1; }
+  .ind-map-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: contain; }
+  .ind-map-lines { position: absolute; inset: 0; width: 100%; height: 100%; display: block; overflow: visible; pointer-events: none; }
   .ind-map-line { fill: none; stroke: rgba(255, 213, 74, .3); stroke-width: .9; }
   .ind-map-dots { position: absolute; inset: 0; }
   .ind-map-pin {
@@ -326,10 +326,8 @@
          over the same sky/jets/petals rather than covering them. -->
     <div class="ind-map-screen" id="ind-map-screen">
       <div class="ind-map-wrap">
-        <svg class="ind-map-svg" viewBox="0 0 340 400" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-          <path class="ind-map-outline" d="M113.3,31.3 L128.8,43.8 L134.0,87.5 L154.5,118.8 L216.4,143.8 L234.9,135.0 L252.4,141.3 L314.2,118.8 L322.5,131.3 L303.9,156.3 L288.5,175.0 L278.2,197.5 L262.7,181.3 L237.0,156.3 L235.9,202.5 L204.0,227.5 L178.2,253.8 L147.3,281.3 L147.3,311.3 L142.2,337.5 L118.5,373.8 L106.1,351.3 L90.7,313.8 L80.4,283.8 L70.1,236.3 L70.1,210.0 L37.1,193.8 L22.7,176.3 L51.5,171.3 L43.3,125.0 L87.6,75.0 L87.6,56.3 Z"/>
-        </svg>
-        <svg class="ind-map-lines" id="ind-map-lines" viewBox="0 0 340 400" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
+        <img class="ind-map-svg" src="/assets/independence-day/india-map.svg?v=1" alt="" aria-hidden="true">
+        <svg class="ind-map-lines" id="ind-map-lines" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
         <div class="ind-map-dots" id="ind-map-dots"></div>
       </div>
       <div class="ind-map-caption" id="ind-map-caption"></div>
@@ -586,19 +584,27 @@ function refreshDailyCount() {
 refreshDailyCount();
 setInterval(refreshDailyCount, 6000);
 
-// India's rough bounding box (matches independence-hoist.js's IN_BOUNDS
-// and the hand-drawn outline path's viewBox) — an equirectangular
-// projection, not survey-accurate, but consistent enough that a city's
-// dot lands in the right part of the outline.
+// Calibrated against india-map.svg's actual drawn bounding box (measured
+// via getBBox on its #features group: x 99.9, y 45.5, w 800.2, h 909.0,
+// within its 1000x1000 viewBox) and India's real geographic extent —
+// verified against ~14 known cities (Delhi, Mumbai, Chennai, Guwahati,
+// Port Blair, etc.) all landing in the right place. See the matching CSS
+// comment on .ind-map-wrap. Swapping the map SVG needs this redone.
+const MAP_BBOX = { x: 99.9, y: 45.5, width: 800.2, height: 909.0 };
+const MAP_LAT_MIN = 6.5, MAP_LAT_MAX = 37.6, MAP_LON_MIN = 68.0, MAP_LON_MAX = 97.4;
 function projectToMapXY(lat, lon) {
-  return { x: (lon - 66) * (340 / 33), y: (38 - lat) * (400 / 32) };
+  return {
+    x: MAP_BBOX.x + (lon - MAP_LON_MIN) / (MAP_LON_MAX - MAP_LON_MIN) * MAP_BBOX.width,
+    y: MAP_BBOX.y + (MAP_LAT_MAX - lat) / (MAP_LAT_MAX - MAP_LAT_MIN) * MAP_BBOX.height
+  };
 }
 
 // A classic map-pin glyph (teardrop + knockout circle), not a plain dot —
 // reused for every marker at different sizes/colors via CSS classes.
+// Positions are percentages of the 1000x1000 viewBox india-map.svg uses.
 const MAP_PIN_PATH = 'M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20C24 5.4 18.6 0 12 0z';
 function mapPinSVG(x, y, cls) {
-  return '<svg class="ind-map-pin ' + cls + '" viewBox="0 0 24 32" style="left:' + (x / 340 * 100) + '%;top:' + (y / 400 * 100) + '%">' +
+  return '<svg class="ind-map-pin ' + cls + '" viewBox="0 0 24 32" style="left:' + (x / 1000 * 100) + '%;top:' + (y / 1000 * 100) + '%">' +
     '<path d="' + MAP_PIN_PATH + '"/><circle cx="12" cy="12" r="5"/></svg>';
 }
 
