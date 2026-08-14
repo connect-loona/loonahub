@@ -182,11 +182,11 @@
     text-align: center;
     background: linear-gradient(180deg, transparent 0%, rgba(7, 3, 1, .55) 40%, rgba(7, 3, 1, .9) 100%);
   }
-  .mic-referred { font-size: 13px; color: #ffd54a; font-weight: 600; margin-bottom: 2px; }
-  .mic-title { font-size: 26px; font-weight: 800; color: #fff; text-shadow: 0 2px 8px rgba(0, 0, 0, .5); margin: 0; }
-  .mic-sub { font-size: 14px; color: rgba(255, 255, 255, .82); margin: 0 0 6px; max-width: 320px; }
-  .mic-count { font-size: 12.5px; color: rgba(255, 255, 255, .65); margin-bottom: 4px; min-height: 16px; }
-  .mic-hoist-btn { padding: 18px 40px; font-size: 16px; }
+  .mic-referred { font-size: 12px; color: #ffd54a; font-weight: 600; margin-bottom: 2px; }
+  .mic-title { font-size: 20px; font-weight: 800; color: #fff; text-shadow: 0 2px 8px rgba(0, 0, 0, .5); margin: 0; }
+  .mic-sub { font-size: 12.5px; color: rgba(255, 255, 255, .82); margin: 0 0 6px; max-width: 300px; }
+  .mic-count { font-size: 11.5px; color: rgba(255, 255, 255, .65); margin-bottom: 4px; min-height: 16px; }
+  .mic-hoist-btn { padding: 13px 30px; font-size: 14px; }
   .mic-hoist-btn:disabled { opacity: .75; cursor: default; }
   .mic-share-actions { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; justify-content: center; }
   .mic-share-actions .btn { padding: 13px 24px; font-size: 14px; }
@@ -223,7 +223,7 @@
     animation: mic-card-in .35s cubic-bezier(.2, .9, .3, 1.2) both;
   }
   @keyframes mic-card-in { from { opacity: 0; transform: scale(.85) translateY(14px); } to { opacity: 1; transform: scale(1) translateY(0); } }
-  .mic-modal-card .mic-title { font-size: 24px; }
+  .mic-modal-card .mic-title { font-size: 21px; }
 </style>
 </head>
 <body>
@@ -281,7 +281,7 @@
     </div>
     <div class="ind-jets" id="ind-jets"></div>
     <div class="ind-petals" id="ind-petals"></div>
-    <audio id="ind-vande-mataram" src="/assets/independence-day/vande-mataram.mp3" preload="auto"></audio>
+    <audio id="ind-vande-mataram" src="/assets/independence-day/vande-mataram.mp3?v=2" preload="auto"></audio>
 
     <!-- Landing: stays anchored at the bottom, same as the dashboard's
          "Unfurl the Flag" control, until the flag is hoisted. -->
@@ -317,6 +317,24 @@
   <canvas id="story-canvas" width="1080" height="1920" style="display:none" aria-hidden="true"></canvas>
 
 <script>
+// The dashboard (index.html) registers /sw.js with the default (root)
+// scope, which makes it control EVERY page on this origin — including
+// this microsite, even though this page never registers it itself —
+// for any visitor whose browser previously loaded the dashboard. Its
+// fetch handler is network-first, but a service worker still means one
+// more layer (on top of the browser's own HTTP cache and any CDN
+// caching) that can end up serving something other than exactly what
+// was just deployed, especially after a flaky mobile connection blip
+// falls back to a cached copy. This microsite has no legitimate need
+// for offline caching, so it explicitly unregisters any controller
+// rather than relying on it to always behave — belt-and-suspenders
+// alongside the cache-busting ?v= on the jets/audio asset URLs below.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations()
+    .then(regs => regs.forEach(r => r.unregister()))
+    .catch(() => {});
+}
+
 (function buildChakraSpokes() {
   const g = document.getElementById('ind-chakra');
   if (!g) return;
@@ -387,7 +405,7 @@ function spawnJets(container) {
   instances.forEach(inst => {
     const img = document.createElement('img');
     img.className = 'ind-jet-art';
-    img.src = '/assets/independence-day/jets-formation.svg';
+    img.src = '/assets/independence-day/jets-formation.svg?v=2';
     img.alt = '';
     img.style.width = imgW + 'px';
     img.style.height = imgH + 'px';
@@ -540,13 +558,15 @@ function startClimb() {
     spawnJets(document.getElementById('ind-jets'));
     spawnFireworks(document.getElementById('ind-fireworks'));
     recordHoist();
-    // Give the unfurl itself a beat to actually read before the popup
-    // covers the scene — same 1.3s pause the earlier version used.
+    // Give the unfurl AND the petals/jets/fireworks a real beat to read
+    // before the popup covers the scene — 1.3s felt like it cut the
+    // celebration off right as it started; petals alone take a few
+    // seconds to actually fall.
     setTimeout(() => {
       document.getElementById('mic-controls').style.display = 'none';
       document.getElementById('share-modal').style.display = 'flex';
       prepareStoryAssets();
-    }, 1300);
+    }, 2600);
   }, climbDuration * 1000);
 }
 hoistBtn.addEventListener('click', () => {
