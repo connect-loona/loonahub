@@ -46,7 +46,17 @@
      it's simplified to position:fixed;inset:0 instead of the full-bleed
      vw-math the dashboard version needs to escape its padded parent). ══════════ */
   .ind-scene {
-    position: fixed; inset: 0; overflow: hidden;
+    /* top/left/right + explicit height, not inset:0 — plain inset:0 on a
+       position:fixed element sizes against the LARGE viewport in Safari
+       (as if the toolbar were always hidden), so bottom-anchored content
+       inside it (.mic-controls, see below) could end up positioned below
+       the actually-visible area whenever the toolbar is docked/expanded,
+       cut off entirely — confirmed on a real device. 100svh ("small"
+       viewport height) is the one guaranteed to never be taller than
+       what's actually visible, toolbar or not; 100vh first as a fallback
+       for browsers that don't understand svh (unsupported values are
+       ignored, not applied, so this degrades safely). */
+    position: fixed; top: 0; left: 0; right: 0; height: 100vh; height: 100svh; overflow: hidden;
     background:
       radial-gradient(34% 22% at 6% 56%, rgba(255, 242, 216, .5) 0%, rgba(255, 150, 66, .26) 34%, transparent 60%),
       linear-gradient(178deg, #ff6d29 0%, #fb5713 16%, #db3d09 30%, #8f2605 46%, #3e0f02 64%, #150602 82%, #070301 100%);
@@ -189,7 +199,7 @@
   .mic-controls {
     position: absolute; left: 0; right: 0; bottom: 0; z-index: 6;
     display: flex; flex-direction: column; align-items: center; gap: 8px;
-    padding: 28px 20px calc(38px + env(safe-area-inset-bottom, 0px));
+    padding: 18px 20px calc(38px + env(safe-area-inset-bottom, 0px));
     text-align: center;
     background: linear-gradient(180deg, transparent 0%, rgba(7, 3, 1, .55) 40%, rgba(7, 3, 1, .9) 100%);
   }
@@ -206,13 +216,21 @@
      .mic-modal-backdrop/.mic-modal-card), just swapped out rather than
      stacked on top of it (see stamp-btn's click handler), so there's only
      ever one dimmed backdrop up at a time. */
+  /* Pinned to the viewport corner (not the card) — as a flex child at the
+     top of a card whose own height could exceed the viewport (see the
+     overflow-y:auto safety net on .mic-modal-backdrop above), this button
+     could otherwise scroll off above the visible area entirely, exactly
+     like a real device caught happening. Fixed positioning means it's
+     always reachable regardless of how tall the card's content gets. */
   .mic-stamp-close {
-    align-self: flex-end; margin: -8px -8px 0 0; width: 30px; height: 30px;
-    border-radius: 50%; background: rgba(255, 255, 255, .1); color: #fff;
-    border: 1px solid rgba(255, 255, 255, .2); font-size: 16px; line-height: 1;
+    position: fixed; z-index: 31;
+    top: calc(14px + env(safe-area-inset-top, 0px)); right: calc(14px + env(safe-area-inset-right, 0px));
+    width: 34px; height: 34px;
+    border-radius: 50%; background: rgba(20, 10, 5, .75); color: #fff;
+    border: 1px solid rgba(255, 255, 255, .25); font-size: 16px; line-height: 1;
     display: flex; align-items: center; justify-content: center; cursor: pointer;
   }
-  .mic-stamp-img { width: 100%; max-height: 58vh; object-fit: contain; border-radius: 12px; }
+  .mic-stamp-img { width: 100%; max-height: 52vh; object-fit: contain; border-radius: 12px; }
   .mic-name-row { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
   .mic-name-row input {
     background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .25); border-radius: 999px;
@@ -226,10 +244,13 @@
      itself appears (see the setTimeout in startClimb()), not immediately
      and not inline in the bottom panel. */
   .mic-modal-backdrop {
-    position: fixed; inset: 0; z-index: 30;
+    /* Same top/left/right + explicit height fix as .ind-scene above —
+       plain inset:0 could size this against Safari's large viewport. */
+    position: fixed; top: 0; left: 0; right: 0; height: 100vh; height: 100svh; z-index: 30;
     background: rgba(5, 2, 1, .6);
     display: flex; align-items: center; justify-content: center;
     padding: 20px calc(20px + env(safe-area-inset-right, 0px)) calc(20px + env(safe-area-inset-bottom, 0px)) calc(20px + env(safe-area-inset-left, 0px));
+    overflow-y: auto; /* safety net if a card is ever taller than even the small viewport */
     animation: mic-backdrop-in .25s ease both;
   }
   @keyframes mic-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
@@ -466,11 +487,9 @@
         <input id="name-input" type="text" maxlength="24" placeholder="Your name (optional)" autocomplete="off">
       </div>
       <div class="mic-share-actions">
-        <button class="btn btn-primary" id="share-btn">Share your hoist</button>
         <button class="btn btn-primary" id="stamp-btn">Get your stamp</button>
         <button class="btn btn-secondary" id="again-btn">Hoist again</button>
       </div>
-      <div class="mic-share-status" id="share-status"></div>
     </div>
   </div>
 
@@ -480,15 +499,23 @@
        compositing today's date/shloka/the name typed into name-input onto
        assets/independence-day/stamp-bg.jpg (see buildStampImage()). -->
   <div class="mic-modal-backdrop" id="stamp-modal" style="display:none">
+    <!-- Deliberately NOT inside .mic-modal-card: that card gets an active
+         `transform` from its own entrance animation (mic-card-in), and
+         ANY transform — even one that settles on scale(1)/translateY(0) —
+         makes an element a containing block for position:fixed
+         descendants, which would silently break this button's fixed
+         positioning (it'd anchor to the card, not the real viewport) and
+         reintroduce the exact "can't reach the close button" bug this is
+         fixing. Kept as a sibling instead, inside the backdrop (which
+         only ever animates opacity — safe). -->
+    <button class="mic-stamp-close" id="stamp-close-btn" aria-label="Back">✕</button>
     <div class="mic-modal-card">
-      <button class="mic-stamp-close" id="stamp-close-btn" aria-label="Back">✕</button>
       <img class="mic-stamp-img" id="stamp-img" alt="Your personalized Independence Day stamp">
       <button class="btn btn-primary" id="save-stamp-btn">Save</button>
       <div class="mic-share-status" id="stamp-status"></div>
     </div>
   </div>
 
-  <canvas id="story-canvas" width="1080" height="1920" style="display:none" aria-hidden="true"></canvas>
   <canvas id="stamp-canvas" width="1080" height="1920" style="display:none" aria-hidden="true"></canvas>
 
 <script>
@@ -692,16 +719,6 @@ if (referrerSlug) {
   el.style.display = '';
   el.textContent = unslug(referrerSlug) + ' hoisted the flag 🇮🇳 Now it\'s your turn.';
 }
-
-function slugify(s) {
-  return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24);
-}
-function randomSlug() {
-  const adjectives = ['bold', 'swift', 'proud', 'free', 'brave', 'bright', 'united', 'fearless'];
-  const a = adjectives[Math.floor(Math.random() * adjectives.length)];
-  return a + '-loonatic-' + Math.floor(1000 + Math.random() * 9000);
-}
-let mySlug = randomSlug();
 
 const HOIST_ENDPOINT = '/.netlify/functions/independence-hoist';
 
@@ -973,7 +990,6 @@ function startClimb() {
       document.getElementById('phase-landing').style.display = 'none';
       document.getElementById('phase-celebrate').style.display = '';
       hoistPromise.then((d) => renderMap(d || lastHoistResult));
-      prepareStoryAssets();
       // Map shows clean first, no buttons — the share/hoist-again popup
       // appears 6s later rather than being there immediately.
       setTimeout(() => {
@@ -1009,111 +1025,11 @@ document.getElementById('again-btn').addEventListener('click', () => {
   setTimeout(() => { hoistBtn.disabled = false; startClimb(); }, dropDuration * 1000 + 60);
 });
 
-// ── Name -> personalized referral link, and the shareable Story image ──
 const nameInput = document.getElementById('name-input');
-nameInput.addEventListener('input', () => {
-  mySlug = slugify(nameInput.value) || randomSlug();
-  prepareStoryAssets();
-});
-
-function shareUrl() {
-  return location.origin + '/independence/?from=' + encodeURIComponent(mySlug);
-}
-
-let latestStoryBlob = null;
-function prepareStoryAssets() {
-  buildStoryImage(shareUrl(), blob => { latestStoryBlob = blob; });
-}
-
-// Draws a 1080x1920 (Story-ratio) branded card: "I HOISTED THE FLAG 🇮🇳 /
-// Your turn. / <url>" plus a QR code, instead of sharing a generic "Happy
-// Independence Day" image — the whole point (per the brief) is that what
-// gets shared is itself an invitation with the link baked in, not just a
-// nice graphic, so the chain can actually continue when someone sees it.
-function buildStoryImage(url, callback) {
-  const canvas = document.getElementById('story-canvas');
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
-
-  const grad = ctx.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0, '#ff7a30');
-  grad.addColorStop(.32, '#fb5713');
-  grad.addColorStop(.6, '#8f2605');
-  grad.addColorStop(1, '#150602');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H);
-
-  const stripeY = 150, stripeH = 22;
-  ctx.fillStyle = '#FF9933'; ctx.fillRect(0, stripeY, W, stripeH);
-  ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, stripeY + stripeH, W, stripeH);
-  ctx.fillStyle = '#138808'; ctx.fillRect(0, stripeY + stripeH * 2, W, stripeH);
-
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#fff';
-  ctx.font = '800 92px system-ui, -apple-system, sans-serif';
-  ctx.fillText('I HOISTED', W / 2, 560);
-  ctx.fillText('THE FLAG 🇮🇳', W / 2, 668);
-
-  ctx.font = '600 48px system-ui, -apple-system, sans-serif';
-  ctx.fillStyle = 'rgba(255,255,255,.9)';
-  ctx.fillText('Your turn.', W / 2, 760);
-
-  ctx.font = '600 30px system-ui, -apple-system, sans-serif';
-  ctx.fillStyle = '#FFD54A';
-  ctx.fillText(url.replace(/^https?:\/\//, ''), W / 2, 1770);
-
-  const finish = () => canvas.toBlob(blob => callback(blob), 'image/png');
-
-  const qr = new Image();
-  qr.crossOrigin = 'anonymous';
-  qr.onload = () => {
-    const qs = 280;
-    const qx = W / 2 - qs / 2, qy = 1400;
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(qx - 18, qy - 18, qs + 36, qs + 36);
-    ctx.drawImage(qr, qx, qy, qs, qs);
-    finish();
-  };
-  qr.onerror = finish; // still produce a shareable image even if the QR API is unreachable
-  qr.src = 'https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=' + encodeURIComponent(url);
-}
-
-document.getElementById('share-btn').addEventListener('click', async () => {
-  sendNameIfNeeded();
-  const status = document.getElementById('share-status');
-  const url = shareUrl();
-  const finish = async (blob) => {
-    let shared = false;
-    if (navigator.canShare && blob) {
-      try {
-        const file = new File([blob], 'loona-independence-hoist.png', { type: 'image/png' });
-        if (navigator.canShare({ files: [file] })) {
-          try { await navigator.clipboard.writeText(url); } catch (e) {}
-          await navigator.share({ files: [file], title: 'I hoisted the flag 🇮🇳', text: 'Your turn: ' + url });
-          shared = true;
-        }
-      } catch (e) { /* user cancelled the native share sheet, or share failed — fall through */ }
-    }
-    if (!shared) {
-      if (blob) {
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'loona-independence-hoist.png';
-        document.body.appendChild(a); a.click(); a.remove();
-      }
-      try { await navigator.clipboard.writeText(url); } catch (e) {}
-    }
-    status.textContent = 'Your Story is ready. Add a Link sticker and paste the link we copied for you.';
-  };
-  if (latestStoryBlob) finish(latestStoryBlob);
-  else buildStoryImage(url, finish);
-});
 
 // ── Personalized commemorative stamp ──
 // Composites today's date, the shloka, and a thank-you (using whatever
-// name is in name-input, same field the share flow already uses) onto
-// the plain stamp-bg.jpg artwork — same on-canvas approach as
-// buildStoryImage above, just a different background/layout.
+// name is in name-input) onto the plain stamp-bg.jpg artwork.
 const stampBg = new Image();
 let stampBgReady = false;
 stampBg.onload = () => { stampBgReady = true; };
@@ -1148,20 +1064,21 @@ function buildStampImage(name, callback) {
 
   const draw = () => {
     ctx.clearRect(0, 0, W, H);
+    // The date, shloka, and "- Team Loona" signature are now baked into
+    // stamp-bg.jpg itself (rendered through an actual browser so the
+    // Devanagari shapes/centers correctly) rather than drawn here — a
+    // real device caught canvas fillText() badly mis-centering that line
+    // specifically (iOS Safari's canvas text metrics don't account for
+    // Devanagari's conjunct/ligature shaping the way its own DOM text
+    // layout does, so ctx.measureText()-based centering was wrong even
+    // though the exact same string renders perfectly as plain HTML
+    // elsewhere on this page). Only the name — plain ASCII, no shaping
+    // risk — still needs to be dynamic, so that's all that's drawn here,
+    // into the gap already reserved for it between the baked shloka and
+    // signature (see bake-stamp-static-text.js in scratchpad for how
+    // stamp-bg.jpg was built, if it ever needs regenerating).
     ctx.drawImage(stampBg, 0, 0, W, H);
     ctx.textAlign = 'center';
-
-    // The artwork's own stamp graphic ends around y=1400 — everything
-    // below that is the plain background gradient, free for this text.
-    ctx.font = '700 32px system-ui, -apple-system, sans-serif';
-    ctx.fillStyle = '#ffe6b3';
-    ctx.letterSpacing = '1px';
-    ctx.fillText('15.08.2026', W / 2, 1500);
-    ctx.letterSpacing = '0px';
-
-    ctx.font = '600 38px "Noto Sans Devanagari", Inter, system-ui, -apple-system, sans-serif';
-    ctx.fillStyle = '#ffe6b3';
-    ctx.fillText('जननी जन्मभूमिश्च स्वर्गादपि गरीयसी।', W / 2, 1572);
 
     const thanks = name
       ? 'Thank you ' + name + ' for raising the flag today'
@@ -1171,10 +1088,6 @@ function buildStampImage(name, callback) {
     const lines = wrapText(ctx, thanks, W - 160);
     let y = 1660;
     lines.forEach(l => { ctx.fillText(l, W / 2, y); y += 46; });
-
-    ctx.font = '600 28px system-ui, -apple-system, sans-serif';
-    ctx.fillStyle = 'rgba(255,255,255,.75)';
-    ctx.fillText('- Team Loona', W / 2, y + 30);
 
     canvas.toBlob(blob => callback(blob), 'image/jpeg', 0.92);
   };
