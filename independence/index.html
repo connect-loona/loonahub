@@ -207,10 +207,29 @@
   .mic-name-row input:focus { border-color: #ff9457; }
 
   /* No buttons while the map first shows — a clean, unobstructed reveal.
-     The share/hoist-again controls fade in on their own 6s after the map
-     appears (see the setTimeout in startClimb()), not immediately. */
-  #celebrate-controls { opacity: 0; pointer-events: none; transition: opacity .6s ease; }
-  #celebrate-controls.revealed { opacity: 1; pointer-events: auto; }
+     The share/hoist-again controls appear as a popup 6s after the map
+     itself appears (see the setTimeout in startClimb()), not immediately
+     and not inline in the bottom panel. */
+  .mic-modal-backdrop {
+    position: fixed; inset: 0; z-index: 30;
+    background: rgba(5, 2, 1, .6);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px calc(20px + env(safe-area-inset-right, 0px)) calc(20px + env(safe-area-inset-bottom, 0px)) calc(20px + env(safe-area-inset-left, 0px));
+    animation: mic-backdrop-in .25s ease both;
+  }
+  @keyframes mic-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+  .mic-modal-card {
+    background: linear-gradient(165deg, #1a0d06, #0c0502);
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 22px;
+    padding: 26px 26px calc(24px + env(safe-area-inset-bottom, 0px));
+    max-width: 340px; width: 100%;
+    text-align: center;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, .5);
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    animation: mic-card-in .35s cubic-bezier(.2, .9, .3, 1.2) both;
+  }
+  @keyframes mic-card-in { from { opacity: 0; transform: scale(.85) translateY(14px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 
   /* India map reveal — lives directly IN the scene (no modal/backdrop
      dimming everything else). A commissioned hi-res illustration (sky,
@@ -350,18 +369,23 @@
         </button>
         <div class="mic-count" id="daily-count-line"></div>
       </div>
-      <div id="phase-celebrate" style="display:none">
-        <div id="celebrate-controls">
-          <div class="mic-name-row">
-            <input id="name-input" type="text" maxlength="24" placeholder="Your name (optional)" autocomplete="off">
-          </div>
-          <div class="mic-share-actions">
-            <button class="btn btn-primary" id="share-btn">Share your hoist</button>
-            <button class="btn btn-secondary" id="again-btn">Hoist again</button>
-          </div>
-          <div class="mic-share-status" id="share-status"></div>
-        </div>
+      <div id="phase-celebrate" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- Share controls appear as an actual popup, 6s after the map itself
+       reveals (see the setTimeout in startClimb()) — not inline in the
+       bottom panel, so the map gets a clean, unobstructed moment first. -->
+  <div class="mic-modal-backdrop" id="share-modal" style="display:none">
+    <div class="mic-modal-card">
+      <div class="mic-name-row">
+        <input id="name-input" type="text" maxlength="24" placeholder="Your name (optional)" autocomplete="off">
       </div>
+      <div class="mic-share-actions">
+        <button class="btn btn-primary" id="share-btn">Share your hoist</button>
+        <button class="btn btn-secondary" id="again-btn">Hoist again</button>
+      </div>
+      <div class="mic-share-status" id="share-status"></div>
     </div>
   </div>
 
@@ -683,10 +707,10 @@ function startClimb() {
       document.getElementById('phase-celebrate').style.display = '';
       hoistPromise.then((d) => renderMap(d || lastHoistResult));
       prepareStoryAssets();
-      // Map shows clean first, no buttons — share/hoist-again fade in 6s
-      // later rather than being there immediately.
+      // Map shows clean first, no buttons — the share/hoist-again popup
+      // appears 6s later rather than being there immediately.
       setTimeout(() => {
-        document.getElementById('celebrate-controls').classList.add('revealed');
+        document.getElementById('share-modal').style.display = 'flex';
       }, 6000);
     }, jetsDoneAt + 1300);
   }, climbDuration * 1000);
@@ -701,7 +725,7 @@ document.getElementById('again-btn').addEventListener('click', () => {
   // a real, visible drop (short transition) before the slow climb restarts,
   // rather than silently snapping back to the bottom.
   document.getElementById('phase-celebrate').style.display = 'none';
-  document.getElementById('celebrate-controls').classList.remove('revealed');
+  document.getElementById('share-modal').style.display = 'none';
   document.getElementById('phase-landing').style.display = '';
   document.getElementById('ind-scene').classList.remove('ind-scene-celebrating');
   hoistBtn.disabled = true;
