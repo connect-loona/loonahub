@@ -571,14 +571,14 @@ function startClimb() {
     spawnFireworks(document.getElementById('ind-fireworks'));
     recordHoist();
     // Give the unfurl AND the petals/jets/fireworks a real beat to read
-    // before the popup covers the scene — 8s so the flag is fully settled
+    // before the popup covers the scene — 11s so the flag is fully settled
     // and the celebration (petals falling, jets crossing, fireworks) has
     // actually played out before it gets covered by the popup.
     setTimeout(() => {
       document.getElementById('mic-controls').style.display = 'none';
       document.getElementById('share-modal').style.display = 'flex';
       prepareStoryAssets();
-    }, 8000);
+    }, 11000);
   }, climbDuration * 1000);
 }
 hoistBtn.addEventListener('click', () => {
