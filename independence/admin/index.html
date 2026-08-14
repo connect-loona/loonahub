@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>LOONA · Independence Day — Participants</title>
+<!--
+  Internal admin view — NOT part of the public, no-login microsite even
+  though it lives under /independence/. That whole subpath is deliberately
+  excluded from the site's shared BASIC_AUTH_CREDENTIALS edge gate (see
+  netlify/edge-functions/basic-auth.ts) so the public hoist flow never
+  hits a login wall — which means this page needs its own password check
+  instead, done server-side by independence-admin.js (see PASSWORD there).
+  The password itself is never in this file's source — only sent as a
+  request header and checked against an env var on the server, same as
+  every other secret in this repo (see netlify.toml's env var list).
+-->
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: linear-gradient(178deg, #2a0f04 0%, #150602 40%, #0a0301 100%);
+    color: #fff;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 28px 20px 60px; }
+  .hdr { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+  .hdr h1 { font-size: 19px; margin: 0; font-weight: 800; }
+  .hdr .sub { font-size: 12px; color: rgba(255,255,255,.55); }
+  .stat-row { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+  .stat {
+    background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 12px;
+    padding: 12px 16px; min-width: 120px;
+  }
+  .stat .n { font-size: 22px; font-weight: 800; color: #ffb066; }
+  .stat .l { font-size: 11px; color: rgba(255,255,255,.55); text-transform: uppercase; letter-spacing: .04em; margin-top: 2px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: rgba(255,255,255,.5); padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,.12); position: sticky; top: 0; background: #150602; }
+  td { padding: 9px 10px; border-bottom: 1px solid rgba(255,255,255,.06); vertical-align: top; }
+  tr:hover td { background: rgba(255,255,255,.03); }
+  .muted { color: rgba(255,255,255,.4); }
+  .name { font-weight: 600; }
+  .table-wrap { max-height: 70vh; overflow: auto; border-radius: 12px; border: 1px solid rgba(255,255,255,.1); }
+  .empty { text-align: center; padding: 40px 20px; color: rgba(255,255,255,.5); font-size: 13px; }
+
+  .gate { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .gate-box { background: #1a0d06; border: 1px solid rgba(255,255,255,.12); border-radius: 18px; padding: 30px 28px; width: 320px; max-width: 100%; text-align: center; }
+  .gate-box h1 { font-size: 17px; margin: 8px 0 2px; }
+  .gate-box p { font-size: 12px; color: rgba(255,255,255,.55); margin: 0 0 18px; }
+  .gate-box input {
+    width: 100%; padding: 11px 13px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.2);
+    border-radius: 10px; color: #fff; font-size: 14px; outline: none; font-family: inherit;
+  }
+  .gate-box input.err { border-color: #e05c5c; }
+  .gate-box button {
+    margin-top: 14px; width: 100%; border: none; border-radius: 10px; padding: 11px; font-weight: 700;
+    font-size: 14px; cursor: pointer; background: linear-gradient(135deg, #ff8a3d, #ff5a13); color: #1a0a02;
+    font-family: inherit;
+  }
+  .gate-err { color: #e05c5c; font-size: 12px; margin-top: 12px; min-height: 14px; }
+</style>
+</head>
+<body>
+
+<div class="gate" id="gate">
+  <div class="gate-box">
+    <div style="font-size:30px">🔒</div>
+    <h1>LOONA · Independence Day</h1>
+    <p>Enter the admin password to view participants.</p>
+    <input type="password" id="pw-input" placeholder="Password" autocomplete="current-password">
+    <button id="pw-submit">View list</button>
+    <div class="gate-err" id="pw-err"></div>
+  </div>
+</div>
+
+<div class="wrap" id="list-view" style="display:none">
+  <div class="hdr">
+    <div>
+      <h1>Independence Day — Live Participants</h1>
+      <div class="sub">Auto-refreshes every 5s · last updated <span id="last-updated">—</span></div>
+    </div>
+  </div>
+  <div class="stat-row">
+    <div class="stat"><div class="n" id="stat-total">—</div><div class="l">Total hoists</div></div>
+    <div class="stat"><div class="n" id="stat-named">—</div><div class="l">With a name</div></div>
+    <div class="stat"><div class="n" id="stat-located">—</div><div class="l">With a location</div></div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Name</th><th>City</th><th>Location</th><th>Time</th><th>Via</th></tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <div class="empty" id="empty-msg" style="display:none">No hoists yet.</div>
+</div>
+
+<script>
+const ENDPOINT = '/.netlify/functions/independence-admin';
+let password = sessionStorage.getItem('ind_admin_pw') || '';
+
+function fmtTime(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true });
+}
+function fmtLoc(lat, lon) {
+  if (lat == null || lon == null) return '<span class="muted">—</span>';
+  return lat.toFixed(2) + ', ' + lon.toFixed(2);
+}
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function render(entries) {
+  document.getElementById('stat-total').textContent = entries.length;
+  document.getElementById('stat-named').textContent = entries.filter(e => e.name).length;
+  document.getElementById('stat-located').textContent = entries.filter(e => e.lat != null).length;
+  document.getElementById('last-updated').textContent = new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: true });
+
+  const rows = document.getElementById('rows');
+  document.getElementById('empty-msg').style.display = entries.length ? 'none' : 'block';
+  rows.innerHTML = entries.map(e => (
+    '<tr>' +
+      '<td class="name">' + (e.name ? esc(e.name) : '<span class="muted">—</span>') + '</td>' +
+      '<td>' + (e.city ? esc(e.city) : '<span class="muted">—</span>') + '</td>' +
+      '<td>' + fmtLoc(e.lat, e.lon) + '</td>' +
+      '<td>' + fmtTime(e.ts) + '</td>' +
+      '<td class="muted">' + (e.from ? esc(e.from) : '—') + '</td>' +
+    '</tr>'
+  )).join('');
+}
+
+let pollTimer = null;
+async function poll() {
+  try {
+    const res = await fetch(ENDPOINT, { headers: { 'X-Admin-Password': password } });
+    if (res.status === 401) {
+      sessionStorage.removeItem('ind_admin_pw');
+      if (pollTimer) clearInterval(pollTimer);
+      document.getElementById('list-view').style.display = 'none';
+      document.getElementById('gate').style.display = 'flex';
+      document.getElementById('pw-err').textContent = 'Wrong password.';
+      return;
+    }
+    const data = await res.json();
+    render(data.entries || []);
+  } catch (e) { /* transient network hiccup — next poll will retry */ }
+}
+
+function unlock() {
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('list-view').style.display = 'block';
+  poll();
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(poll, 5000);
+}
+
+document.getElementById('pw-submit').addEventListener('click', () => {
+  const input = document.getElementById('pw-input');
+  password = input.value;
+  sessionStorage.setItem('ind_admin_pw', password);
+  input.classList.remove('err');
+  document.getElementById('pw-err').textContent = '';
+  unlock();
+});
+document.getElementById('pw-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('pw-submit').click();
+});
+
+if (password) unlock();
+</script>
+</body>
+</html>

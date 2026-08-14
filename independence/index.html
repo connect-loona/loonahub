@@ -890,6 +890,25 @@ function startRankPolling() {
 }
 
 let lastHoistResult = null;
+// The name typed into name-input is never sent up front — it's typed
+// well after the hoist itself already fired and got logged (see
+// startClimb()), so it goes up as this separate follow-up call instead,
+// keyed by the log entry's own Firebase push ID (lastHoistResult.logKey).
+// Purely for the internal admin participant list (independence-admin.js)
+// — nothing on the public microsite reads names back. nameSentForKey
+// guards against re-sending the same name on every button click.
+let nameSentForKey = null;
+function sendNameIfNeeded() {
+  const key = lastHoistResult && lastHoistResult.logKey;
+  const name = nameInput.value.trim();
+  if (!key || !name || nameSentForKey === key) return;
+  nameSentForKey = key;
+  fetch(HOIST_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'setName', key, name })
+  }).catch(() => {});
+}
 function recordHoist() {
   // Still records the hoist (daily count + referral log) even though the
   // popup only shows "Happy Independence Day" now, not a rank sentence —
@@ -980,6 +999,7 @@ document.getElementById('again-btn').addEventListener('click', () => {
   if (jetsLoopInterval) { clearInterval(jetsLoopInterval); jetsLoopInterval = null; }
   if (rankPollInterval) { clearInterval(rankPollInterval); rankPollInterval = null; }
   shownRankCount = 0;
+  nameSentForKey = null;
   document.getElementById('ind-map-caption-rank').style.display = 'none';
   hoistBtn.disabled = true;
   const dropDuration = .5;
@@ -1059,6 +1079,7 @@ function buildStoryImage(url, callback) {
 }
 
 document.getElementById('share-btn').addEventListener('click', async () => {
+  sendNameIfNeeded();
   const status = document.getElementById('share-status');
   const url = shareUrl();
   const finish = async (blob) => {
@@ -1164,6 +1185,7 @@ function buildStampImage(name, callback) {
 const shareModal = document.getElementById('share-modal');
 const stampModal = document.getElementById('stamp-modal');
 document.getElementById('stamp-btn').addEventListener('click', () => {
+  sendNameIfNeeded();
   const stampBtn = document.getElementById('stamp-btn');
   stampBtn.disabled = true;
   buildStampImage(nameInput.value.trim(), (blob) => {
