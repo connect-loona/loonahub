@@ -377,7 +377,7 @@
      in its 260x210 viewBox) lands exactly on the calculated lat/lon spot —
      translate() is that anchor as a % of the element's own box. */
   .ind-map-you-marker {
-    position: absolute; width: 100px; aspect-ratio: 260 / 210;
+    position: absolute; width: 118px; aspect-ratio: 260 / 210;
     transform: translate(-25.4%, -61.9%);
     pointer-events: none;
     animation: ind-you-marker-pulse 1.8s ease-in-out infinite;
@@ -387,6 +387,12 @@
     0%, 100% { filter: drop-shadow(0 0 4px rgba(255, 180, 60, .5)); }
     50% { filter: drop-shadow(0 0 10px rgba(255, 180, 60, .9)); }
   }
+  /* The three ripple rings — staggered so they blink outward one after
+     another (a "radar ping" read) rather than all together. */
+  .ind-map-you-marker .you-ring-1 { animation: ind-you-ring-blink 1.8s ease-in-out infinite; }
+  .ind-map-you-marker .you-ring-2 { animation: ind-you-ring-blink 1.8s ease-in-out infinite .25s; }
+  .ind-map-you-marker .you-ring-3 { animation: ind-you-ring-blink 1.8s ease-in-out infinite .5s; }
+  @keyframes ind-you-ring-blink { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
 </style>
 </head>
 <body>
@@ -778,8 +784,9 @@ function mapSpotHTML(xPct, yPct, cls) {
 // (from mumbai_marker_asset_combined.svg), not a blinking dot. Falls back
 // to "Your flag" when the geo lookup didn't come back with a city name.
 function mapYouMarkerHTML(xPct, yPct, cityName) {
-  let label = (cityName || 'Your flag').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  if (label.length > 16) label = label.slice(0, 15) + '…';
+  // Always "Your flag", not the looked-up city name — cityName is still
+  // accepted (some callers may pass it) but intentionally unused now.
+  const label = 'Your flag';
   const labelWidth = Math.max(60, label.length * 8 + 24);
   const boxX = 66 - labelWidth / 2;
   return '<div class="ind-map-you-marker" style="left:' + xPct + '%;top:' + yPct + '%">' +
@@ -792,9 +799,9 @@ function mapYouMarkerHTML(xPct, yPct, cityName) {
     '</defs>' +
     '<g transform="translate(66 130)">' +
     '<circle cx="0" cy="0" r="8.5" fill="url(#youSunDot)" filter="url(#youSoftGlow)"/>' +
-    '<circle cx="0" cy="0" r="16" fill="none" stroke="#F39D38" stroke-opacity="0.75" stroke-width="1.8"/>' +
-    '<circle cx="0" cy="0" r="26" fill="none" stroke="#F39D38" stroke-opacity="0.45" stroke-width="1.6"/>' +
-    '<circle cx="0" cy="0" r="36" fill="none" stroke="#F39D38" stroke-opacity="0.24" stroke-width="1.4"/>' +
+    '<circle class="you-ring-1" cx="0" cy="0" r="16" fill="none" stroke="#F39D38" stroke-opacity="0.75" stroke-width="1.8"/>' +
+    '<circle class="you-ring-2" cx="0" cy="0" r="26" fill="none" stroke="#F39D38" stroke-opacity="0.45" stroke-width="1.6"/>' +
+    '<circle class="you-ring-3" cx="0" cy="0" r="36" fill="none" stroke="#F39D38" stroke-opacity="0.24" stroke-width="1.4"/>' +
     '</g>' +
     '<g transform="translate(58 78)">' +
     '<rect x="0" y="0" width="3.2" height="54" rx="1.6" fill="url(#youPoleGrad)"/>' +
