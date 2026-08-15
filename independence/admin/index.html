@@ -47,6 +47,33 @@
     background: rgba(224, 92, 92, .15); border: 1px solid rgba(224, 92, 92, .4); border-radius: 10px;
     padding: 10px 14px; font-size: 12.5px; color: #ffb3b3; margin-bottom: 14px;
   }
+  .view-toggle-btn {
+    border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.08); color: #fff;
+    border-radius: 999px; padding: 8px 16px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+    font-family: inherit;
+  }
+  .view-toggle-btn:hover { background: rgba(255,255,255,.14); }
+  /* Same 1080x1920 artwork + calibration as the public microsite
+     (independence/index.html's .ind-map-screen/projectToMapXY) — kept
+     to a fixed max-width here rather than filling the viewport, since
+     this is a utility view on a page full of other content, not the
+     public site's full-bleed hero moment. */
+  .map-view-box {
+    max-width: 420px; margin: 0 auto 18px; position: relative;
+    aspect-ratio: 1080 / 1920; border-radius: 16px; overflow: hidden;
+    border: 1px solid rgba(255,255,255,.12); box-shadow: 0 20px 50px rgba(0,0,0,.4);
+  }
+  .map-view-box img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; display: block; }
+  .map-view-dots { position: absolute; inset: 0; }
+  .map-spot {
+    position: absolute; width: 8px; height: 8px; transform: translate(-50%, -50%);
+    border-radius: 50%; filter: blur(.35px);
+    animation: map-spot-blink 2.2s ease-in-out infinite;
+  }
+  .map-spot-orange { background: radial-gradient(circle, rgba(255, 153, 51, .95) 0%, rgba(255, 153, 51, .45) 45%, transparent 72%); }
+  .map-spot-green { background: radial-gradient(circle, rgba(19, 136, 8, .95) 0%, rgba(19, 136, 8, .45) 45%, transparent 72%); animation-delay: 1.1s; }
+  @keyframes map-spot-blink { 0%, 100% { opacity: .4; transform: translate(-50%, -50%) scale(.7); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); } }
+  .map-view-count { text-align: center; font-size: 12.5px; color: rgba(255,255,255,.55); margin: -8px auto 18px; }
 
   .gate { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
   .gate-box { background: #1a0d06; border: 1px solid rgba(255,255,255,.12); border-radius: 18px; padding: 30px 28px; width: 320px; max-width: 100%; text-align: center; }
@@ -84,28 +111,39 @@
       <h1>Independence Day — Live Participants</h1>
       <div class="sub">Auto-refreshes every 5s · last updated <span id="last-updated">—</span></div>
     </div>
+    <button class="view-toggle-btn" id="view-toggle-btn">View map</button>
   </div>
-  <div class="stat-row">
-    <div class="stat"><div class="n" id="stat-today">—</div><div class="l">Hoists today</div></div>
-    <div class="stat"><div class="n" id="stat-total">—</div><div class="l">Shown below</div></div>
-    <div class="stat"><div class="n" id="stat-named">—</div><div class="l">With a name</div></div>
-    <div class="stat"><div class="n" id="stat-located">—</div><div class="l">With a location</div></div>
+
+  <div id="map-view" style="display:none">
+    <div class="map-view-box">
+      <img src="/assets/independence-day/celebration-map.jpg?v=3" alt="">
+      <div class="map-view-dots" id="map-view-dots"></div>
+    </div>
+    <div class="map-view-count" id="map-view-count"></div>
   </div>
-  <div class="truncated-banner" id="truncated-banner" style="display:none">
-    ⚠️ "Hoists today" and the list below disagree — some of today's log entries may be missing their date, so a few could be hiding from this list even though they still count toward the total.
+  <div id="list-content">
+    <div class="stat-row">
+      <div class="stat"><div class="n" id="stat-today">—</div><div class="l">Hoists today</div></div>
+      <div class="stat"><div class="n" id="stat-total">—</div><div class="l">Shown below</div></div>
+      <div class="stat"><div class="n" id="stat-named">—</div><div class="l">With a name</div></div>
+      <div class="stat"><div class="n" id="stat-located">—</div><div class="l">With a location</div></div>
+    </div>
+    <div class="truncated-banner" id="truncated-banner" style="display:none">
+      ⚠️ "Hoists today" and the list below disagree — some of today's log entries may be missing their date, so a few could be hiding from this list even though they still count toward the total.
+    </div>
+    <div class="truncated-banner" id="fetch-error-banner" style="display:none">
+      ⚠️ Couldn't read from Firebase — <span id="fetch-error-detail"></span>. This is different from "no hoists yet": the list below may be stale rather than actually empty. Will keep retrying every 5s.
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Name</th><th>City</th><th>Location</th><th>Time</th><th>Via</th></tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="empty-msg" style="display:none">No hoists yet.</div>
   </div>
-  <div class="truncated-banner" id="fetch-error-banner" style="display:none">
-    ⚠️ Couldn't read from Firebase — <span id="fetch-error-detail"></span>. This is different from "no hoists yet": the list below may be stale rather than actually empty. Will keep retrying every 5s.
-  </div>
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr><th>Name</th><th>City</th><th>Location</th><th>Time</th><th>Via</th></tr>
-      </thead>
-      <tbody id="rows"></tbody>
-    </table>
-  </div>
-  <div class="empty" id="empty-msg" style="display:none">No hoists yet.</div>
 </div>
 
 <script>
@@ -123,6 +161,48 @@ function fmtLoc(lat, lon) {
 function esc(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
+
+// Exact same calibration as the public microsite's projectToMapXY()
+// (independence/index.html) — plots against the same celebration-map.jpg
+// asset, so a location that lands correctly there lands correctly here.
+function projectToMapXY(lat, lon) {
+  const mapX = 99.9 + (lon - 68.0) / (97.4 - 68.0) * 800.2;
+  const mapY = 45.5 + (37.6 - lat) / (37.6 - 6.5) * 909.0;
+  const svgX = 1.10 * mapX - 18;
+  const svgY = 1.06 * mapY + 262;
+  const svgX0 = 91, svgY0 = 309, jpgX0 = 70, jpgY0 = 431;
+  const scaleX = 978 / 881, scaleY = 1099 / 964;
+  const canvasX = jpgX0 + (svgX - svgX0) * scaleX;
+  const canvasY = jpgY0 + (svgY - svgY0) * scaleY;
+  return { x: canvasX / 1080 * 100, y: canvasY / 1920 * 100 };
+}
+
+// One dot per entry with a location, no cap — this is the whole point
+// of a "show me everyone" admin view, unlike the public site's map
+// which caps at what's cheap to ship to every visitor. Same small
+// random jitter as the public site so hoists that share an identical
+// IP-geo centroid (common for the same city) fan out into a visible
+// cluster instead of stacking on the exact same pixel.
+function renderAdminMap(entries) {
+  const dotsWrap = document.getElementById('map-view-dots');
+  const located = entries.filter(e => typeof e.lat === 'number' && typeof e.lon === 'number');
+  const spotClasses = ['map-spot map-spot-orange', 'map-spot map-spot-green'];
+  dotsWrap.innerHTML = located.map((e, i) => {
+    const p = projectToMapXY(e.lat, e.lon);
+    const jx = (Math.random() - 0.5) * 2.4, jy = (Math.random() - 0.5) * 2.4;
+    return '<div class="' + spotClasses[i % 2] + '" style="left:' + (p.x + jx) + '%;top:' + (p.y + jy) + '%" title="' +
+      esc((e.name || 'Anonymous') + (e.city ? ' — ' + e.city : '')) + '"></div>';
+  }).join('');
+  document.getElementById('map-view-count').textContent = located.length + ' of ' + entries.length + ' hoists have a location';
+}
+
+let mapViewActive = false;
+document.getElementById('view-toggle-btn').addEventListener('click', () => {
+  mapViewActive = !mapViewActive;
+  document.getElementById('map-view').style.display = mapViewActive ? 'block' : 'none';
+  document.getElementById('list-content').style.display = mapViewActive ? 'none' : 'block';
+  document.getElementById('view-toggle-btn').textContent = mapViewActive ? 'View list' : 'View map';
+});
 
 function render(entries, todayCount, truncated) {
   document.getElementById('stat-today').textContent = todayCount;
@@ -143,6 +223,8 @@ function render(entries, todayCount, truncated) {
       '<td class="muted">' + (e.from ? esc(e.from) : '—') + '</td>' +
     '</tr>'
   )).join('');
+
+  renderAdminMap(entries); // kept in sync every poll regardless of which view is currently visible
 }
 
 let pollTimer = null;
