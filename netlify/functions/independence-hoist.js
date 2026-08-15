@@ -62,6 +62,10 @@ function fbGet(path) { return req("GET", FB + path + ".json", null); }
 function fbGetQuery(path, query) { return req("GET", FB + path + ".json?" + query, null); }
 function fbPut(path, val) { return req("PUT", FB + path + ".json", val); }
 function fbPost(path, val) { return req("POST", FB + path + ".json", val); }
+// PATCH merges the given fields into the existing node instead of
+// replacing it wholesale — used for setLocation below, where a plain
+// PUT to the entry's own path would wipe out its date/from/ts/name.
+function fbPatch(path, val) { return req("PATCH", FB + path + ".json", val); }
 
 function todayIST() {
   const now = new Date(Date.now() + 5.5 * 3600000);
@@ -162,6 +166,28 @@ exports.handler = async (event) => {
       const name = typeof parsed.name === "string" ? parsed.name.slice(0, 40) : "";
       if (key && /^[^.#$\[\]/]+$/.test(key) && name) {
         await fbPut("/independenceHoists/log/" + key + "/name", name);
+      }
+      return { statusCode: 200, headers: { ...CORS, "Content-Type": "application/json" }, body: JSON.stringify({ ok: true }) };
+    }
+
+    // GPS fallback: IP-based geolocation (getGeo() below) doesn't carry
+    // a location for every visitor — some networks/edge routing just
+    // don't have one to give, not something fixable server-side (see
+    // the client's maybeRequestGPSFallback(), which only fires this
+    // when the original hoist response came back with no `dot` at
+    // all). Same India bounds check as getGeo() applies, since this is
+    // now the second of two paths into the same lat/lon field. Uses
+    // PATCH (merge), not PUT, so this doesn't clobber the entry's
+    // existing date/from/ts/name/city fields the way overwriting the
+    // whole node would.
+    if (parsed && parsed.action === "setLocation") {
+      const key = typeof parsed.key === "string" ? parsed.key : null;
+      const lat = typeof parsed.lat === "number" ? parsed.lat : null;
+      const lon = typeof parsed.lon === "number" ? parsed.lon : null;
+      const inBounds = lat != null && lon != null &&
+        lat >= IN_BOUNDS.latMin && lat <= IN_BOUNDS.latMax && lon >= IN_BOUNDS.lonMin && lon <= IN_BOUNDS.lonMax;
+      if (key && /^[^.#$\[\]/]+$/.test(key) && inBounds) {
+        await fbPatch("/independenceHoists/log/" + key, { lat, lon });
       }
       return { statusCode: 200, headers: { ...CORS, "Content-Type": "application/json" }, body: JSON.stringify({ ok: true }) };
     }
