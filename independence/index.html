@@ -490,7 +490,7 @@
   <div class="mic-modal-backdrop" id="share-modal" style="display:none">
     <div class="mic-modal-card">
       <div class="mic-name-row">
-        <input id="name-input" type="text" maxlength="24" placeholder="Your name (optional)" autocomplete="off">
+        <input id="name-input" type="text" maxlength="24" placeholder="Your name" autocomplete="off">
       </div>
       <div class="mic-share-actions">
         <button class="btn btn-primary" id="stamp-btn">Get your stamp</button>
@@ -838,7 +838,17 @@ function renderMap(data) {
   let html = '';
   (data.dots || []).forEach((d, i) => {
     const p = projectToMapXY(d.lat, d.lon);
-    html += mapSpotHTML(p.x, p.y, spotClasses[i % 2]);
+    // IP-based geolocation commonly resolves to a per-city centroid, not
+    // a precise address — several hoisters from the same city can come
+    // back with literally identical lat/lon, which without this would
+    // stack multiple spots on the exact same pixel and look like just
+    // one dot no matter how many people actually hoisted there. A small
+    // random scatter (~±1.2% of the map) keeps them visually reading as
+    // their own city while fanning out into a visible cluster instead
+    // of hiding on top of each other.
+    const jitterX = (Math.random() - 0.5) * 2.4;
+    const jitterY = (Math.random() - 0.5) * 2.4;
+    html += mapSpotHTML(p.x + jitterX, p.y + jitterY, spotClasses[i % 2]);
   });
   if (data.dot) {
     const p = projectToMapXY(data.dot.lat, data.dot.lon);
