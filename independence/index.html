@@ -238,6 +238,11 @@
   }
   .mic-name-row input::placeholder { color: rgba(255, 255, 255, .5); }
   .mic-name-row input:focus { border-color: #ff9457; }
+  /* Required now (see stamp-btn's click handler) — this is the error
+     state when someone tries to get their stamp with the field empty. */
+  .mic-name-row input.err { border-color: #e05c5c; animation: mic-name-shake .3s; }
+  @keyframes mic-name-shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+  .mic-name-err { color: #e05c5c; font-size: 11.5px; min-height: 14px; margin-top: 2px; }
 
   /* No buttons while the map first shows — a clean, unobstructed reveal.
      The share/hoist-again controls appear as a popup 6s after the map
@@ -490,8 +495,9 @@
   <div class="mic-modal-backdrop" id="share-modal" style="display:none">
     <div class="mic-modal-card">
       <div class="mic-name-row">
-        <input id="name-input" type="text" maxlength="24" placeholder="Your name" autocomplete="off">
+        <input id="name-input" type="text" maxlength="24" placeholder="Your name" autocomplete="off" required>
       </div>
+      <div class="mic-name-err" id="name-err"></div>
       <div class="mic-share-actions">
         <button class="btn btn-primary" id="stamp-btn">Get your stamp</button>
         <button class="btn btn-secondary" id="again-btn">Hoist again</button>
@@ -1035,6 +1041,8 @@ document.getElementById('again-btn').addEventListener('click', () => {
   if (rankPollInterval) { clearInterval(rankPollInterval); rankPollInterval = null; }
   shownRankCount = 0;
   nameSentForKey = null;
+  nameInput.classList.remove('err');
+  document.getElementById('name-err').textContent = '';
   document.getElementById('ind-map-caption-rank').style.display = 'none';
   hoistBtn.disabled = true;
   const dropDuration = .5;
@@ -1045,6 +1053,10 @@ document.getElementById('again-btn').addEventListener('click', () => {
 });
 
 const nameInput = document.getElementById('name-input');
+nameInput.addEventListener('input', () => {
+  nameInput.classList.remove('err');
+  document.getElementById('name-err').textContent = '';
+});
 
 // ── Personalized commemorative stamp ──
 // Composites today's date, the shloka, and a thank-you (using whatever
@@ -1117,6 +1129,19 @@ function buildStampImage(name, callback) {
 const shareModal = document.getElementById('share-modal');
 const stampModal = document.getElementById('stamp-modal');
 document.getElementById('stamp-btn').addEventListener('click', () => {
+  // Name is required now — too many hoisters were skipping it entirely,
+  // so the stamp (the thing most people actually want to see/save) is
+  // gated on typing one first, same shake-and-red-border pattern as any
+  // other required-field validation.
+  if (!nameInput.value.trim()) {
+    nameInput.classList.remove('err'); void nameInput.offsetWidth; // restart the shake if clicked again while already erroring
+    nameInput.classList.add('err');
+    document.getElementById('name-err').textContent = 'Please enter your name';
+    nameInput.focus();
+    return;
+  }
+  nameInput.classList.remove('err');
+  document.getElementById('name-err').textContent = '';
   sendNameIfNeeded();
   const stampBtn = document.getElementById('stamp-btn');
   stampBtn.disabled = true;
