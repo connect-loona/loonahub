@@ -79,9 +79,24 @@ function getGeo(event) {
     const raw = event.headers && (event.headers["x-nf-geo"] || event.headers["X-Nf-Geo"]);
     if (!raw) return null;
     const g = JSON.parse(Buffer.from(raw, "base64").toString("utf8"));
-    const lat = g.latitude, lon = g.longitude;
+    let lat = g.latitude, lon = g.longitude;
     if (typeof lat !== "number" || typeof lon !== "number") return null;
-    if (lat < IN_BOUNDS.latMin || lat > IN_BOUNDS.latMax || lon < IN_BOUNDS.lonMin || lon > IN_BOUNDS.lonMax) return null;
+    const outOfBounds = lat < IN_BOUNDS.latMin || lat > IN_BOUNDS.latMax || lon < IN_BOUNDS.lonMin || lon > IN_BOUNDS.lonMax;
+    if (outOfBounds) {
+      // Netlify's IP-geo lookup is coarse near borders/coastlines/
+      // islands — a real Indian visitor can still land just outside
+      // this exact bounding box. Rather than discarding a marginally-
+      // imprecise-but-genuinely-Indian location outright, clamp it to
+      // the nearest point still on the map, as long as Netlify itself
+      // is confident the country is India — only reject outright when
+      // it isn't (a VPN exit elsewhere, or a genuinely non-Indian
+      // visitor), since fabricating a location for someone who isn't
+      // actually here would be worse than showing nothing.
+      const countryCode = g.country && typeof g.country.code === "string" ? g.country.code : null;
+      if (countryCode !== "IN") return null;
+      lat = Math.min(IN_BOUNDS.latMax, Math.max(IN_BOUNDS.latMin, lat));
+      lon = Math.min(IN_BOUNDS.lonMax, Math.max(IN_BOUNDS.lonMin, lon));
+    }
     // city is shown next to the hoister's own marker on the map (see
     // renderMap() in independence/index.html) — best-effort, city can be
     // missing from the geo lookup even when lat/lon are present.
