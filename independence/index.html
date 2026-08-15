@@ -849,6 +849,39 @@ function renderMap(data) {
   showRankLine(data);
 }
 
+// IP-based geolocation (data.dot, from Netlify's x-nf-geo header) is
+// frictionless but not reliable — some networks/edge routing just don't
+// carry a location for a given request, no permission prompt involved
+// either way. Confirmed live: a hoist can come back with everything
+// else intact (rank, other people's dots) but no `dot` for that visitor
+// specifically. This is the fallback for exactly that case, and ONLY
+// that case — GPS's own permission prompt only ever appears when the
+// frictionless path already came up empty, so most visitors never see
+// it. Same India bounding box independence-hoist.js's getGeo()
+// enforces server-side.
+function maybeRequestGPSFallback(data) {
+  if (!data || data.dot || !data.logKey) return;
+  if (!('geolocation' in navigator)) return;
+  navigator.geolocation.getCurrentPosition((pos) => {
+    const lat = pos.coords.latitude, lon = pos.coords.longitude;
+    if (lat < 6.5 || lat > 37.6 || lon < 68.0 || lon > 97.4) return;
+    const dotsWrap = document.getElementById('ind-map-dots');
+    if (dotsWrap && !dotsWrap.querySelector('.ind-map-you-marker')) {
+      const p = projectToMapXY(lat, lon);
+      dotsWrap.insertAdjacentHTML('beforeend', mapYouMarkerHTML(p.x, p.y, null));
+    }
+    // Best-effort persist so the admin list and future visitors' `dots`
+    // pick it up too — doesn't block anything, the marker's already
+    // drawn above regardless of whether this succeeds.
+    fetch(HOIST_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'setLocation', key: data.logKey, lat, lon })
+    }).catch(() => {});
+  }, () => { /* denied, unavailable, or timed out — silent, same as an IP-geo miss */ },
+  { timeout: 8000, maximumAge: 300000 });
+}
+
 // "42" -> "42nd" (11-13 stay "th", same exception English ordinals always
 // have — 11th, 12th, 13th, but 21st, 22nd, 23rd).
 function ordinal(n) {
@@ -998,7 +1031,11 @@ function startClimb() {
     setTimeout(() => {
       document.getElementById('phase-landing').style.display = 'none';
       document.getElementById('phase-celebrate').style.display = '';
-      hoistPromise.then((d) => renderMap(d || lastHoistResult));
+      hoistPromise.then((d) => {
+        const data = d || lastHoistResult;
+        renderMap(data);
+        maybeRequestGPSFallback(data);
+      });
       // Map shows clean first, no buttons — the share/hoist-again popup
       // appears 6s later rather than being there immediately.
       setTimeout(() => {
