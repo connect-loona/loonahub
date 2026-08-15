@@ -93,17 +93,33 @@ function getGeo(event) {
 // Pulls the most recent hoists that carried a location and hands back a
 // plain [{lat,lon}] list for the map — capped at 250 so this stays cheap
 // and the map doesn't get overcrowded with dots.
+//
+// Plain fbGet (the whole node, no orderBy/limitToLast), not a Firebase
+// query — this path has never actually had a `.indexOn: "ts"` rule
+// declared, so orderBy="ts" was rejected by Firebase's REST API with an
+// error-shaped response ({"error": "Index not defined..."}) on every
+// single call. The old code never checked for that shape, so it
+// iterated Object.values({error: "..."}) — a one-element array
+// containing a plain string — found nothing with a numeric .lat/.lon on
+// it, and returned []. Every dot on the map (and the "you" marker, via
+// this same silent-failure class of bug — see independence-admin.js's
+// FIREBASE_ERROR_HANDLING for the full writeup) has likely been
+// missing because of exactly this, not anything to do with individual
+// visitors' geo lookups. A plain full-node read needs no index at all,
+// so this sidesteps the problem entirely instead of depending on
+// someone remembering to add the index in the Firebase console.
 async function fetchDots() {
-  const res = await fbGetQuery("/independenceHoists/log", 'orderBy="ts"&limitToLast=250');
-  const dots = [];
-  if (res.body && typeof res.body === "object") {
+  const res = await fbGet("/independenceHoists/log");
+  const entries = [];
+  if (res.body && typeof res.body === "object" && typeof res.body.error !== "string") {
     Object.values(res.body).forEach((entry) => {
-      if (entry && typeof entry.lat === "number" && typeof entry.lon === "number") {
-        dots.push({ lat: entry.lat, lon: entry.lon });
+      if (entry && typeof entry === "object" && typeof entry.lat === "number" && typeof entry.lon === "number") {
+        entries.push({ lat: entry.lat, lon: entry.lon, ts: typeof entry.ts === "number" ? entry.ts : 0 });
       }
     });
   }
-  return dots;
+  entries.sort((a, b) => b.ts - a.ts);
+  return entries.slice(0, 250).map(({ lat, lon }) => ({ lat, lon }));
 }
 
 const CORS = {
