@@ -25,27 +25,26 @@
 //     -> 502 {error, firebaseError} if the Firebase read itself failed
 //        (distinct from "no entries yet" — see FIREBASE_ERROR_HANDLING).
 //
-// FIREBASE_ERROR_HANDLING: an earlier version queried Firebase directly
-// with orderBy="date"&equalTo=<today> to avoid an arbitrary count cap —
-// but this path already has an index declared on "ts" (fetchDots() in
-// independence-hoist.js has queried orderBy="ts" successfully all
-// along), and once ANY index is declared on a path, Firebase's REST API
-// rejects queries ordered by a field that ISN'T one of the declared
-// indexes, with an error response — it does NOT just fall back to an
-// unindexed scan. That error response is still a 200 with a JSON body
-// like {"error": "Index not defined..."}, and the old code never checked
-// res.statusCode or looked for that shape, so it silently iterated an
-// {error: "..."} object as if it were hoist entries, found nothing
-// object-shaped, and returned an empty list with no indication anything
-// had gone wrong — exactly what showed up live (todayCount: 22,
-// entries: 0). Fixed two ways: (1) back to orderBy="ts" (the field
-// that's actually indexed), filtering by `date` in JS afterward instead
-// of in the query itself — still scales to one day's real turnout, no
-// arbitrary cap, just done after the fetch instead of by Firebase; (2)
-// fbGetQuery now recognizes a Firebase error-shaped response and the
-// handler returns a real 502 instead of quietly treating it as "zero
-// hoists today", so this class of bug fails loudly next time instead of
-// looking identical to an empty log.
+// FIREBASE_ERROR_HANDLING: two rounds of this bug now. Round 1 queried
+// orderBy="date"&equalTo=<today>, assumed wrong that "ts" was already a
+// declared index on this path (since fetchDots() in independence-hoist.js
+// had queried orderBy="ts" "successfully" all along) and switched to
+// that instead. Turns out /independenceHoists/log has NEVER had ANY
+// `.indexOn` rule declared — fetchDots()'s orderBy="ts" was being
+// rejected by Firebase this entire time too, silently, via the exact
+// same bug: Firebase's REST API error response for a missing index is
+// still a 200 with a JSON body like {"error": "Index not defined..."},
+// and neither function checked for that shape, so both iterated
+// {error: "..."} as if it were hoist entries, found nothing
+// object-shaped, and returned an empty list — indistinguishable from an
+// actually-empty log (confirmed live: todayCount: 22, entries: 0), and
+// the reason the map's own dots/marker had reportedly gone missing too.
+// Fixed for good this time by not using orderBy/limitToLast/equalTo at
+// all — a plain full-node GET needs no Firebase index whatsoever, with
+// all filtering, sorting, and capping done in JS after the fetch. Kept
+// the error-shape check too (now on the plain GET) so any future
+// Firebase-side failure still surfaces as a real 502 instead of quietly
+// looking like zero hoists.
 //
 // name/city/lat/lon here are exactly what independence-hoist.js already
 // writes to /independenceHoists/log for every hoist (name arrives
@@ -66,11 +65,14 @@ function todayIST() {
 
 // Resolves to { ok: true, data } normally, or { ok: false, error } if
 // Firebase itself returned an error-shaped body (e.g. a missing-index
-// rejection) or the request failed outright — callers must check `ok`
-// rather than assuming a parsed JSON body means the read succeeded.
-function fbGetQuery(path, query) {
+// rejection on a query — shouldn't happen here now that nothing in this
+// file uses orderBy/equalTo/limitToLast, but still checked in case a
+// plain read is ever rejected for some other reason) or the request
+// failed outright — callers must check `ok` rather than assuming a
+// parsed JSON body means the read succeeded.
+function fbGetChecked(path) {
   return new Promise((resolve) => {
-    const u = new URL(FB + path + ".json?" + query);
+    const u = new URL(FB + path + ".json");
     https.get({ hostname: u.hostname, path: u.pathname + u.search, headers: { Accept: "application/json" } }, (res) => {
       let buf = ""; res.on("data", (c) => (buf += c));
       res.on("end", () => {
@@ -109,13 +111,11 @@ exports.handler = async (event) => {
   }
 
   const today = todayIST();
-  // orderBy="ts" — the field this path actually has an index on (see
-  // FIREBASE_ERROR_HANDLING above) — then filtered down to today's date
-  // in JS below. limitToLast is still generous rather than tight, as a
-  // ceiling against pulling in old days' entries too, not because
-  // there's any realistic risk of today alone exceeding it.
+  // Plain full-node read (see FIREBASE_ERROR_HANDLING above for why —
+  // no orderBy/equalTo/limitToLast, so no Firebase index required at
+  // all) — filtered down to today's date in JS below.
   const [logRes, todayCountRaw] = await Promise.all([
-    fbGetQuery("/independenceHoists/log", 'orderBy="ts"&limitToLast=5000'),
+    fbGetChecked("/independenceHoists/log"),
     fbGet("/independenceHoists/daily/" + today + "/count"),
   ]);
   const todayCount = typeof todayCountRaw === "number" ? todayCountRaw : 0;
