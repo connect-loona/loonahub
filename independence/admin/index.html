@@ -53,6 +53,13 @@
     font-family: inherit;
   }
   .view-toggle-btn:hover { background: rgba(255,255,255,.14); }
+  .view-toggle-btn.active { background: linear-gradient(135deg, #ff8a3d, #ff5a13); color: #1a0a02; border-color: transparent; }
+  .date-row { display: flex; gap: 10px; align-items: center; margin-bottom: 18px; }
+  .date-row input[type="date"] {
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.2); border-radius: 999px;
+    padding: 7px 14px; font-size: 12.5px; color: #fff; font-family: inherit; outline: none;
+    color-scheme: dark;
+  }
   /* Same 1080x1920 artwork + calibration as the public microsite
      (independence/index.html's .ind-map-screen/projectToMapXY) — kept
      to a fixed max-width here rather than filling the viewport, since
@@ -114,6 +121,16 @@
     <button class="view-toggle-btn" id="view-toggle-btn">View map</button>
   </div>
 
+  <!-- Defaults to today's IST date, same scope this page always used —
+       but "today" stops meaning Independence Day itself the moment the
+       date rolls over, which is exactly why a day-old campaign's data
+       can look like it vanished. This is how you look at any other day,
+       or turn off date-scoping entirely. -->
+  <div class="date-row">
+    <input type="date" id="date-picker">
+    <button class="view-toggle-btn" id="all-time-btn">All time</button>
+  </div>
+
   <div id="map-view" style="display:none">
     <div class="map-view-box">
       <img src="/assets/independence-day/celebration-map.jpg?v=3" alt="">
@@ -123,7 +140,7 @@
   </div>
   <div id="list-content">
     <div class="stat-row">
-      <div class="stat"><div class="n" id="stat-today">—</div><div class="l">Hoists today</div></div>
+      <div class="stat"><div class="n" id="stat-today">—</div><div class="l" id="stat-today-label">Hoists today</div></div>
       <div class="stat"><div class="n" id="stat-total">—</div><div class="l">Shown below</div></div>
       <div class="stat"><div class="n" id="stat-named">—</div><div class="l">With a name</div></div>
       <div class="stat"><div class="n" id="stat-located">—</div><div class="l">With a location</div></div>
@@ -204,8 +221,9 @@ document.getElementById('view-toggle-btn').addEventListener('click', () => {
   document.getElementById('view-toggle-btn').textContent = mapViewActive ? 'View list' : 'View map';
 });
 
-function render(entries, todayCount, truncated) {
-  document.getElementById('stat-today').textContent = todayCount;
+function render(entries, count, truncated, scope) {
+  document.getElementById('stat-today').textContent = count;
+  document.getElementById('stat-today-label').textContent = scope === 'all' ? 'Hoists (all time)' : 'Hoists on ' + scope;
   document.getElementById('stat-total').textContent = entries.length;
   document.getElementById('stat-named').textContent = entries.filter(e => e.name).length;
   document.getElementById('stat-located').textContent = entries.filter(e => e.lat != null).length;
@@ -227,10 +245,35 @@ function render(entries, todayCount, truncated) {
   renderAdminMap(entries); // kept in sync every poll regardless of which view is currently visible
 }
 
+// IST "today", computed client-side purely as the date picker's default
+// value — the server independently computes its own IST "today" for the
+// actual default-scope behavior (no ?date= param at all), this is just
+// what the input shows on first load.
+function todayIST() {
+  const now = new Date(Date.now() + 5.5 * 3600000);
+  return now.getUTCFullYear() + '-' + String(now.getUTCMonth() + 1).padStart(2, '0') + '-' + String(now.getUTCDate()).padStart(2, '0');
+}
+const datePicker = document.getElementById('date-picker');
+const allTimeBtn = document.getElementById('all-time-btn');
+datePicker.value = todayIST();
+let allTimeActive = false;
+
+datePicker.addEventListener('change', () => {
+  allTimeActive = false;
+  allTimeBtn.classList.remove('active');
+  poll();
+});
+allTimeBtn.addEventListener('click', () => {
+  allTimeActive = !allTimeActive;
+  allTimeBtn.classList.toggle('active', allTimeActive);
+  poll();
+});
+
 let pollTimer = null;
 async function poll() {
   try {
-    const res = await fetch(ENDPOINT, { headers: { 'X-Admin-Password': password } });
+    const dateParam = allTimeActive ? 'all' : (datePicker.value || todayIST());
+    const res = await fetch(ENDPOINT + '?date=' + encodeURIComponent(dateParam), { headers: { 'X-Admin-Password': password } });
     if (res.status === 401) {
       sessionStorage.removeItem('ind_admin_pw');
       if (pollTimer) clearInterval(pollTimer);
@@ -246,7 +289,7 @@ async function poll() {
       return;
     }
     document.getElementById('fetch-error-banner').style.display = 'none';
-    render(data.entries || [], data.todayCount || 0, !!data.truncated);
+    render(data.entries || [], data.count || 0, !!data.truncated, data.scope || dateParam);
   } catch (e) { /* transient network hiccup — next poll will retry */ }
 }
 
