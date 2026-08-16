@@ -1029,6 +1029,11 @@ hoistBtn.addEventListener('click', () => {
 });
 
 document.getElementById('again-btn').addEventListener('click', () => {
+  // Same name gate as "Get your stamp" (see requireName()) — without
+  // this, "Hoist again" was a way to restart the whole flow, and thus
+  // leave the just-finished hoist's log entry nameless forever, without
+  // ever being asked for a name.
+  if (!requireName()) return;
   // Same quick-drop-then-climb-again as the dashboard's "Hoist Again" —
   // a real, visible drop (short transition) before the slow climb restarts,
   // rather than silently snapping back to the bottom.
@@ -1128,21 +1133,28 @@ function buildStampImage(name, callback) {
 
 const shareModal = document.getElementById('share-modal');
 const stampModal = document.getElementById('stamp-modal');
-document.getElementById('stamp-btn').addEventListener('click', () => {
-  // Name is required now — too many hoisters were skipping it entirely,
-  // so the stamp (the thing most people actually want to see/save) is
-  // gated on typing one first, same shake-and-red-border pattern as any
-  // other required-field validation.
+// Shared by both share-modal buttons (see below) — a hoist's log entry is
+// written the instant the flag climbs (recordHoist(), well before this
+// popup even appears), with no name attached yet; sendNameIfNeeded() is
+// the only thing that ever attaches one, and it only fires from here. So
+// EITHER button needs to pass this gate, not just "Get your stamp" — an
+// unguarded "Hoist again" was the other way people were ending up in the
+// admin list with no name: they'd never be asked before restarting.
+function requireName() {
   if (!nameInput.value.trim()) {
     nameInput.classList.remove('err'); void nameInput.offsetWidth; // restart the shake if clicked again while already erroring
     nameInput.classList.add('err');
     document.getElementById('name-err').textContent = 'Please enter your name';
     nameInput.focus();
-    return;
+    return false;
   }
   nameInput.classList.remove('err');
   document.getElementById('name-err').textContent = '';
   sendNameIfNeeded();
+  return true;
+}
+document.getElementById('stamp-btn').addEventListener('click', () => {
+  if (!requireName()) return;
   const stampBtn = document.getElementById('stamp-btn');
   stampBtn.disabled = true;
   buildStampImage(nameInput.value.trim(), (blob) => {
