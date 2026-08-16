@@ -10,18 +10,25 @@
 // this function does its own password check instead of relying on that
 // gate — see PASSWORD below.
 //
-//   GET /.netlify/functions/independence-admin
+//   GET /.netlify/functions/independence-admin?date=<YYYY-MM-DD|all>
 //     Header: X-Admin-Password: <password>
 //     -> 401 {error} if it doesn't match INDEPENDENCE_ADMIN_PASSWORD (or
 //        that env var was never set — fails closed, not open).
-//     -> 200 { entries, todayCount, truncated }
-//        entries: [{ key, name, city, lat, lon, ts, date, from }] for
-//        TODAY only, most recent first.
-//        todayCount: today's real total from the same daily counter the
-//        public "X flags hoisted today" line uses — fetched
-//        independently of the entries query below as a cross-check (see
+//     -> 200 { entries, scope, count, truncated }
+//        entries: [{ key, name, city, lat, lon, ts, date, from }], most
+//        recent first. Scoped by the `date` param: a specific
+//        YYYY-MM-DD shows just that day (this is how you see "yesterday"
+//        — the admin page defaulting to only today's IST date is exactly
+//        why a day-old campaign's data looked like it had vanished),
+//        "all" shows every entry ever logged, and omitting it defaults
+//        to today's IST date (unchanged from before this param existed).
+//        scope: echoes back which date (or "all") was actually used.
+//        count: the real total for that scope — today/that day's count
+//        from the same daily counter the public "X flags hoisted today"
+//        line uses, or allTimeCount when scope is "all" — fetched
+//        independently of the entries read below as a cross-check (see
 //        `truncated`), not derived from entries.length.
-//        truncated: true if entries came back short of todayCount.
+//        truncated: true if entries came back short of count.
 //     -> 502 {error, firebaseError} if the Firebase read itself failed
 //        (distinct from "no entries yet" — see FIREBASE_ERROR_HANDLING).
 //
@@ -110,15 +117,24 @@ exports.handler = async (event) => {
     return { statusCode: 401, headers: { ...CORS, "Content-Type": "application/json" }, body: JSON.stringify({ error: "Wrong password" }) };
   }
 
-  const today = todayIST();
+  const requestedDate = event.queryStringParameters && typeof event.queryStringParameters.date === "string"
+    ? event.queryStringParameters.date : null;
+  const showAll = requestedDate === "all";
+  // A specific YYYY-MM-DD, or "all" bypasses date filtering entirely —
+  // otherwise default to today's IST date, same as before this param
+  // existed. Loose format check only (not real date validation) since
+  // an invalid value here just means "no entries match", not a security
+  // issue — this whole endpoint already requires the admin password.
+  const scope = !showAll && requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? requestedDate : (showAll ? "all" : todayIST());
+
   // Plain full-node read (see FIREBASE_ERROR_HANDLING above for why —
   // no orderBy/equalTo/limitToLast, so no Firebase index required at
-  // all) — filtered down to today's date in JS below.
-  const [logRes, todayCountRaw] = await Promise.all([
+  // all) — filtered down to the requested scope in JS below.
+  const [logRes, countRaw] = await Promise.all([
     fbGetChecked("/independenceHoists/log"),
-    fbGet("/independenceHoists/daily/" + today + "/count"),
+    showAll ? fbGet("/independenceHoists/allTimeCount") : fbGet("/independenceHoists/daily/" + scope + "/count"),
   ]);
-  const todayCount = typeof todayCountRaw === "number" ? todayCountRaw : 0;
+  const count = typeof countRaw === "number" ? countRaw : 0;
 
   if (!logRes.ok) {
     return {
@@ -132,7 +148,8 @@ exports.handler = async (event) => {
   const raw = logRes.data;
   if (raw && typeof raw === "object") {
     Object.entries(raw).forEach(([key, entry]) => {
-      if (!entry || typeof entry !== "object" || entry.date !== today) return;
+      if (!entry || typeof entry !== "object") return;
+      if (!showAll && entry.date !== scope) return;
       entries.push({
         key,
         name: typeof entry.name === "string" ? entry.name : null,
@@ -147,11 +164,11 @@ exports.handler = async (event) => {
   }
   entries.sort((a, b) => (b.ts || 0) - (a.ts || 0));
 
-  const truncated = entries.length < todayCount;
+  const truncated = entries.length < count;
 
   return {
     statusCode: 200,
     headers: { ...CORS, "Content-Type": "application/json" },
-    body: JSON.stringify({ entries, todayCount, truncated }),
+    body: JSON.stringify({ entries, scope, count, truncated }),
   };
 };
