@@ -9011,21 +9011,30 @@
         (!priority || t.priority === priority)
       );
 
-      // Tier first — active/incomplete work on top (sorted by priority within
+      // Tier first — active/incomplete work on top (sorted by due date within
       // that tier), then Awaiting Approval/Awaiting Deferral (sitting in
       // someone else's queue, not actionable right now), then Deferred, then
-      // Completed always dead last regardless of priority — then High/Medium/
-      // Low within each tier, then most-recent-first as the final tiebreak.
+      // Completed always dead last regardless of due date — then within each
+      // tier, soonest due date first (that's the whole point of a due date:
+      // what's about to be late should be the first thing you see), then
+      // High/Medium/Low priority as the tiebreak for same-due-date tasks,
+      // then most-recent-first as the final tiebreak.
       const statusTier = t => {
         if (t.status === 'Completed') return 3;
         if (t.status === 'Deferred') return 2;
         if (t.status === 'Awaiting Approval' || t.status === 'Awaiting Deferral') return 1;
         return 0;
       };
+      // No due date sorts after every dated task, not before — an undated
+      // task isn't more urgent than one that's actually due soon.
+      const dueOrder = t => t.due_date || '9999-12-31';
       const priorityRank = { High: 0, Medium: 1, Low: 2 };
       return filtered.sort((a, b) => {
         const aTier = statusTier(a), bTier = statusTier(b);
         if (aTier !== bTier) return aTier - bTier;
+
+        const aDue = dueOrder(a), bDue = dueOrder(b);
+        if (aDue !== bDue) return aDue < bDue ? -1 : 1;
 
         const aPrio = priorityRank[a.priority] ?? 3;
         const bPrio = priorityRank[b.priority] ?? 3;
@@ -13243,7 +13252,15 @@
       const _pag = document.getElementById('pagination');
       if (_pag && _pag.parentNode && cont.previousElementSibling !== _pag) { _pag.parentNode.insertBefore(cont, _pag.nextSibling); }
       const me = normName(currentUser);
-      const mine = (TASKS || []).filter(t => t && !t.is_personal && normName(t.assigned_by) === me && normName(t.member) !== me);
+      // Soonest due date first, same as the main Task Board's own sort (see
+      // getFilteredTasks()) — this list has a Due column too, and was
+      // previously left in raw TASKS insertion order, so nothing due today
+      // reliably surfaced above something due next week.
+      const mine = (TASKS || []).filter(t => t && !t.is_personal && normName(t.assigned_by) === me && normName(t.member) !== me)
+        .sort((a, b) => {
+          const aDue = a.due_date || '9999-12-31', bDue = b.due_date || '9999-12-31';
+          return aDue < bDue ? -1 : aDue > bDue ? 1 : 0;
+        });
       if (!mine.length) { cont.innerHTML = ''; return; }
       const rows = mine.map(t => `
         <tr>
