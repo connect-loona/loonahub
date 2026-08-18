@@ -13412,15 +13412,30 @@
       document.getElementById('toast-sub').textContent='Visible to the whole team';
       const toast=document.getElementById('completion-toast'); toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),2600);
     }
+    // Whether the Loona Board is showing everything or just the capped
+    // preview — module-level so it survives a re-render (a new post
+    // arriving shouldn't silently collapse a board someone had opened up),
+    // but starts collapsed again on a fresh page load like it always did.
+    let loonaBoardExpanded = false;
     function renderLoonaBoard(){
       const cont=document.getElementById('loona-board'); if(!cont) return;
       let dismissed; try{ dismissed=getDismissedIds(); }catch(e){ dismissed=new Set(); }
-      const items=(ANNOUNCEMENTS||[]).filter(a=>a && !dismissed.has(a.id) && (!a.visibleTo || !a.visibleTo.length || a.visibleTo.some(n=>normName(n)===normName(currentUser)))).slice(0,6);
-      if(!items.length){ cont.innerHTML=''; return; }
+      const allItems=(ANNOUNCEMENTS||[]).filter(a=>a && !dismissed.has(a.id) && (!a.visibleTo || !a.visibleTo.length || a.visibleTo.some(n=>normName(n)===normName(currentUser))));
+      if(!allItems.length){ cont.innerHTML=''; return; }
+      // Capped preview at 7 like before, but now with a "View more" button
+      // instead of silently dropping anything past it — previously the
+      // board just hard-capped at 6 with no way to see older posts still
+      // sitting in the list.
+      const LB_PREVIEW_COUNT=7;
+      const expanded=loonaBoardExpanded && allItems.length>LB_PREVIEW_COUNT;
+      const items=expanded?allItems:allItems.slice(0,LB_PREVIEW_COUNT);
       const notifBtn = ('Notification' in window && Notification.permission === 'default')
         ? `<button class="lb-notif-btn" onclick="event.stopPropagation();requestBoardNotifications()" title="Get a desktop alert when something new is posted">🔔 Enable alerts</button>`
         : '';
-      cont.innerHTML=`<div class="loona-board-card"><div class="lb-head">📣 Loona Board<span class="lb-flash" title="${items.length} live update${items.length!==1?'s':''}"><span class="lb-flash-dot"></span>${items.length}</span>${notifBtn}</div><div class="lb-list">`+items.map(a=>{
+      const moreBtn = allItems.length>LB_PREVIEW_COUNT
+        ? `<button class="lb-more-btn" onclick="loonaBoardExpanded=!loonaBoardExpanded;renderLoonaBoard()">${expanded?'▲ Show less':'▼ View all '+allItems.length}</button>`
+        : '';
+      cont.innerHTML=`<div class="loona-board-card"><div class="lb-head">📣 Loona Board<span class="lb-flash" title="${allItems.length} live update${allItems.length!==1?'s':''}"><span class="lb-flash-dot"></span>${allItems.length}</span>${notifBtn}</div><div class="lb-list">`+items.map(a=>{
         const canDel=true;
         const when=a.timestamp?new Date(a.timestamp).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
         const av=(MEMBER_INFO[a.author]||{}).avatar;
@@ -13438,7 +13453,7 @@
           : a.action==='overdue-ask-why' ? `<button class="btn btn-ghost" style="padding:5px 10px;font-size:11px" data-task-key="${lnEsc(a.taskKey||'')}" data-member="${lnEsc(a.taskMember||'')}" data-title="${lnEsc(a.taskTitle||'')}" data-brand="${lnEsc(a.taskBrand||'')}" data-assigned-by="${lnEsc(a.taskAssignedBy||'')}" onclick="askOverdueWhy(this)">💬 Ask ${lnEsc(a.taskMember||'them')} why</button>`
           : '';
         return `<div class="lb-item"><div class="lb-meta">${authorIcon}<span class="lb-author">${a.author||'Team'}</span><span class="lb-time">${when}</span>${canDel?`<span class="lb-del" title="Remove" onclick="deleteAnnouncement(${a.id})">✕</span>`:''}</div>${a.text?`<div class="lb-text">${String(a.text).replace(/</g,'&lt;')}</div>`:''}${a.image?`<img class="lb-img" src="${a.image}" alt="">`:''}<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px">${(((a.links&&a.links.length)?a.links:(a.link?[a.link]:[]))||[]).map(L=>`<a class="lb-link" style="margin-top:0" href="${L}" target="_blank" rel="noopener">🔗 ${L.length>50?L.slice(0,50)+'…':L}</a>`).join('')}${recordBtn}${actionBtn}</div></div>`;
-      }).join('')+`</div></div>`;
+      }).join('')+`</div>${moreBtn}</div>`;
     }
     function deleteAnnouncement(id) {
       if (!confirm('Delete this Loona Board post for everyone? This cannot be undone.')) return;
@@ -19718,6 +19733,8 @@ ${brandLines}`;
   .lb-img{max-width:100%;max-height:260px;border-radius:10px;margin-top:8px;display:block}
   .lb-link{display:inline-block;margin-top:6px;font-size:12px;color:#5b9cf6;text-decoration:none}
   .lb-link:hover{text-decoration:underline}
+  .lb-more-btn{width:100%;margin-top:12px;background:rgba(255,109,41,.08);border:1px solid rgba(255,109,41,.3);color:var(--accent2,#ff9457);border-radius:9px;padding:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)}
+  .lb-more-btn:hover{background:rgba(255,109,41,.16)}
   </style>
   <style id="tap-reveal-css">
   .task-cell.tip-open .task-tip{display:block!important}
