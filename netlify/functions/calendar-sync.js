@@ -132,7 +132,17 @@ async function runSync() {
   if (!sa.client_email || !sa.private_key) throw new Error('GOOGLE_CALENDAR_SERVICE_ACCOUNT is missing client_email/private_key');
 
   const membersData = await fbGet('members');
-  const members = Object.values(membersData || {}).filter(m => m && m.name);
+  // Same legacy-array-or-object shape the client's own inactive_members
+  // listener tolerates (see index.html) — inactive_members is the ONLY
+  // offboarding record this app has; a removed person's row under members/
+  // never gets deleted, so without this filter someone like Ananya keeps
+  // getting her real Google Calendar polled (impersonated via domain-wide
+  // delegation) and keeps getting a "Meeting: ..." task + Loona Board post
+  // auto-created for every meeting she's on, forever, even after she's off
+  // the active roster.
+  const inactiveRaw = (await fbGet('inactive_members')) || {};
+  const inactiveNames = new Set(Array.isArray(inactiveRaw) ? inactiveRaw : Object.values(inactiveRaw));
+  const members = Object.values(membersData || {}).filter(m => m && m.name && !inactiveNames.has(m.name));
   if (!members.length) return { synced: 0, tasksCreated: 0, note: 'No members found in Firebase yet' };
 
   const emailToName = {};
