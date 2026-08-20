@@ -20810,11 +20810,31 @@ ${brandLines}`;
       var t=(typeof TASKS!=="undefined"?TASKS:[])[gi]; if(!t) return;
       var prioColor=(typeof priorityHeatColor==="function")?priorityHeatColor(t.priority):"var(--muted)";
       var row=function(label,val){ return '<div class="pf-absrow"><span>'+label+'</span><span>'+val+'</span></div>'; };
+      // Only whoever assigned this task (or Gokul, same admin override the
+      // due-date flow gives him) can change its priority, and can do so
+      // regardless of status — including on a Completed task, unlike due
+      // dates, which need Gokul's approval from anyone else. The priority
+      // column in the main table itself stays hidden (see prio-dot-css —
+      // it's shown as a small dot next to the task instead); this popup is
+      // the one place priority is actually editable.
+      var canEditPriority = normName(currentUser)===normName(t.assigned_by) || normName(currentUser)==='gokul';
+      var priorityVal;
+      if (canEditPriority) {
+        var pPriorities=['High','Medium','Low'];
+        var pCur=t.priority||'Medium';
+        var pc=(typeof PRIORITY_COLORS!=="undefined"&&PRIORITY_COLORS[pCur])||{bg:'transparent',text:'var(--muted)',border:'var(--border)'};
+        // Re-opens this same popup on change so the picked value (and its
+        // color) reflects back immediately instead of leaving the popup
+        // showing the old priority until it's closed and reopened.
+        priorityVal='<select onchange="updatePriority('+gi+',this.value);showTaskDetail('+gi+')" style="background:'+pc.bg+';border:1px solid '+pc.border+';color:'+pc.text+';padding:3px 8px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)">'+pPriorities.map(function(pr){return '<option value="'+pr+'"'+(pCur===pr?' selected':'')+'>'+pr+'</option>';}).join('')+'</select>';
+      } else {
+        priorityVal = t.priority?('<span style="color:'+prioColor+';font-weight:700">'+esc(t.priority)+'</span>'):"—";
+      }
       var html='<div style="text-align:left">'+
         '<div class="pf-absrow"><span>Task</span><span style="text-align:right;max-width:70%">'+esc(t.task||"—")+'</span></div>'+
         row("Brand", esc(window.taskBrandList(t).join(", ")||"—"))+
         row("Member", esc(t.member||"—"))+
-        row("Priority", t.priority?('<span style="color:'+prioColor+';font-weight:700">'+esc(t.priority)+'</span>'):"—")+
+        row("Priority", priorityVal)+
         row("Status", esc(t.status||"—"))+
         row("Assigned By", esc(t.assigned_by||"—"))+
         row("Assigned On", esc(t.assigned_on||(t.created_at?fmtStamp(new Date(t.created_at)):"—")))+
