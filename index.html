@@ -6840,6 +6840,9 @@
 
     // ═══ DATA ═══
     let TASKS = [];
+    // Raw, unfiltered tasks straight from Firebase — see applyRosterFilterToTasks()
+    // below for why this needs to be cached separately from TASKS itself.
+    let _rawTasksSnapshot = [];
     const BRANDS_ALLOC = [];
     const VIDEO_TEAM = [{ "brand": "shookra", "strategy": "NAVYA", "assigned": "CHINMAY", "total": "3+1+1", "completed": "5" }, { "brand": "Shic", "strategy": "NAVYA,ARYA", "assigned": "MAJID", "total": "4", "completed": "1" }, { "brand": "Sakshi", "strategy": "ARYA", "assigned": "ANURAAG", "total": "3", "completed": "0" }, { "brand": "RRO", "strategy": "ANAM", "assigned": "", "total": "0", "completed": "0" }, { "brand": "One O One", "strategy": "ANAM", "assigned": "", "total": "0", "completed": "0" }, { "brand": "Red Beryl", "strategy": "ANAM", "assigned": "MAJID", "total": "2", "completed": "0" }, { "brand": "Casa Waters", "strategy": "ARYA", "assigned": "MAJID", "total": "4", "completed": "0" }, { "brand": "Loona", "strategy": "SM TEAM", "assigned": "", "total": "0", "completed": "0" }, { "brand": "Goonda", "strategy": "ANKITA", "assigned": "ANURAAG", "total": "4", "completed": "2" }, { "brand": "Ostilos", "strategy": "NAVYA", "assigned": "", "total": "0", "completed": "0" }];
     const DESIGN_TEAM = [{ "brand": "Self-cntrd", "strategy": "GOKUL", "assigned": "", "total": "0", "completed": "0", "date": "" }, { "brand": "shookra", "strategy": "NAVYA", "assigned": "MUSKAAN/RICKY", "total": "7 AND 8", "completed": "0", "date": "Feb 26" }, { "brand": "RRO", "strategy": "ANAM", "assigned": "RICKY", "total": "2", "completed": "0", "date": "" }, { "brand": "Sakshi", "strategy": "ARYA", "assigned": "", "total": "0", "completed": "0", "date": "Feb 26" }, { "brand": "Shic", "strategy": "NAVYA,ARYA", "assigned": "Muskan", "total": "5", "completed": "0", "date": "Feb 26" }, { "brand": "One O One", "strategy": "ANAM", "assigned": "", "total": "0", "completed": "0", "date": "" }, { "brand": "Red Beryl", "strategy": "ANAM", "assigned": "Nishant", "total": "1", "completed": "0", "date": "Feb 26" }, { "brand": "Casa Waters", "strategy": "ARYA", "assigned": "", "total": "0", "completed": "0", "date": "Feb 26" }, { "brand": "Loona", "strategy": "SM TEAM", "assigned": "", "total": "0", "completed": "0", "date": "" }, { "brand": "Goonda", "strategy": "ANKITA", "assigned": "", "total": "0", "completed": "0", "date": "" }, { "brand": "Ostilos", "strategy": "NAVYA", "assigned": "Muskaan", "total": "1", "completed": "0", "date": "Feb 26" }];
@@ -7058,6 +7061,23 @@
 
         let _tasksInitialized = false;
         let _announcementsInitialized = false;
+        // Re-derives TASKS from the last raw Firebase snapshot against
+        // whatever ALL_MEMBERS looks like *right now* — called both when
+        // tasks change AND whenever the roster itself changes (see the
+        // 'members' listener below), because the two Firebase reads race:
+        // 'tasks' is registered (and typically resolves) before 'members',
+        // so on a fresh load a newly-added team member's name may not have
+        // reached ALL_MEMBERS yet the first time this runs. Without
+        // re-applying the filter once membership catches up, a real,
+        // currently-active person added via the team page (not a hardcoded
+        // ALL_MEMBERS seed) would have every one of their tasks silently
+        // dropped — indistinguishable from someone actually removed, like
+        // Navya, which is exactly the bug this filter exists to fix, not
+        // reproduce for people it should never apply to.
+        function applyRosterFilterToTasks() {
+          const rosterSet = new Set(ALL_MEMBERS.map(m => normName(m)));
+          TASKS = _rawTasksSnapshot.filter(t => !t.member || rosterSet.has(normName(t.member)));
+        }
         _db.ref('tasks').on('value', snap => {
           const data = snap.val() || {};
           const fresh = Object.entries(data).map(([k, v]) => ({ ...v, _key: k }));
@@ -7093,8 +7113,8 @@
           // TASKS gets set from Firebase, hides them everywhere at once
           // without deleting the underlying record — restoring someone to
           // ALL_MEMBERS makes their tasks reappear automatically.
-          const rosterSet = new Set(ALL_MEMBERS.map(m => normName(m)));
-          TASKS = fresh.filter(t => !t.member || rosterSet.has(normName(t.member)));
+          _rawTasksSnapshot = fresh;
+          applyRosterFilterToTasks();
           _tasksInitialized = true;
           _renderAll();
         }, err => {
@@ -7382,9 +7402,10 @@
           const fbMembers = Object.values(data).filter(m => m && m.name);
           let pickerNeedsRebuild = false;
           let teamNeedsRender = false;
+          let newMemberAdded = false;
           fbMembers.forEach(m => {
             const isNew = !ALL_MEMBERS.includes(m.name);
-            if (isNew) { ALL_MEMBERS.push(m.name); pickerNeedsRebuild = true; teamNeedsRender = true; }
+            if (isNew) { ALL_MEMBERS.push(m.name); pickerNeedsRebuild = true; teamNeedsRender = true; newMemberAdded = true; }
             attachAvatarListener(m.name);
             attachFavoritesListener(m.name);
             const existing = MEMBER_INFO[m.name] || {};
@@ -7399,6 +7420,16 @@
             }
           });
           if (currentUser) maybeShowProfileCompletionPrompt();
+          // A newly-added member's tasks may have been wrongly dropped by
+          // applyRosterFilterToTasks() if the 'tasks' snapshot happened to
+          // resolve before this 'members' one (see that function's comment
+          // for why that race exists) — re-derive TASKS from the roster as
+          // it stands now, whether or not anything else here needs a
+          // re-render, so their tasks reappear the moment their name does.
+          if (newMemberAdded && typeof applyRosterFilterToTasks === 'function') {
+            applyRosterFilterToTasks();
+            if (currentUser && typeof renderTasks === 'function') { renderTasks(); renderOverview(); }
+          }
           if (!pickerNeedsRebuild) return; // nothing changed, skip all re-renders
           // Rebuild login picker to reflect new members
           rebuildLoginPicker();
