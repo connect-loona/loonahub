@@ -6843,6 +6843,44 @@
     // Raw, unfiltered tasks straight from Firebase — see applyRosterFilterToTasks()
     // below for why this needs to be cached separately from TASKS itself.
     let _rawTasksSnapshot = [];
+    // Re-derives TASKS from the last raw Firebase snapshot against
+    // whatever ALL_MEMBERS/INACTIVE_MEMBERS look like *right now* — called
+    // both when tasks change AND whenever the roster itself changes (see
+    // the 'tasks'/'members'/'inactive_members' listeners in initFirebase(),
+    // and removeMember()/restoreMember()), because the relevant Firebase
+    // reads race: 'tasks' is registered (and typically resolves) before
+    // the others, so on a fresh load a newly-added team member's name may
+    // not have reached ALL_MEMBERS yet the first time this runs. Without
+    // re-applying the filter once membership catches up, a real,
+    // currently-active person (not a hardcoded ALL_MEMBERS seed) would
+    // have every one of their tasks silently dropped — indistinguishable
+    // from someone actually removed.
+    //
+    // Also excludes INACTIVE_MEMBERS, not just people fully absent from
+    // ALL_MEMBERS — the only offboarding path this app actually has is
+    // removeMember() (the "Remove from Team" button), and that marks
+    // someone inactive, it doesn't delete their Firebase members/ record
+    // or drop them from ALL_MEMBERS — so a genuinely-removed person is
+    // *always* still present in ALL_MEMBERS in practice, just also
+    // inactive. Checking ALL_MEMBERS absence alone is a case that
+    // essentially never happens for a real offboarding — it's why
+    // "removed" people kept resurfacing (Pending from Previous Days,
+    // approval banners, etc.) even after the first version of this filter
+    // shipped. removeMember()'s own confirm dialog already promises
+    // "removed from active workflows" — this is what actually delivers
+    // that. Still fully reversible: restoreMember() re-runs this too, so
+    // un-inactivating someone brings their tasks straight back.
+    //
+    // Declared at top-level script scope (not nested inside initFirebase())
+    // specifically so removeMember()/restoreMember() — defined far outside
+    // that closure — can call it directly for instant feedback instead of
+    // only updating once the 'inactive_members' Firebase round-trip fires
+    // its listener back.
+    function applyRosterFilterToTasks() {
+      const rosterSet = new Set(ALL_MEMBERS.map(m => normName(m)));
+      const inactiveSet = new Set(Array.from(INACTIVE_MEMBERS).map(m => normName(m)));
+      TASKS = _rawTasksSnapshot.filter(t => !t.member || (rosterSet.has(normName(t.member)) && !inactiveSet.has(normName(t.member))));
+    }
     const BRANDS_ALLOC = [];
     const VIDEO_TEAM = [{ "brand": "shookra", "strategy": "NAVYA", "assigned": "CHINMAY", "total": "3+1+1", "completed": "5" }, { "brand": "Shic", "strategy": "NAVYA,ARYA", "assigned": "MAJID", "total": "4", "completed": "1" }, { "brand": "Sakshi", "strategy": "ARYA", "assigned": "ANURAAG", "total": "3", "completed": "0" }, { "brand": "RRO", "strategy": "ANAM", "assigned": "", "total": "0", "completed": "0" }, { "brand": "One O One", "strategy": "ANAM", "assigned": "", "total": "0", "completed": "0" }, { "brand": "Red Beryl", "strategy": "ANAM", "assigned": "MAJID", "total": "2", "completed": "0" }, { "brand": "Casa Waters", "strategy": "ARYA", "assigned": "MAJID", "total": "4", "completed": "0" }, { "brand": "Loona", "strategy": "SM TEAM", "assigned": "", "total": "0", "completed": "0" }, { "brand": "Goonda", "strategy": "ANKITA", "assigned": "ANURAAG", "total": "4", "completed": "2" }, { "brand": "Ostilos", "strategy": "NAVYA", "assigned": "", "total": "0", "completed": "0" }];
     const DESIGN_TEAM = [{ "brand": "Self-cntrd", "strategy": "GOKUL", "assigned": "", "total": "0", "completed": "0", "date": "" }, { "brand": "shookra", "strategy": "NAVYA", "assigned": "MUSKAAN/RICKY", "total": "7 AND 8", "completed": "0", "date": "Feb 26" }, { "brand": "RRO", "strategy": "ANAM", "assigned": "RICKY", "total": "2", "completed": "0", "date": "" }, { "brand": "Sakshi", "strategy": "ARYA", "assigned": "", "total": "0", "completed": "0", "date": "Feb 26" }, { "brand": "Shic", "strategy": "NAVYA,ARYA", "assigned": "Muskan", "total": "5", "completed": "0", "date": "Feb 26" }, { "brand": "One O One", "strategy": "ANAM", "assigned": "", "total": "0", "completed": "0", "date": "" }, { "brand": "Red Beryl", "strategy": "ANAM", "assigned": "Nishant", "total": "1", "completed": "0", "date": "Feb 26" }, { "brand": "Casa Waters", "strategy": "ARYA", "assigned": "", "total": "0", "completed": "0", "date": "Feb 26" }, { "brand": "Loona", "strategy": "SM TEAM", "assigned": "", "total": "0", "completed": "0", "date": "" }, { "brand": "Goonda", "strategy": "ANKITA", "assigned": "", "total": "0", "completed": "0", "date": "" }, { "brand": "Ostilos", "strategy": "NAVYA", "assigned": "Muskaan", "total": "1", "completed": "0", "date": "Feb 26" }];
@@ -7061,23 +7099,6 @@
 
         let _tasksInitialized = false;
         let _announcementsInitialized = false;
-        // Re-derives TASKS from the last raw Firebase snapshot against
-        // whatever ALL_MEMBERS looks like *right now* — called both when
-        // tasks change AND whenever the roster itself changes (see the
-        // 'members' listener below), because the two Firebase reads race:
-        // 'tasks' is registered (and typically resolves) before 'members',
-        // so on a fresh load a newly-added team member's name may not have
-        // reached ALL_MEMBERS yet the first time this runs. Without
-        // re-applying the filter once membership catches up, a real,
-        // currently-active person added via the team page (not a hardcoded
-        // ALL_MEMBERS seed) would have every one of their tasks silently
-        // dropped — indistinguishable from someone actually removed, like
-        // Navya, which is exactly the bug this filter exists to fix, not
-        // reproduce for people it should never apply to.
-        function applyRosterFilterToTasks() {
-          const rosterSet = new Set(ALL_MEMBERS.map(m => normName(m)));
-          TASKS = _rawTasksSnapshot.filter(t => !t.member || rosterSet.has(normName(t.member)));
-        }
         _db.ref('tasks').on('value', snap => {
           const data = snap.val() || {};
           const fresh = Object.entries(data).map(([k, v]) => ({ ...v, _key: k }));
@@ -7494,7 +7515,13 @@
           names.forEach(n => n && INACTIVE_MEMBERS.add(n));
           try { localStorage.setItem('loona_inactive_members', JSON.stringify(names)); } catch(e) {}
           rebuildLoginPicker();
-          if (currentUser) { renderTeam(); buildMemberTabs(currentUser); renderOverview(); }
+          // Same race as the 'members' listener (see applyRosterFilterToTasks's
+          // comment) — this can resolve after 'tasks' does, and it's what
+          // actually determines whether a removed person's tasks should be
+          // hidden, so TASKS needs re-deriving every time this fires, not
+          // just the other UI bits below.
+          if (typeof applyRosterFilterToTasks === 'function') applyRosterFilterToTasks();
+          if (currentUser) { renderTasks(); renderTeam(); buildMemberTabs(currentUser); renderOverview(); }
         });
 
         // ── Visibility-change sync: reattach listener when tab comes back into focus ──
@@ -14710,6 +14737,11 @@
       // DIFFERENT member's active/inactive status at the same time can't clobber
       // this change (or vice versa).
       if (_db) _db.ref('inactive_members/' + fbMemberKey(name)).set(name);
+      // Update TASKS locally right away rather than waiting on the
+      // Firebase round-trip back through the 'inactive_members' listener —
+      // this is what actually pulls their tasks out of the overdue/
+      // approval banners immediately for the person who just clicked.
+      if (typeof applyRosterFilterToTasks === 'function') { applyRosterFilterToTasks(); renderTasks(); }
       rebuildLoginPicker();
       renderTeam();
       buildMemberTabs(currentUser);
@@ -14720,6 +14752,7 @@
       INACTIVE_MEMBERS.delete(name);
       localStorage.setItem('loona_inactive_members', JSON.stringify([...INACTIVE_MEMBERS]));
       if (_db) _db.ref('inactive_members/' + fbMemberKey(name)).remove();
+      if (typeof applyRosterFilterToTasks === 'function') { applyRosterFilterToTasks(); renderTasks(); }
       renderTeam();
       buildMemberTabs(currentUser);
       renderOverview();
@@ -15326,6 +15359,7 @@
         ${statusSelectHTML(t, taskIdx)}
       </td>
       <td><span class="days-ago">${daysLabel}</span></td>
+      <td style="text-align:center">${(normName(currentUser) === normName(t.assigned_by) || normName(currentUser) === normName(t.member) || normName(currentUser) === 'gokul') ? `<span class="ao-del" title="Remove task" onclick="confirmDeleteTask('${t._key || ''}',${taskIdx})" style="color:#666;cursor:pointer">✕</span>` : ''}</td>
     </tr>`;
       }).join('');
 
@@ -15341,7 +15375,7 @@
       </div>
       <div class="overdue-body" id="overdue-body">
         <table>
-          <thead><tr><th>Member</th><th>Brand</th><th>Task</th><th>Assigned By</th><th>Priority</th><th>Status</th><th>Due</th></tr></thead>
+          <thead><tr><th>Member</th><th>Brand</th><th>Task</th><th>Assigned By</th><th>Priority</th><th>Status</th><th>Due</th><th></th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
