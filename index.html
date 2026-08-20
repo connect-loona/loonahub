@@ -7881,9 +7881,9 @@
         .filter(q => q && q.requestType === requestType && String(q.requestRef) === String(requestRef))
         .sort((a, b) => new Date(a.askedAt || 0) - new Date(b.askedAt || 0));
       const historyHTML = thread.map(q => {
-        const asked = '<div class="aq-msg aq-msg-asked"><span class="aq-msg-author">' + lnEsc(q.askedBy || 'Someone') + '</span> ' + lnEsc(q.question) + '</div>';
+        const asked = '<div class="aq-msg aq-msg-asked"><span class="aq-msg-author">' + lnEsc(q.askedBy || 'Someone') + '</span> ' + lnLinkify(lnEsc(q.question)) + '</div>';
         const reply = q.answer
-          ? '<div class="aq-msg aq-msg-answered"><span class="aq-msg-author">' + lnEsc(q.member || 'them') + '</span> ' + lnEsc(q.answer) + '</div>'
+          ? '<div class="aq-msg aq-msg-answered"><span class="aq-msg-author">' + lnEsc(q.member || 'them') + '</span> ' + lnLinkify(lnEsc(q.answer)) + '</div>'
           : '<div class="aq-msg aq-msg-pending">Waiting on ' + lnEsc(q.member || 'a reply') + '…</div>';
         return asked + reply;
       }).join('');
@@ -13616,7 +13616,7 @@
           <div class="approval-task" style="margin-bottom:8px">
             <div class="at-name">${lnEsc(q.askedBy || 'Someone')} asked about — ${lnEsc((q.taskTitle || 'this task').length > 50 ? q.taskTitle.slice(0, 50) + '…' : (q.taskTitle || 'this task'))}</div>
             <div class="at-meta">${lnEsc(q.brand || '—')} · ${AQ_TYPE_LABEL[q.requestType] || 'Approval'} · ${new Date(q.askedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</div>
-            <div class="at-meta" style="font-style:italic;color:var(--text);margin-top:4px">"${lnEsc(q.question)}"</div>
+            <div class="at-meta" style="font-style:italic;color:var(--text);margin-top:4px">"${lnLinkify(lnEsc(q.question))}"</div>
           </div>
           <textarea id="aq-reply-${lnEsc(q._key)}" placeholder="Type your reply…" style="width:100%;min-height:56px;background:#111;border:1px solid #444;border-radius:8px;color:#d0d0d0;padding:8px 10px;font-family:inherit;font-size:12.5px;box-sizing:border-box;resize:vertical;margin-bottom:8px"></textarea>
           <button class="btn-approve" style="align-self:flex-end" onclick="submitApprovalAnswer('${lnEsc(q._key)}')">↩ Send Reply</button>
@@ -17126,6 +17126,23 @@
 
     // ═══ LOONA NOTES ═══
     function lnEsc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+    // Wraps http(s) URLs in an already-HTML-escaped string with clickable
+    // <a> tags — for free-text message content (approval-question chat,
+    // see approvalQuestionThreadHTML()/renderApprovalQuestions()) where
+    // someone might paste a Canva/Drive link straight into their reply.
+    // Must run AFTER lnEsc, not before — matches against the escaped form
+    // (a literal "&" in a URL's query string arrives here as "&amp;",
+    // which contains none of [\s<>"] so still matches as one unbroken
+    // token; the browser decodes "&amp;" back to "&" in the href same as
+    // it would in any other HTML attribute).
+    function lnLinkify(escaped) {
+      return escaped.replace(/https?:\/\/[^\s<>"]+/g, (url) => {
+        const trailMatch = url.match(/[).,!?;:]+$/);
+        const trail = trailMatch ? trailMatch[0] : '';
+        const core = trail ? url.slice(0, -trail.length) : url;
+        return '<a href="' + core + '" target="_blank" rel="noopener noreferrer">' + core + '</a>' + trail;
+      });
+    }
 
     let lnToast = null;
     function lvCardClick(name) {
@@ -19971,6 +19988,8 @@ ${brandLines}`;
   .aq-msg-asked{background:rgba(255,255,255,.05);color:var(--text);align-self:flex-start}
   .aq-msg-answered{background:rgba(76,175,125,.12);color:var(--text);align-self:flex-end}
   .aq-msg-pending{background:none;color:var(--muted);font-style:italic;align-self:flex-end;padding:0 10px}
+  .aq-msg a, .approval-row a{color:#5b9cf6;text-decoration:underline;word-break:break-all}
+  .aq-msg a:hover, .approval-row a:hover{color:#7fb2ff}
   /* Always-present "type the next thing" box at the bottom of the thread —
      replaces the old modal-per-question flow entirely. */
   .aq-compose{display:flex;gap:6px;align-items:flex-end;margin-top:4px}
