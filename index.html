@@ -3663,6 +3663,11 @@
       vertical-align: middle;
     }
 
+    /* ── OVERSEEING BADGE (task rows) — see the "Overseeing" form-group's
+       comment in the Add Task modal HTML for why this is a separate, purely
+       visual tag rather than another co-assignee. ── */
+    .overseer-badge{font-size:9px;padding:2px 5px;border-radius:4px;background:rgba(159,122,234,.15);color:#9f7aea;font-weight:700;margin-left:4px;vertical-align:middle}
+
     /* ── LOOP-IN-GOKUL APPROVAL BADGE (task rows) + TOGGLE (Add Task modal) ── */
     .gokul-approval-badge{font-size:9px;padding:2px 5px;border-radius:4px;background:rgba(237,137,54,.15);color:#ed8936;font-weight:700;margin-left:4px;vertical-align:middle}
     .gokul-approval-badge.approved{background:rgba(76,175,125,.15);color:#4caf7d}
@@ -4795,6 +4800,7 @@
       <div id="approval-requests-section"></div>
       <div id="gokul-task-approval-section"></div>
       <div id="assigned-out-section"></div>
+      <div id="overseeing-section"></div>
 
       <div class="filters">
         <input class="filter-input" type="text" id="task-search" placeholder="🔍  Search tasks..."
@@ -4928,6 +4934,22 @@
                 </select>
                 <button type="button" class="nt-member-add-btn" id="nt-brand-add-btn" onclick="ntAddBrandRow()" title="Add another brand">+</button>
               </div>
+            </div>
+          </div>
+        </div>
+        <!-- Overseeing: separate from "Assigned To" on purpose — a co-assignee
+             gets their own full, independent copy of this task (own status,
+             own due date, counts toward their stats); an overseer doesn't.
+             They just get read-only visibility + the ability to nudge (see
+             renderOverseeing()) while onus stays entirely with the owner(s)
+             picked above. Hidden for Personal To-Dos, same as the
+             Loop-in-Gokul toggle below — see ntOnPrimaryMemberChange(). -->
+        <div class="form-group" id="nt-overseer-group">
+          <label>Overseeing <span style="font-weight:400;color:var(--muted)">(optional — visibility only, not co-ownership)</span></label>
+          <div id="nt-overseer-rows">
+            <div class="nt-member-row">
+              <select class="form-control nt-overseer-select" id="nt-overseer"></select>
+              <button type="button" class="nt-member-add-btn" id="nt-overseer-add-btn" onclick="ntAddOverseerRow()" title="Add another overseer">+</button>
             </div>
           </div>
         </div>
@@ -7576,10 +7598,22 @@
       fbDeleteTaskByKey(key, fallbackIdx);
     }
 
-    // ═══ ASK FOR UPDATE (assigner → assignee nudge) ═══
+    // Who can nudge a given task's owner for an update: the assigner
+    // (original behavior), or anyone tagged as an overseer on it (see the
+    // "Overseeing" form-group) — an overseer's whole point is keeping an
+    // eye on it without owning it, and chasing it is the one active thing
+    // they're meant to be able to do. Never the owner nudging themself.
+    function isTaskNudgeAllowed(t) {
+      if (!t || normName(currentUser) === normName(t.member)) return false;
+      if (normName(currentUser) === normName(t.assigned_by)) return true;
+      return (t.overseers || []).some(o => normName(o) === normName(currentUser));
+    }
+
+    // ═══ ASK FOR UPDATE (assigner/overseer → owner nudge) ═══
     // Separate from the completion-approval flow and the Loop-in-Gokul
-    // creation-approval toggle — this is the assigner explicitly asking
-    // whoever a task is assigned to for a status update, right now. Written
+    // creation-approval toggle — this is the assigner (or an overseer, see
+    // isTaskNudgeAllowed above) explicitly asking whoever a task is
+    // assigned to for a status update, right now. Written
     // to Firebase (not just fired locally) so it still lands the moment the
     // assignee's client reconnects, even if they're offline right now — see
     // the `updateRequests` listener in initFirebase() and
@@ -9124,7 +9158,7 @@
     // in isolation so one broken section can't take the rest down with it.
     function renderTasks() {
       currentPage = 1;
-      const steps = [renderOverdue, renderApprovalRequests, renderGokulTaskApprovals, renderAssignedOut, renderTaskPage, renderBoardSummary, renderLoonaBoard];
+      const steps = [renderOverdue, renderApprovalRequests, renderGokulTaskApprovals, renderAssignedOut, renderOverseeing, renderTaskPage, renderBoardSummary, renderLoonaBoard];
       steps.forEach(fn => { try { fn(); } catch (e) { console.error('renderTasks: ' + fn.name + ' failed', e); } });
       const waBtn = document.getElementById('task-board-whatsapp-btn');
       if (waBtn) waBtn.style.display = (currentUser === 'Gokul') ? 'inline-block' : 'none';
@@ -9150,7 +9184,7 @@
           return `<tr id="trow-${gi}">
           <td data-label="Member">${memberAvatarHtml}${t.member || '—'}${isPersonal ? ' <span title="Personal To-Do" style="font-size:11px">📌</span>' : ''}</td>
           <td data-label="Brand" onclick="window.showTaskDetail(${gi})"><div class="task-cell"><span style="font-size:11px;padding:2px 8px;background:${isPersonal ? 'rgba(91,156,246,.15)' : 'rgba(200,169,110,.1)'};color:${isPersonal ? 'var(--blue)' : 'var(--accent)'};border-radius:4px">${taskBrandList(t).join(', ') || '—'}</span></div></td>
-          <td data-label="Task" style="max-width:260px" onclick="window.showTaskDetail(${gi})"><div class="prio-dot-row"><span class="prio-dot" style="--prio-color:${priorityHeatColor(t.priority, t.status)}"></span><div class="task-cell">${t.task.length > 55 ? t.task.slice(0, 55) + '…' : t.task}${t.is_auto ? ' <span class="auto-task-badge">🤖 AUTO</span>' : ''}${t.gokul_approval === 'pending' ? ' <span class="gokul-approval-badge" title="Awaiting Gokul\'s approval">🔔 Pending</span>' : t.gokul_approval === 'declined' ? ' <span class="gokul-approval-badge declined" title="Gokul declined this task">✕ Declined</span>' : t.gokul_approval === 'approved' ? ' <span class="gokul-approval-badge approved" title="Approved by Gokul">✓ Approved</span>' : ''}</div></div></td>
+          <td data-label="Task" style="max-width:260px" onclick="window.showTaskDetail(${gi})"><div class="prio-dot-row"><span class="prio-dot" style="--prio-color:${priorityHeatColor(t.priority, t.status)}"></span><div class="task-cell">${t.task.length > 55 ? t.task.slice(0, 55) + '…' : t.task}${t.is_auto ? ' <span class="auto-task-badge">🤖 AUTO</span>' : ''}${t.gokul_approval === 'pending' ? ' <span class="gokul-approval-badge" title="Awaiting Gokul\'s approval">🔔 Pending</span>' : t.gokul_approval === 'declined' ? ' <span class="gokul-approval-badge declined" title="Gokul declined this task">✕ Declined</span>' : t.gokul_approval === 'approved' ? ' <span class="gokul-approval-badge approved" title="Approved by Gokul">✓ Approved</span>' : ''}${(t.overseers && t.overseers.length) ? ` <span class="overseer-badge" title="Overseen by ${lnEsc(t.overseers.join(', '))} — visibility only, onus stays with ${lnEsc(t.member || 'the owner')}">👀 ${t.overseers.length}</span>` : ''}</div></div></td>
           <td data-label="Assigned by" style="color:var(--muted);font-size:12px">${t.assigned_by || '—'}</td>
           <td data-label="Assigned on" style="color:var(--muted);font-size:12px;white-space:nowrap">${t.assigned_on || (t.created_at?fmtStamp(new Date(t.created_at)):'—')}</td>
           <td data-label="Priority" style="${t.status === 'Completed' ? 'opacity:0.35;pointer-events:none' : ''}">${prioritySelectHTML(t, gi)}</td>
@@ -9171,7 +9205,7 @@
           </td>
           <td data-label="Time" style="color:var(--muted);font-size:12px;white-space:nowrap">${t.status_at || (t.completed_at?fmtStamp(new Date(t.completed_at)):'—')}</td>
           <td data-label="Due" style="white-space:nowrap;color:var(--muted)"><input type="date" value="${t.due_date || ''}" onchange="updateDueDate(${gi},this.value)" title="Shift due date" ${t.pending_due_date !== undefined && t.pending_due_date !== null ? 'disabled' : ''} style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px 7px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit">${(t.pending_due_date !== undefined && t.pending_due_date !== null) ? `<div class="gokul-approval-badge" title="${lnEsc(t.pending_due_reason || '')}" style="margin-left:0;margin-top:3px;display:inline-block">🔔 → ${fmtDate(t.pending_due_date)}</div>` : ''}</td>
-          <td data-label="">${(normName(currentUser) === normName(t.assigned_by) && normName(currentUser) !== normName(t.member) && t.status !== 'Completed') ? `<button onclick="askForUpdate(${gi})" style="background:none;border:none;color:#888;cursor:pointer;font-size:14px;padding:0 4px" title="Ask ${lnEsc(t.member || 'them')} for an update">🔔</button>` : ''}${(normName(currentUser) === normName(t.assigned_by) || normName(currentUser) === normName(t.member) || normName(currentUser) === 'gokul') ? `<button onclick="confirmDeleteTask('${t._key || ''}',${gi})" style="background:none;border:none;color:#555;cursor:pointer;font-size:16px;padding:0 4px" title="Remove task">×</button>` : ''}</td>
+          <td data-label="">${(isTaskNudgeAllowed(t) && t.status !== 'Completed') ? `<button onclick="askForUpdate(${gi})" style="background:none;border:none;color:#888;cursor:pointer;font-size:14px;padding:0 4px" title="Ask ${lnEsc(t.member || 'them')} for an update">🔔</button>` : ''}${(normName(currentUser) === normName(t.assigned_by) || normName(currentUser) === normName(t.member) || normName(currentUser) === 'gokul') ? `<button onclick="confirmDeleteTask('${t._key || ''}',${gi})" style="background:none;border:none;color:#555;cursor:pointer;font-size:16px;padding:0 4px" title="Remove task">×</button>` : ''}</td>
         </tr>`;
         }).join('')
         : '<tr><td colspan="9"><div class="empty">No tasks found</div></td></tr>';
@@ -13287,6 +13321,53 @@
           </div>
         </div>`;
     }
+    // "Tasks You're Overseeing" — the read-only counterpart to "Tasks I
+    // Assigned to Others" above, for anyone tagged in the Add Task modal's
+    // separate "Overseeing" picker (see that form-group's comment). This is
+    // deliberately NOT editable: no status dropdown, no due-date input, no
+    // delete button — an overseer gets visibility and the ability to nudge
+    // (see isTaskNudgeAllowed) for the owner, but nothing here should let
+    // them quietly become a co-owner in practice, which is the exact
+    // confusion a plain second co-assignee would have caused.
+    function renderOverseeing() {
+      const cont = document.getElementById('overseeing-section');
+      if (!cont) return;
+      const _pag = document.getElementById('pagination');
+      if (_pag && _pag.parentNode && cont.previousElementSibling !== _pag) { _pag.parentNode.insertBefore(cont, _pag.nextSibling); }
+      const me = normName(currentUser);
+      const mine = (TASKS || []).filter(t => t && !t.is_personal && (t.overseers || []).some(o => normName(o) === me))
+        .sort((a, b) => {
+          const aDue = a.due_date || '9999-12-31', bDue = b.due_date || '9999-12-31';
+          return aDue < bDue ? -1 : aDue > bDue ? 1 : 0;
+        });
+      if (!mine.length) { cont.innerHTML = ''; return; }
+      const rows = mine.map(t => {
+        const gi = TASKS.indexOf(t);
+        return `
+        <tr>
+          <td>${(MEMBER_INFO[t.member] || {}).avatar ? `<img src="${MEMBER_INFO[t.member].avatar}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px">` : ''}${t.member || '—'}</td>
+          <td onclick="window.showTaskDetail(${gi})"><div class="task-cell"><span style="font-size:11px;padding:2px 8px;background:rgba(200,169,110,.1);color:var(--accent);border-radius:4px">${taskBrandList(t).join(', ') || '—'}</span></div></td>
+          <td style="max-width:240px" onclick="window.showTaskDetail(${gi})"><div class="prio-dot-row"><span class="prio-dot" style="--prio-color:${priorityHeatColor(t.priority, t.status)}"></span><div class="task-cell">${t.task && t.task.length > 52 ? t.task.slice(0, 52) + '…' : (t.task || '—')}</div></div></td>
+          <td>${statusBadgeHTML(t)}</td>
+          <td style="color:var(--muted);font-size:12px">${t.assigned_by || '—'}</td>
+          <td style="color:var(--muted);font-size:12px;white-space:nowrap">${t.due_date ? fmtDate(t.due_date) : '—'}</td>
+          <td style="text-align:center">${(isTaskNudgeAllowed(t) && t.status !== 'Completed') ? `<button onclick="askForUpdate(${gi})" style="background:none;border:none;color:#888;cursor:pointer;font-size:14px;padding:0 4px" title="Ask ${lnEsc(t.member || 'them')} for an update">🔔</button>` : ''}</td>
+        </tr>`;
+      }).join('');
+      cont.innerHTML = `
+        <div class="assigned-out-banner">
+          <div class="ao-header" onclick="const b=document.getElementById('ov-body');const s=this.querySelector('.ao-toggle');if(b.style.display==='none'){b.style.display='';s.textContent='Hide ▲';}else{b.style.display='none';s.textContent='Show ▼';}">
+            <div class="ao-title">👀 Tasks You're Overseeing <span class="ao-count">${mine.length}</span></div>
+            <span class="ao-toggle">Hide ▲</span>
+          </div>
+          <div class="ao-body" id="ov-body">
+            <div class="ao-scroll"><table class="ao-table">
+              <thead><tr><th>Member</th><th>Brand</th><th>Task</th><th>Status</th><th>Assigned By</th><th>Due</th><th></th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table></div>
+          </div>
+        </div>`;
+    }
     function renderApprovalRequests() {
       const myPending = APPROVAL_REQUESTS.filter(r =>
         r.status === 'pending' &&
@@ -15098,6 +15179,20 @@
       const addBtn = document.getElementById('nt-member-add-btn');
       if (addBtn) addBtn.style.visibility = isPersonal ? 'hidden' : 'visible';
       ntUpdateGokulApprovalVisibility(isPersonal);
+      ntUpdateOverseerVisibility(isPersonal);
+    }
+
+    // A Personal To-Do has no owner/overseer distinction to make (it's just
+    // you) — same hide-and-reset treatment as the Loop-in-Gokul toggle.
+    function ntUpdateOverseerVisibility(isPersonal) {
+      const group = document.getElementById('nt-overseer-group');
+      if (!group) return;
+      group.style.display = isPersonal ? 'none' : 'block';
+      if (isPersonal) {
+        document.querySelectorAll('#nt-overseer-rows .nt-member-row').forEach((row, i) => { if (i > 0) row.remove(); });
+        const first = document.getElementById('nt-overseer');
+        if (first) first.value = '';
+      }
     }
 
     // Gokul doesn't need to loop himself in, and a Personal To-Do isn't
@@ -15136,6 +15231,33 @@
     function ntSelectedMembers() {
       const vals = Array.from(document.querySelectorAll('#nt-member-rows .nt-member-select')).map(s => s.value).filter(Boolean);
       return Array.from(new Set(vals));
+    }
+
+    // Mirrors ntAddMemberRow()/ntRemoveMemberRow()/ntSelectedMembers() above,
+    // for the separate "Overseeing" picker (see the form-group's comment in
+    // the HTML for why this is deliberately not just more co-assignees).
+    function ntOverseerOptionsHTML() {
+      return '<option value="">— None —</option>' + ALL_MEMBERS.filter(m => !INACTIVE_MEMBERS.has(m))
+        .map(m => `<option value="${lnEsc(m)}">${lnEsc(m === currentUser ? m + ' (me)' : m)}</option>`).join('');
+    }
+    function ntAddOverseerRow() {
+      const rows = document.getElementById('nt-overseer-rows');
+      if (rows.querySelectorAll('.nt-member-row').length >= ALL_MEMBERS.length) return;
+      const row = document.createElement('div');
+      row.className = 'nt-member-row';
+      row.innerHTML = `<select class="form-control nt-overseer-select">${ntOverseerOptionsHTML()}</select><button type="button" class="nt-member-remove-btn" onclick="ntRemoveOverseerRow(this)" title="Remove">×</button>`;
+      rows.appendChild(row);
+    }
+    function ntRemoveOverseerRow(btn) {
+      btn.closest('.nt-member-row').remove();
+    }
+    // Deduped, and with anyone already picked as an owner above dropped —
+    // being tagged as both the owner and an overseer of the same task is
+    // meaningless, so the owner list always wins.
+    function ntSelectedOverseers(owners) {
+      const ownerSet = new Set((owners || []).map(m => normName(m)));
+      const vals = Array.from(document.querySelectorAll('#nt-overseer-rows .nt-overseer-select')).map(s => s.value).filter(Boolean);
+      return Array.from(new Set(vals)).filter(m => !ownerSet.has(normName(m)));
     }
 
     // Mirrors ntAddMemberRow()/ntRemoveMemberRow()/ntSelectedMembers() above,
@@ -15183,6 +15305,11 @@
       // Drop any extra brand rows too, and let refreshTaskBrandDropdown() (called
       // from init/renderBrands already) keep #nt-brand's own option list current.
       document.querySelectorAll('#nt-brand-rows .nt-member-row').forEach((row, i) => { if (i > 0) row.remove(); });
+      // Same for any extra overseer rows, and rebuild the first row's options
+      // fresh (mirrors the member dropdown rebuild just below).
+      document.querySelectorAll('#nt-overseer-rows .nt-member-row').forEach((row, i) => { if (i > 0) row.remove(); });
+      const overseerSel = document.getElementById('nt-overseer');
+      if (overseerSel) { overseerSel.innerHTML = ntOverseerOptionsHTML(); overseerSel.value = ''; }
       // Rebuild member dropdown fresh: Personal To-Do first, then everyone except current user
       const memberSel = document.getElementById('nt-member');
       memberSel.innerHTML = '';
@@ -15209,6 +15336,7 @@
       memberSel.value = target;
       if (addBtn) addBtn.style.visibility = (target === '__personal__') ? 'hidden' : 'visible';
       ntUpdateGokulApprovalVisibility(target === '__personal__');
+      ntUpdateOverseerVisibility(target === '__personal__');
       document.getElementById('nt-by').value = currentUser || '';
       document.getElementById('nt-task').value = '';
       document.getElementById('nt-brand').value = '';
@@ -15621,6 +15749,11 @@
       const assignedBy = isPersonal ? 'Myself' : (document.getElementById('nt-by').value || currentUser || '');
       const loopGokulEl = document.getElementById('nt-loop-gokul');
       const loopGokul = !isPersonal && currentUser !== 'Gokul' && !!(loopGokulEl && loopGokulEl.checked);
+      // Visibility-only, not co-ownership — see the "Overseeing" form-group's
+      // comment in the HTML. Empty for Personal To-Dos (the picker's hidden
+      // for those anyway, but ntSelectedOverseers would just return [] since
+      // #nt-overseer-rows is reset to a blank row whenever isPersonal).
+      const overseers = isPersonal ? [] : ntSelectedOverseers(members);
       const shared = {
         // brand stays the primary/first pick so every existing single-brand
         // read site keeps working unchanged; brands carries the full list for
@@ -15631,6 +15764,7 @@
         status: document.getElementById('nt-status').value,
         due_date: document.getElementById('nt-due').value || '',
         assigned_by: assignedBy,
+        overseers,
         isNew: true,
         ...(loopGokul ? { gokul_approval: 'pending' } : {})
       };
@@ -15887,6 +16021,23 @@
       const sborder = isDone ? 'rgba(76,175,125,.4)' : isClient ? 'rgba(91,156,246,.4)' : isChanges ? 'rgba(224,165,58,.4)' : isAwait ? 'rgba(237,137,54,.4)' : isDeclined ? 'rgba(224,92,92,.4)' : isDeferred ? 'rgba(159,122,234,.4)' : 'var(--border)';
       const statuses = ['Not Started', 'In Progress', 'Changes Required', 'Client Approval', 'Completed', 'Deferred', 'Awaiting Approval', 'Awaiting Deferral', 'Approval Declined'];
       return `<select onchange="updateStatus(${gi},this.value)" style="background:${sb};border:1px solid ${sborder};color:${sc};padding:4px 8px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600">${statuses.map(s => `<option value="${s}"${t.status === s ? ' selected' : ''}>${s}</option>`).join('')}</select>`;
+    }
+    // Same colors as statusSelectHTML, but a plain non-interactive badge —
+    // for surfaces where status should be visible but not changeable, like
+    // an overseer's read-only view (see renderOverseeing()). Duplicated
+    // rather than sharing the color logic with statusSelectHTML because
+    // that one returns a whole <select>, not just the color triple.
+    function statusBadgeHTML(t) {
+      const isDone = t.status === 'Completed';
+      const isAwait = t.status === 'Awaiting Approval' || t.status === 'Awaiting Deferral';
+      const isDeclined = t.status === 'Approval Declined';
+      const isDeferred = t.status === 'Deferred';
+      const isChanges = t.status === 'Changes Required';
+      const isClient = t.status === 'Client Approval';
+      const sc = isDone ? '#4caf7d' : isClient ? '#5b9cf6' : isChanges ? '#e0a53a' : isAwait ? '#ed8936' : isDeclined ? '#e05c5c' : isDeferred ? '#9f7aea' : 'var(--text)';
+      const sb = isDone ? 'rgba(76,175,125,.18)' : isClient ? 'rgba(91,156,246,.18)' : isChanges ? 'rgba(224,165,58,.18)' : isAwait ? 'rgba(237,137,54,.18)' : isDeclined ? 'rgba(224,92,92,.18)' : isDeferred ? 'rgba(159,122,234,.18)' : 'var(--surface2)';
+      const sborder = isDone ? 'rgba(76,175,125,.4)' : isClient ? 'rgba(91,156,246,.4)' : isChanges ? 'rgba(224,165,58,.4)' : isAwait ? 'rgba(237,137,54,.4)' : isDeclined ? 'rgba(224,92,92,.4)' : isDeferred ? 'rgba(159,122,234,.4)' : 'var(--border)';
+      return `<span style="background:${sb};border:1px solid ${sborder};color:${sc};padding:4px 8px;border-radius:6px;font-size:12px;font-weight:600;display:inline-block">${lnEsc(t.status || '—')}</span>`;
     }
     function pBadge(p) {
       const m = { High: 'high', Medium: 'medium', Low: 'low' };
@@ -20796,6 +20947,9 @@ ${brandLines}`;
         row("Assigned By", esc(t.assigned_by||"—"))+
         row("Assigned On", esc(t.assigned_on||(t.created_at?fmtStamp(new Date(t.created_at)):"—")))+
         row("Due Date", t.due_date?fmtDate(t.due_date):"—")+
+        // Visibility-only, not co-ownership (see the "Overseeing" form-group
+        // in the Add Task modal) — shown here purely as info, never editable.
+        ((t.overseers&&t.overseers.length)?row("Overseeing", esc(t.overseers.join(", "))):"")+
         (t.meeting_link?row("Call Link",'<a href="'+esc(t.meeting_link)+'" target="_blank" rel="noopener">Join call &#8599;</a>'):"")+
       '</div>';
       popupBox("info-pop","&#128203;",esc(t.member||"Task")+" · Task detail",html,null);
