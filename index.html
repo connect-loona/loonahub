@@ -9892,10 +9892,28 @@
         cont.insertBefore(hline,cont.firstChild);
       });
     }
+    // ORG_CHART_TREE is a hardcoded reporting structure — it doesn't know
+    // about INACTIVE_MEMBERS on its own, so without this pass anyone removed
+    // via removeMember() (e.g. Ananya) keeps showing up in the org chart even
+    // though they're gone everywhere else on the Team page. If a removed
+    // person had their own reports, those reports get promoted up a level
+    // rather than orphaned off the chart entirely.
+    function filterOrgTree(node){
+      var reports=(node.reports||[]).reduce(function(acc,r){
+        var filteredChild=filterOrgTree(r);
+        if(r.name && INACTIVE_MEMBERS.has(r.name)){
+          acc.push.apply(acc, filteredChild.reports||[]);
+        } else {
+          acc.push(filteredChild);
+        }
+        return acc;
+      },[]);
+      return Object.assign({},node,{reports:reports});
+    }
     function renderOrgChart(){
       var el=document.getElementById("lc-org-chart");
       if(!el) return;
-      var root=ORG_CHART_TREE;
+      var root=filterOrgTree(ORG_CHART_TREE);
       var rootContent=orgNodeContentHTML(root,false);
       var childrenHTML=root.reports.map(function(r){ return orgTreeHTML(r,1); }).join("");
       el.innerHTML='<div class="lc-org-tree">'+rootContent+'<div class="lc-org-stem"></div><div class="lc-org-children">'+childrenHTML+'</div></div>';
