@@ -4799,6 +4799,10 @@
       <!-- Approval Requests -->
       <div id="approval-requests-section"></div>
       <div id="gokul-task-approval-section"></div>
+      <!-- Questions asked back on one of YOUR pending approval requests (see
+           renderApprovalQuestions()) — positioned right after the two
+           approval banners above, same "sits above your tasks" treatment. -->
+      <div id="approval-questions-section"></div>
       <div id="assigned-out-section"></div>
       <div id="overseeing-section"></div>
 
@@ -7278,6 +7282,14 @@
           if (currentUser) { renderReminders(); renderApprovalRequests(); renderAssignedOut(); }
         });
 
+        // Questions asked back on an approval card (see openAskQuestionModal())
+        _db.ref('approvalQuestions').on('value', snap => {
+          const data = snap.val() || {};
+          APPROVAL_QUESTIONS.length = 0;
+          APPROVAL_QUESTIONS.push(...Object.entries(data).map(([k, v]) => ({ ...v, _key: k })));
+          if (currentUser) { renderApprovalQuestions(); renderApprovalRequests(); renderGokulTaskApprovals(); }
+        });
+
         // Seed deck links + real-time sync
         _db.ref('deck_links').once('value', snap => {
           if (!snap.val() && Object.keys(DECK_LINKS).length > 0) {
@@ -7781,6 +7793,74 @@
       setTimeout(showNextOverdueReasonPopup, 350);
     }
 
+    // ═══ ASK A QUESTION ON AN APPROVAL CARD (approver → requester) ═══
+    // Reachable from a "💬 Ask" button on any of the three approval-request
+    // banners (completion/deferral, task-creation loop-in-Gokul, due-date
+    // change — see renderApprovalRequests()/renderGokulTaskApprovals()).
+    // Unlike askOverdueWhy's urgent full-screen popup, this is a plain
+    // banner on the requester's end (renderApprovalQuestions()) — asking
+    // for details isn't an emergency the way a missed due date is.
+    // requestType + requestRef together uniquely identify which pending
+    // approval this question is about: 'completion'/'deferral' pair with
+    // the APPROVAL_REQUESTS entry's `id`; 'creation'/'due_date' pair with
+    // the task's own `_key` (two different request TYPES can exist on the
+    // very same task, hence needing both fields, not just a task key).
+    function openAskQuestionModalFromBtn(btn) {
+      const d = btn.dataset;
+      openAskQuestionModal(d.requestType, d.requestRef, d.member, d.title, d.brand, d.taskKey);
+    }
+    function openAskQuestionModal(requestType, requestRef, member, taskTitle, brand, taskKey) {
+      window._pendingAskQuestion = { requestType, requestRef, member, taskTitle: taskTitle || 'this task', brand: brand || '', taskKey: taskKey || '' };
+      document.getElementById('aq-summary').textContent = `"${(taskTitle || 'this task').slice(0, 60)}"${brand ? ' · ' + brand : ''}`;
+      document.getElementById('aq-target-note').textContent = `Goes to ${member || 'the requester'} — they'll see it above their own tasks.`;
+      const qEl = document.getElementById('aq-question');
+      qEl.value = '';
+      qEl.style.borderColor = '#444';
+      document.getElementById('aq-modal').style.display = 'flex';
+      setTimeout(() => qEl.focus(), 80);
+    }
+    function closeAskQuestionModal() {
+      document.getElementById('aq-modal').style.display = 'none';
+      window._pendingAskQuestion = null;
+    }
+    function submitAskQuestion() {
+      const pending = window._pendingAskQuestion;
+      if (!pending) { closeAskQuestionModal(); return; }
+      const qEl = document.getElementById('aq-question');
+      const question = qEl.value.trim();
+      if (!question) { qEl.style.borderColor = 'var(--red)'; return; }
+      if (_db) {
+        _db.ref('approvalQuestions').push({
+          requestType: pending.requestType,
+          requestRef: pending.requestRef,
+          taskKey: pending.taskKey,
+          member: pending.member,
+          taskTitle: pending.taskTitle,
+          brand: pending.brand,
+          askedBy: currentUser || '',
+          askedAt: new Date().toISOString(),
+          question,
+          answer: null,
+          answeredAt: null
+        });
+      }
+      closeAskQuestionModal();
+      const toast = document.getElementById('completion-toast');
+      document.getElementById('toast-emoji').textContent = '💬';
+      document.getElementById('toast-msg').textContent = `Question sent to ${pending.member}`;
+      document.getElementById('toast-sub').textContent = "It'll show above their tasks until they reply.";
+      toast.classList.add('show');
+      if (_toastTimer) clearTimeout(_toastTimer);
+      _toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
+    }
+    // Whether currentUser already has an unanswered question out on this
+    // exact request — used to swap the "💬 Ask" button for a disabled
+    // "💬 Asked" one so the same question doesn't get fired off twice
+    // while waiting on a reply.
+    function hasOpenApprovalQuestion(requestType, requestRef) {
+      return APPROVAL_QUESTIONS.some(q => q && !q.answer && q.requestType === requestType && String(q.requestRef) === String(requestRef) && normName(q.askedBy) === normName(currentUser));
+    }
+
     function fbAddAnnouncement(ann) {
       const clean = Object.assign({}, ann);
       delete clean._key;
@@ -7887,6 +7967,12 @@
     // Auto-task tracking
     const AUTO_TASK_KEYS = new Set();
     const APPROVAL_REQUESTS = [];
+    // Questions asked back on a pending approval request (see
+    // openAskQuestionModal()/renderApprovalQuestions()) — separate from
+    // APPROVAL_REQUESTS itself since a question can be asked about any of
+    // the three approval flows (completion/deferral, task-creation
+    // loop-in-Gokul, or a due-date change), not just one.
+    const APPROVAL_QUESTIONS = [];
     let _approvalPendingIdx = null;
     let _approvalPendingStatus = null;
     let _approvalPendingType = 'completion';
@@ -9158,7 +9244,7 @@
     // in isolation so one broken section can't take the rest down with it.
     function renderTasks() {
       currentPage = 1;
-      const steps = [renderOverdue, renderApprovalRequests, renderGokulTaskApprovals, renderAssignedOut, renderOverseeing, renderTaskPage, renderBoardSummary, renderLoonaBoard];
+      const steps = [renderOverdue, renderApprovalRequests, renderGokulTaskApprovals, renderApprovalQuestions, renderAssignedOut, renderOverseeing, renderTaskPage, renderBoardSummary, renderLoonaBoard];
       steps.forEach(fn => { try { fn(); } catch (e) { console.error('renderTasks: ' + fn.name + ' failed', e); } });
       const waBtn = document.getElementById('task-board-whatsapp-btn');
       if (waBtn) waBtn.style.display = (currentUser === 'Gokul') ? 'inline-block' : 'none';
@@ -13385,7 +13471,18 @@
       <div class="approval-header">
         <div class="ah-title">⏳ Pending Approvals <span class="ah-count">${myPending.length}</span></div>
       </div>
-      ${myPending.map(req => `
+      ${myPending.map(req => {
+        const asked = hasOpenApprovalQuestion(req.type, req.id);
+        // data-* attributes + onclick="...(this)" rather than embedding these
+        // values as JS string literals directly — lnEsc only escapes HTML
+        // entities, not single quotes/backslashes, so a task title with an
+        // apostrophe (very plausible — "Client's Deck") would otherwise
+        // break out of the onclick string. Same convention askOverdueWhy's
+        // button already uses for exactly this reason.
+        const askBtn = asked
+          ? `<button class="btn-ask" disabled style="opacity:.6;cursor:default">💬 Asked</button>`
+          : `<button class="btn-ask" data-request-type="${lnEsc(req.type)}" data-request-ref="${req.id}" data-member="${lnEsc(req.member)}" data-title="${lnEsc(req.taskTitle)}" data-brand="${lnEsc(req.brand)}" data-task-key="${lnEsc(req.taskKey || '')}" onclick="openAskQuestionModalFromBtn(this)">💬 Ask</button>`;
+        return `
         <div class="approval-row">
           <div class="approval-task">
             <div class="at-name">${req.member} — ${req.taskTitle.length > 45 ? req.taskTitle.slice(0, 45) + '…' : req.taskTitle}</div>
@@ -13394,7 +13491,9 @@
           <button class="btn-approve" onclick="handleApproval(${req.id},'approved')" style="${req.type === 'deferral' ? 'background:rgba(159,122,234,.2);border-color:rgba(159,122,234,.4);color:#9f7aea' : ''}">✓ ${req.type === 'deferral' ? 'Allow Deferral' : 'Approve'}</button>
           ${req.type !== 'deferral' ? `<button class="btn-changes" onclick="handleApproval(${req.id},'changes')">✎ Changes required</button><button class="btn-client" onclick="handleApproval(${req.id},'client')">👤 Sent – client approval</button>` : ''}
           <button class="btn-decline" onclick="handleApproval(${req.id},'declined')">✕ Decline</button>
-        </div>`).join('')}
+          ${askBtn}
+        </div>`;
+      }).join('')}
     </div>`;
     }
 
@@ -13417,6 +13516,15 @@
       const creationRows = creationPending.map(t => {
         const gi = TASKS.indexOf(t);
         const title = (t.task || '').length > 45 ? t.task.slice(0, 45) + '…' : (t.task || 'Untitled task');
+        const asked = hasOpenApprovalQuestion('creation', t._key || '');
+        // data-member is assigned_by here, not member — whoever created this
+        // task (and checked "Loop in Gokul") is the one waiting on his
+        // sign-off and who should get the question, not necessarily whoever
+        // the task ends up assigned to (someone can add a task on another
+        // person's behalf).
+        const askBtn = asked
+          ? `<button class="btn-ask" disabled style="opacity:.6;cursor:default">💬 Asked</button>`
+          : `<button class="btn-ask" data-request-type="creation" data-request-ref="${lnEsc(t._key || '')}" data-member="${lnEsc(t.assigned_by || '')}" data-title="${lnEsc(t.task || '')}" data-brand="${lnEsc(taskBrandList(t).join(', '))}" data-task-key="${lnEsc(t._key || '')}" onclick="openAskQuestionModalFromBtn(this)">💬 Ask</button>`;
         return `
         <div class="approval-row">
           <div class="approval-task">
@@ -13425,6 +13533,7 @@
           </div>
           <button class="btn-approve" onclick="gokulDecideTask(${gi},'approved')">✓ Approve</button>
           <button class="btn-decline" onclick="gokulDecideTask(${gi},'declined')">✕ Decline</button>
+          ${askBtn}
         </div>`;
       }).join('');
 
@@ -13434,6 +13543,10 @@
       const dateRows = datePending.map(t => {
         const gi = TASKS.indexOf(t);
         const title = (t.task || '').length > 45 ? t.task.slice(0, 45) + '…' : (t.task || 'Untitled task');
+        const asked = hasOpenApprovalQuestion('due_date', t._key || '');
+        const askBtn = asked
+          ? `<button class="btn-ask" disabled style="opacity:.6;cursor:default">💬 Asked</button>`
+          : `<button class="btn-ask" data-request-type="due_date" data-request-ref="${lnEsc(t._key || '')}" data-member="${lnEsc(t.pending_due_requested_by || t.member || '')}" data-title="${lnEsc(t.task || '')}" data-brand="${lnEsc(taskBrandList(t).join(', '))}" data-task-key="${lnEsc(t._key || '')}" onclick="openAskQuestionModalFromBtn(this)">💬 Ask</button>`;
         return `
         <div class="approval-row">
           <div class="approval-task">
@@ -13443,6 +13556,7 @@
           </div>
           <button class="btn-approve" onclick="gokulDecideDateChange(${gi},'approved')">✓ Approve</button>
           <button class="btn-decline" onclick="gokulDecideDateChange(${gi},'declined')">✕ Decline</button>
+          ${askBtn}
         </div>`;
       }).join('');
 
@@ -13458,6 +13572,67 @@
     function gokulDecideTask(idx, decision) {
       fbUpdateTask(idx, { gokul_approval: decision });
       renderTasks();
+      renderOverview();
+    }
+
+    // ═══ APPROVAL QUESTIONS (approver's "💬 Ask" → this banner → reply) ═══
+    // Requester-side counterpart to openAskQuestionModal()/APPROVAL_QUESTIONS.
+    // Sits above the requester's own task list, same treatment as "Pending
+    // Approvals"/"Needs Your Approval" — a passive banner, not an urgent
+    // interrupt, since answering a question isn't as time-critical as an
+    // overdue-task nudge. Replying here doesn't decide the underlying
+    // approval either way; it just answers the question and sends the
+    // answer back to whoever asked, the same way submitOverdueReason()
+    // posts its answer back — via a Loona Board note scoped to just them.
+    const AQ_TYPE_LABEL = { completion: '✅ Completion request', deferral: '🔀 Deferral request', creation: '🆕 New task', due_date: '📅 Due date change' };
+    function renderApprovalQuestions() {
+      const container = document.getElementById('approval-questions-section');
+      if (!container) return;
+      const mine = APPROVAL_QUESTIONS.filter(q => q && !q.answer && normName(q.member) === normName(currentUser));
+      if (!mine.length) { container.innerHTML = ''; return; }
+
+      const rows = mine.map(q => `
+        <div class="approval-row" style="flex-direction:column;align-items:stretch">
+          <div class="approval-task" style="margin-bottom:8px">
+            <div class="at-name">${lnEsc(q.askedBy || 'Someone')} asked about — ${lnEsc((q.taskTitle || 'this task').length > 50 ? q.taskTitle.slice(0, 50) + '…' : (q.taskTitle || 'this task'))}</div>
+            <div class="at-meta">${lnEsc(q.brand || '—')} · ${AQ_TYPE_LABEL[q.requestType] || 'Approval'} · ${new Date(q.askedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</div>
+            <div class="at-meta" style="font-style:italic;color:var(--text);margin-top:4px">"${lnEsc(q.question)}"</div>
+          </div>
+          <textarea id="aq-reply-${lnEsc(q._key)}" placeholder="Type your reply…" style="width:100%;min-height:56px;background:#111;border:1px solid #444;border-radius:8px;color:#d0d0d0;padding:8px 10px;font-family:inherit;font-size:12.5px;box-sizing:border-box;resize:vertical;margin-bottom:8px"></textarea>
+          <button class="btn-approve" style="align-self:flex-end" onclick="submitApprovalAnswer('${lnEsc(q._key)}')">↩ Send Reply</button>
+        </div>`).join('');
+
+      container.innerHTML = `
+    <div class="approval-banner">
+      <div class="approval-header">
+        <div class="ah-title">💬 Questions on Your Requests <span class="ah-count">${mine.length}</span></div>
+      </div>
+      ${rows}
+    </div>`;
+    }
+    function submitApprovalAnswer(key) {
+      const q = APPROVAL_QUESTIONS.find(x => x._key === key);
+      if (!q) return;
+      const replyEl = document.getElementById('aq-reply-' + key);
+      const answer = replyEl ? replyEl.value.trim() : '';
+      if (!answer) { if (replyEl) replyEl.style.borderColor = 'var(--red)'; return; }
+      if (_db) _db.ref('approvalQuestions/' + key).update({ answer, answeredAt: new Date().toISOString() });
+      fbAddAnnouncement({
+        id: Date.now(),
+        text: `💬 ${q.member} replied on "${(q.taskTitle || 'this task').slice(0, 60)}": "${answer}"`,
+        author: q.member,
+        timestamp: new Date().toISOString(),
+        emoji: '💬',
+        visibleTo: [q.askedBy].filter(Boolean)
+      });
+      const toast = document.getElementById('completion-toast');
+      document.getElementById('toast-emoji').textContent = '💬';
+      document.getElementById('toast-msg').textContent = `Reply sent to ${q.askedBy || 'them'}`;
+      document.getElementById('toast-sub').textContent = '';
+      toast.classList.add('show');
+      if (_toastTimer) clearTimeout(_toastTimer);
+      _toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
+      renderApprovalQuestions();
       renderOverview();
     }
 
@@ -18679,6 +18854,25 @@ ${brandLines}`;
     </div>
   </div>
 
+  <!-- ASK A QUESTION ON AN APPROVAL CARD (approver → requester — see openAskQuestionModal()
+       and the "💬 Questions on Your Requests" banner (renderApprovalQuestions()) that
+       shows the answer prompt back to the requester, positioned above their own task
+       list the same way "Pending Approvals"/"Needs Your Approval" are. Deliberately a
+       plain banner, not the urgent full-screen/sound-alert popup pattern (like
+       overdue-reason-modal) — this is "ask for details", not an emergency nudge. -->
+  <div id="aq-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;align-items:center;justify-content:center" onclick="if(event.target===this)closeAskQuestionModal()">
+    <div style="background:#1a1a1a;border:1px solid #333;border-radius:14px;padding:26px;width:440px;max-width:92vw;box-shadow:0 24px 80px #000a">
+      <h3 style="color:#fff;margin:0 0 8px;font-size:18px">💬 Ask a Question</h3>
+      <div style="font-size:12px;color:#888;margin-bottom:16px" id="aq-summary"></div>
+      <textarea id="aq-question" placeholder="What do you need to know before deciding?" style="width:100%;min-height:70px;background:#111;border:1px solid #444;border-radius:8px;color:#d0d0d0;padding:10px 12px;font-family:inherit;font-size:13px;box-sizing:border-box;resize:vertical"></textarea>
+      <div style="font-size:11px;color:#666;margin-top:8px" id="aq-target-note"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+        <button onclick="closeAskQuestionModal()" style="background:transparent;border:1px solid #444;color:#888;padding:8px 18px;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit">Cancel</button>
+        <button onclick="submitAskQuestion()" style="background:var(--accent);border:none;color:#000;padding:8px 22px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Send</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Morning "Clear Completed Tasks" Prompt -->
   <div id="morning-clear-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;align-items:center;justify-content:center">
     <div style="background:#1a1a1a;border:1px solid #333;border-radius:14px;padding:26px;width:420px;max-width:92vw;box-shadow:0 24px 80px #000a;text-align:center">
@@ -19760,6 +19954,9 @@ ${brandLines}`;
   .btn-changes{background:rgba(224,165,58,.15);color:#e0a53a;border:1px solid rgba(224,165,58,.4);border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
   .btn-client{background:rgba(91,156,246,.15);color:#5b9cf6;border:1px solid rgba(91,156,246,.4);border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
   .btn-changes:hover{background:rgba(224,165,58,.25)}.btn-client:hover{background:rgba(91,156,246,.25)}
+  /* "💬 Ask" on an approval card — see openAskQuestionModal() */
+  .btn-ask{background:rgba(255,255,255,.06);color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit}
+  .btn-ask:hover{background:rgba(255,255,255,.1);color:var(--text)}
   .badge.changes-required{background:rgba(224,165,58,.18);color:#e0a53a}
   .badge.client-approval{background:rgba(91,156,246,.18);color:#5b9cf6}
   .approval-row{flex-wrap:wrap}
