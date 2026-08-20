@@ -7323,11 +7323,17 @@
           if (currentUser) { renderReminders(); renderApprovalRequests(); renderAssignedOut(); }
         });
 
-        // Questions asked back on an approval card (see submitInlineAskQuestion())
-        _db.ref('approvalQuestions').on('value', snap => {
+        // Per-approval-request chat threads — see approvalChatHTML() and
+        // APPROVAL_CHATS' own comment for why this replaced the old
+        // one-question-then-gone approvalQuestions/APPROVAL_QUESTIONS shape.
+        _db.ref('approvalChats').on('value', snap => {
           const data = snap.val() || {};
-          APPROVAL_QUESTIONS.length = 0;
-          APPROVAL_QUESTIONS.push(...Object.entries(data).map(([k, v]) => ({ ...v, _key: k })));
+          Object.keys(APPROVAL_CHATS).forEach(k => delete APPROVAL_CHATS[k]);
+          Object.entries(data).forEach(([chatKey, v]) => {
+            const msgsRaw = (v && v.messages) || {};
+            const messages = Object.entries(msgsRaw).map(([k, m]) => ({ _key: k, ...m })).sort((a, b) => (a.ts || 0) - (b.ts || 0));
+            APPROVAL_CHATS[chatKey] = { messages, closed: !!(v && v.closed), closedBy: v && v.closedBy };
+          });
           if (currentUser) { renderApprovalQuestions(); renderApprovalRequests(); renderGokulTaskApprovals(); }
         });
 
@@ -7851,74 +7857,79 @@
       setTimeout(showNextOverdueReasonPopup, 350);
     }
 
-    // ═══ ASK A QUESTION ON AN APPROVAL CARD (approver → requester) ═══
-    // Used to open a modal per question — replaced with an always-visible
-    // inline compose box at the bottom of the thread itself (see
-    // approvalQuestionThreadHTML() below), so following up doesn't mean
-    // re-opening a popup each time; it reads like an actual back-and-forth
-    // right there on the card, same as the reply box the requester already
-    // has on their own side (renderApprovalQuestions()).
-    // requestType + requestRef together uniquely identify which pending
-    // approval a question is about: 'completion'/'deferral' pair with
+    // ═══ APPROVAL CHAT (approver ⇄ requester, per approval request) ═══
+    // A real, symmetric, open-ended thread now — either side can keep
+    // sending messages (not just "approver asks, requester replies once"),
+    // it stays visible with full history on BOTH ends once someone's
+    // replied (used to vanish from the requester's own view the moment
+    // they answered, with no trace left), and only the approver (whoever's
+    // card this is — the person deciding Approve/Decline, i.e. whoever
+    // assigned/is approving the underlying request) can close it, via the
+    // ✕ Close button — requestType + requestRef together identify which
+    // pending approval a chat is about: 'completion'/'deferral' pair with
     // the APPROVAL_REQUESTS entry's `id`; 'creation'/'due_date' pair with
     // the task's own `_key` (two different request TYPES can exist on the
     // very same task, hence needing both fields, not just a task key).
-    function submitInlineAskQuestion(btn) {
+    function submitApprovalChatMessage(btn) {
       const wrap = btn.closest('.aq-compose');
       const textarea = wrap.querySelector('textarea');
-      const question = textarea.value.trim();
-      if (!question) { textarea.style.borderColor = 'var(--red)'; return; }
+      const text = textarea.value.trim();
+      if (!text) { textarea.style.borderColor = 'var(--red)'; return; }
       const d = textarea.dataset;
-      if (_db) {
-        _db.ref('approvalQuestions').push({
-          requestType: d.requestType,
-          requestRef: d.requestRef,
-          taskKey: d.taskKey,
-          member: d.member,
-          taskTitle: d.title,
-          brand: d.brand,
-          askedBy: currentUser || '',
-          askedAt: new Date().toISOString(),
-          question,
-          answer: null,
-          answeredAt: null
-        });
-      }
+      if (_db) _db.ref('approvalChats/' + d.chatKey + '/messages').push({ from: currentUser || '', text, ts: Date.now() });
       textarea.value = '';
       textarea.style.borderColor = '';
       const toast = document.getElementById('completion-toast');
       document.getElementById('toast-emoji').textContent = '💬';
-      document.getElementById('toast-msg').textContent = `Question sent to ${d.member}`;
-      document.getElementById('toast-sub').textContent = "It'll show above their tasks until they reply.";
+      document.getElementById('toast-msg').textContent = `Sent to ${d.otherParty || d.member || 'them'}`;
+      document.getElementById('toast-sub').textContent = '';
       toast.classList.add('show');
       if (_toastTimer) clearTimeout(_toastTimer);
       _toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
     }
-    // Renders the Q&A history for one approval request right on its own
-    // card, PLUS an always-present compose box at the bottom to send the
-    // next message — the asker's question and the reply both land in the
-    // same place they were asked from, instead of the reply only ever
-    // surfacing as a separate Loona Board post buried in the general feed
-    // (submitApprovalAnswer() used to do that; now it just writes to
-    // Firebase and this renders straight from the live APPROVAL_QUESTIONS
-    // array wherever a card is open). No more "already asked, wait for a
-    // reply" gate either — free-form back-and-forth, same as any chat.
-    function approvalQuestionThreadHTML(requestType, requestRef, member, taskTitle, brand, taskKey) {
-      const thread = APPROVAL_QUESTIONS
-        .filter(q => q && q.requestType === requestType && String(q.requestRef) === String(requestRef))
-        .sort((a, b) => new Date(a.askedAt || 0) - new Date(b.askedAt || 0));
-      const historyHTML = thread.map(q => {
-        const asked = '<div class="aq-msg aq-msg-asked"><span class="aq-msg-author">' + lnEsc(q.askedBy || 'Someone') + '</span> ' + lnLinkify(lnEsc(q.question)) + '</div>';
-        const reply = q.answer
-          ? '<div class="aq-msg aq-msg-answered"><span class="aq-msg-author">' + lnEsc(q.member || 'them') + '</span> ' + lnLinkify(lnEsc(q.answer)) + '</div>'
-          : '<div class="aq-msg aq-msg-pending">Waiting on ' + lnEsc(q.member || 'a reply') + '…</div>';
-        return asked + reply;
+    // Approver-only — freezes the thread (no more messages either way) and
+    // pulls it off the requester's "Questions on Your Requests" banner,
+    // since there's nothing left for them to do. Stays visible, read-only,
+    // on the approver's own card for their own record.
+    function closeApprovalChat(btn) {
+      const key = btn.dataset.chatKey;
+      if (!key) return;
+      if (_db) _db.ref('approvalChats/' + key).update({ closed: true, closedBy: currentUser || '' });
+      const toast = document.getElementById('completion-toast');
+      document.getElementById('toast-emoji').textContent = '🔒';
+      document.getElementById('toast-msg').textContent = 'Conversation closed';
+      document.getElementById('toast-sub').textContent = '';
+      toast.classList.add('show');
+      if (_toastTimer) clearTimeout(_toastTimer);
+      _toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
+    }
+    // Renders one request's chat history right on its own card, plus
+    // either a compose box (open) or a closed note (frozen) — the SAME
+    // rendering is reused for both the approver's card
+    // (renderApprovalRequests()/renderGokulTaskApprovals(), showCloseButton
+    // true) and the requester's own banner (renderApprovalQuestions(),
+    // showCloseButton false — only the approver's side gets to close it).
+    function approvalChatHTML(requestType, requestRef, member, taskTitle, brand, taskKey, otherParty, showCloseButton) {
+      const key = approvalChatKey(requestType, requestRef);
+      const chat = APPROVAL_CHATS[key] || { messages: [], closed: false };
+      const historyHTML = chat.messages.map(m => {
+        const mine = normName(m.from) === normName(currentUser);
+        return '<div class="aq-msg ' + (mine ? 'aq-msg-mine' : 'aq-msg-theirs') + '"><span class="aq-msg-author">' + lnEsc(m.from || 'Someone') + '</span> ' + lnLinkify(lnEsc(m.text)) + '</div>';
       }).join('');
-      const composeHTML = '<div class="aq-compose">' +
-        '<textarea placeholder="Ask a question…" data-request-type="' + lnEsc(requestType) + '" data-request-ref="' + lnEsc(String(requestRef)) + '" data-member="' + lnEsc(member || '') + '" data-title="' + lnEsc(taskTitle || '') + '" data-brand="' + lnEsc(brand || '') + '" data-task-key="' + lnEsc(taskKey || '') + '"></textarea>' +
-        '<button class="btn-ask" onclick="submitInlineAskQuestion(this)">➤ Send</button>' +
-      '</div>';
-      return '<div class="aq-thread">' + historyHTML + composeHTML + '</div>';
+      let footerHTML;
+      if (chat.closed) {
+        footerHTML = '<div class="aq-closed-note">🔒 Closed' + (chat.closedBy ? ' by ' + lnEsc(chat.closedBy) : '') + '</div>';
+      } else {
+        const composeHTML = '<div class="aq-compose">' +
+          '<textarea placeholder="' + (chat.messages.length ? 'Reply…' : 'Ask a question…') + '" data-chat-key="' + lnEsc(key) + '" data-member="' + lnEsc(member || '') + '" data-title="' + lnEsc(taskTitle || '') + '" data-brand="' + lnEsc(brand || '') + '" data-task-key="' + lnEsc(taskKey || '') + '" data-other-party="' + lnEsc(otherParty || '') + '"></textarea>' +
+          '<button class="btn-ask" onclick="submitApprovalChatMessage(this)">➤ Send</button>' +
+        '</div>';
+        const closeBtnHTML = (showCloseButton && chat.messages.length)
+          ? '<button class="btn-ask" style="margin-top:6px" data-chat-key="' + lnEsc(key) + '" onclick="closeApprovalChat(this)">✕ Close</button>'
+          : '';
+        footerHTML = composeHTML + closeBtnHTML;
+      }
+      return '<div class="aq-thread">' + historyHTML + footerHTML + '</div>';
     }
 
     function fbAddAnnouncement(ann) {
@@ -8027,12 +8038,19 @@
     // Auto-task tracking
     const AUTO_TASK_KEYS = new Set();
     const APPROVAL_REQUESTS = [];
-    // Questions asked back on a pending approval request (see
-    // approvalQuestionThreadHTML()/renderApprovalQuestions()) — separate from
-    // APPROVAL_REQUESTS itself since a question can be asked about any of
-    // the three approval flows (completion/deferral, task-creation
-    // loop-in-Gokul, or a due-date change), not just one.
-    const APPROVAL_QUESTIONS = [];
+    // Chat thread per pending approval request (see approvalChatHTML()) —
+    // separate from APPROVAL_REQUESTS itself since a chat can exist for
+    // any of the three approval flows (completion/deferral, task-creation
+    // loop-in-Gokul, or a due-date change), not just one. chatKey ->
+    // { messages: [{_key, from, text, ts}], closed, closedBy }.
+    const APPROVAL_CHATS = {};
+    // Firebase-safe key for one request's chat — request ids can be numeric
+    // (APPROVAL_REQUESTS' Date.now()-based `id`) or a task's Firebase push
+    // key; neither can contain '.', '#', '$', '[', ']', '/' as a key
+    // segment, so those get swapped out just in case a task key ever did.
+    function approvalChatKey(requestType, requestRef) {
+      return String(requestType) + '_' + String(requestRef).replace(/[.#$[\]/]/g, '_');
+    }
     let _approvalPendingIdx = null;
     let _approvalPendingStatus = null;
     let _approvalPendingType = 'completion';
@@ -13540,7 +13558,7 @@
           <button class="btn-approve" onclick="handleApproval(${req.id},'approved')" style="${req.type === 'deferral' ? 'background:rgba(159,122,234,.2);border-color:rgba(159,122,234,.4);color:#9f7aea' : ''}">✓ ${req.type === 'deferral' ? 'Allow Deferral' : 'Approve'}</button>
           ${req.type !== 'deferral' ? `<button class="btn-changes" onclick="handleApproval(${req.id},'changes')">✎ Changes required</button><button class="btn-client" onclick="handleApproval(${req.id},'client')">👤 Sent – client approval</button>` : ''}
           <button class="btn-decline" onclick="handleApproval(${req.id},'declined')">✕ Decline</button>
-          ${approvalQuestionThreadHTML(req.type, req.id, req.member, req.taskTitle, req.brand, req.taskKey || '')}
+          ${approvalChatHTML(req.type, req.id, req.member, req.taskTitle, req.brand, req.taskKey || '', req.member, true)}
         </div>`).join('')}
     </div>`;
     }
@@ -13581,7 +13599,7 @@
           </div>
           <button class="btn-approve" onclick="gokulDecideTask(${gi},'approved')">✓ Approve</button>
           <button class="btn-decline" onclick="gokulDecideTask(${gi},'declined')">✕ Decline</button>
-          ${approvalQuestionThreadHTML('creation', t._key || '', t.member || '', t.task || '', taskBrandList(t).join(', '), t._key || '')}
+          ${approvalChatHTML('creation', t._key || '', t.member || '', t.task || '', taskBrandList(t).join(', '), t._key || '', t.member || '', true)}
         </div>`;
       }).join('');
 
@@ -13603,7 +13621,7 @@
           </div>
           <button class="btn-approve" onclick="gokulDecideDateChange(${gi},'approved')">✓ Approve</button>
           <button class="btn-decline" onclick="gokulDecideDateChange(${gi},'declined')">✕ Decline</button>
-          ${approvalQuestionThreadHTML('due_date', t._key || '', t.pending_due_requested_by || t.member || '', t.task || '', taskBrandList(t).join(', '), t._key || '')}
+          ${approvalChatHTML('due_date', t._key || '', t.pending_due_requested_by || t.member || '', t.task || '', taskBrandList(t).join(', '), t._key || '', t.pending_due_requested_by || t.member || '', true)}
         </div>`;
       }).join('');
 
@@ -13622,66 +13640,57 @@
       renderOverview();
     }
 
-    // ═══ APPROVAL QUESTIONS (approver's inline compose box → this banner → reply) ═══
-    // Requester-side counterpart to approvalQuestionThreadHTML()/APPROVAL_QUESTIONS.
-    // Sits above the requester's own task list, same treatment as "Pending
-    // Approvals"/"Needs Your Approval" — a passive banner, not an urgent
-    // interrupt, since answering a question isn't as time-critical as an
-    // overdue-task nudge. Replying here doesn't decide the underlying
-    // approval either way; it just answers the question and sends the
-    // answer back to whoever asked, the same way submitOverdueReason()
-    // posts its answer back — via a Loona Board note scoped to just them.
+    // ═══ APPROVAL CHATS — requester's own view ═══
+    // Requester-side counterpart to approvalChatHTML(). Sits above the
+    // requester's own task list, same treatment as "Pending Approvals"/
+    // "Needs Your Approval" — a passive banner, not an urgent interrupt.
+    // Only lists requests that are actually THEIRS (they're the member/
+    // requester on) AND have an open (non-empty, not closed) chat —
+    // nothing to see here for a request nobody's said anything about yet.
+    // Shows the SAME full history + compose box as the approver's card
+    // (showCloseButton=false — only the approver can close it, see
+    // closeApprovalChat()), so replying here no longer makes the whole
+    // thing vanish with no trace the way the old single-question/single-
+    // answer version did — it stays open for more back-and-forth until
+    // the approver closes it or decides the underlying request.
     const AQ_TYPE_LABEL = { completion: '✅ Completion request', deferral: '🔀 Deferral request', creation: '🆕 New task', due_date: '📅 Due date change' };
     function renderApprovalQuestions() {
       const container = document.getElementById('approval-questions-section');
       if (!container) return;
-      const mine = APPROVAL_QUESTIONS.filter(q => q && !q.answer && normName(q.member) === normName(currentUser));
-      if (!mine.length) { container.innerHTML = ''; return; }
 
-      const rows = mine.map(q => `
+      const myRequests = [];
+      APPROVAL_REQUESTS.filter(r => r.status === 'pending' && normName(r.member) === normName(currentUser)).forEach(r => {
+        myRequests.push({ requestType: r.type, requestRef: r.id, member: r.member, taskTitle: r.taskTitle, brand: r.brand, taskKey: r.taskKey || '', otherParty: r.assigner || 'the approver' });
+      });
+      (TASKS || []).filter(t => t && t.gokul_approval === 'pending' && normName(t.member) === normName(currentUser)).forEach(t => {
+        myRequests.push({ requestType: 'creation', requestRef: t._key || '', member: t.member, taskTitle: t.task, brand: taskBrandList(t).join(', '), taskKey: t._key || '', otherParty: 'Gokul' });
+      });
+      (TASKS || []).filter(t => t && t.pending_due_date !== undefined && t.pending_due_date !== null && normName(t.pending_due_requested_by || t.member) === normName(currentUser)).forEach(t => {
+        myRequests.push({ requestType: 'due_date', requestRef: t._key || '', member: t.pending_due_requested_by || t.member, taskTitle: t.task, brand: taskBrandList(t).join(', '), taskKey: t._key || '', otherParty: 'Gokul' });
+      });
+
+      const open = myRequests.filter(m => {
+        const chat = APPROVAL_CHATS[approvalChatKey(m.requestType, m.requestRef)];
+        return chat && chat.messages.length && !chat.closed;
+      });
+      if (!open.length) { container.innerHTML = ''; return; }
+
+      const rows = open.map(m => `
         <div class="approval-row" style="flex-direction:column;align-items:stretch">
-          <div class="approval-task" style="margin-bottom:8px">
-            <div class="at-name">${lnEsc(q.askedBy || 'Someone')} asked about — ${lnEsc((q.taskTitle || 'this task').length > 50 ? q.taskTitle.slice(0, 50) + '…' : (q.taskTitle || 'this task'))}</div>
-            <div class="at-meta">${lnEsc(q.brand || '—')} · ${AQ_TYPE_LABEL[q.requestType] || 'Approval'} · ${new Date(q.askedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</div>
-            <div class="at-meta" style="font-style:italic;color:var(--text);margin-top:4px">"${lnLinkify(lnEsc(q.question))}"</div>
+          <div class="approval-task" style="margin-bottom:4px">
+            <div class="at-name">${lnEsc(m.otherParty)} on — ${lnEsc((m.taskTitle || 'this task').length > 50 ? m.taskTitle.slice(0, 50) + '…' : (m.taskTitle || 'this task'))}</div>
+            <div class="at-meta">${lnEsc(m.brand || '—')} · ${AQ_TYPE_LABEL[m.requestType] || 'Approval'}</div>
           </div>
-          <textarea id="aq-reply-${lnEsc(q._key)}" placeholder="Type your reply…" style="width:100%;min-height:56px;background:#111;border:1px solid #444;border-radius:8px;color:#d0d0d0;padding:8px 10px;font-family:inherit;font-size:12.5px;box-sizing:border-box;resize:vertical;margin-bottom:8px"></textarea>
-          <button class="btn-approve" style="align-self:flex-end" onclick="submitApprovalAnswer('${lnEsc(q._key)}')">↩ Send Reply</button>
+          ${approvalChatHTML(m.requestType, m.requestRef, m.member, m.taskTitle, m.brand, m.taskKey, m.otherParty, false)}
         </div>`).join('');
 
       container.innerHTML = `
     <div class="approval-banner">
       <div class="approval-header">
-        <div class="ah-title">💬 Questions on Your Requests <span class="ah-count">${mine.length}</span></div>
+        <div class="ah-title">💬 Questions on Your Requests <span class="ah-count">${open.length}</span></div>
       </div>
       ${rows}
     </div>`;
-    }
-    function submitApprovalAnswer(key) {
-      const q = APPROVAL_QUESTIONS.find(x => x._key === key);
-      if (!q) return;
-      const replyEl = document.getElementById('aq-reply-' + key);
-      const answer = replyEl ? replyEl.value.trim() : '';
-      if (!answer) { if (replyEl) replyEl.style.borderColor = 'var(--red)'; return; }
-      // Used to also post a Loona Board announcement here — moved to
-      // showing up directly on the same approval card instead (see
-      // approvalQuestionThreadHTML(), rendered from this same
-      // APPROVAL_QUESTIONS array), since a reply buried in the general
-      // Loona Board feed was easy to miss and disconnected from the card
-      // it was actually about. The live 'approvalQuestions' Firebase
-      // listener re-renders both approval banners the instant this write
-      // lands, so the asker sees the reply on the card without needing
-      // anything pushed to them separately.
-      if (_db) _db.ref('approvalQuestions/' + key).update({ answer, answeredAt: new Date().toISOString() });
-      const toast = document.getElementById('completion-toast');
-      document.getElementById('toast-emoji').textContent = '💬';
-      document.getElementById('toast-msg').textContent = `Reply sent to ${q.askedBy || 'them'}`;
-      document.getElementById('toast-sub').textContent = '';
-      toast.classList.add('show');
-      if (_toastTimer) clearTimeout(_toastTimer);
-      _toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
-      renderApprovalQuestions();
-      renderOverview();
     }
 
     // ═══ ANNOUNCEMENTS ═══
@@ -17161,9 +17170,9 @@
     // ═══ LOONA NOTES ═══
     function lnEsc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
     // Wraps http(s) URLs in an already-HTML-escaped string with clickable
-    // <a> tags — for free-text message content (approval-question chat,
-    // see approvalQuestionThreadHTML()/renderApprovalQuestions()) where
-    // someone might paste a Canva/Drive link straight into their reply.
+    // <a> tags — for free-text message content (approval chat, see
+    // approvalChatHTML()/renderApprovalQuestions()) where someone might
+    // paste a Canva/Drive link straight into their reply.
     // Must run AFTER lnEsc, not before — matches against the escaped form
     // (a literal "&" in a URL's query string arrives here as "&amp;",
     // which contains none of [\s<>"] so still matches as one unbroken
@@ -18927,8 +18936,8 @@ ${brandLines}`;
   </div>
 
   <!-- The "Ask a question" modal this used to be now lives inline on the
-       approval card itself (approvalQuestionThreadHTML()'s .aq-compose
-       box) — see submitInlineAskQuestion(). No standalone modal needed. -->
+       approval card itself (approvalChatHTML()'s .aq-compose box) — see
+       submitApprovalChatMessage(). No standalone modal needed. -->
 
   <!-- Morning "Clear Completed Tasks" Prompt -->
   <div id="morning-clear-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;align-items:center;justify-content:center">
@@ -20011,17 +20020,19 @@ ${brandLines}`;
   .btn-changes{background:rgba(224,165,58,.15);color:#e0a53a;border:1px solid rgba(224,165,58,.4);border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
   .btn-client{background:rgba(91,156,246,.15);color:#5b9cf6;border:1px solid rgba(91,156,246,.4);border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
   .btn-changes:hover{background:rgba(224,165,58,.25)}.btn-client:hover{background:rgba(91,156,246,.25)}
-  /* "➤ Send" in the inline compose box on an approval card — see
-     approvalQuestionThreadHTML()/submitInlineAskQuestion() */
+  /* "➤ Send" / "✕ Close" in the inline compose box on an approval card —
+     see approvalChatHTML()/submitApprovalChatMessage()/closeApprovalChat() */
   .btn-ask{background:rgba(255,255,255,.06);color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit}
   .btn-ask:hover{background:rgba(255,255,255,.1);color:var(--text)}
-  /* Q&A thread inline on an approval card — see approvalQuestionThreadHTML() */
+  /* Chat thread inline on an approval card — see approvalChatHTML() */
   .aq-thread{width:100%;display:flex;flex-direction:column;gap:5px;margin-top:8px;padding-top:8px;border-top:1px dashed rgba(255,255,255,.1)}
   .aq-msg{font-size:12px;line-height:1.4;padding:6px 10px;border-radius:8px;max-width:92%}
   .aq-msg-author{font-weight:700;color:var(--accent2,#ff9457);margin-right:4px}
-  .aq-msg-asked{background:rgba(255,255,255,.05);color:var(--text);align-self:flex-start}
-  .aq-msg-answered{background:rgba(76,175,125,.12);color:var(--text);align-self:flex-end}
-  .aq-msg-pending{background:none;color:var(--muted);font-style:italic;align-self:flex-end;padding:0 10px}
+  /* "mine"/"theirs" from whoever's currently looking — symmetric, unlike
+     the old fixed asker/answerer roles, since either side can send now. */
+  .aq-msg-theirs{background:rgba(255,255,255,.05);color:var(--text);align-self:flex-start}
+  .aq-msg-mine{background:rgba(76,175,125,.12);color:var(--text);align-self:flex-end}
+  .aq-closed-note{font-size:11.5px;color:var(--muted);font-style:italic;text-align:center;padding:4px 0}
   .aq-msg a, .approval-row a{color:#5b9cf6;text-decoration:underline;word-break:break-all}
   .aq-msg a:hover, .approval-row a:hover{color:#7fb2ff}
   /* Always-present "type the next thing" box at the bottom of the thread —
