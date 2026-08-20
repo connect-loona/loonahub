@@ -7860,6 +7860,27 @@
     function hasOpenApprovalQuestion(requestType, requestRef) {
       return APPROVAL_QUESTIONS.some(q => q && !q.answer && q.requestType === requestType && String(q.requestRef) === String(requestRef) && normName(q.askedBy) === normName(currentUser));
     }
+    // Renders the Q&A history for one approval request right on its own
+    // card — the asker's question and the reply both land in the same
+    // place they were asked from, instead of the reply only ever
+    // surfacing as a separate Loona Board post buried in the general
+    // feed (submitApprovalAnswer() used to do that; now it just writes
+    // to Firebase and this renders straight from the live APPROVAL_QUESTIONS
+    // array wherever a card is open — a real answered exchange stays
+    // visible on the card for context, not just a fleeting notification).
+    function approvalQuestionThreadHTML(requestType, requestRef) {
+      const thread = APPROVAL_QUESTIONS
+        .filter(q => q && q.requestType === requestType && String(q.requestRef) === String(requestRef))
+        .sort((a, b) => new Date(a.askedAt || 0) - new Date(b.askedAt || 0));
+      if (!thread.length) return '';
+      return '<div class="aq-thread">' + thread.map(q => {
+        const asked = '<div class="aq-msg aq-msg-asked"><span class="aq-msg-author">' + lnEsc(q.askedBy || 'Someone') + '</span> ' + lnEsc(q.question) + '</div>';
+        const reply = q.answer
+          ? '<div class="aq-msg aq-msg-answered"><span class="aq-msg-author">' + lnEsc(q.member || 'them') + '</span> ' + lnEsc(q.answer) + '</div>'
+          : '<div class="aq-msg aq-msg-pending">Waiting on ' + lnEsc(q.member || 'a reply') + '…</div>';
+        return asked + reply;
+      }).join('') + '</div>';
+    }
 
     function fbAddAnnouncement(ann) {
       const clean = Object.assign({}, ann);
@@ -13492,6 +13513,7 @@
           ${req.type !== 'deferral' ? `<button class="btn-changes" onclick="handleApproval(${req.id},'changes')">✎ Changes required</button><button class="btn-client" onclick="handleApproval(${req.id},'client')">👤 Sent – client approval</button>` : ''}
           <button class="btn-decline" onclick="handleApproval(${req.id},'declined')">✕ Decline</button>
           ${askBtn}
+          ${approvalQuestionThreadHTML(req.type, req.id)}
         </div>`;
       }).join('')}
     </div>`;
@@ -13537,6 +13559,7 @@
           <button class="btn-approve" onclick="gokulDecideTask(${gi},'approved')">✓ Approve</button>
           <button class="btn-decline" onclick="gokulDecideTask(${gi},'declined')">✕ Decline</button>
           ${askBtn}
+          ${approvalQuestionThreadHTML('creation', t._key || '')}
         </div>`;
       }).join('');
 
@@ -13560,6 +13583,7 @@
           <button class="btn-approve" onclick="gokulDecideDateChange(${gi},'approved')">✓ Approve</button>
           <button class="btn-decline" onclick="gokulDecideDateChange(${gi},'declined')">✕ Decline</button>
           ${askBtn}
+          ${approvalQuestionThreadHTML('due_date', t._key || '')}
         </div>`;
       }).join('');
 
@@ -13619,15 +13643,16 @@
       const replyEl = document.getElementById('aq-reply-' + key);
       const answer = replyEl ? replyEl.value.trim() : '';
       if (!answer) { if (replyEl) replyEl.style.borderColor = 'var(--red)'; return; }
+      // Used to also post a Loona Board announcement here — moved to
+      // showing up directly on the same approval card instead (see
+      // approvalQuestionThreadHTML(), rendered from this same
+      // APPROVAL_QUESTIONS array), since a reply buried in the general
+      // Loona Board feed was easy to miss and disconnected from the card
+      // it was actually about. The live 'approvalQuestions' Firebase
+      // listener re-renders both approval banners the instant this write
+      // lands, so the asker sees the reply on the card without needing
+      // anything pushed to them separately.
       if (_db) _db.ref('approvalQuestions/' + key).update({ answer, answeredAt: new Date().toISOString() });
-      fbAddAnnouncement({
-        id: Date.now(),
-        text: `💬 ${q.member} replied on "${(q.taskTitle || 'this task').slice(0, 60)}": "${answer}"`,
-        author: q.member,
-        timestamp: new Date().toISOString(),
-        emoji: '💬',
-        visibleTo: [q.askedBy].filter(Boolean)
-      });
       const toast = document.getElementById('completion-toast');
       document.getElementById('toast-emoji').textContent = '💬';
       document.getElementById('toast-msg').textContent = `Reply sent to ${q.askedBy || 'them'}`;
@@ -19960,6 +19985,13 @@ ${brandLines}`;
   /* "💬 Ask" on an approval card — see openAskQuestionModal() */
   .btn-ask{background:rgba(255,255,255,.06);color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit}
   .btn-ask:hover{background:rgba(255,255,255,.1);color:var(--text)}
+  /* Q&A thread inline on an approval card — see approvalQuestionThreadHTML() */
+  .aq-thread{width:100%;display:flex;flex-direction:column;gap:5px;margin-top:8px;padding-top:8px;border-top:1px dashed rgba(255,255,255,.1)}
+  .aq-msg{font-size:12px;line-height:1.4;padding:6px 10px;border-radius:8px;max-width:92%}
+  .aq-msg-author{font-weight:700;color:var(--accent2,#ff9457);margin-right:4px}
+  .aq-msg-asked{background:rgba(255,255,255,.05);color:var(--text);align-self:flex-start}
+  .aq-msg-answered{background:rgba(76,175,125,.12);color:var(--text);align-self:flex-end}
+  .aq-msg-pending{background:none;color:var(--muted);font-style:italic;align-self:flex-end;padding:0 10px}
   .badge.changes-required{background:rgba(224,165,58,.18);color:#e0a53a}
   .badge.client-approval{background:rgba(91,156,246,.18);color:#5b9cf6}
   .approval-row{flex-wrap:wrap}
