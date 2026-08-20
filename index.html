@@ -13517,14 +13517,17 @@
         const gi = TASKS.indexOf(t);
         const title = (t.task || '').length > 45 ? t.task.slice(0, 45) + '…' : (t.task || 'Untitled task');
         const asked = hasOpenApprovalQuestion('creation', t._key || '');
-        // data-member is assigned_by here, not member — whoever created this
-        // task (and checked "Loop in Gokul") is the one waiting on his
-        // sign-off and who should get the question, not necessarily whoever
-        // the task ends up assigned to (someone can add a task on another
-        // person's behalf).
+        // data-member is the task's own member (the assignee), not
+        // assigned_by — this card is framed around them (see the row below:
+        // "Saloni — Ganesh Chaturthi script"), and it's whoever's actually
+        // going to do the work who can answer a content question like
+        // "where's the link". Was briefly assigned_by instead, which broke
+        // exactly the common case where Gokul himself adds a task for
+        // someone else and it needs his own sign-off — that routed the
+        // question right back to Gokul, not the person the card names.
         const askBtn = asked
           ? `<button class="btn-ask" disabled style="opacity:.6;cursor:default">💬 Asked</button>`
-          : `<button class="btn-ask" data-request-type="creation" data-request-ref="${lnEsc(t._key || '')}" data-member="${lnEsc(t.assigned_by || '')}" data-title="${lnEsc(t.task || '')}" data-brand="${lnEsc(taskBrandList(t).join(', '))}" data-task-key="${lnEsc(t._key || '')}" onclick="openAskQuestionModalFromBtn(this)">💬 Ask</button>`;
+          : `<button class="btn-ask" data-request-type="creation" data-request-ref="${lnEsc(t._key || '')}" data-member="${lnEsc(t.member || '')}" data-title="${lnEsc(t.task || '')}" data-brand="${lnEsc(taskBrandList(t).join(', '))}" data-task-key="${lnEsc(t._key || '')}" onclick="openAskQuestionModalFromBtn(this)">💬 Ask</button>`;
         return `
         <div class="approval-row">
           <div class="approval-task">
