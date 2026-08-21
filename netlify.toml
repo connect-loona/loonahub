@@ -48,6 +48,14 @@
 [functions."calendar-sync"]
   schedule = "*/5 * * * *"
 
+# Keeps a Google Sheet in step with Firebase's live /members +
+# /inactive_members — see employee-sheet-sync.js for the full picture. Every
+# 15 minutes: roster edits are an occasional admin action, not something
+# that needs calendar-sync's 5-minute cadence, and a wider interval keeps
+# Sheets API usage comfortably clear of quota.
+[functions."employee-sheet-sync"]
+  schedule = "*/15 * * * *"
+
 # Posts the daily "Read Today's Oracle" / "Find Your Co-Star" nudges to the
 # Loona Board for everyone. 04:30 UTC = 10:00 IST.
 [functions."loona-daily-broadcast"]
@@ -124,6 +132,23 @@
 #                             drive.file are only needed for Loona Notes' "Export as Doc"
 #                             (calendar-sync.js is read-only and works with just the first
 #                             scope) — see docs-export.js.)
+#   GOOGLE_EMPLOYEE_SHEET_ID   (the live-tracking employee Google Sheet — see
+#                             netlify/functions/employee-sheet-sync.js. Reuses the SAME
+#                             GOOGLE_CALENDAR_SERVICE_ACCOUNT above, but does NOT need
+#                             domain-wide delegation — it authenticates as the service
+#                             account itself, not an impersonated user. One-time setup:
+#                               1. Create a blank Google Sheet.
+#                               2. Share it (top-right "Share" button) with the
+#                                  service account's own email — the "client_email"
+#                                  field inside the GOOGLE_CALENDAR_SERVICE_ACCOUNT JSON
+#                                  key — as an Editor.
+#                               3. Copy the sheet's ID out of its URL: the long segment
+#                                  between /d/ and /edit in
+#                                  https://docs.google.com/spreadsheets/d/THIS_PART/edit
+#                               4. Set that as GOOGLE_EMPLOYEE_SHEET_ID here.
+#                             The function creates its own "Employees" tab on first run
+#                             and fully rewrites that tab's data every 15 minutes — safe
+#                             to leave other tabs/notes elsewhere in the same spreadsheet.)
 #   FIREBASE_WEB_API_KEY     (optional — defaults to the same public Web API key already
 #                             embedded in index.html's client-side Firebase config. Used by
 #                             add-to-playlist.js/remove-from-playlist.js to verify a caller's
