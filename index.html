@@ -7107,7 +7107,15 @@
           // Detect genuinely new tasks to show notification (skip on first load)
           if (_tasksInitialized) {
             const existingKeys = new Set(TASKS.map(t => t._key));
-            fresh.filter(t => !existingKeys.has(t._key)).forEach(t => showSyncNotif(t));
+            // This reads the raw snapshot, not the roster-filtered TASKS array — so
+            // without this check, a task synced for a removed member (e.g. by the
+            // calendar-sync job auto-creating a "Meeting: ..." task before it knew
+            // to skip them) still pops this toast, even though the task itself is
+            // correctly hidden everywhere else. Same active-roster rule as
+            // applyRosterFilterToTasks() above.
+            const rosterSet = new Set(ALL_MEMBERS.map(m => normName(m)));
+            const inactiveSet = new Set(Array.from(INACTIVE_MEMBERS).map(m => normName(m)));
+            fresh.filter(t => !existingKeys.has(t._key) && (!t.member || (rosterSet.has(normName(t.member)) && !inactiveSet.has(normName(t.member))))).forEach(t => showSyncNotif(t));
           }
           if (_tasksInitialized) {
             const _oldStat = {}; TASKS.forEach(t => { if (t && t._key) _oldStat[t._key] = t.status; });
