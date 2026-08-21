@@ -12080,7 +12080,7 @@
     }
     function closeStatusPicker() {
       document.getElementById('status-picker-modal').classList.add('hidden');
-      sessionStorage.setItem('status_prompt_dismissed_' + currentUser, '1');
+      localStorage.setItem('status_prompt_dismissed_' + currentUser, calTodayIST());
       afterStatusPickerClosed();
     }
     function submitStatusPicker() {
@@ -12092,16 +12092,20 @@
       window.MEMBER_STATUS[fbMemberKey(currentUser)] = record;
       if (_db) _db.ref('member_status/' + fbMemberKey(currentUser)).set(record);
       document.getElementById('status-picker-modal').classList.add('hidden');
-      sessionStorage.setItem('status_prompt_dismissed_' + currentUser, '1');
+      localStorage.setItem('status_prompt_dismissed_' + currentUser, calTodayIST());
       renderTeam();
       renderOverview();
       afterStatusPickerClosed();
     }
-    // Shown once per login (not gated by day — moods change through the day, and
-    // reopening it manually via the status bubble covers "change it any time").
+    // Shown once per day, not once per login/session — reopening the dashboard
+    // (especially a mobile PWA, where the session doesn't survive between app
+    // launches) used to bring this back every single time, which is what made
+    // it feel like it kept popping up. localStorage + an IST-pinned date key
+    // means it resets naturally at the next real morning, and reopening it
+    // manually via the status bubble still covers "change it again today".
     function maybeShowStatusPrompt() {
       if (!currentUser || window._statusPromptShown) return;
-      if (sessionStorage.getItem('status_prompt_dismissed_' + currentUser)) return;
+      if (localStorage.getItem('status_prompt_dismissed_' + currentUser) === calTodayIST()) return;
       window._statusPromptShown = true;
       window._statusPromptWasAuto = true;
       openStatusPicker();
