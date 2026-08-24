@@ -4986,9 +4986,12 @@
         <div class="form-row">
           <div class="form-group">
             <label>Due Date</label>
-            <div style="display:flex;gap:6px">
+            <div style="display:flex;gap:6px;align-items:flex-end">
               <input class="form-control" type="date" id="nt-due" style="flex:1;min-width:0">
-              <input class="form-control" type="time" id="nt-due-time" title="Optional — leave blank for no deadline reminder" style="flex:0 0 108px">
+              <div style="flex:0 0 118px">
+                <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:6px">⏰ Time</label>
+                <input class="form-control" type="time" id="nt-due-time" title="Optional — leave blank for no deadline reminder" style="width:100%">
+              </div>
             </div>
           </div>
           <div class="form-group">
