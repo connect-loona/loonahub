@@ -4986,7 +4986,10 @@
         <div class="form-row">
           <div class="form-group">
             <label>Due Date</label>
-            <input class="form-control" type="date" id="nt-due">
+            <div style="display:flex;gap:6px">
+              <input class="form-control" type="date" id="nt-due" style="flex:1;min-width:0">
+              <input class="form-control" type="time" id="nt-due-time" title="Optional — leave blank for no deadline reminder" style="flex:0 0 108px">
+            </div>
           </div>
           <div class="form-group">
             <label>Assigned By</label>
@@ -9152,6 +9155,7 @@
       if (currentUser) ntMember.value = currentUser;
       refreshTaskBrandDropdown();
       document.getElementById('nt-due').valueAsDate = new Date();
+      document.getElementById('nt-due-time').value = '';
       document.getElementById('nt-by').value = currentUser || '';
 
       buildMemberTabs();
@@ -9376,7 +9380,7 @@
             })()}
           </td>
           <td data-label="Time" style="color:var(--muted);font-size:12px;white-space:nowrap">${t.status_at || (t.completed_at?fmtStamp(new Date(t.completed_at)):'—')}</td>
-          <td data-label="Due" style="white-space:nowrap;color:var(--muted)"><input type="date" value="${t.due_date || ''}" onchange="updateDueDate(${gi},this.value)" title="Shift due date" ${t.pending_due_date !== undefined && t.pending_due_date !== null ? 'disabled' : ''} style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px 7px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit">${(t.pending_due_date !== undefined && t.pending_due_date !== null) ? `<div class="gokul-approval-badge" title="${lnEsc(t.pending_due_reason || '')}" style="margin-left:0;margin-top:3px;display:inline-block">🔔 → ${fmtDate(t.pending_due_date)}</div>` : ''}</td>
+          <td data-label="Due" style="white-space:nowrap;color:var(--muted)"><input type="date" value="${t.due_date || ''}" onchange="updateDueDate(${gi},this.value)" title="Shift due date" ${t.pending_due_date !== undefined && t.pending_due_date !== null ? 'disabled' : ''} style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px 7px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit">${(t.pending_due_date !== undefined && t.pending_due_date !== null) ? `<div class="gokul-approval-badge" title="${lnEsc(t.pending_due_reason || '')}" style="margin-left:0;margin-top:3px;display:inline-block">🔔 → ${fmtDate(t.pending_due_date)}</div>` : ''}${dueTimeBadgeHTML(t)}</td>
           <td data-label="">${(isTaskNudgeAllowed(t) && t.status !== 'Completed') ? `<button onclick="askForUpdate(${gi})" style="background:none;border:none;color:#888;cursor:pointer;font-size:14px;padding:0 4px" title="Ask ${lnEsc(t.member || 'them')} for an update">🔔</button>` : ''}${(normName(currentUser) === normName(t.assigned_by) || normName(currentUser) === normName(t.member) || normName(currentUser) === 'gokul') ? `<button onclick="confirmDeleteTask('${t._key || ''}',${gi})" style="background:none;border:none;color:#555;cursor:pointer;font-size:16px;padding:0 4px" title="Remove task">×</button>` : ''}</td>
         </tr>`;
         }).join('')
@@ -13498,7 +13502,7 @@
           <td>${statusSelectHTML(t, TASKS.indexOf(t))}</td>
           <td style="color:var(--muted);font-size:12px;white-space:nowrap">${t.assigned_on || (t.created_at ? fmtStamp(new Date(t.created_at)) : '—')}</td>
           <td style="color:var(--muted);font-size:12px;white-space:nowrap">${t.status_at || '—'}</td>
-          <td style="white-space:nowrap"><input type="date" value="${t.due_date || ''}" onchange="updateDueDate(${TASKS.indexOf(t)},this.value)" ${t.pending_due_date !== undefined && t.pending_due_date !== null ? 'disabled' : ''} style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px 7px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit">${(t.pending_due_date !== undefined && t.pending_due_date !== null) ? `<div class="gokul-approval-badge" title="${lnEsc(t.pending_due_reason || '')}" style="margin-left:0;margin-top:3px;display:inline-block">🔔 → ${fmtDate(t.pending_due_date)}</div>` : ''}</td>
+          <td style="white-space:nowrap"><input type="date" value="${t.due_date || ''}" onchange="updateDueDate(${TASKS.indexOf(t)},this.value)" ${t.pending_due_date !== undefined && t.pending_due_date !== null ? 'disabled' : ''} style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px 7px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit">${(t.pending_due_date !== undefined && t.pending_due_date !== null) ? `<div class="gokul-approval-badge" title="${lnEsc(t.pending_due_reason || '')}" style="margin-left:0;margin-top:3px;display:inline-block">🔔 → ${fmtDate(t.pending_due_date)}</div>` : ''}${dueTimeBadgeHTML(t)}</td>
           <td style="text-align:center"><span class="ao-del" title="Remove task" onclick="confirmDeleteTask('${t._key || ''}', ${TASKS.indexOf(t)})" style="color:#666;cursor:pointer">✕</span></td>
         </tr>`).join('');
       cont.innerHTML = `
@@ -13544,7 +13548,7 @@
           <td style="max-width:240px" onclick="window.showTaskDetail(${gi})"><div class="prio-dot-row"><span class="prio-dot" style="--prio-color:${priorityHeatColor(t.priority, t.status)}"></span><div class="task-cell">${t.task && t.task.length > 52 ? t.task.slice(0, 52) + '…' : (t.task || '—')}</div></div></td>
           <td>${statusBadgeHTML(t)}</td>
           <td style="color:var(--muted);font-size:12px">${t.assigned_by || '—'}</td>
-          <td style="color:var(--muted);font-size:12px;white-space:nowrap">${t.due_date ? fmtDate(t.due_date) : '—'}</td>
+          <td style="color:var(--muted);font-size:12px;white-space:nowrap">${t.due_date ? fmtDate(t.due_date) : '—'}${dueTimeBadgeHTML(t)}</td>
           <td style="text-align:center">${(isTaskNudgeAllowed(t) && t.status !== 'Completed') ? `<button onclick="askForUpdate(${gi})" style="background:none;border:none;color:#888;cursor:pointer;font-size:14px;padding:0 4px" title="Ask ${lnEsc(t.member || 'them')} for an update">🔔</button>` : ''}</td>
         </tr>`;
       }).join('');
@@ -15397,7 +15401,7 @@
       <td>
         ${statusSelectHTML(t, taskIdx)}
       </td>
-      <td><span class="days-ago">${daysLabel}</span></td>
+      <td><span class="days-ago">${daysLabel}</span>${dueTimeBadgeHTML(t)}</td>
       <td style="text-align:center">${(normName(currentUser) === normName(t.assigned_by) || normName(currentUser) === normName(t.member) || normName(currentUser) === 'gokul') ? `<span class="ao-del" title="Remove task" onclick="confirmDeleteTask('${t._key || ''}',${taskIdx})" style="color:#666;cursor:pointer">✕</span>` : ''}</td>
     </tr>`;
       }).join('');
@@ -15612,6 +15616,7 @@
       document.getElementById('nt-priority').value = 'Medium';
       document.getElementById('nt-status').value = 'Not Started';
       document.getElementById('nt-due').valueAsDate = new Date();
+      document.getElementById('nt-due-time').value = '';
       document.getElementById('add-task-modal').classList.remove('hidden');
       setTimeout(() => document.getElementById('nt-task').focus(), 100);
     }
@@ -16032,6 +16037,10 @@
         priority: document.getElementById('nt-priority').value,
         status: document.getElementById('nt-status').value,
         due_date: document.getElementById('nt-due').value || '',
+        // Optional — only meaningful paired with due_date. When set, this is
+        // what checkTaskDeadlines() watches to fire the 5-minutes-left and
+        // missed-deadline popups (see that function for the full mechanism).
+        due_time: document.getElementById('nt-due-time').value || '',
         assigned_by: assignedBy,
         overseers,
         isNew: true,
@@ -16632,6 +16641,87 @@
       if (!d) return '—';
       return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
     }
+    function fmtTime12h(hhmm) {
+      if (!hhmm) return '';
+      const parts = String(hhmm).split(':');
+      const h = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+      if (isNaN(h) || isNaN(m)) return '';
+      const ap = h >= 12 ? 'PM' : 'AM';
+      const h12 = ((h + 11) % 12) + 1;
+      return h12 + ':' + String(m).padStart(2, '0') + ' ' + ap;
+    }
+    // Small badge shown next to a due-date cell whenever a task carries a
+    // deadline time — the time itself, plus a "Missed deadline" flag once
+    // checkTaskDeadlines() has confirmed it passed uncompleted. Deliberately
+    // hides the missed tag once the task IS completed (deadline_missed stays
+    // true in Firebase as the historical record, but there's no reason to
+    // keep flagging a task that's actually done now).
+    function dueTimeBadgeHTML(t) {
+      if (!t) return '';
+      const timePart = t.due_time ? `<div style="font-size:10.5px;color:var(--muted);margin-top:2px;white-space:nowrap">⏰ ${fmtTime12h(t.due_time)}</div>` : '';
+      const missedPart = (t.deadline_missed && t.status !== 'Completed') ? `<div style="font-size:10.5px;color:var(--red);margin-top:2px;font-weight:600;white-space:nowrap">⏱️ Missed deadline</div>` : '';
+      return timePart + missedPart;
+    }
+
+    // ═══ TASK DEADLINE REMINDERS ═══
+    // Optional due_time (set alongside due_date in the Add Task modal) turns a
+    // due date into a real deadline moment: this fires a "5 minutes left" popup
+    // shortly before it, and a "you missed it" popup (plus a persisted
+    // deadline_missed flag other people can see too, via dueTimeBadgeHTML
+    // above) right after, if the task still isn't done. Mirrors
+    // checkCallReminders/startCallReminderWatcher in the attendance module
+    // below — same shape, just watching task deadlines instead of meeting
+    // start times — including reusing its per-person "already shown" ledger
+    // pattern so a popup only ever fires once per task per person.
+    function taskDeadlineKey(name) { return 'loona_taskdeadline_' + name; }
+    function getShownTaskDeadlines(name) {
+      try { return new Set(JSON.parse(localStorage.getItem(taskDeadlineKey(name)) || '[]')); } catch (e) { return new Set(); }
+    }
+    function markTaskDeadlineShown(name, sig) {
+      try {
+        const s = getShownTaskDeadlines(name);
+        s.add(sig);
+        // Prune sigs for tasks that no longer exist, so this doesn't grow forever.
+        const validKeys = new Set((TASKS || []).map(t => t._key));
+        const pruned = [...s].filter(x => validKeys.has(x.split('|')[0]));
+        localStorage.setItem(taskDeadlineKey(name), JSON.stringify(pruned));
+      } catch (e) {}
+    }
+    function checkTaskDeadlines(name) {
+      if (!name || currentUser !== name || !TASKS || typeof window.popupBox !== 'function') return;
+      const now = Date.now();
+      const shown = getShownTaskDeadlines(name);
+      TASKS.forEach(t => {
+        if (!t || !t._key || !t.due_date || !t.due_time) return;
+        if (normName(t.member) !== normName(name)) return;
+        if (t.status === 'Completed' || t.status === 'Deferred') return;
+        const deadlineMs = new Date(t.due_date + 'T' + t.due_time + ':00').getTime();
+        if (isNaN(deadlineMs)) return;
+        const minsUntil = (deadlineMs - now) / 60000;
+        const label = t.task && t.task.length > 60 ? t.task.slice(0, 60) + '…' : (t.task || 'This task');
+        const brandLine = taskBrandList(t).join(', ');
+        const body = `<b>${lnEsc(label)}</b>${brandLine ? ' · ' + lnEsc(brandLine) : ''}`;
+
+        const warnSig = t._key + '|warn5';
+        if (!shown.has(warnSig) && minsUntil > 0 && minsUntil <= 5) {
+          window.popupBox('task-deadline-pop', '⏰', 'You have to finish this task in the next 5 minutes', body, null);
+          markTaskDeadlineShown(name, warnSig); shown.add(warnSig);
+        }
+
+        const missSig = t._key + '|missed';
+        if (!shown.has(missSig) && minsUntil <= 0) {
+          window.popupBox('task-deadline-pop', '❌', 'You have failed to finish the task in the given time', body, null);
+          markTaskDeadlineShown(name, missSig); shown.add(missSig);
+          if (!t.deadline_missed) fbUpdateTask(TASKS.indexOf(t), { deadline_missed: true });
+        }
+      });
+    }
+    function startTaskDeadlineWatcher(name) {
+      if (window._taskDeadlineInterval) clearInterval(window._taskDeadlineInterval);
+      checkTaskDeadlines(name);
+      window._taskDeadlineInterval = setInterval(() => checkTaskDeadlines(currentUser), 30000);
+    }
+
     function showPage(id, btn) {
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
       document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -20673,6 +20763,10 @@ ${brandLines}`;
       el.querySelector(".go").onclick=close;
       el.querySelector(".pop-x").onclick=close;
     }
+    // Exposed so checkTaskDeadlines() (main script block, where TASKS actually
+    // lives — see that function's own comment) can reuse this same popup UI
+    // instead of duplicating it.
+    window.popupBox = popupBox;
     var MISSED_MSGS=[
       {icon:"&#128683;",title:"Missed hours yesterday",txt:function(){return "You didn’t complete your required <b>"+reqFor(YDAY)+" hours</b> yesterday ("+fmtDate(YDAY)+") — you punched out early. Please note <b>yesterday has been marked as Absent</b>.";}},
       {icon:"&#9888;&#65039;",title:"Reminder — complete your hours today",txt:function(){return "You didn’t complete your required work hours yesterday. <b>Make sure you complete your full "+reqFor(TODAY)+" hours today</b> so today isn’t marked Absent as well.";}},
@@ -20871,7 +20965,7 @@ ${brandLines}`;
       startWipRotation();
       var di=document.getElementById("att-date");
       if(di) di.onchange=function(){ SEL=this.value||TODAY; window.renderAttendanceOverview(); };
-      if(!window._attPopupShown){ window._attPopupShown=true; setTimeout(function(){ _waitForBrandsThenRunPopups(name); },450); scheduleTaskReminders(name); schedulePerfReminders(name); startCallReminderWatcher(name); }
+      if(!window._attPopupShown){ window._attPopupShown=true; setTimeout(function(){ _waitForBrandsThenRunPopups(name); },450); scheduleTaskReminders(name); schedulePerfReminders(name); startCallReminderWatcher(name); if(typeof startTaskDeadlineWatcher==="function") startTaskDeadlineWatcher(name); }
     };
 
     // ===== Pre-call reminders (10 min + 5 min before a synced Google Calendar meeting) =====
