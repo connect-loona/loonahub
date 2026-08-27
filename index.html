@@ -5003,7 +5003,7 @@
           <div class="nt-approval-toggle">
             <div>
               <div class="nat-label">🔔 Loop in Gokul for approval</div>
-              <div class="nat-sub">Also lands on Gokul's board for final sign-off</div>
+              <div class="nat-sub">Shows Gokul as overseeing right away; lands on his board for final sign-off once it's marked Completed</div>
             </div>
             <label class="nt-switch">
               <input type="checkbox" id="nt-loop-gokul">
@@ -8068,6 +8068,12 @@
     let _approvalPendingIdx = null;
     let _approvalPendingStatus = null;
     let _approvalPendingType = 'completion';
+    // Whether the assigned_by side actually needs to weigh in on this
+    // particular confirm (see updateStatus's assignerNeedsToApprove) —
+    // handleDeckConfirm reads this to decide whether to create a real
+    // APPROVAL_REQUESTS entry, or this confirm is happening purely because
+    // Gokul was looped in.
+    let _approvalPendingNeedsAssigner = true;
     let eveningUpdateTimer = null;
 
     // ═══ LOGIN ═══
@@ -13416,30 +13422,49 @@
       const t = TASKS[idx];
       const reqType = _approvalPendingType || 'completion';
       const prevStatus = t.status;
+      const needsAssigner = _approvalPendingNeedsAssigner;
       // Immediately set status to Awaiting
       // submitted_at marks when the assignee actually finished their side of the
       // work — approval (completed_at) can land a day or more later, and the
       // Calendar tab should credit the day the work was done, not the day it
       // happened to get signed off.
-      fbUpdateTask(idx, { status: reqType === 'deferral' ? 'Awaiting Deferral' : 'Awaiting Approval', submitted_at: new Date().toISOString() });
-
-      fbAddApproval({
-        id: Date.now(),
-        taskIdx: idx,
-        taskKey: t._key || null,
-        taskTitle: t.task,
-        member: t.member,
-        assigner: t.assigned_by,
-        brand: t.brand,
-        requestedAt: new Date().toISOString(),
-        status: 'pending',
-        type: reqType,
-        prevStatus: prevStatus
+      // pending_prev_status is only actually read back by gokulDecideTask, for
+      // the case where Gokul's decision is the ONLY approval this task is
+      // waiting on (no separate assigned_by request exists to fall back on).
+      fbUpdateTask(idx, {
+        status: reqType === 'deferral' ? 'Awaiting Deferral' : 'Awaiting Approval',
+        submitted_at: new Date().toISOString(),
+        pending_prev_status: prevStatus,
+        // This is the ONE place looped_in_gokul actually turns into a real,
+        // actionable item on Gokul's "Needs Your Approval" board — not at
+        // task creation (see submitAddTask's comment on why not).
+        ...(t.looped_in_gokul ? { gokul_approval: 'pending' } : {})
       });
 
+      // The assigned_by request/toast only make sense when that person
+      // actually needs to weigh in — a self-assigned task with only Gokul
+      // looped in has no assigned_by approval step at all, just Gokul's.
+      if (needsAssigner) {
+        fbAddApproval({
+          id: Date.now(),
+          taskIdx: idx,
+          taskKey: t._key || null,
+          taskTitle: t.task,
+          member: t.member,
+          assigner: t.assigned_by,
+          brand: t.brand,
+          requestedAt: new Date().toISOString(),
+          status: 'pending',
+          type: reqType,
+          prevStatus: prevStatus
+        });
+      }
+
       document.getElementById('toast-emoji').textContent = '⏳';
-      document.getElementById('toast-msg').textContent = reqType === 'deferral' ? `Deferral request sent to ${t.assigned_by}!` : `Sent for approval to ${t.assigned_by}!`;
-      document.getElementById('toast-sub').textContent = `Awaiting confirmation from ${t.assigned_by}`;
+      document.getElementById('toast-msg').textContent = needsAssigner
+        ? (reqType === 'deferral' ? `Deferral request sent to ${t.assigned_by}!` : `Sent for approval to ${t.assigned_by}!`)
+        : (reqType === 'deferral' ? 'Deferral request sent to Gokul!' : 'Sent to Gokul for final sign-off!');
+      document.getElementById('toast-sub').textContent = needsAssigner ? `Awaiting confirmation from ${t.assigned_by}` : 'Awaiting confirmation from Gokul';
       const toast = document.getElementById('completion-toast');
       toast.classList.add('show');
       setTimeout(() => toast.classList.remove('show'), 3500);
@@ -13600,12 +13625,19 @@
     </div>`;
     }
 
-    // "Loop in Gokul for approval" — separate from the above approval-request
-    // flow (which gates a task's *completion*/*deferral*): this is about a
-    // brand-new task itself needing Gokul's sign-off, flagged right from the
-    // Add Task modal by whoever created it. Lives as a field on the task
-    // record directly (gokul_approval), not in APPROVAL_REQUESTS, since it's
-    // not tied to a status transition — only ever shown to Gokul.
+    // "Loop in Gokul for approval" — a SEPARATE, independent approval gate
+    // from the assigned_by one above, for whoever gets tagged via the Add
+    // Task modal's toggle. Used to flag gokul_approval:'pending' the moment
+    // the task was created — before the assignee had even started it, let
+    // alone finished — which meant it sat in Gokul's "Needs Your Approval"
+    // queue as an item requiring his decision on something that wasn't even
+    // done yet. Now looped_in_gokul (set at creation) just makes him an
+    // overseer (same "👀" visibility everyone else gets); gokul_approval only
+    // actually flips to 'pending' — landing here — once the assignee submits
+    // it as Completed/Deferred, in updateStatus()/handleDeckConfirm(). Lives
+    // as a field on the task record directly (gokul_approval), not in
+    // APPROVAL_REQUESTS, since it's a second, independent decision from
+    // whatever the assigned_by does — only ever shown to Gokul.
     function renderGokulTaskApprovals() {
       const container = document.getElementById('gokul-task-approval-section');
       if (!container) return;
@@ -13632,7 +13664,7 @@
         <div class="approval-row">
           <div class="approval-task">
             <div class="at-name">${lnEsc(t.member || '—')} — ${lnEsc(title)}</div>
-            <div class="at-meta">${lnEsc(taskBrandList(t).join(', ') || '—')} · added by ${lnEsc(t.assigned_by || '—')} · ${t.created_at ? fmtStamp(new Date(t.created_at)) : (t.assigned_on || '')}</div>
+            <div class="at-meta">${lnEsc(taskBrandList(t).join(', ') || '—')} · added by ${lnEsc(t.assigned_by || '—')} · submitted ${t.submitted_at ? fmtStamp(new Date(t.submitted_at)) : (t.created_at ? fmtStamp(new Date(t.created_at)) : (t.assigned_on || ''))}</div>
           </div>
           <button class="btn-approve" onclick="gokulDecideTask(${gi},'approved')">✓ Approve</button>
           <button class="btn-decline" onclick="gokulDecideTask(${gi},'declined')">✕ Decline</button>
@@ -13672,7 +13704,29 @@
     }
 
     function gokulDecideTask(idx, decision) {
-      fbUpdateTask(idx, { gokul_approval: decision });
+      const t = TASKS[idx];
+      const updates = { gokul_approval: decision };
+      // Normally the assigned_by side's own handleApproval() is what resolves
+      // Awaiting Approval/Deferral back to Completed/Deferred/Declined —
+      // Gokul's decision here is a separate, independent record layered on
+      // top. But when there's no assigned_by approval in play at all (a
+      // self-assigned task with only Gokul looped in — see updateStatus's
+      // gokulNeedsToApprove), Gokul's word IS the only word, so his decision
+      // has to be what actually moves the task off Awaiting Approval —
+      // otherwise it would sit there forever with nothing left to resolve it.
+      const stillWaitingOnAssigner = t && APPROVAL_REQUESTS.some(r => r.status === 'pending' && (r.taskKey ? r.taskKey === t._key : r.taskIdx === idx));
+      if (t && !stillWaitingOnAssigner && (t.status === 'Awaiting Approval' || t.status === 'Awaiting Deferral')) {
+        if (decision === 'approved') {
+          const newStat = t.status === 'Awaiting Deferral' ? 'Deferred' : 'Completed';
+          updates.status = newStat;
+          updates[newStat === 'Completed' ? 'completed_at' : 'deferred_at'] = new Date().toISOString();
+        } else if (decision === 'declined') {
+          updates.status = t.status === 'Awaiting Deferral' ? (t.pending_prev_status || 'In Progress') : 'Approval Declined';
+        }
+        updates.pending_prev_status = null;
+      }
+      fbUpdateTask(idx, updates);
+      if (updates.status === 'Completed') { logTaskDelivery(t.member, t.due_date, t.submitted_at || new Date().toISOString()); showCompletionToast(t.member); }
       renderTasks();
       renderOverview();
     }
@@ -16030,7 +16084,12 @@
       // comment in the HTML. Empty for Personal To-Dos (the picker's hidden
       // for those anyway, but ntSelectedOverseers would just return [] since
       // #nt-overseer-rows is reset to a blank row whenever isPersonal).
+      // Looping in Gokul makes him an overseer too (same visibility, same
+      // "👀" badge everyone else already sees) rather than a distinct thing —
+      // see the loopGokul comment below for why he doesn't need real
+      // approval authority yet at this point.
       const overseers = isPersonal ? [] : ntSelectedOverseers(members);
+      if (loopGokul && !overseers.some(o => normName(o) === 'gokul')) overseers.push('Gokul');
       const shared = {
         // brand stays the primary/first pick so every existing single-brand
         // read site keeps working unchanged; brands carries the full list for
@@ -16047,7 +16106,14 @@
         assigned_by: assignedBy,
         overseers,
         isNew: true,
-        ...(loopGokul ? { gokul_approval: 'pending' } : {})
+        // NOT gokul_approval:'pending' here — that used to drop it straight
+        // into Gokul's "Needs Your Approval" queue the instant the task was
+        // created, before anyone had even started it. looped_in_gokul just
+        // marks that he should get a final sign-off once the work is
+        // actually done; handleDeckConfirm() is what flips this over to a
+        // real gokul_approval:'pending' request, at the same moment the
+        // assignee submits it for their own assigner's approval.
+        ...(loopGokul ? { looped_in_gokul: true } : {})
       };
       // One independent task record per assignee — tasks are stored flat
       // with a single `member` field each, so "assign to everyone at once"
@@ -16198,8 +16264,9 @@
       const oldStatus = t.status;
 
       const assignedBy = (t.assigned_by || '').trim();
-      const needsAssignerApproval =
-        (newStatus === 'Completed' || newStatus === 'Deferred') &&
+      const isCompleteOrDefer = (newStatus === 'Completed' || newStatus === 'Deferred') && normName(t.member) === normName(currentUser) && !t.is_personal;
+      const assignerNeedsToApprove =
+        isCompleteOrDefer &&
         assignedBy !== '' &&
         assignedBy.toLowerCase() !== 'myself' &&
         assignedBy.toLowerCase() !== 'me' &&
@@ -16210,14 +16277,20 @@
         // calendar-invite task type skips approval; task board items pushed
         // from Loona Notes action items still go through the normal flow.
         assignedBy.toLowerCase() !== 'google calendar' &&
-        normName(assignedBy) !== normName(currentUser) &&
-        normName(t.member) === normName(currentUser) &&
-        !t.is_personal;
+        normName(assignedBy) !== normName(currentUser);
+      // Looped in at creation (see submitAddTask) — Gokul needs his own,
+      // independent final sign-off once the work is actually submitted, on
+      // top of whatever the assigned_by approval above already requires (or
+      // even if there isn't one, e.g. a self-assigned task with only Gokul
+      // overseeing it — see gokulDecideTask for how that case still resolves
+      // status instead of getting stuck in Awaiting Approval forever).
+      const gokulNeedsToApprove = isCompleteOrDefer && !!t.looped_in_gokul;
 
-      if (needsAssignerApproval) {
+      if (assignerNeedsToApprove || gokulNeedsToApprove) {
         _approvalPendingIdx = idx;
         _approvalPendingStatus = newStatus;
         _approvalPendingType = newStatus === 'Deferred' ? 'deferral' : 'completion';
+        _approvalPendingNeedsAssigner = assignerNeedsToApprove;
         showDeckConfirm(idx, _approvalPendingType);
         return;
       }
