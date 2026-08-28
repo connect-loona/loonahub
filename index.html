@@ -20892,8 +20892,8 @@ ${brandLines}`;
     }
     function showLatePopup(name,next){
       var a=ATT[name]||DEFAULT;
-      popupBox("late-pop","&#9200;","You’re running late",
-        "You punched in at <b>"+esc(a.in)+"</b>, past the <b>10:10 am</b> grace window.<br>The first <b>4 late days</b> each month are free — every one after that adds a <b>&#8377;200</b> late fee. You have <b>"+a.monthLate+"</b> this month.",
+      popupBox("late-pop","&#9200;","You are late today",
+        "Please be mindful of the late fee and disciplinary actions.<br><br>You punched in at <b>"+esc(a.in)+"</b>, past the <b>10:10 am</b> grace window.<br>The first <b>4 late days</b> each month are free — every one after that adds a <b>&#8377;200</b> late fee. You have <b>"+a.monthLate+"</b> this month.",
         next);
     }
     function showPendingPopup(name,count,next){
