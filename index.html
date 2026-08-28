@@ -19116,6 +19116,8 @@ ${brandLines}`;
     <div style="background:#1a1a1a;border:1px solid #333;border-radius:14px;padding:26px;width:440px;max-width:92vw;box-shadow:0 24px 80px #000a">
       <h3 style="color:#fff;margin:0 0 8px;font-size:18px">🌴 Apply for Leave</h3>
       <div style="font-size:12px;color:#888;margin-bottom:16px" id="leave-balance-note"></div>
+      <label style="display:block;font-size:12px;color:#888;margin-bottom:6px">Message *</label>
+      <textarea id="leave-reason" placeholder="Why are you taking leave?" style="width:100%;min-height:70px;background:#111;border:1px solid #444;border-radius:8px;color:#d0d0d0;padding:10px 12px;font-family:inherit;font-size:13px;box-sizing:border-box;resize:vertical;margin-bottom:16px"></textarea>
       <div style="display:flex;gap:10px">
         <div style="flex:1">
           <label style="display:block;font-size:12px;color:#888;margin-bottom:6px">From</label>
@@ -19123,16 +19125,15 @@ ${brandLines}`;
         </div>
         <div style="flex:1">
           <label style="display:block;font-size:12px;color:#888;margin-bottom:6px">To</label>
-          <input type="date" id="leave-to" style="width:100%;background:#111;border:1px solid #444;border-radius:8px;color:#d0d0d0;padding:10px 12px;font-family:inherit;font-size:13px;box-sizing:border-box;margin-bottom:14px">
+          <input type="date" id="leave-to" onchange="onLeaveToChange()" style="width:100%;background:#111;border:1px solid #444;border-radius:8px;color:#d0d0d0;padding:10px 12px;font-family:inherit;font-size:13px;box-sizing:border-box;margin-bottom:14px">
         </div>
       </div>
-      <label style="display:block;font-size:12px;color:#888;margin-bottom:6px">Reason *</label>
-      <textarea id="leave-reason" placeholder="Why are you taking leave?" style="width:100%;min-height:70px;background:#111;border:1px solid #444;border-radius:8px;color:#d0d0d0;padding:10px 12px;font-family:inherit;font-size:13px;box-sizing:border-box;resize:vertical"></textarea>
+      <div id="leave-warning" style="display:none;font-size:11.5px;color:#f0b03f;background:rgba(240,176,63,.1);border:1px solid rgba(240,176,63,.3);border-radius:8px;padding:8px 10px;margin-bottom:8px;line-height:1.5"></div>
       <div id="leave-error" style="display:none;font-size:11.5px;color:#e05c5c;margin-top:8px"></div>
       <div style="font-size:11px;color:#666;margin-top:8px">Sundays and holidays in the range aren't counted. This goes to Gokul for approval — it'll show as "On Leave" on your calendar once approved.</div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
         <button onclick="closeLeaveModal()" style="background:transparent;border:1px solid #444;color:#888;padding:8px 18px;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit">Cancel</button>
-        <button onclick="submitLeaveRequest()" style="background:var(--accent);border:none;color:#000;padding:8px 22px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Submit Request</button>
+        <button onclick="submitLeaveRequest()" style="background:var(--accent);border:none;color:#000;padding:8px 22px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Send for Approval</button>
       </div>
     </div>
   </div>
@@ -20616,7 +20617,7 @@ ${brandLines}`;
         rightInner=perfCardHTML(name)+teamLeaderboard(name)+lateFeeBar(name)+renderMyLeaveRequests(name);
       }
       return ''+
-      '<div class="att-head">&#128197; My Attendance '+pill(rec.status)+'<button onclick="openLeaveModal()" style="margin-left:auto;background:rgba(120,180,255,.15);border:1px solid rgba(120,180,255,.35);color:#78b4ff;padding:6px 14px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;font-family:var(--font);text-transform:none;letter-spacing:normal">&#127796; Apply for Leave</button></div>'+
+      '<div class="att-head">&#128197; My Attendance '+pill(rec.status)+'</div>'+
       '<div class="att-2col">'+
         '<div class="att-leftwrap">'+
         '<div class="att-leftcol">'+leftInner+'</div>'+
@@ -21810,20 +21811,37 @@ ${brandLines}`;
       }
       return out;
     }
+    function leaveBalanceLeft(){ return Math.round((earnedLeave(currentUser)-approvedLeaves(currentUser))*100)/100; }
+    // Re-run on open and on every date change: doesn't block submission, just
+    // flags up front that THIS particular request (given what's left of the
+    // year's balance) will land as unpaid rather than paid leave.
+    function updateLeaveWarning(){
+      var w=document.getElementById("leave-warning");
+      var left=leaveBalanceLeft();
+      var from=document.getElementById("leave-from").value, to=document.getElementById("leave-to").value;
+      var requested=(from && to && to>=from) ? leaveDatesInRange(from,to).length : 0;
+      if(left<=0 || requested>left){
+        w.textContent="You don't have sufficient leave balance to apply for paid leave, so please know this will be an unpaid leave and will be subjected to salary deductions.";
+        w.style.display="block";
+      } else { w.style.display="none"; }
+    }
     window.openLeaveModal=function(){
       var f=document.getElementById("leave-from"), t=document.getElementById("leave-to");
       f.value=TODAY; f.min=TODAY; t.value=TODAY; t.min=TODAY;
       document.getElementById("leave-reason").value="";
       document.getElementById("leave-error").style.display="none";
-      var left=Math.round((earnedLeave(currentUser)-approvedLeaves(currentUser))*100)/100;
+      var left=leaveBalanceLeft();
       document.getElementById("leave-balance-note").textContent="You have "+left+" day"+(left===1?"":"s")+" of leave left this year.";
+      updateLeaveWarning();
       document.getElementById("leave-modal").style.display="flex";
     };
     window.closeLeaveModal=function(){ document.getElementById("leave-modal").style.display="none"; };
     window.onLeaveFromChange=function(){
       var f=document.getElementById("leave-from").value, t=document.getElementById("leave-to");
       t.min=f; if(t.value<f) t.value=f;
+      updateLeaveWarning();
     };
+    window.onLeaveToChange=function(){ updateLeaveWarning(); };
     window.submitLeaveRequest=function(){
       var from=document.getElementById("leave-from").value, to=document.getElementById("leave-to").value;
       var reason=document.getElementById("leave-reason").value.trim();
@@ -21831,7 +21849,7 @@ ${brandLines}`;
       function fail(msg){ err.textContent=msg; err.style.display="block"; }
       if(!from||!to) return fail("Pick both dates.");
       if(to<from) return fail("“To” can’t be before “From”.");
-      if(!reason) return fail("Add a reason.");
+      if(!reason) return fail("Add a message.");
       if(!leaveDatesInRange(from,to).length) return fail("That range is all Sundays/holidays — nothing to request.");
       var req={member:currentUser, from_date:from, to_date:to, reason:reason, status:"pending", requested_at:new Date().toISOString()};
       if(_perfReady){ firebase.database().ref("leave_requests").push(req); }
@@ -21858,18 +21876,27 @@ ${brandLines}`;
     function renderMyLeaveRequests(name){
       var mine=LEAVE_REQUESTS.filter(function(r){return normName(r.member)===normName(name);})
         .sort(function(a,b){return (b.requested_at||"").localeCompare(a.requested_at||"");});
-      if(!mine.length) return "";
-      var rows=mine.map(function(r){
-        var badge = r.status==="pending" ? '<span style="color:var(--yellow)">&#9203; Pending</span>'
-          : r.status==="approved" ? '<span style="color:var(--green)">&#10003; Approved</span>'
-          : '<span style="color:var(--red)">&#10007; Declined</span>';
-        var range = r.from_date===r.to_date ? fmtDate(r.from_date) : fmtDate(r.from_date)+" – "+fmtDate(r.to_date);
-        var cancelBtn = r.status==="pending" ? '<button onclick="cancelLeaveRequest(&quot;'+r._key+'&quot;)" style="background:none;border:none;color:#666;cursor:pointer;font-size:12px;font-family:inherit">Withdraw</button>' : '';
-        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);gap:10px">'+
-          '<div><div style="font-size:12.5px;font-weight:600">'+esc(range)+'</div><div style="font-size:11px;color:var(--muted)">'+esc(r.reason||"")+'</div></div>'+
-          '<div style="display:flex;align-items:center;gap:8px;font-size:11.5px;white-space:nowrap">'+badge+cancelBtn+'</div></div>';
-      }).join("");
-      return '<div style="margin-top:14px"><div class="t">&#128203; My Leave Requests</div>'+rows+'</div>';
+      var body;
+      if(!mine.length){
+        body='<div style="font-size:11.5px;color:var(--muted);padding:4px 0 2px">No leave requests yet.</div>';
+      } else {
+        body=mine.map(function(r){
+          var badge = r.status==="pending" ? '<span style="color:var(--yellow)">&#9203; Pending</span>'
+            : r.status==="approved" ? '<span style="color:var(--green)">&#10003; Approved</span>'
+            : '<span style="color:var(--red)">&#10007; Declined</span>';
+          var range = r.from_date===r.to_date ? fmtDate(r.from_date) : fmtDate(r.from_date)+" – "+fmtDate(r.to_date);
+          var cancelBtn = r.status==="pending" ? '<button onclick="cancelLeaveRequest(&quot;'+r._key+'&quot;)" style="background:none;border:none;color:#666;cursor:pointer;font-size:12px;font-family:inherit">Withdraw</button>' : '';
+          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);gap:10px">'+
+            '<div><div style="font-size:12.5px;font-weight:600">'+esc(range)+'</div><div style="font-size:11px;color:var(--muted)">'+esc(r.reason||"")+'</div></div>'+
+            '<div style="display:flex;align-items:center;gap:8px;font-size:11.5px;white-space:nowrap">'+badge+cancelBtn+'</div></div>';
+        }).join("");
+      }
+      // The "Apply for Leave" button lives here now (below the Fines bar
+      // this section always renders under — see personalCard()) rather than
+      // up in the att-head, so it and the requester's own request history
+      // sit together.
+      var btn='<button onclick="openLeaveModal()" style="margin-left:auto;background:rgba(120,180,255,.15);border:1px solid rgba(120,180,255,.35);color:#78b4ff;padding:5px 12px;border-radius:8px;font-size:11.5px;cursor:pointer;font-weight:600;font-family:var(--font);text-transform:none;letter-spacing:normal">&#127796; Apply for Leave</button>';
+      return '<div style="margin-top:14px"><div class="t">&#128203; My Leave Requests'+btn+'</div>'+body+'</div>';
     }
     // Gokul-only — every pending leave request across the whole team, shown
     // on the founder board (see founderBoard()) same as the Daily/Monthly
