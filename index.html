@@ -19114,8 +19114,7 @@ ${brandLines}`;
   <!-- Apply for Leave Modal -->
   <div id="leave-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;align-items:center;justify-content:center" onclick="if(event.target===this)closeLeaveModal()">
     <div style="background:#1a1a1a;border:1px solid #333;border-radius:14px;padding:26px;width:440px;max-width:92vw;box-shadow:0 24px 80px #000a">
-      <h3 style="color:#fff;margin:0 0 8px;font-size:18px">🌴 Apply for Leave</h3>
-      <div style="font-size:12px;color:#888;margin-bottom:16px" id="leave-balance-note"></div>
+      <h3 style="color:#fff;margin:0 0 16px;font-size:18px">🌴 Apply for Leave</h3>
       <div style="display:flex;gap:10px">
         <div style="flex:1">
           <label style="display:block;font-size:12px;color:#888;margin-bottom:6px">From</label>
@@ -21830,8 +21829,6 @@ ${brandLines}`;
       f.value=TODAY; f.min=TODAY; t.value=TODAY; t.min=TODAY;
       document.getElementById("leave-reason").value="";
       document.getElementById("leave-error").style.display="none";
-      var left=leaveBalanceLeft();
-      document.getElementById("leave-balance-note").textContent="You have "+left+" day"+(left===1?"":"s")+" of leave left this year.";
       updateLeaveWarning();
       document.getElementById("leave-modal").style.display="flex";
     };
