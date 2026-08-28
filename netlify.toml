@@ -40,6 +40,15 @@
 [functions."brand-of-day"]
   schedule = "30 18 * * *"
 
+# Monthly content plan, prepared a month ahead — on the 1st, "<Next Month>
+# Plan for <Brand>" (due the 10th); on the 10th, "Share the <Next Month>
+# Plan with <Brand>" (due the 17th), one per retainer brand's strategy
+# lead(s). Runs daily (it no-ops itself on every other day) — 18:35 UTC =
+# 00:05 IST, just after brand-of-day so the two don't fire in the same
+# minute.
+[functions."monthly-plan-tasks"]
+  schedule = "35 18 * * *"
+
 # Pulls each team member's calendar (via Workspace domain-wide delegation) into
 # Firebase and auto-creates a "Meeting: ..." task per known attendee. Runs every
 # 5 minutes as a background safety net (Calendar API's free quota is far higher
