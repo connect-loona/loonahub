@@ -15339,19 +15339,18 @@
       const lbl = document.getElementById('monthly-plan-month-label');
       if (!el) return;
       const now = new Date();
-      // Try current month first, fallback to next month
-      const fmtMonth = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       const monthName = d => d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
-      let monthStr = fmtMonth(now);
-      let autoTasks = TASKS.filter(t => t.is_auto && t.due_date && t.due_date.slice(0, 7) === monthStr);
-      if (!autoTasks.length) {
-        const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-        monthStr = fmtMonth(next);
-        autoTasks = TASKS.filter(t => t.is_auto && t.due_date && t.due_date.slice(0, 7) === monthStr);
-        if (lbl) lbl.textContent = monthName(next);
-      } else {
-        if (lbl) lbl.textContent = monthName(now);
-      }
+      // Retainer brands are planned a month ahead (see monthly-plan-tasks.js)
+      // — this always tracks NEXT month's plan, not whichever month happens
+      // to have auto-tasks due. Filtering on plan_month (a field only those
+      // auto-tasks carry) rather than inferring from due_date also means
+      // this can't get confused by other is_auto tasks (calendar-synced
+      // meetings, brand-of-day) that have nothing to do with content
+      // planning but happen to be due the same month.
+      const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const monthStr = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`;
+      const autoTasks = TASKS.filter(t => t.plan_month === monthStr);
+      if (lbl) lbl.textContent = monthName(next);
       // Group by brand
       const bMap = {};
       autoTasks.forEach(t => {
