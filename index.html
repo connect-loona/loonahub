@@ -20831,6 +20831,7 @@ ${brandLines}`;
       }).join("");
       return ''+
       '<div class="att-founder-badge"><span class="em">&#129409;</span> <b>Gokul</b> <span style="color:var(--accent2)">('+esc(ATT.Gokul.code)+')</span> &middot; '+daysAt(ATT.Gokul.joinDate)+' days building Loona</div>'+
+      renderUnapprovedAbsenceNotice()+
       renderLeaveApprovalQueue()+
       '<div class="att-board">'+
         '<div class="bh">&#128197; Daily Overview <span class="tag">Founder only</span></div>'+
@@ -22056,6 +22057,42 @@ ${brandLines}`;
       // heading, per how the user wants it kept — is always reachable.
       var btn='<button onclick="openLeaveModal()" style="margin-left:auto;background:rgba(120,180,255,.15);border:1px solid rgba(120,180,255,.35);color:#78b4ff;padding:5px 12px;border-radius:8px;font-size:11.5px;cursor:pointer;font-weight:600;font-family:var(--font);text-transform:none;letter-spacing:normal">&#127796; Apply for Leave</button>';
       return '<div style="margin-top:14px"><div class="t">&#128203; My Leave Requests'+btn+'</div>'+body+'</div>';
+    }
+    // Gokul-only, checked once per day: yesterday's no-punch absences that
+    // nobody pre-approved as leave. Deliberately doesn't auto-deduct
+    // anything (see decideLeaveRequest/perfExcuse — those stay the only
+    // things that ever touch the leave balance) — this just surfaces it so
+    // Gokul can manually decide via the existing Approve-leave toggle
+    // (attShowAbsent), same review he'd already do from the Monthly
+    // Overview table, just brought to him proactively instead of only on
+    // request. Scoped to yesterday only, not a running backlog — if it's
+    // not acted on, it quietly drops off tomorrow (the absence itself is
+    // still there in the Absent count regardless).
+    function unapprovedYdayAbsences(){
+      var names=Object.keys(ATT).filter(function(n){
+        return n!=="Gokul" &&
+          (typeof ALL_MEMBERS==="undefined" || ALL_MEMBERS.indexOf(n)>=0) &&
+          (typeof INACTIVE_MEMBERS==="undefined" || !INACTIVE_MEMBERS.has(n));
+      });
+      return names.filter(function(n){
+        var rec=LIVEDAYS[n]&&LIVEDAYS[n][YDAY];
+        return rec && rec.status==="absent" && rec.im==null && !(PERF_EXC[n]&&PERF_EXC[n][YDAY]);
+      });
+    }
+    function renderUnapprovedAbsenceNotice(){
+      if(currentUser!=="Gokul") return "";
+      var flagged=unapprovedYdayAbsences();
+      if(!flagged.length) return "";
+      var mo=YDAY.slice(0,7);
+      var rows=flagged.map(function(n){
+        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);gap:10px">'+
+          '<div><b>'+esc(n)+'</b> &middot; no punch recorded on '+fmtDate(YDAY)+', no leave was allotted</div>'+
+          '<button onclick="window.attShowAbsent(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)" style="background:rgba(240,176,63,.12);border:1px solid rgba(240,176,63,.35);color:#f0b03f;padding:5px 12px;border-radius:6px;font-size:11.5px;cursor:pointer;font-weight:600;font-family:inherit;flex-shrink:0">Review &amp; Decide</button></div>';
+      }).join("");
+      return '<div class="att-board">'+
+        '<div class="bh">&#128276; Unapproved Absences <span class="tag">'+flagged.length+' from yesterday</span></div>'+
+        rows+
+      '</div>';
     }
     // Gokul-only — every pending leave request across the whole team, shown
     // on the founder board (see founderBoard()) same as the Daily/Monthly
