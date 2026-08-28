@@ -21916,12 +21916,22 @@ ${brandLines}`;
     function leaveDatesForRequest(from,to){
       return noticeDays(from)<LEAVE_NOTICE_DAYS ? allDatesInRange(from,to) : leaveDatesInRange(from,to);
     }
-    var CONSECUTIVE_LEAVE_CAP=4; // policy: beyond this many consecutive days in one request needs Gokul's special approval, not just the usual review
+    var CONSECUTIVE_LEAVE_CAP=4;   // policy: a request spanning this many CALENDAR days or more always needs management approval
+    var CAP_NOTICE_DAYS=14;        // policy: and should be submitted at least this many days ahead
+    // Calendar-day span of the range, inclusive — deliberately NOT the
+    // charged/working-day count (leaveDatesForRequest): the cap is defined
+    // against "4 or more consecutive calendar days...regardless of whether a
+    // Sunday, Saturday, or public holiday falls within it," so a Fri-Mon
+    // request is a 4-day span for cap purposes even though only 3 (or 4,
+    // under short notice) of those days actually get charged.
+    function calendarSpanDays(from,to){ return Math.round((new Date(to+"T00:00:00")-new Date(from+"T00:00:00"))/86400000)+1; }
     function leaveBalanceLeft(){ return Math.round((earnedLeave(currentUser)-approvedLeaves(currentUser))*100)/100; }
-    // Re-run on open and on every date change: neither notice blocks
-    // submission, they just flag upfront (a) that this request will land as
-    // unpaid given the balance left, and/or (b) that it's over the standard
-    // 4-consecutive-day cap and will need Gokul's special sign-off.
+    // Re-run on open and on every date change: none of these notices block
+    // submission (probation is the one exception, handled separately above)
+    // — they just flag upfront (a) that this request will land as unpaid
+    // given the balance left, and/or (b) that it's a 4+ calendar-day span
+    // needing Gokul's special approval, called out harder if it's also
+    // short notice.
     function updateLeaveNotices(){
       var probation=isOnProbation(currentUser);
       document.getElementById("leave-probation-note").style.display=probation?"block":"none";
@@ -21937,8 +21947,12 @@ ${brandLines}`;
         w.textContent="You don't have sufficient leave balance to apply for paid leave, so please know this will be an unpaid leave and will be subjected to salary deductions.";
         w.style.display="block";
       } else { w.style.display="none"; }
-      if(valid && days.length>CONSECUTIVE_LEAVE_CAP){
-        capNote.textContent="This is "+days.length+" consecutive days — leave over "+CONSECUTIVE_LEAVE_CAP+" days needs Gokul's special approval, or split it into shorter requests.";
+      var span=valid ? calendarSpanDays(from,to) : 0;
+      if(valid && span>=CONSECUTIVE_LEAVE_CAP){
+        var notice=noticeDays(from);
+        capNote.textContent = notice<CAP_NOTICE_DAYS
+          ? "This is a "+span+"-day request with only "+Math.max(0,notice)+" day"+(notice===1?"":"s")+"' notice — requests of "+CONSECUTIVE_LEAVE_CAP+"+ days need Gokul's special approval and should be submitted at least "+CAP_NOTICE_DAYS+" days ahead."
+          : "This is a "+span+"-day request — requests of "+CONSECUTIVE_LEAVE_CAP+"+ days need Gokul's special approval.";
         capNote.style.display="block";
       } else { capNote.style.display="none"; }
     }
@@ -21975,7 +21989,9 @@ ${brandLines}`;
       // given is measured against today, not whenever Gokul gets around to
       // deciding it.
       var chargeDates=leaveDatesForRequest(from,to);
-      var req={member:currentUser, from_date:from, to_date:to, reason:reason, status:"pending", requested_at:new Date().toISOString(), charge_dates:chargeDates};
+      var span=calendarSpanDays(from,to);
+      var req={member:currentUser, from_date:from, to_date:to, reason:reason, status:"pending", requested_at:new Date().toISOString(),
+        charge_dates:chargeDates, calendar_days:span, days_since_submission:noticeDays(from), requires_management_approval:span>=CONSECUTIVE_LEAVE_CAP};
       if(_perfReady){ firebase.database().ref("leave_requests").push(req); }
       else { req._key="local_"+Date.now(); LEAVE_REQUESTS.push(req); perfRerender(); }
       window.closeLeaveModal();
@@ -22002,6 +22018,20 @@ ${brandLines}`;
       if(_perfReady){ firebase.database().ref("leave_requests/"+key).update(updates); }
       else { Object.assign(req,updates); perfRerender(); }
     };
+    // Gokul-only, on an already-approved leave record — an emergency work
+    // situation can come up whether the leave hasn't started yet or is
+    // already underway, so this doesn't check dates either way: every day
+    // originally charged gets credited straight back (un-excused), exactly
+    // undoing what decideLeaveRequest's approval branch did.
+    window.cancelApprovedLeave=function(key){
+      if(currentUser!=="Gokul") return;
+      var req=LEAVE_REQUESTS.find(function(r){return r._key===key;}); if(!req||req.status!=="approved") return;
+      if(!confirm("Cancel "+req.member+"'s approved leave and credit the days back to their balance?")) return;
+      chargeDatesFor(req).forEach(function(ds){ setPerfExcused(req.member,ds,false); });
+      var updates={status:"cancelled", cancelled_by:currentUser, cancelled_at:new Date().toISOString()};
+      if(_perfReady){ firebase.database().ref("leave_requests/"+key).update(updates); }
+      else { Object.assign(req,updates); perfRerender(); }
+    };
     function renderMyLeaveRequests(name){
       var mine=LEAVE_REQUESTS.filter(function(r){return normName(r.member)===normName(name);})
         .sort(function(a,b){return (b.requested_at||"").localeCompare(a.requested_at||"");});
@@ -22012,6 +22042,7 @@ ${brandLines}`;
         body=mine.map(function(r){
           var badge = r.status==="pending" ? '<span style="color:var(--yellow)">&#9203; Pending</span>'
             : r.status==="approved" ? '<span style="color:var(--green)">&#10003; Approved</span>'
+            : r.status==="cancelled" ? '<span style="color:var(--red)">&#8416; Cancelled</span>'
             : '<span style="color:var(--red)">&#10007; Declined</span>';
           var range = r.from_date===r.to_date ? fmtDate(r.from_date) : fmtDate(r.from_date)+" – "+fmtDate(r.to_date);
           var cancelBtn = r.status==="pending" ? '<button onclick="cancelLeaveRequest(&quot;'+r._key+'&quot;)" style="background:none;border:none;color:#666;cursor:pointer;font-size:12px;font-family:inherit">Withdraw</button>' : '';
@@ -22032,11 +22063,24 @@ ${brandLines}`;
     function renderLeaveApprovalQueue(){
       if(currentUser!=="Gokul") return "";
       var pending=LEAVE_REQUESTS.filter(function(r){return r.status==="pending";});
-      if(!pending.length) return "";
+      // Only approved leave that hasn't fully passed yet — upcoming or
+      // still ongoing — is worth surfacing here for a possible emergency
+      // cancellation; nothing to do about an already-completed one.
+      var approvedActive=LEAVE_REQUESTS.filter(function(r){return r.status==="approved" && r.to_date>=TODAY;})
+        .sort(function(a,b){return a.from_date.localeCompare(b.from_date);});
+      if(!pending.length && !approvedActive.length) return "";
       var rows=pending.map(function(r){
         var range = r.from_date===r.to_date ? fmtDate(r.from_date) : fmtDate(r.from_date)+" – "+fmtDate(r.to_date);
         var days=chargeDatesFor(r).length;
-        var capFlag = days>CONSECUTIVE_LEAVE_CAP ? ' <span style="color:#f0b03f">&middot; exceeds '+CONSECUTIVE_LEAVE_CAP+"-day cap, needs special approval</span>" : "";
+        // Older requests from before these fields existed fall back to
+        // computing them fresh — span/notice can't have changed since
+        // submission for a request that's still sitting pending.
+        var span = r.calendar_days!=null ? r.calendar_days : calendarSpanDays(r.from_date,r.to_date);
+        var notice = r.days_since_submission!=null ? r.days_since_submission : noticeDays(r.from_date);
+        var needsApproval = r.requires_management_approval!=null ? r.requires_management_approval : span>=CONSECUTIVE_LEAVE_CAP;
+        var capFlag = !needsApproval ? "" : (notice<CAP_NOTICE_DAYS
+          ? ' <span style="color:#f0b03f">&middot; '+span+'-day span, only '+Math.max(0,notice)+'d notice — needs special approval</span>'
+          : ' <span style="color:#9fc0f0">&middot; '+span+'-day span — needs management approval</span>');
         return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);gap:10px">'+
           '<div><b>'+esc(r.member)+'</b> &middot; '+esc(range)+' ('+days+' day'+(days===1?"":"s")+')'+capFlag+'<div style="font-size:11.5px;color:var(--muted);font-style:italic">“'+esc(r.reason||"")+'”</div></div>'+
           '<div style="display:flex;gap:6px;flex-shrink:0">'+
@@ -22044,9 +22088,17 @@ ${brandLines}`;
             '<button onclick="decideLeaveRequest(&quot;'+r._key+'&quot;,&quot;declined&quot;)" style="background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);color:#e05c5c;padding:5px 12px;border-radius:6px;font-size:11.5px;cursor:pointer;font-weight:600;font-family:inherit">&#10007; Decline</button>'+
           '</div></div>';
       }).join("");
+      var activeRows=approvedActive.map(function(r){
+        var range = r.from_date===r.to_date ? fmtDate(r.from_date) : fmtDate(r.from_date)+" – "+fmtDate(r.to_date);
+        var when = r.from_date>TODAY ? "upcoming" : "ongoing";
+        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);gap:10px">'+
+          '<div><b>'+esc(r.member)+'</b> &middot; '+esc(range)+' ('+when+')<div style="font-size:11.5px;color:var(--muted);font-style:italic">“'+esc(r.reason||"")+'”</div></div>'+
+          '<button onclick="cancelApprovedLeave(&quot;'+r._key+'&quot;)" style="background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);color:#e05c5c;padding:5px 12px;border-radius:6px;font-size:11.5px;cursor:pointer;font-weight:600;font-family:inherit;flex-shrink:0">Cancel</button></div>';
+      }).join("");
       return '<div class="att-board">'+
         '<div class="bh">&#127796; Leave Requests <span class="tag">'+pending.length+' pending</span></div>'+
         rows+
+        (approvedActive.length ? '<div style="margin:14px 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)">Approved &middot; cancel if an emergency comes up</div>'+activeRows : "")+
       '</div>';
     }
     window.attForgiveLate=function(name,date,mo){
