@@ -34,7 +34,6 @@ const OFFICIAL_HOLIDAYS = [
   { date: "2026-10-20", name: "Dussehra" },
   { date: "2026-11-08", name: "Diwali (Laxmi Pujan)" },
   { date: "2026-11-09", name: "Diwali Day 2" },
-  { date: "2026-11-11", name: "Bhai Dooj" },
   { date: "2026-12-25", name: "Christmas Day" },
   { date: "2027-01-01", name: "New Year's Day" },
   { date: "2027-01-26", name: "Republic Day" },
