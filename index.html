@@ -21914,12 +21914,19 @@ ${brandLines}`;
       if(_perfReady){ try{ firebase.database().ref("loona_perf_adjust/"+mo+"/"+name).set(cur); }catch(e){} }
       perfRerender();
     };
-    // Only no-punch days count as leave taken (short-hours/half-days are fined, not leave — see totalFine()).
-    // A future date obviously has no punch recorded yet (the day hasn't happened) — treated as a
-    // no-punch day too, so an approved-in-advance leave request (see decideLeaveRequest()) counts
-    // against the balance immediately instead of only once that day passes and LIVEDAYS catches up.
-    function isNoPunchDay(name,ds){ var r=LIVEDAYS[name]&&LIVEDAYS[name][ds]; if(r) return r.im==null; return ds>TODAY; }
-    function approvedLeaves(name){ var e=PERF_EXC[name]||{}; return Object.keys(e).filter(function(d){return e[d]&&isNoPunchDay(name,d);}).length; }
+    // PERF_EXC is the single source of truth for "this date counts as
+    // approved leave" — trusted at face value here, with no corroborating
+    // real-attendance check. There used to be one (requiring the date to
+    // either be in the future, or have a real LIVEDAYS record showing no
+    // punch) — that broke down for two real cases: a Sunday/holiday
+    // sandwiched onto a leave request has no LIVEDAYS entry at all (it's
+    // not a working day), and a backdated/historical leave import can't
+    // rely on attendance sync agreeing with it. Every path that sets
+    // PERF_EXC (perfExcuse's UI, which only ever offers it for genuine
+    // no-punch absences; decideLeaveRequest's approval; the leave history
+    // import) already represents an authoritative decision that the day
+    // counts — nothing legitimate needs a second opinion from LIVEDAYS.
+    function approvedLeaves(name){ var e=PERF_EXC[name]||{}; return Object.keys(e).filter(function(d){return e[d];}).length; }
     function approvedLeavesMo(name,mo){ mo=mo||curMonth(); var e=PERF_EXC[name]||{}; return Object.keys(e).filter(function(d){return e[d]&&d.slice(0,7)===mo;}).length; }
     // TOTAL_LEAVE (15) accrues pro-rata across the financial year (Apr-Mar) — 1.25 days per completed
     // month since the later of the FY start or the employee's join date, capped at TOTAL_LEAVE.
@@ -21961,7 +21968,7 @@ ${brandLines}`;
     function cumulativeApprovedThrough(name,fyStart,mo){
       var e=PERF_EXC[name]||{};
       return Object.keys(e).filter(function(d){
-        return e[d] && isNoPunchDay(name,d) && d.slice(0,7)>=fyStart && d.slice(0,7)<=mo;
+        return e[d] && d.slice(0,7)>=fyStart && d.slice(0,7)<=mo;
       }).length;
     }
     function unpaidLeaveDaysForMonth(name,mo){
