@@ -6548,24 +6548,28 @@
 
             <div class="lc-sub">
               <div class="lc-sub-h"><span class="lc-sub-title">Requesting Leave</span></div>
-              <p>All leave requests must be applied for through the Loona dashboard. The final decision on any leave request rests entirely with management.</p>
-              <p>A request spanning <b>4 or more consecutive calendar days</b> — regardless of whether a Sunday, Saturday, or public holiday falls within it — requires management approval and must be submitted <b>at least 2 weeks in advance</b>.</p>
-              <p>A 1- or 2-day request should be submitted <b>at least 2 days in advance</b>, to avoid last-minute leave. Applying for today or tomorrow makes approval highly unlikely — and if it is approved anyway, it will be treated as unpaid leave.</p>
+              <p>All leave requests must be applied for through the Loona dashboard, as Standard Leave, Sick Leave, or WFH. The final decision on any leave request rests entirely with management.</p>
+              <p>How much notice you need depends on the <b>total days counted as leave</b> — your selected dates, plus any Sunday or public holiday touching them (see below):</p>
+              <ul>
+                <li><b>1–2 days</b>: at least <b>24 hours'</b> notice</li>
+                <li><b>3–4 days</b>: at least <b>7 days'</b> notice</li>
+                <li><b>5+ days</b>: at least <b>14 days'</b> notice</li>
+              </ul>
+              <p>Requests that don't meet their notice period will need management's special approval and, if approved, will be counted as unpaid leave.</p>
             </div>
 
             <div class="lc-sub">
               <div class="lc-sub-h"><span class="lc-sub-title">Weekends &amp; Holidays Inside a Leave Request</span></div>
-              <p>Sundays and public holidays inside a leave request are normally free — they don't count against your balance. Saturdays are working days and do count, unless they fall within a request made with enough notice, as shown below. If the request is made with <b>less than 7 days' notice</b>, the intervening Saturday, Sunday, or holiday will also be counted as part of the leave taken.</p>
-              <p class="lc-note">Example: You apply for leave for a Friday, Saturday, and the following Monday (3 working days), with Sunday falling in between as your weekly off.</p>
+              <p>Any Sunday or public holiday <b>inside</b> your selected dates, or sitting <b>immediately before or after them</b>, is always counted as part of the leave taken — regardless of how much notice you gave, no exceptions. If a run of adjacent Sundays/holidays continues (e.g. a multi-day holiday block), it keeps absorbing outward until a working day is hit. Saturdays are ordinary working days and always count too.</p>
+              <p class="lc-note">Example: You apply for a Friday and the following Monday, with Saturday and Sunday in between.</p>
               <ul>
-                <li>Applied <b>7+ days in advance</b>: Friday, Saturday, and Monday count — <b>3 days</b> of leave. Sunday is free.</li>
-                <li>Applied with <b>less than 7 days'</b> notice: Sunday also counts — <b>4 days</b> of leave, not 3.</li>
+                <li>Friday, Saturday, Sunday, and Monday all count — <b>4 days</b> of leave, whether or not you gave enough notice. (The required notice for a 4-day request is 7 days — see above.)</li>
               </ul>
             </div>
 
             <div class="lc-sub">
               <div class="lc-sub-h"><span class="lc-sub-title">Sick Leave</span></div>
-              <p>Sick leave is not tracked as a separate category — it is merged into your annual leave entitlement, same as leave for any other reason. A medical certificate is mandatory for any sick leave, especially when taken on a Saturday, Monday, or around a bank holiday. Sick leave on these days without a valid certificate will be automatically adjusted against your leave balance, and repeated misuse will result in disciplinary action.</p>
+              <p>Sick Leave is its own option when applying, so it can be tracked and matched with a medical certificate — but it still draws from the same annual entitlement as any other leave, not a separate pool, and the same notice periods above apply to it too. A medical certificate is mandatory for any sick leave, especially when taken on a Saturday, Monday, or around a bank holiday. Until the certificate is submitted and approved, sick leave is treated as unpaid, and repeated misuse will result in disciplinary action.</p>
             </div>
 
             <div class="lc-sub">
@@ -6602,6 +6606,7 @@
           </button>
           <div class="lc-acc-body">
             <p>WFH is not, and has never been, a standard policy at Loona. No WFH request will be entertained unless there is a genuine emergency, and even then it must be approved in advance by your Reporting Manager. Same-day requests will not be considered.</p>
+            <p>WFH requests go through the same Apply for Leave flow on the dashboard (as a "WFH" leave type) so management can review and decide — the chances of one being approved remain low. Approving it doesn't deduct from your leave balance on its own; if you don't actually punch in and work that day, it falls back to the normal Unapproved Absence or short-hours rules.</p>
           </div>
         </div>
 
@@ -19201,14 +19206,21 @@ ${brandLines}`;
           <input type="date" id="leave-to" onchange="onLeaveToChange()" style="width:100%;background:#111;border:1px solid #444;border-radius:8px;color:#d0d0d0;padding:10px 12px;font-family:inherit;font-size:13px;box-sizing:border-box;margin-bottom:14px">
         </div>
       </div>
-      <div id="leave-shortnotice-note" style="display:none;font-size:11.5px;color:#e05c5c;background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);border-radius:8px;padding:8px 10px;margin-bottom:10px;line-height:1.5">As per policy, any leave should be applied at least a day in advance. The chance of this being approved is highly unlikely — if it is approved, it will be treated as unpaid leave.</div>
-      <div id="leave-weekend-note" style="display:none;font-size:11.5px;color:#9fc0f0;background:rgba(120,180,255,.1);border:1px solid rgba(120,180,255,.3);border-radius:8px;padding:8px 10px;margin-bottom:10px;line-height:1.5"></div>
-      <div id="leave-warning" style="display:none;font-size:11.5px;color:#f0b03f;background:rgba(240,176,63,.1);border:1px solid rgba(240,176,63,.3);border-radius:8px;padding:8px 10px;margin-bottom:10px;line-height:1.5"></div>
-      <div id="leave-cap-note" style="display:none;font-size:11.5px;color:#9fc0f0;background:rgba(120,180,255,.1);border:1px solid rgba(120,180,255,.3);border-radius:8px;padding:8px 10px;margin-bottom:10px;line-height:1.5"></div>
       <label style="display:block;font-size:12px;color:#888;margin-bottom:6px">Message *</label>
-      <textarea id="leave-reason" placeholder="Why are you taking leave?" style="width:100%;min-height:70px;background:#111;border:1px solid #444;border-radius:8px;color:#d0d0d0;padding:10px 12px;font-family:inherit;font-size:13px;box-sizing:border-box;resize:vertical"></textarea>
+      <textarea id="leave-reason" placeholder="Why are you taking leave?" style="width:100%;min-height:70px;background:#111;border:1px solid #444;border-radius:8px;color:#d0d0d0;padding:10px 12px;font-family:inherit;font-size:13px;box-sizing:border-box;resize:vertical;margin-bottom:14px"></textarea>
+      <label style="display:block;font-size:12px;color:#888;margin-bottom:6px">Leave Type</label>
+      <div style="display:flex;gap:6px;margin-bottom:14px">
+        <button type="button" id="lt-standard" onclick="setLeaveType('standard')" style="flex:1;padding:8px 4px;border-radius:8px;font-size:11.5px;cursor:pointer;font-family:inherit;font-weight:600;background:var(--accent);color:#000;border:1px solid var(--accent)">Standard Leave</button>
+        <button type="button" id="lt-sick" onclick="setLeaveType('sick')" style="flex:1;padding:8px 4px;border-radius:8px;font-size:11.5px;cursor:pointer;font-family:inherit;font-weight:600;background:transparent;color:#aaa;border:1px solid #444">Sick Leave</button>
+        <button type="button" id="lt-wfh" onclick="setLeaveType('wfh')" style="flex:1;padding:8px 4px;border-radius:8px;font-size:11.5px;cursor:pointer;font-family:inherit;font-weight:600;background:transparent;color:#aaa;border:1px solid #444">WFH</button>
+      </div>
+      <input type="hidden" id="leave-type" value="standard">
+      <div id="leave-scenario-note" style="display:none;font-size:11.5px;background:rgba(120,180,255,.08);border:1px solid rgba(120,180,255,.2);color:#9fc0f0;border-radius:8px;padding:8px 10px;margin-bottom:10px;line-height:1.5"></div>
+      <div id="leave-sick-note" style="display:none;font-size:11.5px;color:#e05c5c;background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);border-radius:8px;padding:8px 10px;margin-bottom:10px;line-height:1.5">This will be counted as unpaid leave until the doctor's certificate has been submitted and approved.</div>
+      <div id="leave-wfh-note" style="display:none;font-size:11.5px;color:#e05c5c;background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);border-radius:8px;padding:8px 10px;margin-bottom:10px;line-height:1.5">Work from home is not a Loona approved policy. The chances of this request being declined are high.</div>
+      <div id="leave-warning" style="display:none;font-size:11.5px;color:#f0b03f;background:rgba(240,176,63,.1);border:1px solid rgba(240,176,63,.3);border-radius:8px;padding:8px 10px;margin-bottom:10px;line-height:1.5"></div>
       <div id="leave-error" style="display:none;font-size:11.5px;color:#e05c5c;margin-top:8px"></div>
-      <div style="font-size:11px;color:#666;margin-top:8px">Sundays and holidays aren't counted if you apply at least 7 days ahead — shorter notice around a weekend or holiday counts those days too. This goes to Gokul for approval — it'll show as "On Leave" on your calendar once approved.</div>
+      <div style="font-size:11px;color:#666;margin-top:8px">Sundays and public holidays touching your leave dates — inside the range or immediately before/after it — are always counted. Requests that don't meet the notice period will need management's special approval and, if approved, will be counted as unpaid leave. This goes to management for approval, and will show as "On Leave" on your calendar once approved.</div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
         <button onclick="closeLeaveModal()" style="background:transparent;border:1px solid #444;color:#888;padding:8px 18px;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit">Cancel</button>
         <button id="leave-submit-btn" onclick="submitLeaveRequest()" style="background:var(--accent);border:none;color:#000;padding:8px 22px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Send for Approval</button>
@@ -21884,111 +21896,117 @@ ${brandLines}`;
       PERF_EXC[name]=PERF_EXC[name]||{}; PERF_EXC[name][date]=val; cachePerf();
       if(_perfReady){ try{ firebase.database().ref("loona_excused/"+name+"/"+date).set(val); }catch(e){} }
     }
-    // Sundays and holidays in the range don't count as leave days (there's
-    // nothing to be "off" from) — mirrors how the fine/attendance logic
-    // already excludes them elsewhere in this module. This is the baseline;
-    // see leaveDatesForRequest() below for the short-notice exception.
-    function leaveDatesInRange(from,to){
-      var out=[], d=new Date(from+"T00:00:00"), e=new Date(to+"T00:00:00"), g=0;
-      while(d<=e && g<400){
-        var ds=d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
-        if(d.getDay()!==0 && !isHoliday(ds)) out.push(ds);
-        d.setDate(d.getDate()+1); g++;
-      }
-      return out;
-    }
-    // Every calendar date in the range, no exclusions — used only for the
-    // short-notice case below, where the whole span (Sundays/holidays
-    // included) counts against the balance.
+    // ─── Notice-tier & sandwich-day spec ───────────────────────────────
+    // span_days: every calendar day from-to inclusive (Sundays/holidays
+    // inside the range are already part of it — nothing is excluded).
+    // sandwich_days: any Sunday/holiday run immediately touching the
+    // outside of the range — the day right before "From", or right after
+    // "To" — absorbed outward until a working day is hit on each side.
+    // effective_days = span + sandwich. This, not span alone, is what
+    // decides both the notice tier required and the total balance
+    // deduction — both ALWAYS include every sandwich day, regardless of
+    // how much notice was given (no exceptions).
+    function isoOfDate(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+    function isSundayOrHoliday(ds){ return new Date(ds+"T00:00:00").getDay()===0 || isHoliday(ds); }
     function allDatesInRange(from,to){
       var out=[], d=new Date(from+"T00:00:00"), e=new Date(to+"T00:00:00"), g=0;
-      while(d<=e && g<400){
-        out.push(d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()));
-        d.setDate(d.getDate()+1); g++;
-      }
+      while(d<=e && g<400){ out.push(isoOfDate(d)); d.setDate(d.getDate()+1); g++; }
       return out;
     }
-    var LEAVE_NOTICE_DAYS=7; // policy: under 7 days' notice, a weekend/holiday inside the range is no longer free
-    function noticeDays(fromDate){ return Math.round((new Date(fromDate+"T00:00:00")-new Date(TODAY+"T00:00:00"))/86400000); }
-    // The days actually charged against the balance for THIS request. With
-    // 7+ days' notice, Sundays/holidays inside the range stay excluded as
-    // usual (leaveDatesInRange). With less notice, the full span is charged
-    // instead — so a Friday-to-Monday request with 2 days' notice also
-    // costs the intervening Saturday/Sunday, discouraging last-minute
-    // long-weekend requests. A range that never touches a Sunday/holiday
-    // gets the same answer either way, since there's nothing to add.
-    function leaveDatesForRequest(from,to){
-      return noticeDays(from)<LEAVE_NOTICE_DAYS ? allDatesInRange(from,to) : leaveDatesInRange(from,to);
+    function leaveDateMath(from,to){
+      var mid=allDatesInRange(from,to);
+      var lead=[], d=new Date(from+"T00:00:00"); d.setDate(d.getDate()-1); var g=0;
+      while(isSundayOrHoliday(isoOfDate(d)) && g<400){ lead.unshift(isoOfDate(d)); d.setDate(d.getDate()-1); g++; }
+      var trail=[]; d=new Date(to+"T00:00:00"); d.setDate(d.getDate()+1); g=0;
+      while(isSundayOrHoliday(isoOfDate(d)) && g<400){ trail.push(isoOfDate(d)); d.setDate(d.getDate()+1); g++; }
+      var span=mid.length, sandwich=lead.length+trail.length;
+      return {span:span, sandwich:sandwich, effective:span+sandwich, chargeDates:lead.concat(mid,trail)};
     }
-    var CONSECUTIVE_LEAVE_CAP=4;   // policy: a request spanning this many CALENDAR days or more always needs management approval
-    var CAP_NOTICE_DAYS=14;        // policy: and should be submitted at least this many days ahead
-    var SHORT_LEAVE_SPAN_MAX=2;    // policy: a 1- or 2-day request...
-    var SHORT_LEAVE_MIN_NOTICE=2;  // ...should be submitted at least this many days ahead — today or tomorrow is too last-minute
-    // Calendar-day span of the range, inclusive — deliberately NOT the
-    // charged/working-day count (leaveDatesForRequest): the cap is defined
-    // against "4 or more consecutive calendar days...regardless of whether a
-    // Sunday, Saturday, or public holiday falls within it," so a Fri-Mon
-    // request is a 4-day span for cap purposes even though only 3 (or 4,
-    // under short notice) of those days actually get charged.
-    function calendarSpanDays(from,to){ return Math.round((new Date(to+"T00:00:00")-new Date(from+"T00:00:00"))/86400000)+1; }
+    // required_notice tiers, keyed off effective_days.
+    function requiredNoticeMsFor(effDays){ return effDays<=2 ? 24*3600000 : effDays<=4 ? 7*86400000 : 14*86400000; }
+    function requiredNoticeLabelFor(effDays){ return effDays<=2 ? "24 hours" : effDays<=4 ? "7 days" : "14 days"; }
+    // notice_given: time between submission and 10:00 AM on the From date
+    // — real wall-clock precision (not date-only), per spec.
+    function noticeGivenMs(fromDate){ return new Date(fromDate+"T10:00:00") - new Date(); }
+    function fmtNoticeGiven(ms){
+      var hrs=ms/3600000;
+      if(hrs>=24){ var dd=Math.round(hrs/24); return dd+" day"+(dd===1?"":"s"); }
+      var h=Math.max(0,Math.round(hrs)); return h+" hour"+(h===1?"":"s");
+    }
     function leaveBalanceLeft(){ return Math.round((earnedLeave(currentUser)-approvedLeaves(currentUser))*100)/100; }
-    // Re-run on open and on every date change: none of these notices block
-    // submission (probation is the one exception, handled separately above)
-    // — they just flag upfront (a) that this request will land as unpaid
-    // given the balance left, and/or (b) that it's a 4+ calendar-day span
-    // needing Gokul's special approval, called out harder if it's also
-    // short notice.
+    window.setLeaveType=function(type){
+      document.getElementById("leave-type").value=type;
+      ["standard","sick","wfh"].forEach(function(t){
+        var btn=document.getElementById("lt-"+t), sel=t===type;
+        btn.style.background=sel?"var(--accent)":"transparent";
+        btn.style.color=sel?"#000":"#aaa";
+        btn.style.borderColor=sel?"var(--accent)":"#444";
+      });
+      updateLeaveNotices();
+    };
+    // Re-run on open and on every date/type change. Only probation blocks
+    // submission outright (handled above) — everything here is
+    // informational: the scenario note (per the notice-tier & sandwich
+    // spec), the sick/WFH-specific lines, and the balance warning (now
+    // computed off effective_days, the real charge count). WFH skips the
+    // notice-tier/sandwich logic and the balance warning entirely — it
+    // never deducts from the balance at approval time.
     function updateLeaveNotices(){
       var probation=isOnProbation(currentUser);
       document.getElementById("leave-probation-note").style.display=probation?"block":"none";
       document.getElementById("leave-submit-btn").disabled=probation;
       document.getElementById("leave-submit-btn").style.opacity=probation?"0.5":"1";
       document.getElementById("leave-submit-btn").style.cursor=probation?"not-allowed":"pointer";
-      var w=document.getElementById("leave-warning"), capNote=document.getElementById("leave-cap-note");
+
       var from=document.getElementById("leave-from").value, to=document.getElementById("leave-to").value;
       var valid=from && to && to>=from;
-      var days=valid ? leaveDatesForRequest(from,to) : [];
-      var left=leaveBalanceLeft();
-      var leftAvail=Math.max(0,left);
-      if(left<=0 || days.length>left){
+      var type=document.getElementById("leave-type").value;
+      var scenarioNote=document.getElementById("leave-scenario-note");
+      var w=document.getElementById("leave-warning");
+
+      document.getElementById("leave-sick-note").style.display=(valid && type==="sick")?"block":"none";
+      document.getElementById("leave-wfh-note").style.display=(valid && type==="wfh")?"block":"none";
+
+      if(!valid || type==="wfh"){ scenarioNote.style.display="none"; w.style.display="none"; return; }
+
+      var math=leaveDateMath(from,to);
+      var reqMs=requiredNoticeMsFor(math.effective), reqLabel=requiredNoticeLabelFor(math.effective);
+      var noticeMs=noticeGivenMs(from), noticeLabel=fmtNoticeGiven(noticeMs);
+      var sandwichTriggered=math.sandwich>0, noticeShortfall=noticeMs<reqMs;
+      var text, warn;
+      if(!sandwichTriggered && !noticeShortfall){
+        text="<b>Total days counted as leave: "+math.effective+"</b>";
+        warn=false;
+      } else if(sandwichTriggered && !noticeShortfall){
+        text="This request touches a Sunday/public holiday — Sundays and holidays next to your leave dates are always counted, regardless of notice given. <b>Total days counted as leave: "+math.effective+"</b>";
+        warn=false;
+      } else if(!sandwichTriggered && noticeShortfall){
+        text="This is a "+math.effective+"-day request with only "+noticeLabel+" notice — requests of this length need at least "+reqLabel+". This requires management's special approval, and if approved, it will be counted as unpaid leave. <b>Total days counted as leave: "+math.effective+"</b>";
+        warn=true;
+      } else {
+        text="This request (selected range: "+math.span+" days) has only "+noticeLabel+" notice — since it touches a Sunday/holiday, "+math.sandwich+" extra day"+(math.sandwich===1?"":"s")+" are counted too. This requires management's special approval, and if approved, it will be counted as unpaid leave. <b>Total days counted as leave: "+math.effective+"</b>";
+        warn=true;
+      }
+      scenarioNote.innerHTML=text;
+      scenarioNote.style.display="block";
+      scenarioNote.style.color=warn?"#f0b03f":"#9fc0f0";
+      scenarioNote.style.background=warn?"rgba(240,176,63,.1)":"rgba(120,180,255,.08)";
+      scenarioNote.style.borderColor=warn?"rgba(240,176,63,.3)":"rgba(120,180,255,.2)";
+
+      var left=leaveBalanceLeft(), leftAvail=Math.max(0,left);
+      if(left<=0 || math.effective>leftAvail){
         w.textContent = leftAvail<=0
-          ? "You don't have any leave balance available. If this is approved, all "+days.length+" day"+(days.length===1?"":"s")+" will be unpaid and subject to salary deductions."
-          : "Your maximum leave available is "+leftAvail+" day"+(leftAvail===1?"":"s")+". Please note that the remaining "+(days.length-leftAvail)+" day"+((days.length-leftAvail)===1?"":"s")+" will be unpaid if this leave is approved.";
+          ? "You don't have any leave balance available. If this is approved, all "+math.effective+" day"+(math.effective===1?"":"s")+" will be unpaid and subject to salary deductions."
+          : "Your maximum leave available is "+leftAvail+" day"+(leftAvail===1?"":"s")+". Please note that the remaining "+(math.effective-leftAvail)+" day"+((math.effective-leftAvail)===1?"":"s")+" will be unpaid if this leave is approved.";
         w.style.display="block";
       } else { w.style.display="none"; }
-      // Same underlying leaveDatesForRequest()/leaveDatesInRange() split
-      // that already decides what gets charged (see leaveDatesForRequest) —
-      // this just makes the short-notice weekend/holiday inclusion visible
-      // in the modal instead of only showing up after the fact.
-      var weekendNote=document.getElementById("leave-weekend-note");
-      if(valid){
-        var baseDays=leaveDatesInRange(from,to), extra=days.length-baseDays.length;
-        if(extra>0){
-          weekendNote.textContent="This range includes a Sunday or public holiday, and since you're applying with less than "+LEAVE_NOTICE_DAYS+" days' notice, it'll be counted as a leave day too. Total leave days: "+baseDays.length+" + "+extra+" extra = "+days.length+".";
-          weekendNote.style.display="block";
-        } else { weekendNote.style.display="none"; }
-      } else { weekendNote.style.display="none"; }
-      var span=valid ? calendarSpanDays(from,to) : 0;
-      if(valid && span>=CONSECUTIVE_LEAVE_CAP){
-        var notice=noticeDays(from);
-        capNote.textContent = notice<CAP_NOTICE_DAYS
-          ? "This is a "+span+"-day request with only "+Math.max(0,notice)+" day"+(notice===1?"":"s")+"' notice — requests of "+CONSECUTIVE_LEAVE_CAP+"+ days need Gokul's special approval and should be submitted at least "+CAP_NOTICE_DAYS+" days ahead."
-          : "This is a "+span+"-day request — requests of "+CONSECUTIVE_LEAVE_CAP+"+ days need Gokul's special approval.";
-        capNote.style.display="block";
-      } else { capNote.style.display="none"; }
-      // Separate from the 4+ day cap above — a short 1-2 day request thrown
-      // in for today/tomorrow is exactly the last-minute pattern this is
-      // meant to discourage. Text is static (see the modal HTML), doesn't
-      // block submission, and — like the balance warning — "unpaid" here is
-      // a heads-up in the copy only, not a separate coded pay status.
-      var shortNoticeNote=document.getElementById("leave-shortnotice-note");
-      shortNoticeNote.style.display = (valid && span<=SHORT_LEAVE_SPAN_MAX && noticeDays(from)<SHORT_LEAVE_MIN_NOTICE) ? "block" : "none";
     }
     window.openLeaveModal=function(){
       var f=document.getElementById("leave-from"), t=document.getElementById("leave-to");
       f.value=TODAY; f.min=TODAY; t.value=TODAY; t.min=TODAY;
       document.getElementById("leave-reason").value="";
       document.getElementById("leave-error").style.display="none";
+      window.setLeaveType("standard");
       updateLeaveNotices();
       document.getElementById("leave-modal").style.display="flex";
     };
@@ -22008,20 +22026,26 @@ ${brandLines}`;
       // updateLeaveNotices() — nothing here should be reachable while on
       // probation, but this is the actual write path, so it gets the same
       // hard stop regardless of how it was invoked.
+      var type=document.getElementById("leave-type").value;
       if(isOnProbation(currentUser)) return fail("You're on probation — leave requests aren't available until you're confirmed.");
       if(!from||!to) return fail("Pick both dates.");
       if(to<from) return fail("“To” can’t be before “From”.");
       if(!reason) return fail("Add a message.");
-      if(!leaveDatesInRange(from,to).length) return fail("That range is all Sundays/holidays — nothing to request.");
-      // Locked in at submission time, not recomputed later — the notice
-      // given is measured against today, not whenever Gokul gets around to
-      // deciding it.
-      var chargeDates=leaveDatesForRequest(from,to);
-      var span=calendarSpanDays(from,to);
-      var notice=noticeDays(from);
-      var req={member:currentUser, from_date:from, to_date:to, reason:reason, status:"pending", requested_at:new Date().toISOString(),
-        charge_dates:chargeDates, calendar_days:span, days_since_submission:notice, requires_management_approval:span>=CONSECUTIVE_LEAVE_CAP,
-        last_minute_short_leave:span<=SHORT_LEAVE_SPAN_MAX && notice<SHORT_LEAVE_MIN_NOTICE};
+      var req={member:currentUser, from_date:from, to_date:to, reason:reason, leave_type:type, status:"pending", requested_at:new Date().toISOString()};
+      // WFH skips the whole notice-tier/sandwich calculation — it never
+      // charges the balance at approval time (see decideLeaveRequest);
+      // actual impact is left to the existing attendance-based rules.
+      if(type!=="wfh"){
+        // Locked in at submission time, not recomputed later — the notice
+        // given is measured against when the request was actually made,
+        // not whenever it gets decided.
+        var math=leaveDateMath(from,to);
+        var noticeMs=noticeGivenMs(from), reqMs=requiredNoticeMsFor(math.effective);
+        Object.assign(req, {
+          charge_dates:math.chargeDates, span_days:math.span, sandwich_days:math.sandwich, effective_days:math.effective,
+          notice_shortfall:noticeMs<reqMs, requires_management_approval:(math.sandwich>0 || noticeMs<reqMs)
+        });
+      }
       if(_perfReady){ firebase.database().ref("leave_requests").push(req); }
       else { req._key="local_"+Date.now(); LEAVE_REQUESTS.push(req); perfRerender(); }
       window.closeLeaveModal();
@@ -22031,17 +22055,19 @@ ${brandLines}`;
       if(_perfReady){ firebase.database().ref("leave_requests/"+key).remove(); }
       else { LEAVE_REQUESTS=LEAVE_REQUESTS.filter(function(r){return r._key!==key;}); perfRerender(); }
     };
-    // charge_dates is set at submission time (see submitLeaveRequest) so the
-    // 7-day-notice check is locked to when the request was actually made,
-    // not whenever Gokul gets around to deciding it. Older requests from
-    // before this field existed fall back to the plain exclusion.
-    function chargeDatesFor(r){ return (r.charge_dates && r.charge_dates.length) ? r.charge_dates : leaveDatesInRange(r.from_date,r.to_date); }
+    // charge_dates is set at submission time (see submitLeaveRequest) so
+    // it's locked to when the request was actually made, not whenever it's
+    // decided. Older requests from before this field existed fall back to
+    // computing it fresh.
+    function chargeDatesFor(r){ return (r.charge_dates && r.charge_dates.length) ? r.charge_dates : leaveDateMath(r.from_date,r.to_date).chargeDates; }
     // Gokul-only (see renderLeaveApprovalQueue's own gate) — approving fans
-    // out into a PERF_EXC write per charged day; declining just records the
-    // decision, no PERF_EXC changes at all.
+    // out into a PERF_EXC write per charged day for Standard/Sick leave;
+    // WFH never touches the balance at approval time (per spec, its actual
+    // impact is decided later by whether they actually punch in). Declining
+    // never changes PERF_EXC either way.
     window.decideLeaveRequest=function(key,decision){
       var req=LEAVE_REQUESTS.find(function(r){return r._key===key;}); if(!req) return;
-      if(decision==="approved"){
+      if(decision==="approved" && req.leave_type!=="wfh"){
         chargeDatesFor(req).forEach(function(ds){ setPerfExcused(req.member,ds,true); });
       }
       var updates={status:decision, decided_by:currentUser, decided_at:new Date().toISOString()};
@@ -22052,12 +22078,13 @@ ${brandLines}`;
     // situation can come up whether the leave hasn't started yet or is
     // already underway, so this doesn't check dates either way: every day
     // originally charged gets credited straight back (un-excused), exactly
-    // undoing what decideLeaveRequest's approval branch did.
+    // undoing what decideLeaveRequest's approval branch did. A no-op for
+    // WFH, which was never excused in the first place.
     window.cancelApprovedLeave=function(key){
       if(currentUser!=="Gokul") return;
       var req=LEAVE_REQUESTS.find(function(r){return r._key===key;}); if(!req||req.status!=="approved") return;
       if(!confirm("Cancel "+req.member+"'s approved leave and credit the days back to their balance?")) return;
-      chargeDatesFor(req).forEach(function(ds){ setPerfExcused(req.member,ds,false); });
+      if(req.leave_type!=="wfh"){ chargeDatesFor(req).forEach(function(ds){ setPerfExcused(req.member,ds,false); }); }
       var updates={status:"cancelled", cancelled_by:currentUser, cancelled_at:new Date().toISOString()};
       if(_perfReady){ firebase.database().ref("leave_requests/"+key).update(updates); }
       else { Object.assign(req,updates); perfRerender(); }
@@ -22135,22 +22162,26 @@ ${brandLines}`;
       var approvedActive=LEAVE_REQUESTS.filter(function(r){return r.status==="approved" && r.to_date>=TODAY;})
         .sort(function(a,b){return a.from_date.localeCompare(b.from_date);});
       if(!pending.length && !approvedActive.length) return "";
+      var LT_LABEL={standard:"", sick:"&#129658; Sick &middot; ", wfh:"&#127968; WFH &middot; "};
       var rows=pending.map(function(r){
         var range = r.from_date===r.to_date ? fmtDate(r.from_date) : fmtDate(r.from_date)+" – "+fmtDate(r.to_date);
-        var days=chargeDatesFor(r).length;
-        // Older requests from before these fields existed fall back to
-        // computing them fresh — span/notice can't have changed since
-        // submission for a request that's still sitting pending.
-        var span = r.calendar_days!=null ? r.calendar_days : calendarSpanDays(r.from_date,r.to_date);
-        var notice = r.days_since_submission!=null ? r.days_since_submission : noticeDays(r.from_date);
-        var needsApproval = r.requires_management_approval!=null ? r.requires_management_approval : span>=CONSECUTIVE_LEAVE_CAP;
-        var capFlag = !needsApproval ? "" : (notice<CAP_NOTICE_DAYS
-          ? ' <span style="color:#f0b03f">&middot; '+span+'-day span, only '+Math.max(0,notice)+'d notice — needs special approval</span>'
-          : ' <span style="color:#9fc0f0">&middot; '+span+'-day span — needs management approval</span>');
-        var lastMinute = r.last_minute_short_leave!=null ? r.last_minute_short_leave : (span<=SHORT_LEAVE_SPAN_MAX && notice<SHORT_LEAVE_MIN_NOTICE);
-        var lastMinuteFlag = lastMinute ? ' <span style="color:#e05c5c">&middot; last-minute — applied with '+Math.max(0,notice)+'d notice</span>' : "";
+        var typeTag=LT_LABEL[r.leave_type]||"";
+        var flag="";
+        if(r.leave_type!=="wfh"){
+          var days=chargeDatesFor(r).length;
+          // Older requests from before these fields existed fall back to
+          // computing them fresh — nothing here could have changed since
+          // submission for a request that's still sitting pending.
+          var m = r.effective_days!=null ? {sandwich:r.sandwich_days, effective:r.effective_days} : leaveDateMath(r.from_date,r.to_date);
+          var shortfall = r.notice_shortfall!=null ? r.notice_shortfall : (noticeGivenMs(r.from_date)<requiredNoticeMsFor(m.effective));
+          var needsApproval = r.requires_management_approval!=null ? r.requires_management_approval : (m.sandwich>0 || shortfall);
+          flag = !needsApproval ? ' ('+days+' day'+(days===1?"":"s")+')' :
+            (shortfall
+              ? ' ('+m.effective+' day'+(m.effective===1?"":"s")+') <span style="color:#f0b03f">&middot; notice shortfall — needs special approval</span>'
+              : ' ('+m.effective+' day'+(m.effective===1?"":"s")+') <span style="color:#9fc0f0">&middot; touches a Sunday/holiday</span>');
+        }
         return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);gap:10px">'+
-          '<div><b>'+esc(r.member)+'</b> &middot; '+esc(range)+' ('+days+' day'+(days===1?"":"s")+')'+capFlag+lastMinuteFlag+'<div style="font-size:11.5px;color:var(--muted);font-style:italic">“'+esc(r.reason||"")+'”</div></div>'+
+          '<div><b>'+esc(r.member)+'</b> &middot; '+typeTag+esc(range)+flag+'<div style="font-size:11.5px;color:var(--muted);font-style:italic">“'+esc(r.reason||"")+'”</div></div>'+
           '<div style="display:flex;gap:6px;flex-shrink:0">'+
             '<button onclick="decideLeaveRequest(&quot;'+r._key+'&quot;,&quot;approved&quot;)" style="background:rgba(76,175,125,.15);border:1px solid rgba(76,175,125,.3);color:#4caf7d;padding:5px 12px;border-radius:6px;font-size:11.5px;cursor:pointer;font-weight:600;font-family:inherit">&#10003; Approve</button>'+
             '<button onclick="decideLeaveRequest(&quot;'+r._key+'&quot;,&quot;declined&quot;)" style="background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);color:#e05c5c;padding:5px 12px;border-radius:6px;font-size:11.5px;cursor:pointer;font-weight:600;font-family:inherit">&#10007; Decline</button>'+
