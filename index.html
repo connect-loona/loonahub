@@ -20502,30 +20502,15 @@ ${brandLines}`;
     }
     function forgivenLateMo(name,mo){ mo=mo||curMonth(); var e=LATE_FGV[name]||{}; return Object.keys(e).filter(function(d){return e[d]&&d.slice(0,7)===mo;}).length; }
     function effLate(name,mo){ mo=mo||curMonth(); return Math.max(0, monthStatusCounts(name,mo).late-forgivenLateMo(name,mo)); }
-    // One-time transition, for the exact month POLICY_CUTOVER_DATE falls in
-    // only: whoever had already used up their 4 free late days BEFORE the
-    // cutover doesn't get retroactively billed for those already-past days
-    // — the fee only starts accruing for late days from the cutover date
-    // onward (someone already over the limit before the cutover has zero
-    // free days left for the rest of that month; someone under it keeps
-    // whatever free days they hadn't used yet). The displayed "N late this
-    // month" count (effLate — used for that, not for the fee) is untouched
-    // and still shows the true total either side of the cutover. Every
-    // month after this one just uses the plain lateFine(effLate(...))
-    // formula, no special-casing at all.
-    function lateFineForMonth(name,mo){
-      mo=mo||curMonth();
-      if(mo!==POLICY_CUTOVER_DATE.slice(0,7)) return lateFine(effLate(name,mo));
-      var ld=LIVEDAYS[name]||{}, fgv=LATE_FGV[name]||{};
-      var lateBefore=0, lateFromCutover=0;
-      Object.keys(ld).forEach(function(ds){
-        if(ds.slice(0,7)!==mo || ds===TODAY) return; // TODAY isn't "closed" yet — same as monthStatusCounts
-        if(ld[ds].status!=="late" || fgv[ds]) return;
-        if(ds<POLICY_CUTOVER_DATE) lateBefore++; else lateFromCutover++;
-      });
-      var freeRemaining=Math.max(0, LATE_FREE_DAYS-lateBefore);
-      return Math.max(0, lateFromCutover-freeRemaining)*LATE_FEE;
-    }
+    // No cutover-month special-casing on the fee itself — graceMinFor()
+    // already makes effLate() report the TRUE late count for the month
+    // (old 10:30 grace before the cutover, new 10:10 grace from it onward),
+    // so the plain fee formula just applies to that real total directly:
+    // whoever's already past 4 late days this month is already accruing a
+    // real fine right now, and every additional late day on/after the
+    // cutover (tomorrow, the day after, etc.) just adds ₹200 more on top of
+    // that running total as it happens.
+    function lateFineForMonth(name,mo){ return lateFine(effLate(name,mo)); }
     // Half Days and hours-shortfall absences (punched in but under half the required hours) are
     // fined like late arrivals instead of touching the leave balance — same ₹/block rule, own Forgive toggle.
     function isShortAbsentDay(name,ds){ var r=LIVEDAYS[name]&&LIVEDAYS[name][ds]; return !!r && r.status==="absent" && r.im!=null; }
