@@ -4565,28 +4565,6 @@
         <div class="adb-sub" id="adb-sub">Every task checked off. That's what champions look like.</div>
       </div>
 
-      <!-- Reminders Board -->
-      <div class="reminders-board" id="reminders-board">
-        <div class="rb-title" style="display:flex;align-items:center;justify-content:space-between">
-          <span>📌 Today's Reminders / Updates</span>
-          <span id="rb-gokul-btn"></span>
-        </div>
-        <div id="announce-compose"
-          style="display:none;margin-bottom:12px;background:rgba(200,169,110,.06);border:1px solid rgba(200,169,110,.2);border-radius:10px;padding:14px">
-          <textarea id="announce-text"
-            placeholder="Type your announcement (e.g. Priya is on leave today, shoot at 3pm...)"
-            style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:8px;font-size:13px;font-family:var(--font);resize:vertical;min-height:70px;outline:none"></textarea>
-          <div style="display:flex;gap:8px;margin-top:8px;justify-content:flex-end">
-            <button class="btn btn-ghost" style="font-size:12px;padding:5px 14px"
-              onclick="document.getElementById('announce-compose').style.display='none'">Cancel</button>
-            <button class="btn btn-primary" style="font-size:12px;padding:5px 14px"
-              onclick="postAnnouncement()">Post</button>
-          </div>
-        </div>
-        <div id="rb-items">
-        </div>
-      </div>
-
       <!-- Pending from previous days — overview -->
       <div id="overview-overdue-section"></div>
 
@@ -13784,22 +13762,6 @@
     </div>`;
     }
 
-    // ═══ ANNOUNCEMENTS ═══
-    function postAnnouncement() {
-      const text = document.getElementById('announce-text').value.trim();
-      if (!text) return;
-      fbAddAnnouncement({
-        id: Date.now(),
-        text: text,
-        author: currentUser,
-        timestamp: new Date().toISOString(),
-        emoji: '📢'
-      });
-      document.getElementById('announce-text').value = '';
-      document.getElementById('announce-compose').style.display = 'none';
-      renderReminders();
-    }
-
     let _bcImage='';
     function bcImageChange(input){ const f=input.files&&input.files[0]; if(!f){ _bcImage=''; return; } if(f.size>1500000){ alert('Image too large — please keep it under ~1.5MB'); input.value=''; return; } const r=new FileReader(); r.onload=e=>{ _bcImage=e.target.result; const pv=document.getElementById('bc-img-preview'); pv.src=e.target.result; pv.style.display='block'; }; r.readAsDataURL(f); }
     function addBcLink(){ const c=document.getElementById('bc-links'); const i=document.createElement('input'); i.className='bc-link-input'; i.placeholder='https://…'; i.style.cssText='width:100%;background:#111;border:1px solid #444;border-radius:8px;color:#d0d0d0;padding:10px 12px;font-family:inherit;font-size:13px;box-sizing:border-box;margin-top:8px'; c.appendChild(i); i.focus(); }
@@ -14568,21 +14530,23 @@
       })();
     }
 
-    // Per-user local dismiss — hides an announcement for just this user on this device
+    // Per-user local dismiss — hides an announcement for just this user on this device.
+    // Still used by renderLoonaBoard()'s own filtering even though the only UI that
+    // ever wrote to it (the Overview page's old Reminders board) is gone — see
+    // renderReminders()'s comment below.
     function getDismissedIds() {
       try { return new Set(JSON.parse(localStorage.getItem('dismissed_' + currentUser) || '[]')); }
       catch (e) { return new Set(); }
     }
-    function dismissAnnouncement(id) {
-      try {
-        const dismissed = getDismissedIds();
-        dismissed.add(id);
-        localStorage.setItem('dismissed_' + currentUser, JSON.stringify([...dismissed]));
-      } catch (e) { }
-      renderReminders();
-    }
 
     // ═══ REMINDERS ═══
+    // The Overview page's "Today's Reminders / Updates" board (and its
+    // "+ Post Update" button) was removed — the Loona Board itself lives on
+    // the Tasks page (#loona-board, via renderLoonaBoard()), and posting to
+    // it is the "📢 Loona Broadcast" button there (submitBroadcast()), not
+    // this. This function is left in place rather than ripped out of the ~9
+    // scattered call sites that still invoke it after every task/approval
+    // change — it's a harmless no-op now since #rb-items no longer exists.
     function renderReminders() {
       const today = new Date();
       const dayOfMonth = today.getDate();
