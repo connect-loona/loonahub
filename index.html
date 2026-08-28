@@ -20306,6 +20306,22 @@ ${brandLines}`;
     // more generous 10:30 informal allowance (see the "Timing" policy
     // notice). 10:10 and earlier is on time; 10:11 onwards is late.
     var GRACE_MIN=10*60+10;
+    // The new grace time applies from the day this policy actually took
+    // effect ONWARDS ONLY — not retroactively. applyLiveRecords() re-derives
+    // every day's late/present status from raw punch times on every sync
+    // (including a plain "Re-sync from Petpooja"), using whatever GRACE_MIN
+    // is current — so without this date split, tightening the grace time
+    // silently reclassified everyone's *already-happened* earlier-this-month
+    // arrivals under the stricter new cutoff too, changing everyone's late
+    // count for days that had already passed under the old, more lenient
+    // rule. graceMinFor(ds) is what applyLiveRecords() actually checks
+    // against — days before POLICY_CUTOVER_DATE keep judging lateness by
+    // the old 10:30 grace; POLICY_CUTOVER_DATE and every day after uses the
+    // new GRACE_MIN above. This is a fixed historical date, not "today" —
+    // it must NOT be computed from TODAY, or the cutover would keep sliding
+    // forward and un-fix days that were already correctly settled.
+    var POLICY_CUTOVER_DATE="2026-08-28", OLD_GRACE_MIN=10*60+30;
+    function graceMinFor(ds){ return ds<POLICY_CUTOVER_DATE ? OLD_GRACE_MIN : GRACE_MIN; }
     var SHIFT_WD="10:00 am – 05:30 pm", SHIFT_SAT="10:00 am – 03:30 pm";
     var REQ_WD=7, REQ_SAT=5;
     // LATE_FREE_DAYS: the first N late/half-day/short-hours occurrences each
@@ -20487,6 +20503,30 @@ ${brandLines}`;
     }
     function forgivenLateMo(name,mo){ mo=mo||curMonth(); var e=LATE_FGV[name]||{}; return Object.keys(e).filter(function(d){return e[d]&&d.slice(0,7)===mo;}).length; }
     function effLate(name,mo){ mo=mo||curMonth(); return Math.max(0, monthStatusCounts(name,mo).late-forgivenLateMo(name,mo)); }
+    // One-time transition, for the exact month POLICY_CUTOVER_DATE falls in
+    // only: whoever had already used up their 4 free late days BEFORE the
+    // cutover doesn't get retroactively billed for those already-past days
+    // — the fee only starts accruing for late days from the cutover date
+    // onward (someone already over the limit before the cutover has zero
+    // free days left for the rest of that month; someone under it keeps
+    // whatever free days they hadn't used yet). The displayed "N late this
+    // month" count (effLate — used for that, not for the fee) is untouched
+    // and still shows the true total either side of the cutover. Every
+    // month after this one just uses the plain lateFine(effLate(...))
+    // formula, no special-casing at all.
+    function lateFineForMonth(name,mo){
+      mo=mo||curMonth();
+      if(mo!==POLICY_CUTOVER_DATE.slice(0,7)) return lateFine(effLate(name,mo));
+      var ld=LIVEDAYS[name]||{}, fgv=LATE_FGV[name]||{};
+      var lateBefore=0, lateFromCutover=0;
+      Object.keys(ld).forEach(function(ds){
+        if(ds.slice(0,7)!==mo || ds===TODAY) return; // TODAY isn't "closed" yet — same as monthStatusCounts
+        if(ld[ds].status!=="late" || fgv[ds]) return;
+        if(ds<POLICY_CUTOVER_DATE) lateBefore++; else lateFromCutover++;
+      });
+      var freeRemaining=Math.max(0, LATE_FREE_DAYS-lateBefore);
+      return Math.max(0, lateFromCutover-freeRemaining)*LATE_FEE;
+    }
     // Half Days and hours-shortfall absences (punched in but under half the required hours) are
     // fined like late arrivals instead of touching the leave balance — same ₹/block rule, own Forgive toggle.
     function isShortAbsentDay(name,ds){ var r=LIVEDAYS[name]&&LIVEDAYS[name][ds]; return !!r && r.status==="absent" && r.im!=null; }
@@ -20498,11 +20538,11 @@ ${brandLines}`;
     function monthShortAbsentDates(name,mo){ mo=mo||curMonth(); var ld=LIVEDAYS[name]||{}; return Object.keys(ld).filter(function(ds){return ds.slice(0,7)===mo && isShortAbsentDay(name,ds);}); }
     function effShortAbsent(name,mo){ mo=mo||curMonth(); return Math.max(0, monthShortAbsentDates(name,mo).length - forgivenShortMo(name,mo)); }
     function shortAbsentFine(name,mo){ return lateFine(effShortAbsent(name,mo)); }
-    function totalFine(name,mo){ return lateFine(effLate(name,mo)) + halfDayFine(name,mo) + shortAbsentFine(name,mo); }
+    function totalFine(name,mo){ return lateFineForMonth(name,mo) + halfDayFine(name,mo) + shortAbsentFine(name,mo); }
     function lateFeeBar(name){
       var a=ATT[name]||DEFAULT;
       var nLate=effLate(name), nHalf=effHalf(name), nShort=effShortAbsent(name);
-      var fine=lateFine(nLate)+halfDayFine(name)+shortAbsentFine(name);
+      var fine=lateFineForMonth(name)+halfDayFine(name)+shortAbsentFine(name);
       return '<div class="att-policy" style="grid-template-columns:1fr">'+
         '<div class="att-pol '+(fine>0?"danger":"ok")+'"><span class="pic">&#9200;</span>'+
         '<span class="txt"><b>Fines — this month</b>'+nLate+' late &middot; '+nHalf+' half day'+(nHalf===1?"":"s")+' &middot; '+nShort+' short-hours absence'+(nShort===1?"":"s")+' &middot; first '+LATE_FREE_DAYS+' free, &#8377;'+LATE_FEE+' each after</span>'+
@@ -20683,7 +20723,7 @@ ${brandLines}`;
       var mo=FOUNDER_MO;
       var rows=teamNames.map(function(n){
         var a=ATT[n], mc=monthStatusCounts(n,mo);
-        var fLate=lateFine(effLate(n,mo)), fHalf=halfDayFine(n,mo), fShort=shortAbsentFine(n,mo), fine=fLate+fHalf+fShort;
+        var fLate=lateFineForMonth(n,mo), fHalf=halfDayFine(n,mo), fShort=shortAbsentFine(n,mo), fine=fLate+fHalf+fShort;
         var appr=approvedLeaves(n), earned=earnedLeave(n), left=earned-appr;
         return '<tr>'+
           '<td data-label="Employee" class="att-clickable" style="cursor:pointer" onclick="window.attShowMonthlyDetail(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)" title="Tap for the full daily breakdown"><strong>'+esc(n)+'</strong><div class="sub"><span class="code">'+esc(a.code)+'</span> · '+esc(a.desg)+'</div></td>'+
@@ -21234,7 +21274,7 @@ ${brandLines}`;
                 if(nowMin>lastInMin) wk+=(nowMin-lastInMin);
               }
             }
-            var stTod=(rec.first_in_min==null)?"absent":(rec.first_in_min>GRACE_MIN?"late":"present");
+            var stTod=(rec.first_in_min==null)?"absent":(rec.first_in_min>graceMinFor(ds)?"late":"present");
             entry={status:stTod,in:minToClock(rec.first_in_min),hrs:minToHrs(wk),brk:minToHrs(rec.break_min),im:rec.first_in_min,out:lastPunchClock(rec,prev),_src:source};
           } else if(!rec || rec.first_in_min==null){
             entry={status:"absent",in:"—",hrs:"—",brk:"—",im:null,out:"—",_src:source};
@@ -21242,7 +21282,7 @@ ${brandLines}`;
             // Priority: under half the required hours -> Absent (worst). Arrived after grace -> Late,
             // regardless of hours that day. Otherwise under full hours -> Half Day. Else -> Present.
             // Half the requirement scales with the day (3.5h weekday / 2.5h Saturday) since reqMin already does.
-            var lateDay=rec.first_in_min>GRACE_MIN, halfMin=reqMin/2;
+            var lateDay=rec.first_in_min>graceMinFor(ds), halfMin=reqMin/2;
             var st = rec.worked_min<halfMin ? "absent" : (lateDay ? "late" : (rec.worked_min<reqMin ? "half" : "present"));
             // Punched in but never punched out (a past day left "open") is why this can compute as
             // Absent/short hours even though they clearly showed up — flag it so we can nudge them separately.
