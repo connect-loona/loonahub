@@ -22,6 +22,7 @@
 
 const https = require("https");
 const { URL } = require("url");
+const { sendPushBroadcast } = require("./lib/push-send");
 
 const FB = (process.env.FIREBASE_DB_URL || "https://loona-hub-c85d7-default-rtdb.firebaseio.com").replace(/\/+$/, "");
 
@@ -92,6 +93,10 @@ exports.handler = async () => {
     ];
     const results = await Promise.all(posts.map((p) => fbPost("/announcements", p)));
     const failed = results.filter((r) => r.status < 200 || r.status >= 300).length;
+
+    // Best-effort — a push delivery hiccup shouldn't fail the whole broadcast,
+    // the posts are already live on the Loona Board regardless.
+    await Promise.all(posts.map((p) => sendPushBroadcast(p).catch(() => {})));
 
     return {
       statusCode: 200,

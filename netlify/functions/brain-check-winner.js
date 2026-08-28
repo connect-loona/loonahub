@@ -15,6 +15,7 @@
 
 const https = require("https");
 const { URL } = require("url");
+const { sendPushBroadcast } = require("./lib/push-send");
 
 const FB = (process.env.FIREBASE_DB_URL || "https://loona-hub-c85d7-default-rtdb.firebaseio.com").replace(/\/+$/, "");
 
@@ -83,6 +84,7 @@ exports.handler = async () => {
       actionLabel: variant.actionLabel
     };
     const posted = await fbPost("/announcements", post);
+    await sendPushBroadcast(post).catch(() => {});
 
     return {
       statusCode: 200,

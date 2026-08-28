@@ -5536,6 +5536,8 @@
 
       <div id="admin-pending-section" style="margin-bottom:28px"></div>
 
+      <div id="admin-leave-section" style="margin-bottom:28px"></div>
+
       <div class="section-header">
         <div class="section-title">Employee <span>Directory</span></div>
       </div>
@@ -13029,6 +13031,7 @@
     function openAdminTab() {
       renderAdminPendingQueue();
       renderAdminDirectory();
+      if (typeof renderAdminLeaveRecords === 'function') renderAdminLeaveRecords();
       const detail = document.getElementById('admin-employee-detail');
       if (detail) { detail.style.display = 'none'; detail.innerHTML = ''; }
     }
@@ -13296,7 +13299,7 @@
       const status = document.getElementById('eem-probation-status').value;
       const start = document.getElementById('eem-probation-start').value;
       if (status === 'on_probation' && start) {
-        hint.textContent = `Auto-confirms on ${fmtDate(probationEndDate(start))} (${PROBATION_MONTHS} months from start) — no need to come back and flip this.`;
+        hint.textContent = `Probation runs until ${fmtDate(probationEndDate(start))} (${PROBATION_MONTHS} months from start). A confirmation request will show up on your founder board a week before that date — nothing auto-confirms without your approval.`;
       } else {
         hint.textContent = '';
       }
@@ -20481,8 +20484,11 @@ ${brandLines}`;
       if(lf) lf.textContent=LATE_FEE; if(lb) lb.textContent=LATE_FREE_DAYS; if(tl) tl.textContent=TOTAL_LEAVE;
     })();
     var SEL=TODAY;
-    var FOUNDER_MO=TODAY.slice(0,7); // month shown in the founder board's Monthly Overview table
-    window.attSetFounderMonth=function(val){ if(val) FOUNDER_MO=val; if(window.renderAttendanceOverview) window.renderAttendanceOverview(); };
+    var FOUNDER_MO=TODAY.slice(0,7); // month shown in the Admin panel's Monthly Overview table
+    // Monthly Overview now lives on the Admin panel (moved off Overview —
+    // see renderAdminLeaveRecords()/monthlyOverviewBoardHTML()), so
+    // switching its month re-renders that section, not the Overview page.
+    window.attSetFounderMonth=function(val){ if(val) FOUNDER_MO=val; if(typeof renderAdminLeaveRecords==="function") renderAdminLeaveRecords(); };
     var DAILY_SEL=TODAY; // date shown on the founder board's Daily Overview cards
     window.attSetDailyDate=function(val){ if(val) DAILY_SEL=val; if(window.renderAttendanceOverview) window.renderAttendanceOverview(); };
 
@@ -20860,6 +20866,33 @@ ${brandLines}`;
           '<div class="adc-perf">'+miniGauge(p.score)+'<div class="adc-band" style="color:'+p.band.c+'">'+p.band.l+'</div></div>'+
         '</div>';
       }).join("");
+      return ''+
+      '<div class="att-founder-badge"><span class="em">&#129409;</span> <b>Gokul</b> <span style="color:var(--accent2)">('+esc(ATT.Gokul.code)+')</span> &middot; '+daysAt(ATT.Gokul.joinDate)+' days building Loona</div>'+
+      renderProbationCompletionRequests()+
+      renderUnapprovedAbsenceNotice()+
+      renderLeaveApprovalQueue()+
+      renderLeaveHistoryImportNotice()+
+      '<div class="att-board">'+
+        '<div class="bh">&#128197; Daily Overview <span class="tag">Founder only</span></div>'+
+        '<div class="att-sync" style="margin-bottom:6px"><span><b>Viewing:</b> <input type="date" id="daily-sel" value="'+DAILY_SEL+'" max="'+TODAY+'" onchange="window.attSetDailyDate(this.value)"></span>'+(DAILY_SEL!==TODAY?'<button onclick="window.attSetDailyDate(&quot;'+TODAY+'&quot;)">Jump to today</button>':'')+'<span class="sub" style="margin-left:8px">&#8592; this controls the cards below</span></div>'+
+        '<div class="att-sync" style="font-size:11px;color:var(--muted)"><span><span class="dot" style="'+(LIVE_ERROR?"background:var(--red)":"")+'"></span>'+(LIVE_ERROR?('<span style="color:var(--red)">Sync error: '+esc(LIVE_ERROR)+'</span>'):(LIVE.url?("Live from Petpooja"+(LIVE_SYNCED?(" · synced "+LIVE_SYNCED.toLocaleTimeString("en-IN")):"")):"Placeholder data"))+'</span>'+'<button onclick="window.attResync()">&#128260; Re-sync from Petpooja</button></div>'+
+        '<div class="att-stats">'+stats.map(function(s){return '<div class="att-stat"><div class="n '+s[2]+'">'+s[1]+'</div><div class="l">'+s[0]+'</div></div>';}).join("")+'</div>'+
+        '<div class="att-daily-grid">'+dailyCards+'</div>'+
+      '</div>'+
+      reimbursementBoardHTML()+
+      perfBoardHTML()+
+      holidayManager();
+    }
+    // Moved off the Overview page onto the Admin panel (below the "Leaves
+    // Taken" accordion — see renderAdminLeaveRecords()), per Gokul's
+    // request. Self-contained (recomputes teamNames/mo itself) since it's
+    // no longer built alongside founderBoard()'s other pieces.
+    function monthlyOverviewBoardHTML(){
+      var names=Object.keys(ATT).filter(function(n){
+        return (typeof ALL_MEMBERS==="undefined" || ALL_MEMBERS.indexOf(n)>=0) &&
+               (typeof INACTIVE_MEMBERS==="undefined" || !INACTIVE_MEMBERS.has(n));
+      });
+      var teamNames=names.filter(function(n){return n!=="Gokul";});
       var mo=FOUNDER_MO;
       var rows=teamNames.map(function(n){
         var a=ATT[n], mc=monthStatusCounts(n,mo);
@@ -20876,28 +20909,14 @@ ${brandLines}`;
           '<td data-label="Unpaid Leave" title="Approved leave days this month that landed beyond the earned balance — for salary deduction">'+(unpaidMo>0?'<span class="fine">'+unpaidMo+'</span>':'—')+'</td>'+
         '</tr>';
       }).join("");
-      return ''+
-      '<div class="att-founder-badge"><span class="em">&#129409;</span> <b>Gokul</b> <span style="color:var(--accent2)">('+esc(ATT.Gokul.code)+')</span> &middot; '+daysAt(ATT.Gokul.joinDate)+' days building Loona</div>'+
-      renderUnapprovedAbsenceNotice()+
-      renderLeaveApprovalQueue()+
-      '<div class="att-board">'+
-        '<div class="bh">&#128197; Daily Overview <span class="tag">Founder only</span></div>'+
-        '<div class="att-sync" style="margin-bottom:6px"><span><b>Viewing:</b> <input type="date" id="daily-sel" value="'+DAILY_SEL+'" max="'+TODAY+'" onchange="window.attSetDailyDate(this.value)"></span>'+(DAILY_SEL!==TODAY?'<button onclick="window.attSetDailyDate(&quot;'+TODAY+'&quot;)">Jump to today</button>':'')+'<span class="sub" style="margin-left:8px">&#8592; this controls the cards below</span></div>'+
-        '<div class="att-sync" style="font-size:11px;color:var(--muted)"><span><span class="dot" style="'+(LIVE_ERROR?"background:var(--red)":"")+'"></span>'+(LIVE_ERROR?('<span style="color:var(--red)">Sync error: '+esc(LIVE_ERROR)+'</span>'):(LIVE.url?("Live from Petpooja"+(LIVE_SYNCED?(" · synced "+LIVE_SYNCED.toLocaleTimeString("en-IN")):"")):"Placeholder data"))+'</span>'+'<button onclick="window.attResync()">&#128260; Re-sync from Petpooja</button></div>'+
-        '<div class="att-stats">'+stats.map(function(s){return '<div class="att-stat"><div class="n '+s[2]+'">'+s[1]+'</div><div class="l">'+s[0]+'</div></div>';}).join("")+'</div>'+
-        '<div class="att-daily-grid">'+dailyCards+'</div>'+
-      '</div>'+
-      '<div class="att-board">'+
+      return '<div class="att-board">'+
         '<div class="bh">&#128202; Monthly Overview <span class="tag">Founder only</span></div>'+
         '<div class="att-sync"><span>Month <input type="month" id="founder-mo" value="'+mo+'" max="'+curMonth()+'" onchange="window.attSetFounderMonth(this.value)"></span></div>'+
         '<div class="scroll"><table class="att-tbl wide" id="founder-monthly-tbl"><thead><tr>'+
           '<th>Employee</th><th>Attendance (mo)</th><th>Absent (mo)</th><th>Late (mo)</th><th>Fines (mo)</th><th>Leave Taken</th><th>Leave Left</th><th>Unpaid Leave</th>'+
         '</tr></thead><tbody>'+rows+'</tbody></table></div>'+
         '<div class="note">Attendance = full (P) &amp; half (H) days worked in the selected month, click H to review/forgive &middot; Absent = unresolved (no punch = approvable as Official Leave; short hours = fined, click to review) &middot; Late = total days late (forgiven count shown alongside), click to review/forgive — forgiving removes it from fees/score but the calendar still shows it as Late &middot; Fines combine late, Half Day and short-hours-absence — first '+LATE_FREE_DAYS+' of each are free, &#8377;'+LATE_FEE+' each after that, for the selected month &middot; Leave Taken/Left is a running total (not month-specific) — the count of approved no-punch absences against the '+TOTAL_LEAVE+'-day yearly balance, accrued pro-rata (1.25/month) since April or join date &middot; Unpaid Leave is month-specific — once the running balance runs out partway through the year, every approved day past that point counts here, in whichever month it actually falls, for payroll to deduct.</div>'+
-      '</div>'+
-      reimbursementBoardHTML()+
-      perfBoardHTML()+
-      holidayManager();
+      '</div>';
     }
 
     function reimbClaimReceiptCount(r){
@@ -21738,7 +21757,16 @@ ${brandLines}`;
     var ATT_WEIGHT=0.51, TASK_WEIGHT=0.49, LATE_DELIVERY_CAP=20, ONTIME_BONUS_CAP=15;
     function curMonth(){ return TODAY.slice(0,7); }
     function cachePerf(){ try{localStorage.setItem("loona_perf",JSON.stringify({adj:PERF_ADJ,exc:PERF_EXC,snap:PERF_SNAP,tasklog:PERF_TASKLOG,lfg:LATE_FGV,hfg:HALF_FGV,sfg:SHORT_FGV}));}catch(e){} }
-    function perfRerender(){ if(window.renderAttendanceOverview) window.renderAttendanceOverview(); }
+    // Also refreshes the Admin panel's Monthly Overview/Leaves Taken
+    // section (only actually re-renders anything if that section's
+    // container exists in the DOM, i.e. the Admin tab is the one open) —
+    // needed since forgiving a fine or approving an absence from inside
+    // that table would otherwise leave it showing stale numbers until the
+    // tab is reopened.
+    function perfRerender(){
+      if(window.renderAttendanceOverview) window.renderAttendanceOverview();
+      if(typeof renderAdminLeaveRecords==="function") renderAdminLeaveRecords();
+    }
     function initPerf(){
       try{ var s=localStorage.getItem("loona_perf"); if(s){ var o=JSON.parse(s); PERF_ADJ=o.adj||{}; PERF_EXC=o.exc||{}; PERF_SNAP=o.snap||{}; PERF_TASKLOG=o.tasklog||{}; LATE_FGV=o.lfg||{}; HALF_FGV=o.hfg||{}; SHORT_FGV=o.sfg||{}; } }catch(e){}
       whenFirebaseReady(function(){
@@ -21957,17 +21985,17 @@ ${brandLines}`;
     // the field entirely (an employee record from before this existed) is
     // treated as confirmed, not on probation, so nobody gets retroactively
     // locked out by a field that simply hasn't been set yet.
-    // Auto-expires 3 months after probationStartDate (see probationEndDate(),
-    // shared with the Edit Employee modal's own hint) — the stored
-    // "on_probation" status doesn't need to be manually flipped back once
-    // that date passes; this just stops treating it as active. A start date
-    // that's missing (set to on_probation with nothing else filled in) is
-    // treated as indefinite until someone does flip it manually.
+    // Deliberately does NOT auto-expire at the 3-month mark — completing
+    // probation now requires Gokul's explicit approval (see
+    // renderProbationCompletionRequests()/confirmProbationCompletion()
+    // below), which surfaces as a request on the founder board starting a
+    // week before probationEndDate() so it can't be missed. Someone stays
+    // "on probation" (blocked from applying leave) past that date until
+    // Gokul actually approves — that's the point of the approval gate, not
+    // a bug.
     function isOnProbation(name){
       var info=(window.MEMBER_INFO||{})[name]||{};
-      if(info.probationStatus!=="on_probation") return false;
-      if(!info.probationStartDate) return true;
-      return TODAY<window.probationEndDate(info.probationStartDate);
+      return info.probationStatus==="on_probation";
     }
     window.perfExcuse=function(name,date,mo){
       PERF_EXC[name]=PERF_EXC[name]||{}; PERF_EXC[name][date]=!PERF_EXC[name][date]; cachePerf();
@@ -22181,6 +22209,121 @@ ${brandLines}`;
       if(_perfReady){ firebase.database().ref("leave_requests/"+key).update(updates); }
       else { Object.assign(req,updates); perfRerender(); }
     };
+    // ─── One-time backfill: leave taken Apr–Aug 2026, from the external
+    // tracker Gokul kept before this app's Apply-for-Leave existed. Per
+    // Gokul: Standard/Sick rows get charged against balance (sandwich rule
+    // applied on top of the raw dates, same as any live request); Work
+    // From Home rows are recorded for history/visibility only and never
+    // touch the balance, consistent with the live WFH policy. Idempotent —
+    // re-running skips any row already present (matched on member/dates/
+    // type), and the button below hides itself once run.
+    var LEAVE_HISTORY_2026=[
+      {member:"Chinmay", from:"2026-06-30", to:"2026-06-30", reason:"Stomach issue", type:"sick", applied:"2026-06-30"},
+      {member:"Vivaan", from:"2026-07-02", to:"2026-07-02", reason:"Severe stomach ache, visiting doctor", type:"sick", applied:"2026-07-02"},
+      {member:"Majid", from:"2026-05-25", to:"2026-05-30", reason:"Personal work, visit home", type:"standard", applied:"2026-04-08"},
+      {member:"Ricky", from:"2026-06-06", to:"2026-06-06", reason:"Personal errand", type:"standard", applied:"2026-06-03"},
+      {member:"Chinmay", from:"2026-06-24", to:"2026-06-24", reason:"Family wedding", type:"standard", applied:"2026-06-23"},
+      {member:"Muskan", from:"2026-05-25", to:"2026-05-25", reason:"Travelling to Moradabad for fieldwork", type:"standard", applied:"2026-05-22"},
+      {member:"Anam", from:"2026-06-10", to:"2026-06-10", reason:"Visit sister's college (personal work)", type:"standard", applied:"2026-06-09"},
+      {member:"Vivaan", from:"2026-07-11", to:"2026-07-11", reason:"ECG and medical tests, doctor advised rest", type:"sick", applied:"2026-07-11"},
+      {member:"Majid", from:"2026-07-13", to:"2026-07-13", reason:"Severe loose motions, feeling weak", type:"sick", applied:"2026-07-13"},
+      {member:"Nishant", from:"2026-07-24", to:"2026-07-24", reason:"Family function", type:"standard", applied:"2026-07-23"},
+      {member:"Ricky", from:"2026-07-02", to:"2026-07-02", reason:"Personal family errand", type:"standard", applied:"2026-07-01"},
+      {member:"Anurag", from:"2026-07-22", to:"2026-07-22", reason:"Unavoidable personal and family commitment", type:"standard", applied:"2026-07-21"},
+      {member:"Nishant", from:"2026-08-29", to:"2026-08-29", reason:"Rakshabandhan, out of station", type:"standard", applied:"2026-08-22"},
+      {member:"Ricky", from:"2026-08-08", to:"2026-08-08", reason:"Travelling", type:"standard", applied:"2026-08-07"},
+      {member:"Anurag", from:"2026-04-12", to:"2026-04-21", reason:"Travel back to Kolkata", type:"wfh", applied:"2026-04-10"},
+      {member:"Anurag", from:"2026-04-15", to:"2026-04-15", reason:"Bengali New Year puja and celebration at home", type:"wfh", applied:"2026-04-10"},
+      {member:"Anurag", from:"2026-06-09", to:"2026-06-09", reason:"Sudden fever", type:"wfh", applied:"2026-06-09"},
+      {member:"Ricky", from:"2026-07-03", to:"2026-07-03", reason:"Heavy rainfall & flooded roads, disrupted transportation", type:"wfh", applied:"2026-07-03"},
+      {member:"Anurag", from:"2026-07-27", to:"2026-07-27", reason:"Fever and dehydration", type:"wfh", applied:"2026-07-27"},
+      {member:"Ricky", from:"2026-07-29", to:"2026-07-29", reason:"Light fever and headache, recovering", type:"wfh", applied:"2026-07-29"},
+      {member:"Majid", from:"2026-08-21", to:"2026-08-21", reason:"Urgent work that needs to be done", type:"wfh", applied:"2026-08-20"}
+    ];
+    function leaveHistory2026AlreadyImported(){ return !!localStorage.getItem("loona_leave_history_2026_imported"); }
+    window.importLeaveHistory2026=function(){
+      if(currentUser!=="Gokul") return;
+      var todo=LEAVE_HISTORY_2026.filter(function(row){
+        return !LEAVE_REQUESTS.some(function(r){ return r.member===row.member && r.from_date===row.from && r.to_date===row.to && r.leave_type===row.type; });
+      });
+      if(!todo.length){ localStorage.setItem("loona_leave_history_2026_imported","1"); perfRerender(); alert("Nothing to import — all records are already present."); return; }
+      var standardCount=todo.filter(function(r){return r.type!=="wfh";}).length, wfhCount=todo.length-standardCount;
+      if(!confirm("Import "+todo.length+" historical leave record"+(todo.length===1?"":"s")+" (Apr–Aug 2026)?\n\n"+standardCount+" Standard/Sick record"+(standardCount===1?"":"s")+" will be charged against balance (sandwich days included).\n"+wfhCount+" Work From Home record"+(wfhCount===1?"":"s")+" will be added for history only — no balance impact.\n\nThis can't be automatically undone. Continue?")) return;
+      var chargedDays=0;
+      todo.forEach(function(row){
+        var req={member:row.member, from_date:row.from, to_date:row.to, reason:row.reason, leave_type:row.type, status:"approved",
+          requested_at:row.applied+"T10:00:00.000Z", decided_by:"Gokul", decided_at:row.applied+"T12:00:00.000Z"};
+        if(row.type!=="wfh"){
+          var math=leaveDateMath(row.from,row.to);
+          Object.assign(req,{charge_dates:math.chargeDates, span_days:math.span, sandwich_days:math.sandwich, effective_days:math.effective,
+            notice_shortfall:false, requires_management_approval:(math.sandwich>0)});
+          math.chargeDates.forEach(function(ds){ setPerfExcused(row.member,ds,true); });
+          chargedDays+=math.effective;
+        }
+        if(_perfReady){ firebase.database().ref("leave_requests").push(req); }
+        else { req._key="local_"+Date.now()+"_"+Math.random().toString(36).slice(2); LEAVE_REQUESTS.push(req); }
+      });
+      localStorage.setItem("loona_leave_history_2026_imported","1");
+      perfRerender();
+      alert("Imported "+todo.length+" record(s). "+chargedDays+" day(s) charged against leave balances (including sandwich days).");
+    };
+    function renderLeaveHistoryImportNotice(){
+      if(currentUser!=="Gokul" || leaveHistory2026AlreadyImported()) return "";
+      return '<div class="att-board">'+
+        '<div class="bh">&#128230; Leave History Import <span class="tag">one-time</span></div>'+
+        '<div style="font-size:11.5px;color:var(--muted);padding:6px 0 10px;line-height:1.5">21 leave records from Apr–Aug 2026 (tracked before Apply for Leave existed) are ready to be added to everyone\'s leave history and balances.</div>'+
+        '<button onclick="window.importLeaveHistory2026()" style="background:rgba(120,180,255,.15);border:1px solid rgba(120,180,255,.35);color:#78b4ff;padding:6px 14px;border-radius:8px;font-size:11.5px;cursor:pointer;font-weight:600;font-family:var(--font)">Import 2026 Leave History</button>'+
+      '</div>';
+    }
+    // Gokul-only — every leave request that's ever come in, one row per
+    // request, newest applied first. Lives on the Admin panel (moved off
+    // Overview at Gokul's request), collapsed in an accordion so it's out
+    // of the way until needed. The Monthly Overview table sits right below
+    // it — also moved here from Overview (see monthlyOverviewBoardHTML()).
+    function leaveRequestDaysDisplay(r){
+      // WFH never has span/sandwich math computed (it's skipped entirely
+      // at submission) — just show the plain calendar length. Everything
+      // else shows effective_days (the real charge count, sandwich
+      // included); older pre-spec records fall back to computing it fresh.
+      if(r.leave_type==="wfh") return allDatesInRange(r.from_date,r.to_date).length;
+      return r.effective_days!=null ? r.effective_days : chargeDatesFor(r).length;
+    }
+    function renderAdminLeaveRecords(){
+      var sec=document.getElementById("admin-leave-section");
+      if(!sec) return;
+      if(currentUser!=="Gokul"){ sec.innerHTML=""; return; }
+      var all=LEAVE_REQUESTS.slice().sort(function(a,b){return (b.requested_at||"").localeCompare(a.requested_at||"");});
+      var LT_LABEL={standard:"Standard Leave", sick:"Sick Leave", wfh:"Work From Home"};
+      var STATUS_LABEL={pending:'<span style="color:var(--yellow)">&#9203; Pending</span>', approved:'<span style="color:var(--green)">&#10003; Approved</span>', cancelled:'<span style="color:var(--red)">&#8416; Cancelled</span>', declined:'<span style="color:var(--red)">&#10007; Declined</span>'};
+      var rowsHtml = all.length ? all.map(function(r){
+        var range = r.from_date===r.to_date ? fmtDate(r.from_date) : fmtDate(r.from_date)+" – "+fmtDate(r.to_date);
+        var applied = r.requested_at ? fmtDate(r.requested_at.slice(0,10)) : "—";
+        return '<tr>'+
+          '<td data-label="Employee"><strong>'+esc(r.member)+'</strong></td>'+
+          '<td data-label="Date Applied">'+applied+'</td>'+
+          '<td data-label="Leave Date(s)">'+esc(range)+'</td>'+
+          '<td data-label="No. of Days">'+leaveRequestDaysDisplay(r)+'</td>'+
+          '<td data-label="Reason" style="max-width:220px;white-space:normal">'+esc(r.reason||"")+'</td>'+
+          '<td data-label="Type">'+(LT_LABEL[r.leave_type]||"Standard Leave")+'</td>'+
+          '<td data-label="Status">'+(STATUS_LABEL[r.status]||esc(r.status||""))+'</td>'+
+        '</tr>';
+      }).join("") : '<tr><td colspan="7" style="text-align:center;color:var(--muted)">No leave requests yet.</td></tr>';
+      sec.innerHTML =
+        '<div class="lc-accordion">'+
+          '<div class="lc-acc-item">'+
+            '<button class="lc-acc-head" onclick="toggleLcAccordion(this)">'+
+              '<span class="lc-acc-ic">&#127796;</span><span class="lc-acc-title">Leaves Taken <span class="tag">'+all.length+'</span></span><span class="lc-acc-toggle">+</span>'+
+            '</button>'+
+            '<div class="lc-acc-body" style="padding-left:18px">'+
+              '<div class="scroll"><table class="att-tbl wide"><thead><tr>'+
+                '<th>Employee</th><th>Date Applied</th><th>Leave Date(s)</th><th>No. of Days</th><th>Reason</th><th>Type</th><th>Status</th>'+
+              '</tr></thead><tbody>'+rowsHtml+'</tbody></table></div>'+
+            '</div>'+
+          '</div>'+
+        '</div>'+
+        monthlyOverviewBoardHTML();
+    }
+    window.renderAdminLeaveRecords=renderAdminLeaveRecords; // called from openAdminTab() in the earlier script block
     function renderMyLeaveRequests(name){
       var mine=LEAVE_REQUESTS.filter(function(r){return normName(r.member)===normName(name);})
         .sort(function(a,b){return (b.requested_at||"").localeCompare(a.requested_at||"");});
@@ -22216,6 +22359,48 @@ ${brandLines}`;
     // request. Scoped to yesterday only, not a running backlog — if it's
     // not acted on, it quietly drops off tomorrow (the absence itself is
     // still there in the Absent count regardless).
+    // Gokul-only — anyone still "on_probation" whose probationEndDate() is
+    // within 7 days (or already past — isOnProbation() no longer
+    // auto-expires them, so this keeps surfacing until Gokul actually
+    // acts) shows up here as a request, oldest end date first. Confirming
+    // is the only way probation ever ends now.
+    function probationCompletionsDue(){
+      var out=[];
+      Object.keys(window.MEMBER_INFO||{}).forEach(function(n){
+        if(n==="Gokul") return;
+        var info=window.MEMBER_INFO[n];
+        if(!info || info.probationStatus!=="on_probation" || !info.probationStartDate) return;
+        var end=window.probationEndDate(info.probationStartDate);
+        var d=new Date(end+"T00:00:00"); d.setDate(d.getDate()-7);
+        var noticeFrom=isoOfDate(d);
+        if(TODAY>=noticeFrom) out.push({name:n, end:end});
+      });
+      out.sort(function(a,b){return a.end.localeCompare(b.end);});
+      return out;
+    }
+    window.confirmProbationCompletion=function(name){
+      if(currentUser!=="Gokul") return;
+      if(!confirm("Confirm "+name+" — end their probation and treat them as a regular employee from now on?")) return;
+      if(window.MEMBER_INFO && window.MEMBER_INFO[name]) window.MEMBER_INFO[name].probationStatus="confirmed";
+      if(_perfReady){ try{ firebase.database().ref("members/"+fbMemberKey(name)).update({probationStatus:"confirmed"}); }catch(e){} }
+      perfRerender();
+    };
+    function renderProbationCompletionRequests(){
+      if(currentUser!=="Gokul") return "";
+      var due=probationCompletionsDue();
+      if(!due.length) return "";
+      var rows=due.map(function(r){
+        var overdue=r.end<TODAY;
+        var when=overdue ? "was due "+fmtDate(r.end) : "due "+fmtDate(r.end);
+        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);gap:10px">'+
+          '<div><b>'+esc(r.name)+'</b> &middot; probation '+when+(overdue?' <span style="color:#f0b03f">&middot; overdue</span>':'')+'</div>'+
+          '<button onclick="window.confirmProbationCompletion(&quot;'+r.name+'&quot;)" style="background:rgba(76,175,125,.15);border:1px solid rgba(76,175,125,.3);color:#4caf7d;padding:5px 12px;border-radius:6px;font-size:11.5px;cursor:pointer;font-weight:600;font-family:inherit;flex-shrink:0">&#10003; Confirm Employee</button></div>';
+      }).join("");
+      return '<div class="att-board">'+
+        '<div class="bh">&#127891; Probation Completions <span class="tag">'+due.length+' pending</span></div>'+
+        rows+
+      '</div>';
+    }
     function unapprovedYdayAbsences(){
       var names=Object.keys(ATT).filter(function(n){
         return n!=="Gokul" &&
