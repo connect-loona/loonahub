@@ -13296,7 +13296,7 @@
       const status = document.getElementById('eem-probation-status').value;
       const start = document.getElementById('eem-probation-start').value;
       if (status === 'on_probation' && start) {
-        hint.textContent = `Auto-confirms on ${fmtDate(probationEndDate(start))} (${PROBATION_MONTHS} months from start) — no need to come back and flip this.`;
+        hint.textContent = `Probation runs until ${fmtDate(probationEndDate(start))} (${PROBATION_MONTHS} months from start). A confirmation request will show up on your founder board a week before that date — nothing auto-confirms without your approval.`;
       } else {
         hint.textContent = '';
       }
@@ -20878,6 +20878,7 @@ ${brandLines}`;
       }).join("");
       return ''+
       '<div class="att-founder-badge"><span class="em">&#129409;</span> <b>Gokul</b> <span style="color:var(--accent2)">('+esc(ATT.Gokul.code)+')</span> &middot; '+daysAt(ATT.Gokul.joinDate)+' days building Loona</div>'+
+      renderProbationCompletionRequests()+
       renderUnapprovedAbsenceNotice()+
       renderLeaveApprovalQueue()+
       renderLeaveHistoryImportNotice()+
@@ -21958,17 +21959,17 @@ ${brandLines}`;
     // the field entirely (an employee record from before this existed) is
     // treated as confirmed, not on probation, so nobody gets retroactively
     // locked out by a field that simply hasn't been set yet.
-    // Auto-expires 3 months after probationStartDate (see probationEndDate(),
-    // shared with the Edit Employee modal's own hint) — the stored
-    // "on_probation" status doesn't need to be manually flipped back once
-    // that date passes; this just stops treating it as active. A start date
-    // that's missing (set to on_probation with nothing else filled in) is
-    // treated as indefinite until someone does flip it manually.
+    // Deliberately does NOT auto-expire at the 3-month mark — completing
+    // probation now requires Gokul's explicit approval (see
+    // renderProbationCompletionRequests()/confirmProbationCompletion()
+    // below), which surfaces as a request on the founder board starting a
+    // week before probationEndDate() so it can't be missed. Someone stays
+    // "on probation" (blocked from applying leave) past that date until
+    // Gokul actually approves — that's the point of the approval gate, not
+    // a bug.
     function isOnProbation(name){
       var info=(window.MEMBER_INFO||{})[name]||{};
-      if(info.probationStatus!=="on_probation") return false;
-      if(!info.probationStartDate) return true;
-      return TODAY<window.probationEndDate(info.probationStartDate);
+      return info.probationStatus==="on_probation";
     }
     window.perfExcuse=function(name,date,mo){
       PERF_EXC[name]=PERF_EXC[name]||{}; PERF_EXC[name][date]=!PERF_EXC[name][date]; cachePerf();
@@ -22283,6 +22284,48 @@ ${brandLines}`;
     // request. Scoped to yesterday only, not a running backlog — if it's
     // not acted on, it quietly drops off tomorrow (the absence itself is
     // still there in the Absent count regardless).
+    // Gokul-only — anyone still "on_probation" whose probationEndDate() is
+    // within 7 days (or already past — isOnProbation() no longer
+    // auto-expires them, so this keeps surfacing until Gokul actually
+    // acts) shows up here as a request, oldest end date first. Confirming
+    // is the only way probation ever ends now.
+    function probationCompletionsDue(){
+      var out=[];
+      Object.keys(window.MEMBER_INFO||{}).forEach(function(n){
+        if(n==="Gokul") return;
+        var info=window.MEMBER_INFO[n];
+        if(!info || info.probationStatus!=="on_probation" || !info.probationStartDate) return;
+        var end=window.probationEndDate(info.probationStartDate);
+        var d=new Date(end+"T00:00:00"); d.setDate(d.getDate()-7);
+        var noticeFrom=isoOfDate(d);
+        if(TODAY>=noticeFrom) out.push({name:n, end:end});
+      });
+      out.sort(function(a,b){return a.end.localeCompare(b.end);});
+      return out;
+    }
+    window.confirmProbationCompletion=function(name){
+      if(currentUser!=="Gokul") return;
+      if(!confirm("Confirm "+name+" — end their probation and treat them as a regular employee from now on?")) return;
+      if(window.MEMBER_INFO && window.MEMBER_INFO[name]) window.MEMBER_INFO[name].probationStatus="confirmed";
+      if(_perfReady){ try{ firebase.database().ref("members/"+fbMemberKey(name)).update({probationStatus:"confirmed"}); }catch(e){} }
+      perfRerender();
+    };
+    function renderProbationCompletionRequests(){
+      if(currentUser!=="Gokul") return "";
+      var due=probationCompletionsDue();
+      if(!due.length) return "";
+      var rows=due.map(function(r){
+        var overdue=r.end<TODAY;
+        var when=overdue ? "was due "+fmtDate(r.end) : "due "+fmtDate(r.end);
+        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);gap:10px">'+
+          '<div><b>'+esc(r.name)+'</b> &middot; probation '+when+(overdue?' <span style="color:#f0b03f">&middot; overdue</span>':'')+'</div>'+
+          '<button onclick="window.confirmProbationCompletion(&quot;'+r.name+'&quot;)" style="background:rgba(76,175,125,.15);border:1px solid rgba(76,175,125,.3);color:#4caf7d;padding:5px 12px;border-radius:6px;font-size:11.5px;cursor:pointer;font-weight:600;font-family:inherit;flex-shrink:0">&#10003; Confirm Employee</button></div>';
+      }).join("");
+      return '<div class="att-board">'+
+        '<div class="bh">&#127891; Probation Completions <span class="tag">'+due.length+' pending</span></div>'+
+        rows+
+      '</div>';
+    }
     function unapprovedYdayAbsences(){
       var names=Object.keys(ATT).filter(function(n){
         return n!=="Gokul" &&
