@@ -19126,10 +19126,11 @@ ${brandLines}`;
         </div>
       </div>
       <div id="leave-warning" style="display:none;font-size:11.5px;color:#f0b03f;background:rgba(240,176,63,.1);border:1px solid rgba(240,176,63,.3);border-radius:8px;padding:8px 10px;margin-bottom:10px;line-height:1.5"></div>
+      <div id="leave-cap-note" style="display:none;font-size:11.5px;color:#9fc0f0;background:rgba(120,180,255,.1);border:1px solid rgba(120,180,255,.3);border-radius:8px;padding:8px 10px;margin-bottom:10px;line-height:1.5"></div>
       <label style="display:block;font-size:12px;color:#888;margin-bottom:6px">Message *</label>
       <textarea id="leave-reason" placeholder="Why are you taking leave?" style="width:100%;min-height:70px;background:#111;border:1px solid #444;border-radius:8px;color:#d0d0d0;padding:10px 12px;font-family:inherit;font-size:13px;box-sizing:border-box;resize:vertical"></textarea>
       <div id="leave-error" style="display:none;font-size:11.5px;color:#e05c5c;margin-top:8px"></div>
-      <div style="font-size:11px;color:#666;margin-top:8px">Sundays and holidays in the range aren't counted. This goes to Gokul for approval — it'll show as "On Leave" on your calendar once approved.</div>
+      <div style="font-size:11px;color:#666;margin-top:8px">Sundays and holidays aren't counted if you apply at least 7 days ahead — shorter notice around a weekend or holiday counts those days too. This goes to Gokul for approval — it'll show as "On Leave" on your calendar once approved.</div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
         <button onclick="closeLeaveModal()" style="background:transparent;border:1px solid #444;color:#888;padding:8px 18px;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit">Cancel</button>
         <button onclick="submitLeaveRequest()" style="background:var(--accent);border:none;color:#000;padding:8px 22px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Send for Approval</button>
@@ -21800,7 +21801,8 @@ ${brandLines}`;
     }
     // Sundays and holidays in the range don't count as leave days (there's
     // nothing to be "off" from) — mirrors how the fine/attendance logic
-    // already excludes them elsewhere in this module.
+    // already excludes them elsewhere in this module. This is the baseline;
+    // see leaveDatesForRequest() below for the short-notice exception.
     function leaveDatesInRange(from,to){
       var out=[], d=new Date(from+"T00:00:00"), e=new Date(to+"T00:00:00"), g=0;
       while(d<=e && g<400){
@@ -21810,35 +21812,65 @@ ${brandLines}`;
       }
       return out;
     }
+    // Every calendar date in the range, no exclusions — used only for the
+    // short-notice case below, where the whole span (Sundays/holidays
+    // included) counts against the balance.
+    function allDatesInRange(from,to){
+      var out=[], d=new Date(from+"T00:00:00"), e=new Date(to+"T00:00:00"), g=0;
+      while(d<=e && g<400){
+        out.push(d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()));
+        d.setDate(d.getDate()+1); g++;
+      }
+      return out;
+    }
+    var LEAVE_NOTICE_DAYS=7; // policy: under 7 days' notice, a weekend/holiday inside the range is no longer free
+    function noticeDays(fromDate){ return Math.round((new Date(fromDate+"T00:00:00")-new Date(TODAY+"T00:00:00"))/86400000); }
+    // The days actually charged against the balance for THIS request. With
+    // 7+ days' notice, Sundays/holidays inside the range stay excluded as
+    // usual (leaveDatesInRange). With less notice, the full span is charged
+    // instead — so a Friday-to-Monday request with 2 days' notice also
+    // costs the intervening Saturday/Sunday, discouraging last-minute
+    // long-weekend requests. A range that never touches a Sunday/holiday
+    // gets the same answer either way, since there's nothing to add.
+    function leaveDatesForRequest(from,to){
+      return noticeDays(from)<LEAVE_NOTICE_DAYS ? allDatesInRange(from,to) : leaveDatesInRange(from,to);
+    }
+    var CONSECUTIVE_LEAVE_CAP=4; // policy: beyond this many consecutive days in one request needs Gokul's special approval, not just the usual review
     function leaveBalanceLeft(){ return Math.round((earnedLeave(currentUser)-approvedLeaves(currentUser))*100)/100; }
-    // Re-run on open and on every date change: doesn't block submission, just
-    // flags up front that THIS particular request (given what's left of the
-    // year's balance) will land as unpaid rather than paid leave.
-    function updateLeaveWarning(){
-      var w=document.getElementById("leave-warning");
-      var left=leaveBalanceLeft();
+    // Re-run on open and on every date change: neither notice blocks
+    // submission, they just flag upfront (a) that this request will land as
+    // unpaid given the balance left, and/or (b) that it's over the standard
+    // 4-consecutive-day cap and will need Gokul's special sign-off.
+    function updateLeaveNotices(){
+      var w=document.getElementById("leave-warning"), capNote=document.getElementById("leave-cap-note");
       var from=document.getElementById("leave-from").value, to=document.getElementById("leave-to").value;
-      var requested=(from && to && to>=from) ? leaveDatesInRange(from,to).length : 0;
-      if(left<=0 || requested>left){
+      var valid=from && to && to>=from;
+      var days=valid ? leaveDatesForRequest(from,to) : [];
+      var left=leaveBalanceLeft();
+      if(left<=0 || days.length>left){
         w.textContent="You don't have sufficient leave balance to apply for paid leave, so please know this will be an unpaid leave and will be subjected to salary deductions.";
         w.style.display="block";
       } else { w.style.display="none"; }
+      if(valid && days.length>CONSECUTIVE_LEAVE_CAP){
+        capNote.textContent="This is "+days.length+" consecutive days — leave over "+CONSECUTIVE_LEAVE_CAP+" days needs Gokul's special approval, or split it into shorter requests.";
+        capNote.style.display="block";
+      } else { capNote.style.display="none"; }
     }
     window.openLeaveModal=function(){
       var f=document.getElementById("leave-from"), t=document.getElementById("leave-to");
       f.value=TODAY; f.min=TODAY; t.value=TODAY; t.min=TODAY;
       document.getElementById("leave-reason").value="";
       document.getElementById("leave-error").style.display="none";
-      updateLeaveWarning();
+      updateLeaveNotices();
       document.getElementById("leave-modal").style.display="flex";
     };
     window.closeLeaveModal=function(){ document.getElementById("leave-modal").style.display="none"; };
     window.onLeaveFromChange=function(){
       var f=document.getElementById("leave-from").value, t=document.getElementById("leave-to");
       t.min=f; if(t.value<f) t.value=f;
-      updateLeaveWarning();
+      updateLeaveNotices();
     };
-    window.onLeaveToChange=function(){ updateLeaveWarning(); };
+    window.onLeaveToChange=function(){ updateLeaveNotices(); };
     window.submitLeaveRequest=function(){
       var from=document.getElementById("leave-from").value, to=document.getElementById("leave-to").value;
       var reason=document.getElementById("leave-reason").value.trim();
@@ -21848,7 +21880,11 @@ ${brandLines}`;
       if(to<from) return fail("“To” can’t be before “From”.");
       if(!reason) return fail("Add a message.");
       if(!leaveDatesInRange(from,to).length) return fail("That range is all Sundays/holidays — nothing to request.");
-      var req={member:currentUser, from_date:from, to_date:to, reason:reason, status:"pending", requested_at:new Date().toISOString()};
+      // Locked in at submission time, not recomputed later — the notice
+      // given is measured against today, not whenever Gokul gets around to
+      // deciding it.
+      var chargeDates=leaveDatesForRequest(from,to);
+      var req={member:currentUser, from_date:from, to_date:to, reason:reason, status:"pending", requested_at:new Date().toISOString(), charge_dates:chargeDates};
       if(_perfReady){ firebase.database().ref("leave_requests").push(req); }
       else { req._key="local_"+Date.now(); LEAVE_REQUESTS.push(req); perfRerender(); }
       window.closeLeaveModal();
@@ -21858,13 +21894,18 @@ ${brandLines}`;
       if(_perfReady){ firebase.database().ref("leave_requests/"+key).remove(); }
       else { LEAVE_REQUESTS=LEAVE_REQUESTS.filter(function(r){return r._key!==key;}); perfRerender(); }
     };
+    // charge_dates is set at submission time (see submitLeaveRequest) so the
+    // 7-day-notice check is locked to when the request was actually made,
+    // not whenever Gokul gets around to deciding it. Older requests from
+    // before this field existed fall back to the plain exclusion.
+    function chargeDatesFor(r){ return (r.charge_dates && r.charge_dates.length) ? r.charge_dates : leaveDatesInRange(r.from_date,r.to_date); }
     // Gokul-only (see renderLeaveApprovalQueue's own gate) — approving fans
-    // out into a PERF_EXC write per working day in the range; declining
-    // just records the decision, no PERF_EXC changes at all.
+    // out into a PERF_EXC write per charged day; declining just records the
+    // decision, no PERF_EXC changes at all.
     window.decideLeaveRequest=function(key,decision){
       var req=LEAVE_REQUESTS.find(function(r){return r._key===key;}); if(!req) return;
       if(decision==="approved"){
-        leaveDatesInRange(req.from_date,req.to_date).forEach(function(ds){ setPerfExcused(req.member,ds,true); });
+        chargeDatesFor(req).forEach(function(ds){ setPerfExcused(req.member,ds,true); });
       }
       var updates={status:decision, decided_by:currentUser, decided_at:new Date().toISOString()};
       if(_perfReady){ firebase.database().ref("leave_requests/"+key).update(updates); }
@@ -21903,9 +21944,10 @@ ${brandLines}`;
       if(!pending.length) return "";
       var rows=pending.map(function(r){
         var range = r.from_date===r.to_date ? fmtDate(r.from_date) : fmtDate(r.from_date)+" – "+fmtDate(r.to_date);
-        var days=leaveDatesInRange(r.from_date,r.to_date).length;
+        var days=chargeDatesFor(r).length;
+        var capFlag = days>CONSECUTIVE_LEAVE_CAP ? ' <span style="color:#f0b03f">&middot; exceeds '+CONSECUTIVE_LEAVE_CAP+"-day cap, needs special approval</span>" : "";
         return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);gap:10px">'+
-          '<div><b>'+esc(r.member)+'</b> &middot; '+esc(range)+' ('+days+' day'+(days===1?"":"s")+')<div style="font-size:11.5px;color:var(--muted);font-style:italic">“'+esc(r.reason||"")+'”</div></div>'+
+          '<div><b>'+esc(r.member)+'</b> &middot; '+esc(range)+' ('+days+' day'+(days===1?"":"s")+')'+capFlag+'<div style="font-size:11.5px;color:var(--muted);font-style:italic">“'+esc(r.reason||"")+'”</div></div>'+
           '<div style="display:flex;gap:6px;flex-shrink:0">'+
             '<button onclick="decideLeaveRequest(&quot;'+r._key+'&quot;,&quot;approved&quot;)" style="background:rgba(76,175,125,.15);border:1px solid rgba(76,175,125,.3);color:#4caf7d;padding:5px 12px;border-radius:6px;font-size:11.5px;cursor:pointer;font-weight:600;font-family:inherit">&#10003; Approve</button>'+
             '<button onclick="decideLeaveRequest(&quot;'+r._key+'&quot;,&quot;declined&quot;)" style="background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);color:#e05c5c;padding:5px 12px;border-radius:6px;font-size:11.5px;cursor:pointer;font-weight:600;font-family:inherit">&#10007; Decline</button>'+
