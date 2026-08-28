@@ -20338,10 +20338,10 @@ ${brandLines}`;
     "use strict";
     var _t=new Date(); var TODAY=_t.getFullYear()+"-"+pad(_t.getMonth()+1)+"-"+pad(_t.getDate());
     var _y=new Date(_t.getTime()-86400000); var YDAY=_y.getFullYear()+"-"+pad(_y.getMonth()+1)+"-"+pad(_y.getDate());
-    // 10:00 AM sharp, no grace period — the old 10:30 cutoff was an informal
-    // allowance that's been formally withdrawn (see the "Timing" policy
-    // notice); everyone is expected in office by the official start time now.
-    var GRACE_MIN=10*60;
+    // 10-minute cushion on the 10:00 AM official start — replaces the old,
+    // more generous 10:30 informal allowance (see the "Timing" policy
+    // notice). 10:10 and earlier is on time; 10:11 onwards is late.
+    var GRACE_MIN=10*60+10;
     var SHIFT_WD="10:00 am – 05:30 pm", SHIFT_SAT="10:00 am – 03:30 pm";
     var REQ_WD=7, REQ_SAT=5;
     // LATE_FREE_DAYS: the first N late/half-day/short-hours occurrences each
@@ -20551,7 +20551,7 @@ ${brandLines}`;
       var rec=dayRecord(name,SEL);
       var isToday=SEL===TODAY;
       var req=reqFor(SEL);
-      var lateNote=rec.status==="late"?' <small>(after 10:30 grace)</small>':(rec.status==="present"&&rec.in!=="—"?' <small>(within grace)</small>':'');
+      var lateNote=rec.status==="late"?' <small>(after 10:10 grace)</small>':(rec.status==="present"&&rec.in!=="—"?' <small>(within grace)</small>':'');
       var mobile=window.innerWidth<=820;
       var dateSel='<div class="att-datesel"><label>Date</label><input type="date" id="att-date" value="'+SEL+'" max="'+TODAY+'"></div>';
       var clockBlock='<div class="al-clockblock"><div class="lab">Working Hours &middot; '+(isToday?"Today":new Date(SEL+"T00:00:00").toLocaleDateString("en-IN",{weekday:"short",day:"numeric",month:"short"}))+(isSat(SEL)?" &middot; Sat":"")+'</div>'+
@@ -20893,7 +20893,7 @@ ${brandLines}`;
     function showLatePopup(name,next){
       var a=ATT[name]||DEFAULT;
       popupBox("late-pop","&#9200;","You’re running late",
-        "You punched in at <b>"+esc(a.in)+"</b>, past the <b>10:30 am</b> grace window.<br>Every <b>3 late days</b> in a month adds a <b>&#8377;200</b> late fee. You have <b>"+a.monthLate+"</b> this month.",
+        "You punched in at <b>"+esc(a.in)+"</b>, past the <b>10:10 am</b> grace window.<br>The first <b>4 late days</b> each month are free — every one after that adds a <b>&#8377;200</b> late fee. You have <b>"+a.monthLate+"</b> this month.",
         next);
     }
     function showPendingPopup(name,count,next){
@@ -21214,7 +21214,7 @@ ${brandLines}`;
     function minToHrs(min){ if(min==null)return "—"; var h=Math.floor(min/60),m=min%60; return pad(h)+"h "+pad(m)+"m"; }
     function daysBetween(startISO,endISO){ var out=[],d=new Date(startISO+"T00:00:00"),e=new Date(endISO+"T00:00:00"),g=0; while(d<=e&&g<400){out.push(fmtISO(d));d.setDate(d.getDate()+1);g++;} return out; }
     // Punch-driven: working day with NO punch = Absent; under required hours = Absent;
-    // else Present (Late if first punch > 10:30). Sundays & holidays are excluded.
+    // else Present (Late if first punch > 10:10). Sundays & holidays are excluded.
     // Last punch resolver: prefer last_out_min; else the last raw punch of the day;
     // else keep any previously-known value (Firebase history rows don't carry punch-outs from older syncs)
     function lastPunchClock(rec, prev){
