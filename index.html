@@ -4421,11 +4421,12 @@
         <button class="nav-btn" onclick="showPage('team',this)">Team</button>
         <button class="nav-btn" onclick="showPage('brands',this)">Brands</button>
         <button class="nav-btn" onclick="showPage('calendar',this)">📅 Calendar</button>
-        <button class="nav-btn" onclick="showPage('chat',this)">AI Chat</button>
         <button class="nav-btn" onclick="showPage('loonacode',this)">Loona Code</button>
+        <!-- AI Chat, Loona Radio, and Independence Day moved into the
+             Loonaverse tools grid (see LV_TOOLS/lvCardClick) — no longer
+             top-level nav items, but still reachable, just one click
+             deeper via Loonaverse → Build. -->
         <button class="nav-btn" onclick="showPage('loonaverse',this)">Loonaverse</button>
-        <button class="nav-btn" onclick="showPage('radio',this)">📻 Loona Radio</button>
-        <button class="nav-btn" onclick="showPage('independence',this)">🇮🇳 Independence Day</button>
         <button class="nav-btn" id="nav-admin-btn" onclick="showPage('admin',this)" style="display:none">🛠 Admin</button>
       </nav>
       <div style="display:flex;align-items:center;gap:12px">
@@ -4568,8 +4569,8 @@
       <!-- Pending from previous days — overview -->
       <div id="overview-overdue-section"></div>
 
-      <div class="two-col">
-        <div>
+      <div class="two-col" id="overview-two-col">
+        <div id="tasks-by-brand-section">
           <div class="section-header">
             <div class="section-title">Tasks by <span>Brand</span></div>
           </div>
@@ -8889,6 +8890,19 @@
 
     // ═══ OVERVIEW ═══
     function renderOverview() {
+      // "Tasks by Brand" is a per-brand breakdown meant for the people
+      // actually doing brand work — not useful on Gokul's own overview,
+      // per his request. Team Overview then takes the full width instead
+      // of sharing the two-column row with an empty gap.
+      const tbbSection = document.getElementById('tasks-by-brand-section');
+      const twoCol = document.getElementById('overview-two-col');
+      if (currentUser === 'Gokul') {
+        if (tbbSection) tbbSection.style.display = 'none';
+        if (twoCol) twoCol.style.gridTemplateColumns = '1fr';
+      } else {
+        if (tbbSection) tbbSection.style.display = '';
+        if (twoCol) twoCol.style.gridTemplateColumns = '';
+      }
       const info = MEMBER_INFO[currentUser] || { emoji: '👋' };
       const hour = new Date().getHours();
       const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -9959,10 +9973,38 @@
       },[]);
       return Object.assign({},node,{reports:reports});
     }
+    // Collects every {name:...} node's name already placed somewhere in
+    // the tree, so addMissingMembersToOrgTree() below can tell who's
+    // missing.
+    function collectOrgTreeNames(node,out){
+      out=out||[];
+      if(node.name) out.push(node.name);
+      (node.reports||[]).forEach(function(r){ collectOrgTreeNames(r,out); });
+      return out;
+    }
+    // ORG_CHART_TREE is a hardcoded reporting structure, so a brand-new
+    // employee (added via the live Admin → Add Team Member flow, straight
+    // into ALL_MEMBERS/Firebase — see submitAddMember()) has no node in it
+    // at all and would otherwise be invisible on the org chart entirely,
+    // not just missing from the right branch. Anyone active in ALL_MEMBERS
+    // who isn't already in the tree gets attached directly under Gokul —
+    // the same placement already used for Karnik/Vivaan/Ankita/Hetal — as
+    // a reasonable default until someone manually places them under the
+    // right manager in ORG_CHART_TREE.
+    function addMissingMembersToOrgTree(root){
+      var placed=collectOrgTreeNames(root);
+      var missing=(typeof ALL_MEMBERS!=="undefined"?ALL_MEMBERS:[]).filter(function(n){
+        return n!=="Gokul" && placed.indexOf(n)<0 &&
+          (typeof INACTIVE_MEMBERS==="undefined" || !INACTIVE_MEMBERS.has(n));
+      });
+      if(!missing.length) return root;
+      var reports=(root.reports||[]).concat(missing.map(function(n){ return {name:n}; }));
+      return Object.assign({},root,{reports:reports});
+    }
     function renderOrgChart(){
       var el=document.getElementById("lc-org-chart");
       if(!el) return;
-      var root=filterOrgTree(ORG_CHART_TREE);
+      var root=addMissingMembersToOrgTree(filterOrgTree(ORG_CHART_TREE));
       var rootContent=orgNodeContentHTML(root,false);
       var childrenHTML=root.reports.map(function(r){ return orgTreeHTML(r,1); }).join("");
       el.innerHTML='<div class="lc-org-tree">'+rootContent+'<div class="lc-org-stem"></div><div class="lc-org-children">'+childrenHTML+'</div></div>';
@@ -11816,26 +11858,28 @@
     // near-identical markup 20 times. lvCardClick() already knows Loona Notes is
     // the one real page; everything else is a "coming soon" toast.
     const LV_TOOLS = [
-      ['Loona Radio', '24/7 curated music for creatives.', '001', '◉'],
-      ['Loona Meet', 'Your own branded video-call platform.', '002', '▣'],
-      ['Loona Notes', 'AI meeting recorder with action items.', '003', '◌', true],
-      ['Loona GPT', 'Trained on your philosophy and tone.', '004', '◔'],
-      ['Loona Search', 'Search every client file, brief, and reference.', '005', '⌕'],
-      ['Loona TV', 'Behind-the-scenes livestreams.', '006', '▰'],
-      ['Loona Jobs', 'Hiring portal with creative challenges.', '007', '△'],
-      ['Loona Wiki', 'Your internal agency brain.', '008', '▧'],
-      ['Loona Fonts', 'Curated font library.', '009', '⌁'],
-      ['Loona Promptbook', 'Searchable prompt database.', '010', '▤'],
-      ['Loona Moodboard', 'AI-generated inspiration boards.', '011', '◫'],
-      ['Loona Shots', 'AI product photography.', '012', '✦'],
-      ['Loona Motion', 'AI motion graphics.', '013', '◩'],
-      ['Loona Voice', 'Clone and manage brand voices.', '014', '◇'],
-      ['Loona Vision', "Analyze competitors' social feeds instantly.", '015', '◯'],
-      ['Loona Vault', 'Client assets, brand books, and files.', '016', '▥'],
-      ['Loona Canvas', 'Collaborative whiteboard.', '017', '▦'],
-      ['Loona Clips', 'AI-generated social edits.', '018', '◈'],
-      ['Loona Labs', 'Public experiments and prototypes.', '019', '⌾'],
-      ['Loona Browser', 'A browser tailored for marketers and creatives.', '020', '◨']
+      ['Loona Radio', '24/7 curated music for creatives.', '001', '◉', true],
+      ['AI Chat', "Chat with Loona's own AI assistant.", '002', '◆', true],
+      ['Independence Day', "This year's Independence Day microsite.", '003', '◐', true],
+      ['Loona Meet', 'Your own branded video-call platform.', '004', '▣'],
+      ['Loona Notes', 'AI meeting recorder with action items.', '005', '◌', true],
+      ['Loona GPT', 'Trained on your philosophy and tone.', '006', '◔'],
+      ['Loona Search', 'Search every client file, brief, and reference.', '007', '⌕'],
+      ['Loona TV', 'Behind-the-scenes livestreams.', '008', '▰'],
+      ['Loona Jobs', 'Hiring portal with creative challenges.', '009', '△'],
+      ['Loona Wiki', 'Your internal agency brain.', '010', '▧'],
+      ['Loona Fonts', 'Curated font library.', '011', '⌁'],
+      ['Loona Promptbook', 'Searchable prompt database.', '012', '▤'],
+      ['Loona Moodboard', 'AI-generated inspiration boards.', '013', '◫'],
+      ['Loona Shots', 'AI product photography.', '014', '✦'],
+      ['Loona Motion', 'AI motion graphics.', '015', '◩'],
+      ['Loona Voice', 'Clone and manage brand voices.', '016', '◇'],
+      ['Loona Vision', "Analyze competitors' social feeds instantly.", '017', '◯'],
+      ['Loona Vault', 'Client assets, brand books, and files.', '018', '▥'],
+      ['Loona Canvas', 'Collaborative whiteboard.', '019', '▦'],
+      ['Loona Clips', 'AI-generated social edits.', '020', '◈'],
+      ['Loona Labs', 'Public experiments and prototypes.', '021', '⌾'],
+      ['Loona Browser', 'A browser tailored for marketers and creatives.', '022', '◨']
     ];
     function lvRenderToolsGrid() {
       const el = document.getElementById('lv-tools-grid');
@@ -16856,7 +16900,10 @@
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
       document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
       document.getElementById('page-' + id).classList.add('active');
-      btn.classList.add('active');
+      // btn is null when navigated to from somewhere other than the top
+      // nav bar — e.g. a Loonaverse tools-grid card (see lvCardClick) for
+      // a page that no longer has its own nav button.
+      if (btn) btn.classList.add('active');
       if (id === 'tasks') {
         buildMemberTabs(currentUser);
         renderOverdue();
@@ -17440,6 +17487,12 @@
     let lnToast = null;
     function lvCardClick(name) {
       if (name === 'Loona Notes') { openLoonaNotes(); return; }
+      // These three used to be their own top-level nav items — now reached
+      // one click deeper via this grid instead, but the pages themselves
+      // (and their own init logic, e.g. openRadioPage()) are unchanged.
+      if (name === 'Loona Radio') { showPage('radio'); return; }
+      if (name === 'AI Chat') { showPage('chat'); return; }
+      if (name === 'Independence Day') { showPage('independence'); return; }
       if (!lnToast) {
         lnToast = document.createElement('div');
         lnToast.style.cssText = 'position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 18px;border-radius:10px;font-size:12.5px;font-weight:600;z-index:9999;opacity:0;transition:opacity .2s;pointer-events:none';
@@ -19228,7 +19281,7 @@ ${brandLines}`;
   <div id="leave-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;align-items:center;justify-content:center" onclick="if(event.target===this)closeLeaveModal()">
     <div style="background:#1a1a1a;border:1px solid #333;border-radius:14px;padding:26px;width:440px;max-width:92vw;box-shadow:0 24px 80px #000a">
       <h3 style="color:#fff;margin:0 0 16px;font-size:18px">🌴 Apply for Leave</h3>
-      <div id="leave-probation-note" style="display:none;font-size:12px;color:#e05c5c;background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);border-radius:8px;padding:10px 12px;margin-bottom:16px;line-height:1.5">You're on probation, so leave isn't available yet — paid or unpaid. It's still accruing in the background; once you're confirmed, you can start using whatever's built up.</div>
+      <div id="leave-probation-note" style="display:none;font-size:12px;color:#e05c5c;background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);border-radius:8px;padding:10px 12px;margin-bottom:16px;line-height:1.5">Please note that during probation, no leaves are allowed. Chances of this leave getting approved are highly unlikely. If approved, it will be treated as unpaid leave.</div>
       <div style="display:flex;gap:10px">
         <div style="flex:1">
           <label style="display:block;font-size:12px;color:#888;margin-bottom:6px">From</label>
@@ -20469,7 +20522,11 @@ ${brandLines}`;
     // new GRACE_MIN above. This is a fixed historical date, not "today" —
     // it must NOT be computed from TODAY, or the cutover would keep sliding
     // forward and un-fix days that were already correctly settled.
-    var POLICY_CUTOVER_DATE="2026-08-28", OLD_GRACE_MIN=10*60+30;
+    // Bumped from 2026-08-28 to 2026-08-29 per Gokul: the old system was
+    // meant to keep applying through the day this was agreed on (28 Aug),
+    // with the new grace only taking effect starting the following day —
+    // not retroactively on the agreement day itself.
+    var POLICY_CUTOVER_DATE="2026-08-29", OLD_GRACE_MIN=10*60+30;
     function graceMinFor(ds){ return ds<POLICY_CUTOVER_DATE ? OLD_GRACE_MIN : GRACE_MIN; }
     var SHIFT_WD="10:00 am – 05:30 pm", SHIFT_SAT="10:00 am – 03:30 pm";
     var REQ_WD=7, REQ_SAT=5;
@@ -21914,12 +21971,19 @@ ${brandLines}`;
       if(_perfReady){ try{ firebase.database().ref("loona_perf_adjust/"+mo+"/"+name).set(cur); }catch(e){} }
       perfRerender();
     };
-    // Only no-punch days count as leave taken (short-hours/half-days are fined, not leave — see totalFine()).
-    // A future date obviously has no punch recorded yet (the day hasn't happened) — treated as a
-    // no-punch day too, so an approved-in-advance leave request (see decideLeaveRequest()) counts
-    // against the balance immediately instead of only once that day passes and LIVEDAYS catches up.
-    function isNoPunchDay(name,ds){ var r=LIVEDAYS[name]&&LIVEDAYS[name][ds]; if(r) return r.im==null; return ds>TODAY; }
-    function approvedLeaves(name){ var e=PERF_EXC[name]||{}; return Object.keys(e).filter(function(d){return e[d]&&isNoPunchDay(name,d);}).length; }
+    // PERF_EXC is the single source of truth for "this date counts as
+    // approved leave" — trusted at face value here, with no corroborating
+    // real-attendance check. There used to be one (requiring the date to
+    // either be in the future, or have a real LIVEDAYS record showing no
+    // punch) — that broke down for two real cases: a Sunday/holiday
+    // sandwiched onto a leave request has no LIVEDAYS entry at all (it's
+    // not a working day), and a backdated/historical leave import can't
+    // rely on attendance sync agreeing with it. Every path that sets
+    // PERF_EXC (perfExcuse's UI, which only ever offers it for genuine
+    // no-punch absences; decideLeaveRequest's approval; the leave history
+    // import) already represents an authoritative decision that the day
+    // counts — nothing legitimate needs a second opinion from LIVEDAYS.
+    function approvedLeaves(name){ var e=PERF_EXC[name]||{}; return Object.keys(e).filter(function(d){return e[d];}).length; }
     function approvedLeavesMo(name,mo){ mo=mo||curMonth(); var e=PERF_EXC[name]||{}; return Object.keys(e).filter(function(d){return e[d]&&d.slice(0,7)===mo;}).length; }
     // TOTAL_LEAVE (15) accrues pro-rata across the financial year (Apr-Mar) — 1.25 days per completed
     // month since the later of the FY start or the employee's join date, capped at TOTAL_LEAVE.
@@ -21961,7 +22025,7 @@ ${brandLines}`;
     function cumulativeApprovedThrough(name,fyStart,mo){
       var e=PERF_EXC[name]||{};
       return Object.keys(e).filter(function(d){
-        return e[d] && isNoPunchDay(name,d) && d.slice(0,7)>=fyStart && d.slice(0,7)<=mo;
+        return e[d] && d.slice(0,7)>=fyStart && d.slice(0,7)<=mo;
       }).length;
     }
     function unpaidLeaveDaysForMonth(name,mo){
@@ -22072,11 +22136,11 @@ ${brandLines}`;
     // notice-tier/sandwich logic and the balance warning entirely — it
     // never deducts from the balance at approval time.
     function updateLeaveNotices(){
+      // Probation is a warning now, not a hard stop — submission stays
+      // enabled; management decides case by case (see submitLeaveRequest,
+      // which flags it for special approval regardless of leave type).
       var probation=isOnProbation(currentUser);
       document.getElementById("leave-probation-note").style.display=probation?"block":"none";
-      document.getElementById("leave-submit-btn").disabled=probation;
-      document.getElementById("leave-submit-btn").style.opacity=probation?"0.5":"1";
-      document.getElementById("leave-submit-btn").style.cursor=probation?"not-allowed":"pointer";
 
       var from=document.getElementById("leave-from").value, to=document.getElementById("leave-to").value;
       var valid=from && to && to>=from;
@@ -22142,16 +22206,18 @@ ${brandLines}`;
       var reason=document.getElementById("leave-reason").value.trim();
       var err=document.getElementById("leave-error");
       function fail(msg){ err.textContent=msg; err.style.display="block"; }
-      // Belt-and-suspenders on top of the disabled submit button in
-      // updateLeaveNotices() — nothing here should be reachable while on
-      // probation, but this is the actual write path, so it gets the same
-      // hard stop regardless of how it was invoked.
       var type=document.getElementById("leave-type").value;
-      if(isOnProbation(currentUser)) return fail("You're on probation — leave requests aren't available until you're confirmed.");
       if(!from||!to) return fail("Pick both dates.");
       if(to<from) return fail("“To” can’t be before “From”.");
       if(!reason) return fail("Add a message.");
-      var req={member:currentUser, from_date:from, to_date:to, reason:reason, leave_type:type, status:"pending", requested_at:new Date().toISOString()};
+      // Probation no longer hard-blocks submission (per Gokul: it should
+      // still be possible to apply, just heavily flagged) — it's now a
+      // condition that always forces management's special approval, same
+      // treatment as a notice shortfall or a sandwich day, and applies
+      // regardless of leave type (including WFH, which otherwise never
+      // sets these fields at all).
+      var onProbation=isOnProbation(currentUser);
+      var req={member:currentUser, from_date:from, to_date:to, reason:reason, leave_type:type, status:"pending", requested_at:new Date().toISOString(), probation:onProbation};
       // WFH skips the whole notice-tier/sandwich calculation — it never
       // charges the balance at approval time (see decideLeaveRequest);
       // actual impact is left to the existing attendance-based rules.
@@ -22163,8 +22229,10 @@ ${brandLines}`;
         var noticeMs=noticeGivenMs(from), reqMs=requiredNoticeMsFor(math.effective);
         Object.assign(req, {
           charge_dates:math.chargeDates, span_days:math.span, sandwich_days:math.sandwich, effective_days:math.effective,
-          notice_shortfall:noticeMs<reqMs, requires_management_approval:(math.sandwich>0 || noticeMs<reqMs)
+          notice_shortfall:noticeMs<reqMs, requires_management_approval:(math.sandwich>0 || noticeMs<reqMs || onProbation)
         });
+      } else if(onProbation){
+        req.requires_management_approval=true;
       }
       if(_perfReady){ firebase.database().ref("leave_requests").push(req); }
       else { req._key="local_"+Date.now(); LEAVE_REQUESTS.push(req); perfRerender(); }
@@ -22451,11 +22519,16 @@ ${brandLines}`;
           // submission for a request that's still sitting pending.
           var m = r.effective_days!=null ? {sandwich:r.sandwich_days, effective:r.effective_days} : leaveDateMath(r.from_date,r.to_date);
           var shortfall = r.notice_shortfall!=null ? r.notice_shortfall : (noticeGivenMs(r.from_date)<requiredNoticeMsFor(m.effective));
-          var needsApproval = r.requires_management_approval!=null ? r.requires_management_approval : (m.sandwich>0 || shortfall);
+          var needsApproval = r.requires_management_approval!=null ? r.requires_management_approval : (m.sandwich>0 || shortfall || r.probation);
+          var warnReasons=[];
+          if(r.probation) warnReasons.push("employee is on probation");
+          if(shortfall) warnReasons.push("notice shortfall");
           flag = !needsApproval ? ' ('+days+' day'+(days===1?"":"s")+')' :
-            (shortfall
-              ? ' ('+m.effective+' day'+(m.effective===1?"":"s")+') <span style="color:#f0b03f">&middot; notice shortfall — needs special approval</span>'
+            (warnReasons.length
+              ? ' ('+m.effective+' day'+(m.effective===1?"":"s")+') <span style="color:#f0b03f">&middot; '+warnReasons.join(" &amp; ")+' — needs special approval</span>'
               : ' ('+m.effective+' day'+(m.effective===1?"":"s")+') <span style="color:#9fc0f0">&middot; touches a Sunday/holiday</span>');
+        } else if(r.probation){
+          flag = ' <span style="color:#f0b03f">&middot; employee is on probation — needs special approval</span>';
         }
         return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);gap:10px">'+
           '<div><b>'+esc(r.member)+'</b> &middot; '+typeTag+esc(range)+flag+'<div style="font-size:11.5px;color:var(--muted);font-style:italic">“'+esc(r.reason||"")+'”</div></div>'+
