@@ -6571,7 +6571,7 @@
           </button>
           <div class="lc-acc-body">
             <p>Working days are Monday–Saturday. Business hours are 10:00 am–5:30 pm (10:00 am–3:30 pm on Saturdays), with one designated weekly off. You may occasionally be asked to work on holidays based on project deadlines or business needs, at management's discretion.</p>
-            <p>Late arrivals, half days, and short-hours absences are fined at ₹<b id="lc-late-fee">200</b> for every <b id="lc-late-block">3</b> occurrences.</p>
+            <p>Late arrivals, half days, and short-hours absences: the first <b id="lc-late-free">4</b> in a month are free, and every one after that is fined ₹<b id="lc-late-fee">200</b> — no exceptions.</p>
             <p>A formal warning on late arrivals has already been issued to the team — this is the final notice. Attendance is being monitored closely, and continued violations will be escalated.</p>
           </div>
         </div>
@@ -20338,13 +20338,21 @@ ${brandLines}`;
     "use strict";
     var _t=new Date(); var TODAY=_t.getFullYear()+"-"+pad(_t.getMonth()+1)+"-"+pad(_t.getDate());
     var _y=new Date(_t.getTime()-86400000); var YDAY=_y.getFullYear()+"-"+pad(_y.getMonth()+1)+"-"+pad(_y.getDate());
-    var GRACE_MIN=10*60+30;
+    // 10:00 AM sharp, no grace period — the old 10:30 cutoff was an informal
+    // allowance that's been formally withdrawn (see the "Timing" policy
+    // notice); everyone is expected in office by the official start time now.
+    var GRACE_MIN=10*60;
     var SHIFT_WD="10:00 am – 05:30 pm", SHIFT_SAT="10:00 am – 03:30 pm";
     var REQ_WD=7, REQ_SAT=5;
-    var LATE_FEE=200, LATE_BLOCK=3, TOTAL_LEAVE=15;
+    // LATE_FREE_DAYS: the first N late/half-day/short-hours occurrences each
+    // month are free; LATE_FEE applies per occurrence from the (N+1)th
+    // onwards — see lateFine(). Was previously a very different "block"
+    // formula (₹200 per every 3 occurrences, i.e. a repeating flat charge);
+    // this is now a per-day charge past a fixed monthly allowance instead.
+    var LATE_FEE=200, LATE_FREE_DAYS=4, TOTAL_LEAVE=15;
     (function(){
-      var lf=document.getElementById("lc-late-fee"), lb=document.getElementById("lc-late-block"), tl=document.getElementById("lc-total-leave");
-      if(lf) lf.textContent=LATE_FEE; if(lb) lb.textContent=LATE_BLOCK; if(tl) tl.textContent=TOTAL_LEAVE;
+      var lf=document.getElementById("lc-late-fee"), lb=document.getElementById("lc-late-free"), tl=document.getElementById("lc-total-leave");
+      if(lf) lf.textContent=LATE_FEE; if(lb) lb.textContent=LATE_FREE_DAYS; if(tl) tl.textContent=TOTAL_LEAVE;
     })();
     var SEL=TODAY;
     var FOUNDER_MO=TODAY.slice(0,7); // month shown in the founder board's Monthly Overview table
@@ -20440,7 +20448,9 @@ ${brandLines}`;
     function clockOf(hrs){ if(!hrs||hrs==="—")return "00:00"; var m=hrs.match(/(\d+)h\s*(\d+)m/); return m?(m[1]+":"+m[2]):"00:00"; }
     function parseMin(t){ if(!t||t==="—")return null; var m=t.match(/(\d+):(\d+)\s*(am|pm)/i); if(!m)return null; var h=+m[1]%12; if(/pm/i.test(m[3]))h+=12; return h*60+ (+m[2]); }
     function isLate(t){ var mn=parseMin(t); return mn!==null && mn>GRACE_MIN; }
-    function lateFine(days){ return Math.floor(days/LATE_BLOCK)*LATE_FEE; }
+    // First LATE_FREE_DAYS occurrences this month are free; every one after
+    // that costs LATE_FEE — e.g. 4 late days = ₹0, 5 = ₹200, 6 = ₹400.
+    function lateFine(days){ return Math.max(0, days-LATE_FREE_DAYS)*LATE_FEE; }
     function fmtDate(iso){ if(!iso)return "—"; return new Date(iso+"T00:00:00").toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"}); }
     function daysAt(iso){ if(!iso)return 0; return Math.round((new Date(TODAY+"T00:00:00")-new Date(iso+"T00:00:00"))/86400000); }
     function isSat(ds){ return new Date(ds+"T00:00:00").getDay()===6; }
@@ -20532,7 +20542,7 @@ ${brandLines}`;
       var fine=lateFine(nLate)+halfDayFine(name)+shortAbsentFine(name);
       return '<div class="att-policy" style="grid-template-columns:1fr">'+
         '<div class="att-pol '+(fine>0?"danger":"ok")+'"><span class="pic">&#9200;</span>'+
-        '<span class="txt"><b>Fines — this month</b>'+nLate+' late &middot; '+nHalf+' half day'+(nHalf===1?"":"s")+' &middot; '+nShort+' short-hours absence'+(nShort===1?"":"s")+' &middot; &#8377;'+LATE_FEE+' per '+LATE_BLOCK+' each</span>'+
+        '<span class="txt"><b>Fines — this month</b>'+nLate+' late &middot; '+nHalf+' half day'+(nHalf===1?"":"s")+' &middot; '+nShort+' short-hours absence'+(nShort===1?"":"s")+' &middot; first '+LATE_FREE_DAYS+' free, &#8377;'+LATE_FEE+' each after</span>'+
         '<span class="amt">&#8377;'+fine+'</span></div></div>';
     }
 
@@ -20736,7 +20746,7 @@ ${brandLines}`;
         '<div class="scroll"><table class="att-tbl wide" id="founder-monthly-tbl"><thead><tr>'+
           '<th>Employee</th><th>Attendance (mo)</th><th>Absent (mo)</th><th>Late (mo)</th><th>Fines (mo)</th><th>Leave Taken</th><th>Leave Left</th>'+
         '</tr></thead><tbody>'+rows+'</tbody></table></div>'+
-        '<div class="note">Attendance = full (P) &amp; half (H) days worked in the selected month, click H to review/forgive &middot; Absent = unresolved (no punch = approvable as Official Leave; short hours = fined, click to review) &middot; Late = total days late (forgiven count shown alongside), click to review/forgive — forgiving removes it from fees/score but the calendar still shows it as Late &middot; Fines combine late, Half Day and short-hours-absence at &#8377;'+LATE_FEE+' per '+LATE_BLOCK+' each, for the selected month &middot; Leave Taken/Left is a running total (not month-specific) — the count of approved no-punch absences against the '+TOTAL_LEAVE+'-day yearly balance, accrued pro-rata (1.25/month) since April or join date.</div>'+
+        '<div class="note">Attendance = full (P) &amp; half (H) days worked in the selected month, click H to review/forgive &middot; Absent = unresolved (no punch = approvable as Official Leave; short hours = fined, click to review) &middot; Late = total days late (forgiven count shown alongside), click to review/forgive — forgiving removes it from fees/score but the calendar still shows it as Late &middot; Fines combine late, Half Day and short-hours-absence — first '+LATE_FREE_DAYS+' of each are free, &#8377;'+LATE_FEE+' each after that, for the selected month &middot; Leave Taken/Left is a running total (not month-specific) — the count of approved no-punch absences against the '+TOTAL_LEAVE+'-day yearly balance, accrued pro-rata (1.25/month) since April or join date.</div>'+
       '</div>'+
       reimbursementBoardHTML()+
       perfBoardHTML()+
@@ -21521,7 +21531,7 @@ ${brandLines}`;
       mo=mo||curMonth();
       var d=LIVEDAYS[name]||{};
       var rows=Object.keys(d).filter(function(ds){return ds.slice(0,7)===mo && d[ds].status==="half";}).sort();
-      var html=rows.length? ('<div style="font-size:11px;color:#8a8178;margin-bottom:10px;line-height:1.5">Half Days are counted automatically ('+LATE_FEE+' per '+LATE_BLOCK+', same as late fee). <b style="color:#68e6a6">Forgive</b> one for a genuine reason to drop it from the fine.</div>'+rows.map(function(ds){ var fg=(HALF_FGV[name]||{})[ds];
+      var html=rows.length? ('<div style="font-size:11px;color:#8a8178;margin-bottom:10px;line-height:1.5">Half Days are counted automatically (first '+LATE_FREE_DAYS+' free, &#8377;'+LATE_FEE+' each after — same as late fee). <b style="color:#68e6a6">Forgive</b> one for a genuine reason to drop it from the fine.</div>'+rows.map(function(ds){ var fg=(HALF_FGV[name]||{})[ds];
         return '<div class="pf-absrow"><span>&bull; '+fmtDate(ds)+' — in '+minToClock(d[ds].im)+', '+esc(d[ds].hrs)+' worked</span><button class="pf-exc'+(fg?" on":"")+'" onclick="window.attForgiveHalf(&quot;'+name+'&quot;,&quot;'+ds+'&quot;,&quot;'+mo+'&quot;)">'+(fg?"Forgiven ✓":"Forgive")+'</button></div>'; }).join(''))
         : "No Half Days this month. &#127881;";
       popupBox("info-pop","&#128197;",esc(name)+" · Half Day review ("+rows.length+")",html,null);
@@ -21770,7 +21780,7 @@ ${brandLines}`;
       mo=mo||curMonth();
       var d=LIVEDAYS[name]||{};
       var rows=Object.keys(d).filter(function(ds){return ds.slice(0,7)===mo && d[ds].status==="absent";}).sort();
-      var html=rows.length? ('<div style="font-size:11px;color:#8a8178;margin-bottom:10px;line-height:1.5">A day <b style="color:#9fc0f0">with no punch</b> can be approved as Official Leave — deducted from the leave balance. A day <b style="color:#68e6a6">with a punch</b> (very short hours) is fined instead ('+LATE_FEE+' per '+LATE_BLOCK+') — Forgive it for a genuine reason.</div>'+rows.map(function(ds){ var noPunch=d[ds].im==null;
+      var html=rows.length? ('<div style="font-size:11px;color:#8a8178;margin-bottom:10px;line-height:1.5">A day <b style="color:#9fc0f0">with no punch</b> can be approved as Official Leave — deducted from the leave balance. A day <b style="color:#68e6a6">with a punch</b> (very short hours) is fined instead (first '+LATE_FREE_DAYS+' free, &#8377;'+LATE_FEE+' each after) — Forgive it for a genuine reason.</div>'+rows.map(function(ds){ var noPunch=d[ds].im==null;
         if(noPunch){ var ex=(PERF_EXC[name]||{})[ds];
           return '<div class="pf-absrow"><span>&bull; '+fmtDate(ds)+' · no punch</span>'+
             '<button class="pf-exc'+(ex?" on":"")+'" onclick="window.perfExcuse(&quot;'+name+'&quot;,&quot;'+ds+'&quot;,&quot;'+mo+'&quot;)">'+(ex?"Official leave ✓":"Approve leave")+'</button></div>';
