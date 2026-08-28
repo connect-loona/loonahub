@@ -7006,7 +7006,7 @@
 
     // ═══ CONFIG ═══
     const COLORS = ['#c8a96e', '#5b9cf6', '#4caf7d', '#e05c5c', '#9f7aea', '#f5c842', '#38b2ac', '#ed8936', '#e84393', '#68d391'];
-    const MEMBER_INFO = {"Gokul":{"color":"#c8a96e","emoji":"🚀","role":"Founder"},"Anam":{"color":"#38b2ac","emoji":"💼","role":"Head of Strategy","birthdate":"1999-10-14"},"Ankita":{"color":"#f687b3","emoji":"⭐","role":"Sr. Strategy","birthdate":"1995-04-14"},"Ricky":{"color":"#ed8936","emoji":"🎯","role":"Head of Design","birthdate":"2001-09-12"},"Muskan":{"color":"#e84393","emoji":"✨","role":"Designer","birthdate":"2000-01-19"},"Nishant":{"color":"#e05c5c","emoji":"🎨","role":"Designer","birthdate":"2001-12-13"},"Karnik":{"color":"#68d391","emoji":"📐","role":"Web Designer","birthdate":"2000-01-18"},"Chinmay":{"color":"#4caf7d","emoji":"✂️","role":"Video Editor","birthdate":"2003-12-05"},"Majid":{"color":"#9f7aea","emoji":"🎞️","role":"Video Editor","birthdate":"2004-05-23"},"Anurag":{"color":"#f6ad55","emoji":"🎬","role":"Video Editor","birthdate":"1995-02-22"},"Vivaan":{"color":"#5b9cf6","emoji":"🌱","role":"Intern – Social & Strategy","birthdate":"2007-10-01"},"Diya":{"color":"#b794f4","emoji":"📊","role":"Sr. Manager – Strategy/OPS","birthdate":"2000-11-19"},"Ananya":{"color":"#f6e05e","emoji":"🖌️","role":"Intern – Design","birthdate":"2005-12-06"},"Hetal":{"color":"#63b3ed","emoji":"📈","role":"Performance Marketing Lead","birthdate":"1995-06-01"}};
+    const MEMBER_INFO = {"Gokul":{"color":"#c8a96e","emoji":"🚀","role":"Founder"},"Anam":{"color":"#38b2ac","emoji":"💼","role":"Head of Strategy","birthdate":"1999-10-14"},"Ankita":{"color":"#f687b3","emoji":"⭐","role":"Sr. Strategy","birthdate":"1995-04-14"},"Ricky":{"color":"#ed8936","emoji":"🎯","role":"Head of Design","birthdate":"2001-09-12"},"Muskan":{"color":"#e84393","emoji":"✨","role":"Designer","birthdate":"2000-01-19"},"Nishant":{"color":"#e05c5c","emoji":"🎨","role":"Designer","birthdate":"2001-12-13"},"Karnik":{"color":"#68d391","emoji":"📐","role":"Web Designer","birthdate":"2000-01-18"},"Chinmay":{"color":"#4caf7d","emoji":"✂️","role":"Video Editor","birthdate":"2003-12-05"},"Majid":{"color":"#9f7aea","emoji":"🎞️","role":"Video Editor","birthdate":"2004-05-23"},"Anurag":{"color":"#f6ad55","emoji":"🎬","role":"Video Editor","birthdate":"1995-02-22"},"Vivaan":{"color":"#5b9cf6","emoji":"🌱","role":"Intern – Social & Strategy","birthdate":"2007-10-01","probationStatus":"on_probation","probationStartDate":"2026-07-16"},"Diya":{"color":"#b794f4","emoji":"📊","role":"Sr. Manager – Strategy/OPS","birthdate":"2000-11-19"},"Ananya":{"color":"#f6e05e","emoji":"🖌️","role":"Intern – Design","birthdate":"2005-12-06"},"Hetal":{"color":"#63b3ed","emoji":"📈","role":"Performance Marketing Lead","birthdate":"1995-06-01"}};
     window.MEMBER_INFO = MEMBER_INFO; // exposed for isOnProbation() in the later attendance-module script block
     const ALL_MEMBERS = ["Gokul", "Anam", "Ankita", "Ricky", "Muskan", "Nishant", "Karnik", "Chinmay", "Majid", "Anurag", "Vivaan", "Diya", "Ananya", "Hetal"];
     const INACTIVE_MEMBERS = new Set([]);
@@ -7476,7 +7476,7 @@
             attachAvatarListener(m.name);
             attachFavoritesListener(m.name);
             const existing = MEMBER_INFO[m.name] || {};
-            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || null, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null, mobile: m.mobile || existing.mobile || null, gender: m.gender || existing.gender || null, personalEmail: m.personalEmail || existing.personalEmail || null, address: m.address || existing.address || null, lastName: m.lastName || existing.lastName || null, emergencyContactName: m.emergencyContactName || existing.emergencyContactName || null, emergencyContactPhone: m.emergencyContactPhone || existing.emergencyContactPhone || null, bloodGroup: m.bloodGroup || existing.bloodGroup || null, workEmail: m.workEmail || existing.workEmail || null, email: m.email || existing.email || null, knownFor: m.knownFor || existing.knownFor || null, mbti: m.mbti || existing.mbti || null, style: m.style || existing.style || null, nowPlayingSong: m.nowPlayingSong || existing.nowPlayingSong || null, nowPlayingArtist: m.nowPlayingArtist || existing.nowPlayingArtist || null, funFacts: m.funFacts || existing.funFacts || null, favMovie: m.favMovie || existing.favMovie || null, favSnack: m.favSnack || existing.favSnack || null, favBook: m.favBook || existing.favBook || null, favDestination: m.favDestination || existing.favDestination || null, favMovieImg: existing.favMovieImg || null, favSnackImg: existing.favSnackImg || null, favBookImg: existing.favBookImg || null, favDestinationImg: existing.favDestinationImg || null, nowPlayingImg: existing.nowPlayingImg || null, profilePromptDismissed: m.profilePromptDismissed || existing.profilePromptDismissed || false, loonaPersonality: m.loonaPersonality || existing.loonaPersonality || null, probationStatus: m.probationStatus || existing.probationStatus || null, confirmationDate: m.confirmationDate || existing.confirmationDate || null };
+            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || null, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null, mobile: m.mobile || existing.mobile || null, gender: m.gender || existing.gender || null, personalEmail: m.personalEmail || existing.personalEmail || null, address: m.address || existing.address || null, lastName: m.lastName || existing.lastName || null, emergencyContactName: m.emergencyContactName || existing.emergencyContactName || null, emergencyContactPhone: m.emergencyContactPhone || existing.emergencyContactPhone || null, bloodGroup: m.bloodGroup || existing.bloodGroup || null, workEmail: m.workEmail || existing.workEmail || null, email: m.email || existing.email || null, knownFor: m.knownFor || existing.knownFor || null, mbti: m.mbti || existing.mbti || null, style: m.style || existing.style || null, nowPlayingSong: m.nowPlayingSong || existing.nowPlayingSong || null, nowPlayingArtist: m.nowPlayingArtist || existing.nowPlayingArtist || null, funFacts: m.funFacts || existing.funFacts || null, favMovie: m.favMovie || existing.favMovie || null, favSnack: m.favSnack || existing.favSnack || null, favBook: m.favBook || existing.favBook || null, favDestination: m.favDestination || existing.favDestination || null, favMovieImg: existing.favMovieImg || null, favSnackImg: existing.favSnackImg || null, favBookImg: existing.favBookImg || null, favDestinationImg: existing.favDestinationImg || null, nowPlayingImg: existing.nowPlayingImg || null, profilePromptDismissed: m.profilePromptDismissed || existing.profilePromptDismissed || false, loonaPersonality: m.loonaPersonality || existing.loonaPersonality || null, probationStatus: m.probationStatus || existing.probationStatus || null, probationStartDate: m.probationStartDate || existing.probationStartDate || null };
             // Older records still carry the avatar inline on this same node — use it right away,
             // then migrate it out to member_avatars/ so this node stays small for everyone from now on.
             if (m.avatar && m.avatar !== MEMBER_INFO[m.name].avatar) {
@@ -13001,7 +13001,11 @@
 
       const memberRole = role || dept || 'Team Member';
       if (!ALL_MEMBERS.includes(name)) ALL_MEMBERS.push(name);
-      MEMBER_INFO[name] = { color, emoji, role: memberRole, avatar: avatar || null, department: dept || null, joinDate: joinDate || null, employeeId: employeeId || null, birthdate: birthdate || null, lastName: lastName || null, workEmail: loginDeriveEmail(name) };
+      // Standing policy: every new joinee starts on a 3-month probation
+      // (see isOnProbation()/probationEndDate()) unless someone comes back
+      // and changes it via Edit Employee — never confirmed by default.
+      const probationStartDate = joinDate || calTodayIST();
+      MEMBER_INFO[name] = { color, emoji, role: memberRole, avatar: avatar || null, department: dept || null, joinDate: joinDate || null, employeeId: employeeId || null, birthdate: birthdate || null, lastName: lastName || null, workEmail: loginDeriveEmail(name), probationStatus: 'on_probation', probationStartDate };
 
       // Update UI instantly — don't wait for Firebase round-trip
       buildMemberTabs(currentUser);
@@ -13010,7 +13014,7 @@
       rebuildLoginPicker();
 
       // Persist to Firebase in the background
-      if (_db) _db.ref('members/' + fbMemberKey(name)).set({ name, color, emoji, role: memberRole, avatar: avatar || null, department: dept || null, joinDate: joinDate || null, employeeId: employeeId || null, birthdate: birthdate || null, lastName: lastName || null, workEmail: loginDeriveEmail(name) });
+      if (_db) _db.ref('members/' + fbMemberKey(name)).set({ name, color, emoji, role: memberRole, avatar: avatar || null, department: dept || null, joinDate: joinDate || null, employeeId: employeeId || null, birthdate: birthdate || null, lastName: lastName || null, workEmail: loginDeriveEmail(name), probationStatus: 'on_probation', probationStartDate });
 
       closeAddMember();
       document.getElementById('toast-emoji').textContent = '🎉';
@@ -13277,6 +13281,27 @@
 
     let _eemContext = 'admin'; // 'admin' (opened from Admin directory) or 'profile' (self-service / backfill prompt)
 
+    // Shared with isOnProbation() in the attendance-module script block
+    // (exposed on window below) so there's exactly one place that knows how
+    // long probation lasts and how its end date is computed.
+    const PROBATION_MONTHS = 3;
+    function probationEndDate(startDate) {
+      const d = new Date(startDate + 'T00:00:00');
+      d.setMonth(d.getMonth() + PROBATION_MONTHS);
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+    window.probationEndDate = probationEndDate;
+    function updateProbationEndHint() {
+      const hint = document.getElementById('eem-probation-end-hint');
+      const status = document.getElementById('eem-probation-status').value;
+      const start = document.getElementById('eem-probation-start').value;
+      if (status === 'on_probation' && start) {
+        hint.textContent = `Auto-confirms on ${fmtDate(probationEndDate(start))} (${PROBATION_MONTHS} months from start) — no need to come back and flip this.`;
+      } else {
+        hint.textContent = '';
+      }
+    }
+
     async function openEditEmployeeModal(name, context) {
       _eemEditingName = name;
       _eemContext = context || 'admin';
@@ -13297,7 +13322,8 @@
       // field is new and unset on their record.
       document.getElementById('eem-probation-row').style.display = _eemContext === 'admin' ? 'grid' : 'none';
       document.getElementById('eem-probation-status').value = info.probationStatus || 'confirmed';
-      document.getElementById('eem-confirmation-date').value = info.confirmationDate || '';
+      document.getElementById('eem-probation-start').value = info.probationStartDate || '';
+      updateProbationEndHint();
       document.getElementById('eem-mobile').value = info.mobile || '';
       document.getElementById('eem-email').value = info.personalEmail || '';
       document.getElementById('eem-calendaremail').value = info.email || '';
@@ -13410,7 +13436,7 @@
       // Gokul last set completely untouched.
       if (_eemContext === 'admin') {
         nonSensitive.probationStatus = document.getElementById('eem-probation-status').value || 'confirmed';
-        nonSensitive.confirmationDate = document.getElementById('eem-confirmation-date').value || null;
+        nonSensitive.probationStartDate = document.getElementById('eem-probation-start').value || null;
       }
       MEMBER_INFO[name] = Object.assign({}, existing, nonSensitive);
       const sensitiveRecord = { pan: pan || null, aadhar: aadhar || null, bankAccountName: bankAccountName || null, bankName: bankName || null, bankBranch: bankBranch || null, bankAccount: bankAccount || null, bankIFSC: bankIFSC || null };
@@ -18908,18 +18934,22 @@ ${brandLines}`;
            isOnProbation()) regardless of accrued balance. Never shown when an
            employee is editing their own profile — only the Admin Directory route
            (_eemContext==='admin') sets this section visible, same pattern as the
-           Financial & ID section being Gokul-only. -->
+           Financial & ID section being Gokul-only. Probation Start Date is the
+           only date needed — the 3-month end is always computed from it (see
+           probationEndDate()), so "On Probation" auto-expires into confirmed on
+           its own; nobody needs to remember to come back and flip this. -->
       <div class="form-row" id="eem-probation-row" style="display:none">
         <div class="form-group">
           <label>Probation Status</label>
-          <select class="form-control" id="eem-probation-status">
+          <select class="form-control" id="eem-probation-status" onchange="updateProbationEndHint()">
             <option value="on_probation">On Probation</option>
             <option value="confirmed">Confirmed</option>
           </select>
         </div>
         <div class="form-group">
-          <label>Confirmation Date</label>
-          <input class="form-control" type="date" id="eem-confirmation-date">
+          <label>Probation Start Date</label>
+          <input class="form-control" type="date" id="eem-probation-start" onchange="updateProbationEndHint()">
+          <div id="eem-probation-end-hint" style="font-size:11px;color:#888;margin-top:4px"></div>
         </div>
       </div>
       <div class="form-row">
@@ -21927,7 +21957,18 @@ ${brandLines}`;
     // the field entirely (an employee record from before this existed) is
     // treated as confirmed, not on probation, so nobody gets retroactively
     // locked out by a field that simply hasn't been set yet.
-    function isOnProbation(name){ return ((window.MEMBER_INFO||{})[name]||{}).probationStatus==="on_probation"; }
+    // Auto-expires 3 months after probationStartDate (see probationEndDate(),
+    // shared with the Edit Employee modal's own hint) — the stored
+    // "on_probation" status doesn't need to be manually flipped back once
+    // that date passes; this just stops treating it as active. A start date
+    // that's missing (set to on_probation with nothing else filled in) is
+    // treated as indefinite until someone does flip it manually.
+    function isOnProbation(name){
+      var info=(window.MEMBER_INFO||{})[name]||{};
+      if(info.probationStatus!=="on_probation") return false;
+      if(!info.probationStartDate) return true;
+      return TODAY<window.probationEndDate(info.probationStartDate);
+    }
     window.perfExcuse=function(name,date,mo){
       PERF_EXC[name]=PERF_EXC[name]||{}; PERF_EXC[name][date]=!PERF_EXC[name][date]; cachePerf();
       if(_perfReady){ try{ firebase.database().ref("loona_excused/"+name+"/"+date).set(PERF_EXC[name][date]); }catch(e){} }
