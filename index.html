@@ -20617,7 +20617,7 @@ ${brandLines}`;
         rightInner=perfCardHTML(name)+teamLeaderboard(name)+lateFeeBar(name)+renderMyLeaveRequests(name);
       }
       return ''+
-      '<div class="att-head">&#128197; My Attendance '+pill(rec.status)+'<button onclick="openLeaveModal()" style="margin-left:auto;background:rgba(120,180,255,.15);border:1px solid rgba(120,180,255,.35);color:#78b4ff;padding:6px 14px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;font-family:var(--font);text-transform:none;letter-spacing:normal">&#127796; Apply for Leave</button></div>'+
+      '<div class="att-head">&#128197; My Attendance '+pill(rec.status)+'</div>'+
       '<div class="att-2col">'+
         '<div class="att-leftwrap">'+
         '<div class="att-leftcol">'+leftInner+'</div>'+
@@ -21876,18 +21876,26 @@ ${brandLines}`;
     function renderMyLeaveRequests(name){
       var mine=LEAVE_REQUESTS.filter(function(r){return normName(r.member)===normName(name);})
         .sort(function(a,b){return (b.requested_at||"").localeCompare(a.requested_at||"");});
-      if(!mine.length) return "";
-      var rows=mine.map(function(r){
-        var badge = r.status==="pending" ? '<span style="color:var(--yellow)">&#9203; Pending</span>'
-          : r.status==="approved" ? '<span style="color:var(--green)">&#10003; Approved</span>'
-          : '<span style="color:var(--red)">&#10007; Declined</span>';
-        var range = r.from_date===r.to_date ? fmtDate(r.from_date) : fmtDate(r.from_date)+" – "+fmtDate(r.to_date);
-        var cancelBtn = r.status==="pending" ? '<button onclick="cancelLeaveRequest(&quot;'+r._key+'&quot;)" style="background:none;border:none;color:#666;cursor:pointer;font-size:12px;font-family:inherit">Withdraw</button>' : '';
-        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);gap:10px">'+
-          '<div><div style="font-size:12.5px;font-weight:600">'+esc(range)+'</div><div style="font-size:11px;color:var(--muted)">'+esc(r.reason||"")+'</div></div>'+
-          '<div style="display:flex;align-items:center;gap:8px;font-size:11.5px;white-space:nowrap">'+badge+cancelBtn+'</div></div>';
-      }).join("");
-      return '<div style="margin-top:14px"><div class="t">&#128203; My Leave Requests</div>'+rows+'</div>';
+      var body;
+      if(!mine.length){
+        body='<div style="font-size:11.5px;color:var(--muted);padding:4px 0 2px">No leave requests yet.</div>';
+      } else {
+        body=mine.map(function(r){
+          var badge = r.status==="pending" ? '<span style="color:var(--yellow)">&#9203; Pending</span>'
+            : r.status==="approved" ? '<span style="color:var(--green)">&#10003; Approved</span>'
+            : '<span style="color:var(--red)">&#10007; Declined</span>';
+          var range = r.from_date===r.to_date ? fmtDate(r.from_date) : fmtDate(r.from_date)+" – "+fmtDate(r.to_date);
+          var cancelBtn = r.status==="pending" ? '<button onclick="cancelLeaveRequest(&quot;'+r._key+'&quot;)" style="background:none;border:none;color:#666;cursor:pointer;font-size:12px;font-family:inherit">Withdraw</button>' : '';
+          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);gap:10px">'+
+            '<div><div style="font-size:12.5px;font-weight:600">'+esc(range)+'</div><div style="font-size:11px;color:var(--muted)">'+esc(r.reason||"")+'</div></div>'+
+            '<div style="display:flex;align-items:center;gap:8px;font-size:11.5px;white-space:nowrap">'+badge+cancelBtn+'</div></div>';
+        }).join("");
+      }
+      // Section always renders (even before the employee has ever applied)
+      // so the "Apply for Leave" button — anchored here, next to the
+      // heading, per how the user wants it kept — is always reachable.
+      var btn='<button onclick="openLeaveModal()" style="margin-left:auto;background:rgba(120,180,255,.15);border:1px solid rgba(120,180,255,.35);color:#78b4ff;padding:5px 12px;border-radius:8px;font-size:11.5px;cursor:pointer;font-weight:600;font-family:var(--font);text-transform:none;letter-spacing:normal">&#127796; Apply for Leave</button>';
+      return '<div style="margin-top:14px"><div class="t">&#128203; My Leave Requests'+btn+'</div>'+body+'</div>';
     }
     // Gokul-only — every pending leave request across the whole team, shown
     // on the founder board (see founderBoard()) same as the Daily/Monthly
