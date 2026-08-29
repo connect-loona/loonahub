@@ -68,10 +68,10 @@
 # Keeps "Attendance Master Loona" (a SEPARATE spreadsheet — see
 # attendance-sheet-sync.js) in step with Firebase's live /loona_attendance +
 # /loona_excused + /loona_late_forgiven. This one is heavier than the
-# roster sync above — it rewrites a "Master Details" tab plus one tab per
-# month with real punch data, re-deriving each day's status/late-fine from
-# raw punches every run — so it runs hourly rather than every 15 minutes,
-# comfortably inside Sheets API quota.
+# roster sync above — it rewrites a "Yearly Summary" tab plus one
+# richly-formatted tab per month with real punch data, re-deriving each
+# day's status/late-fine from raw punches every run — so it runs hourly
+# rather than every 15 minutes, comfortably inside Sheets API quota.
 [functions."attendance-sheet-sync"]
   schedule = "0 * * * *"
 
@@ -188,8 +188,10 @@
 #                             spreadsheet: create/open it, share it with the Sheets
 #                             service account's client_email as Editor, copy its ID out
 #                             of its URL, set it here. The function creates its own
-#                             "Master Details" tab plus one tab per month with real punch
-#                             data on first run, fully rewriting all of them hourly.)
+#                             "Yearly Summary" tab plus one tab per month with real punch
+#                             data on first run — a dark-themed layout matching Gokul's
+#                             own design (colors/fonts/column widths, not just plain
+#                             values) — fully rewriting all of them hourly.)
 #   FIREBASE_WEB_API_KEY     (optional — defaults to the same public Web API key already
 #                             embedded in index.html's client-side Firebase config. Used by
 #                             add-to-playlist.js/remove-from-playlist.js to verify a caller's
