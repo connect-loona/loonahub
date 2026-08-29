@@ -139,14 +139,19 @@ async function runSync() {
   try { sa = JSON.parse(saRaw); } catch (e) { throw new Error('GOOGLE_CALENDAR_SERVICE_ACCOUNT is not valid JSON'); }
   if (!sa.client_email || !sa.private_key) throw new Error('GOOGLE_CALENDAR_SERVICE_ACCOUNT is missing client_email/private_key');
 
-  const sheetId = process.env.GOOGLE_EMPLOYEE_SHEET_ID;
+  // Trimmed defensively — a stray trailing newline/space from copy-pasting
+  // the ID into Netlify's env var UI would otherwise silently 404 against
+  // the Sheets API with no obvious clue why.
+  const sheetId = (process.env.GOOGLE_EMPLOYEE_SHEET_ID || '').trim();
   if (!sheetId) throw new Error('GOOGLE_EMPLOYEE_SHEET_ID not set');
+  console.log('employee-sheet-sync: using sheetId =', JSON.stringify(sheetId));
 
   const [membersData, inactiveRaw] = await Promise.all([fbGet('members'), fbGet('inactive_members')]);
   const members = membersData || {};
   const inactiveNames = new Set(
     Array.isArray(inactiveRaw) ? inactiveRaw : Object.values(inactiveRaw || {})
   );
+  console.log('employee-sheet-sync: fetched', Object.keys(members).length, 'members,', inactiveNames.size, 'inactive');
 
   // Sensitive fields are opt-in — only attempted when a Firebase Admin
   // credential is actually configured, and any failure there degrades to
@@ -160,6 +165,7 @@ async function runSync() {
       sensitiveData = (await fbGetAdmin('members_sensitive', adminToken)) || {};
     } catch (e) {
       sensitiveSkippedReason = 'FIREBASE_ADMIN_SERVICE_ACCOUNT present but failed: ' + String((e && e.message) || e);
+      console.error('employee-sheet-sync: sensitive-fields fetch failed (non-fatal):', e && e.stack ? e.stack : e);
       sensitiveData = {};
     }
   } else {
@@ -210,7 +216,9 @@ async function runSync() {
   });
 
   const accessToken = await getAccessToken(sa, SHEETS_SCOPE);
+  console.log('employee-sheet-sync: got Sheets access token, ensuring tab exists...');
   await ensureTabExists(sheetId, accessToken);
+  console.log('employee-sheet-sync: tab ready, writing', rows.length, 'rows...');
 
   // Clear a generous range first — a straight overwrite would leave stale
   // trailing rows behind whenever the roster shrinks (someone removed, or a
@@ -238,8 +246,13 @@ async function runSync() {
 exports.handler = async (event) => {
   try {
     const result = await runSync();
+    console.log('employee-sheet-sync OK:', JSON.stringify(result));
     return { statusCode: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ success: true, ...result }) };
   } catch (err) {
+    // Logged explicitly — the HTTP response body alone isn't visible from
+    // a mobile browser or a scheduled/cron invocation, only Netlify's
+    // function log is, so the real failure reason needs to land here too.
+    console.error('employee-sheet-sync FAILED:', err && err.stack ? err.stack : err);
     return { statusCode: 502, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: false, message: String((err && err.message) || err) }) };
   }
 };

@@ -195,12 +195,18 @@ async function runSync() {
   try { sa = JSON.parse(saRaw); } catch (e) { throw new Error('GOOGLE_CALENDAR_SERVICE_ACCOUNT is not valid JSON'); }
   if (!sa.client_email || !sa.private_key) throw new Error('GOOGLE_CALENDAR_SERVICE_ACCOUNT is missing client_email/private_key');
 
-  const sheetId = process.env.GOOGLE_ATTENDANCE_SHEET_ID;
+  // Trimmed defensively — a stray trailing newline/space from copy-pasting
+  // the ID into Netlify's env var UI would otherwise silently 404 against
+  // the Sheets API with no obvious clue why.
+  const sheetId = (process.env.GOOGLE_ATTENDANCE_SHEET_ID || '').trim();
   if (!sheetId) throw new Error('GOOGLE_ATTENDANCE_SHEET_ID not set');
+  console.log('attendance-sheet-sync: using sheetId =', JSON.stringify(sheetId));
 
   const [membersRaw, inactiveRaw, attendanceRaw, excusedRaw, holidaysRaw, lateFgvRaw] = await Promise.all([
     fbGet('members'), fbGet('inactive_members'), fbGet('loona_attendance'), fbGet('loona_excused'), fbGet('loona_holidays'), fbGet('loona_late_forgiven')
   ]);
+  console.log('attendance-sheet-sync: fetched', Object.keys(membersRaw || {}).length, 'members,',
+    Object.keys(attendanceRaw || {}).length, 'dates of raw attendance data');
 
   const members = membersRaw || {};
   const inactiveNames = new Set(Array.isArray(inactiveRaw) ? inactiveRaw : Object.values(inactiveRaw || {}));
@@ -225,6 +231,7 @@ async function runSync() {
     });
   });
   const months = Array.from(monthsWithData).sort();
+  console.log('attendance-sheet-sync: months with real punch data:', JSON.stringify(months));
 
   const empKeys = Object.keys(members).filter(k => members[k] && members[k].name);
   empKeys.sort((a, b) => String(members[a].name).localeCompare(String(members[b].name)));
@@ -298,11 +305,13 @@ async function runSync() {
   });
 
   const accessToken = await getAccessToken(sa, SHEETS_SCOPE);
+  console.log('attendance-sheet-sync: got Sheets access token, ensuring tabs exist...');
   const allTabNames = [MASTER_TAB, ...dailyTabWrites.map(t => t.tabName)];
   await ensureTabsExist(sheetId, accessToken, allTabNames);
+  console.log('attendance-sheet-sync: tabs ready (', allTabNames.join(', '), '), writing Master Details (', masterRows.length, 'rows)...');
 
   await writeTab(sheetId, accessToken, MASTER_TAB, [masterHeaders, ...masterRows]);
-  for (const t of dailyTabWrites) await writeTab(sheetId, accessToken, t.tabName, t.values);
+  for (const t of dailyTabWrites) { await writeTab(sheetId, accessToken, t.tabName, t.values); console.log('attendance-sheet-sync: wrote tab', t.tabName, '(', t.values.length - 1, 'rows)'); }
 
   const noteRow = masterRows.length + 3;
   await sheetsRequest(`${sheetId}/values/${encodeURIComponent(MASTER_TAB)}!A${noteRow}?valueInputOption=RAW`, accessToken, {
@@ -316,8 +325,13 @@ async function runSync() {
 exports.handler = async (event) => {
   try {
     const result = await runSync();
+    console.log('attendance-sheet-sync OK:', JSON.stringify(result));
     return { statusCode: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ success: true, ...result }) };
   } catch (err) {
+    // Logged explicitly — the HTTP response body alone isn't visible from
+    // a mobile browser or a scheduled/cron invocation, only Netlify's
+    // function log is, so the real failure reason needs to land here too.
+    console.error('attendance-sheet-sync FAILED:', err && err.stack ? err.stack : err);
     return { statusCode: 502, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: false, message: String((err && err.message) || err) }) };
   }
 };
