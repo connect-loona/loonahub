@@ -89,6 +89,14 @@ const OFFICIAL_HOLIDAYS = [
   { date: '2027-04-09', name: 'Ramzan Eid*' }
 ];
 
+// People this attendance policy simply doesn't apply to — the founder, and
+// consultants who aren't tracked against punch-in/late/leave rules at all
+// — left out of the sheet entirely (every tab: Yearly Summary and every
+// month) rather than showing up as an all-blank/all-absent row. A short,
+// hand-maintained list rather than a Firebase-backed flag for now — update
+// it here if who counts as exempt ever changes.
+const EXCLUDED_FROM_ATTENDANCE = ['Gokul', 'Ankita', 'Karnik', 'Hetal'];
+
 // ---- Dark-theme palette, ported 1:1 from Gokul's reference .xlsx ----
 const PALETTE = {
   pageBg: '#121214', titleFg: '#F7F7F7', subtitleFg: '#B7B7BA', orange: '#FF5A1F',
@@ -327,7 +335,7 @@ async function runSync() {
     Object.keys(m).forEach(f => { if (m[f] !== null && m[f] !== undefined && m[f] !== '') merged[f] = m[f]; });
     mergedByName[m.name] = merged;
   });
-  const names = Object.keys(mergedByName);
+  const names = Object.keys(mergedByName).filter(n => !EXCLUDED_FROM_ATTENDANCE.includes(n));
   names.sort((a, b) => {
     const ma = mergedByName[a], mb = mergedByName[b];
     const aInactive = inactiveNames.has(a) ? 1 : 0, bInactive = inactiveNames.has(b) ? 1 : 0;
@@ -356,6 +364,35 @@ async function runSync() {
   });
   const LEAVE_TYPE_LABEL = { standard: 'Standard', sick: 'Sick', wfh: 'Work From Home', other: 'Other' };
 
+  // An inactive member's data shouldn't keep getting "carried ahead" past
+  // the day they actually left — every day after that would otherwise show
+  // up as an indefinite string of Absent days, which is just noise. Ends
+  // at whichever is set: an explicit m.lastWorkingDay override (for the
+  // rare case punch data doesn't reflect the real last day — a stray
+  // post-departure punch, or someone who left without ever punching out
+  // cleanly), falling back to their own last real punch date otherwise.
+  // Active members have no end date at all.
+  const lastPunchDateByName = {};
+  Object.keys(byNameDate).forEach(name => {
+    const dates = Object.keys(byNameDate[name]).sort();
+    if (dates.length) lastPunchDateByName[name] = dates[dates.length - 1];
+  });
+  function effectiveEndDateFor(name) {
+    if (!inactiveNames.has(name)) return null;
+    const m = mergedByName[name];
+    return m.lastWorkingDay || lastPunchDateByName[name] || null;
+  }
+  // Whether ANY day of month `mo` falls within name's employment window —
+  // used by the Yearly Summary to tell "genuinely zero that month" apart
+  // from "not employed that month at all" (shown as a dash, not a 0).
+  function monthOverlapsEmployment(name, mo) {
+    const m = mergedByName[name], endDate = effectiveEndDateFor(name);
+    const monthDates = daysInMonth(mo);
+    if (m.joinDate && m.joinDate > monthDates[monthDates.length - 1]) return false;
+    if (endDate && endDate < monthDates[0]) return false;
+    return true;
+  }
+
   // ---- Per-day info for every name x every date across ALL months with
   // data — computed once, reused by both the per-month detail tabs and the
   // Yearly Summary's per-month aggregate columns. ----
@@ -364,10 +401,12 @@ async function runSync() {
     names.forEach(name => {
       const m = mergedByName[name];
       const joinDate = m.joinDate;
+      const endDate = effectiveEndDateFor(name);
       const days = [];
       const empLateDates = [];
       daysInMonth(mo).forEach(ds => {
-        if (joinDate && ds < joinDate) { days.push({ ds, notEmployedYet: true }); return; }
+        if (joinDate && ds < joinDate) { days.push({ ds, outsideEmployment: true }); return; }
+        if (endDate && ds > endDate) { days.push({ ds, outsideEmployment: true }); return; }
         const rec = (byNameDate[name] || {})[ds];
         const isExcused = !!(excused[name] && excused[name][ds]);
         const info = computeDayStatus(rec, ds, isHolidayFn, isExcused);
@@ -396,7 +435,7 @@ async function runSync() {
 
       const s = { present: 0, half: 0, wfh: 0, standard: 0, sick: 0, other: 0, absent: 0, late: 0, forgivenLate: 0, lateFine: 0, workedMin: 0, leaveTaken: 0 };
       days.forEach(d => {
-        if (d.notEmployedYet) return;
+        if (d.outsideEmployment) return;
         if (d.status === 'wfh') s.wfh++;
         else if (d.status === 'present' || d.status === 'late') s.present++;
         else if (d.status === 'half') s.half++;
@@ -458,17 +497,20 @@ async function runSync() {
     grid.push(padRow(summaryHeaderRow, W));
 
     const empKeysForMonth = names.filter(name => {
-      const m = mergedByName[name]; return !m.joinDate || m.joinDate <= dates[dates.length - 1];
+      const m = mergedByName[name]; const endDate = effectiveEndDateFor(name);
+      return (!m.joinDate || m.joinDate <= dates[dates.length - 1]) && (!endDate || endDate >= dates[0]);
     });
     empKeysForMonth.forEach(name => {
       const m = mergedByName[name];
+      const endDate = effectiveEndDateFor(name);
       const s = perName[name].summary;
-      const workingDays = dates.filter(ds => (!m.joinDate || ds >= m.joinDate) && !isSun(ds) && !isHolidayFn(ds)).length;
+      const workingDays = dates.filter(ds => (!m.joinDate || ds >= m.joinDate) && (!endDate || ds <= endDate) && !isSun(ds) && !isHolidayFn(ds)).length;
       const otherFine = 0; // not yet attributed per-day — see file header note
       const totalFine = s.lateFine + otherFine;
       const unpaidLeaveDeduction = 0; // paid/unpaid classification not yet ported — see file header note
       const totalDeduction = totalFine + unpaidLeaveDeduction;
-      const leaveLeft = Math.round((earnedLeaveAsOf(m.joinDate, dates[dates.length - 1]) - s.leaveTaken) * 100) / 100;
+      const asOfDate = endDate && endDate < dates[dates.length - 1] ? endDate : dates[dates.length - 1];
+      const leaveLeft = Math.round((earnedLeaveAsOf(m.joinDate, asOfDate) - s.leaveTaken) * 100) / 100;
       const row = [
         C(m.name, { bg: PALETTE.identityBg, bold: true, size: 9, align: 'LEFT' }),
         C(m.employeeId || '—', { bg: PALETTE.identityBg, size: 9, align: 'LEFT' }),
@@ -536,7 +578,7 @@ async function runSync() {
   // Renders one data cell in the "DETAILED MONTHLY ATTENDANCE" block for a
   // single employee/day/row-label combination.
   function detailCellFor(rowLabel, d, style) {
-    if (d.notEmployedYet) return C('—', { bg: PALETTE.noDataBg, size: 8 });
+    if (d.outsideEmployment) return C('—', { bg: PALETTE.noDataBg, size: 8 });
     const status = d.status;
     if (rowLabel === 'Status') {
       return C(STATUS_LABEL[status] || status, { bg: PALETTE.status[status] || PALETTE.group1Bg, bold: true, size: 8 });
@@ -617,7 +659,7 @@ async function runSync() {
     monthKeysOfYear.forEach(mo => {
       const perName = monthDataCache[mo];
       const s = perName && perName[name] && perName[name].summary;
-      if (!s) { for (let i = 0; i < 6; i++) row.push(C('—', { bg: PALETTE.countsBg, size: 9 })); row.push(C('—', { bg: PALETTE.moneyBg, size: 9 })); return; }
+      if (!s || !monthOverlapsEmployment(name, mo)) { for (let i = 0; i < 6; i++) row.push(C('—', { bg: PALETTE.countsBg, size: 9 })); row.push(C('—', { bg: PALETTE.moneyBg, size: 9 })); return; }
       totalLeave += s.leaveTaken; totalLate += s.late; totalLateFine += s.lateFine;
       row.push(C(s.leaveTaken, { bg: PALETTE.countsBg, size: 9 }));
       row.push(C(0, { bg: PALETTE.countsBg, size: 9 })); // Unpaid Leave — see file header note
@@ -627,7 +669,11 @@ async function runSync() {
       row.push(C(s.lateFine, { bg: PALETTE.countsBg, size: 9, numberFormat: { type: 'CURRENCY', pattern: '₹#,##0' } }));
       row.push(C(s.lateFine, { bg: PALETTE.moneyBg, size: 9, numberFormat: { type: 'CURRENCY', pattern: '₹#,##0' } }));
     });
-    const asOfDate = months.length ? daysInMonth(months[months.length - 1]).slice(-1)[0] : (yearNow + '-12-31');
+    // Someone who's left shouldn't keep accruing leave past their own last
+    // working day just because other, still-active people have later data.
+    const latestDataDate = months.length ? daysInMonth(months[months.length - 1]).slice(-1)[0] : (yearNow + '-12-31');
+    const personEndDate = effectiveEndDateFor(name);
+    const asOfDate = personEndDate && personEndDate < latestDataDate ? personEndDate : latestDataDate;
     const leaveBalance = Math.round((earnedLeaveAsOf(m.joinDate, asOfDate) - totalLeave) * 100) / 100;
     row.push(C(totalLeave, { bg: PALETTE.moneyBg, bold: true, size: 9 }));
     row.push(C(0, { bg: PALETTE.moneyBg, bold: true, size: 9 })); // Total Unpaid Leave — see note
@@ -683,6 +729,7 @@ async function runSync() {
 async function writeFormattedTab(sheetId, accessToken, tabSheetId, grid, W, colWidths, rowHeights, startRow) {
   startRow = startRow || 0;
   const requests = [];
+  const gridRowCount = Math.max(1000, startRow + grid.length), gridColCount = Math.max(26, W);
   // A newly created tab (and Sheet1's own starting tab) defaults to
   // Google's standard 26-column x 1000-row grid — updateCells rejects any
   // range reaching past that with "beyond the last requested column"
@@ -690,10 +737,30 @@ async function writeFormattedTab(sheetId, accessToken, tabSheetId, grid, W, colW
   // FIRST, in the same batchUpdate call, before writing any cells into it.
   requests.push({
     updateSheetProperties: {
-      properties: { sheetId: tabSheetId, gridProperties: { rowCount: Math.max(1000, startRow + grid.length), columnCount: Math.max(26, W) } },
+      properties: { sheetId: tabSheetId, gridProperties: { rowCount: gridRowCount, columnCount: gridColCount } },
       fields: 'gridProperties.rowCount,gridProperties.columnCount'
     }
   });
+  // Only on the main content write (startRow 0, not the footer-note
+  // follow-up call): wipe the WHOLE grid — values AND formatting — before
+  // laying down the new content. A tab that's been synced before under an
+  // EARLIER version of this layout (or the old flat-table format) can have
+  // leftover rows/columns past wherever this run's content ends; plain
+  // updateCells only overwrites the cells it actually addresses; it never
+  // clears what it doesn't touch, so stale data (with stale, undark
+  // formatting) would otherwise linger indefinitely below/beside the real
+  // content. repeatCell with no value in its CellData clears both the
+  // value and the background in one shot, painting everything the same
+  // page background the real content will draw over a moment later.
+  if (!startRow) {
+    requests.push({
+      repeatCell: {
+        range: { sheetId: tabSheetId, startRowIndex: 0, endRowIndex: gridRowCount, startColumnIndex: 0, endColumnIndex: gridColCount },
+        cell: { userEnteredFormat: { backgroundColor: hexToRgb(PALETTE.pageBg) } },
+        fields: 'userEnteredValue,userEnteredFormat.backgroundColor'
+      }
+    });
+  }
   const CHUNK = 200;
   for (let i = 0; i < grid.length; i += CHUNK) {
     const chunk = grid.slice(i, i + CHUNK);

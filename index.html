@@ -5550,6 +5550,13 @@
       </div>
       <div id="admin-directory-list" class="admin-directory-list"></div>
 
+      <div id="admin-past-employees-section" style="display:none;margin-top:28px">
+        <div class="section-header">
+          <div class="section-title">Past <span>Employees</span></div>
+        </div>
+        <div id="admin-past-employees-list" class="admin-directory-list"></div>
+      </div>
+
       <div id="admin-employee-detail" style="display:none;margin-top:20px"></div>
     </div>
 
@@ -13244,8 +13251,7 @@
       const mColor = m => (MEMBER_INFO[m] || {}).color || '#888';
       const mEmoji = m => (MEMBER_INFO[m] || {}).emoji || '👤';
       const mAvatar = m => { const info = MEMBER_INFO[m] || {}; return info.avatar ? `<img src="${info.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : mEmoji(m); };
-      const active = ALL_MEMBERS.filter(n => !INACTIVE_MEMBERS.has(n));
-      list.innerHTML = active.map(n => {
+      const emCard = n => {
         const info = memberDisplayInfo(n);
         // Anyone without an Employee ID linked won't show any real attendance —
         // PetPooja punches have nothing to match them against (see LIVE.empMap /
@@ -13260,7 +13266,23 @@
           ${info.department ? `<div class="admin-emp-dept">${info.department}</div>` : ''}
           ${missingEmpId ? `<div class="admin-emp-warn" title="No Employee ID linked — attendance won't sync for them">⚠ No Employee ID</div>` : ''}
         </div>`;
-      }).join('');
+      };
+      const active = ALL_MEMBERS.filter(n => !INACTIVE_MEMBERS.has(n));
+      list.innerHTML = active.map(emCard).join('');
+
+      // Past employees never showed up here at all before — the only way to
+      // view/edit one's actual profile fields (Employee ID, Department,
+      // PAN/Aadhar/etc via ✎ Edit Details) was the Team page's "Loona Pass"
+      // fun-profile popup, which doesn't expose any of that. Same card,
+      // same showAdminEmployeeDetail() view — it already works fine
+      // regardless of active/inactive status.
+      const pastSection = document.getElementById('admin-past-employees-section');
+      const pastList = document.getElementById('admin-past-employees-list');
+      const inactive = ALL_MEMBERS.filter(n => INACTIVE_MEMBERS.has(n));
+      if (pastSection && pastList) {
+        pastSection.style.display = inactive.length ? '' : 'none';
+        pastList.innerHTML = inactive.map(emCard).join('');
+      }
     }
 
     async function showAdminEmployeeDetail(name) {
@@ -13323,7 +13345,9 @@
 
           <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn btn-primary" onclick="openEditEmployeeModal('${name}')">✎ Edit Details</button>
-            ${normName(name) !== 'gokul' ? `<button onclick="removeMember('${name}')" style="background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);color:#e05c5c;padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer">Move to Past Employees</button>` : ''}
+            ${normName(name) !== 'gokul' ? (INACTIVE_MEMBERS.has(name)
+              ? `<button onclick="restoreMember('${name}')" style="background:rgba(76,175,125,.1);border:1px solid rgba(76,175,125,.3);color:#4caf7d;padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer">↩ Restore</button>`
+              : `<button onclick="removeMember('${name}')" style="background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);color:#e05c5c;padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer">Move to Past Employees</button>`) : ''}
             ${normName(name) !== 'gokul' ? `<button onclick="deleteMemberPermanently('${name}')" title="For a mistake — a test account, a duplicate — not an actual past employee" style="background:rgba(224,92,92,.05);border:1px solid rgba(224,92,92,.2);color:#e05c5c;padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;opacity:.75">🗑 Delete Permanently</button>` : ''}
           </div>
         </div>`;
@@ -14968,6 +14992,11 @@
       renderTeam();
       buildMemberTabs(currentUser);
       renderOverview();
+      // Restoring from the Admin panel's own Past Employees card (or from
+      // within showAdminEmployeeDetail's ↩ Restore button) should reflect
+      // immediately rather than needing a manual back-navigation to refresh.
+      if (typeof renderAdminDirectory === 'function') renderAdminDirectory();
+      if (document.getElementById('admin-employee-detail') && document.getElementById('admin-employee-detail').style.display !== 'none') showAdminEmployeeDetail(name);
     }
 
     // Unlike removeMember() (which just marks someone Inactive — reversible,
