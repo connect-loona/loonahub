@@ -65,6 +65,16 @@
 [functions."employee-sheet-sync"]
   schedule = "*/15 * * * *"
 
+# Keeps "Attendance Master Loona" (a SEPARATE spreadsheet — see
+# attendance-sheet-sync.js) in step with Firebase's live /loona_attendance +
+# /loona_excused + /loona_late_forgiven. This one is heavier than the
+# roster sync above — it rewrites a "Master Details" tab plus one tab per
+# month with real punch data, re-deriving each day's status/late-fine from
+# raw punches every run — so it runs hourly rather than every 15 minutes,
+# comfortably inside Sheets API quota.
+[functions."attendance-sheet-sync"]
+  schedule = "0 * * * *"
+
 # Posts the daily "Read Today's Oracle" / "Find Your Co-Star" nudges to the
 # Loona Board for everyone. 04:30 UTC = 10:00 IST.
 [functions."loona-daily-broadcast"]
@@ -172,6 +182,14 @@
 #                             GOOGLE_CALENDAR_SERVICE_ACCOUNT, this key does NOT need to
 #                             be shared with anything — Admin SDK credentials bypass
 #                             database rules by design, on their own.)
+#   GOOGLE_ATTENDANCE_SHEET_ID   (the "Attendance Master Loona" spreadsheet — see
+#                             netlify/functions/attendance-sheet-sync.js. Same one-time
+#                             setup as GOOGLE_EMPLOYEE_SHEET_ID above, just a DIFFERENT
+#                             spreadsheet: create/open it, share it with the Sheets
+#                             service account's client_email as Editor, copy its ID out
+#                             of its URL, set it here. The function creates its own
+#                             "Master Details" tab plus one tab per month with real punch
+#                             data on first run, fully rewriting all of them hourly.)
 #   FIREBASE_WEB_API_KEY     (optional — defaults to the same public Web API key already
 #                             embedded in index.html's client-side Firebase config. Used by
 #                             add-to-playlist.js/remove-from-playlist.js to verify a caller's
