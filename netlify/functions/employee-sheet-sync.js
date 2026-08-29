@@ -172,8 +172,46 @@ async function runSync() {
     sensitiveSkippedReason = 'FIREBASE_ADMIN_SERVICE_ACCOUNT not set — PAN/Aadhar/bank columns left blank';
   }
 
-  const keys = Object.keys(members).filter(k => members[k] && members[k].name);
-  keys.sort((a, b) => String(members[a].name).localeCompare(String(members[b].name)));
+  // Firebase's /members tree can end up with more than one record for the
+  // same person (e.g. re-added under a slightly different key at some
+  // point) — collapse those down to one row per name before anything
+  // else. This is a presentation-layer safety net for the sheet only; it
+  // doesn't touch the underlying duplicate records in Firebase itself,
+  // which are still worth cleaning up separately in the Admin panel.
+  // Prefers whichever copy is Active over an Inactive one (a leftover
+  // duplicate is more likely to be the stale/inactive copy), then
+  // whichever has more fields actually filled in.
+  const filledFieldCount = (m) => Object.values(m).filter(v => v !== null && v !== undefined && v !== '').length;
+  const allKeys = Object.keys(members).filter(k => members[k] && members[k].name);
+  const byName = {};
+  allKeys.forEach(k => {
+    const m = members[k];
+    const existingKey = byName[m.name];
+    if (!existingKey) { byName[m.name] = k; return; }
+    const existing = members[existingKey];
+    const existingInactive = inactiveNames.has(existing.name), thisInactive = inactiveNames.has(m.name);
+    if (existingInactive && !thisInactive) byName[m.name] = k;
+    else if (existingInactive === thisInactive && filledFieldCount(m) > filledFieldCount(existing)) byName[m.name] = k;
+  });
+  const keys = Object.values(byName);
+  if (allKeys.length !== keys.length) {
+    console.log('employee-sheet-sync: collapsed', allKeys.length - keys.length, 'duplicate member record(s) by name —',
+      allKeys.length, 'raw records ->', keys.length, 'unique people');
+  }
+
+  // Active employees first, Inactive ones grouped at the end; within each
+  // group, ordered by Employee Code (missing codes sort last), with name
+  // as the tiebreak when codes match or are both missing.
+  keys.sort((a, b) => {
+    const ma = members[a], mb = members[b];
+    const aInactive = inactiveNames.has(ma.name) ? 1 : 0, bInactive = inactiveNames.has(mb.name) ? 1 : 0;
+    if (aInactive !== bInactive) return aInactive - bInactive;
+    const aCode = ma.employeeId || '', bCode = mb.employeeId || '';
+    if (!aCode && bCode) return 1;
+    if (aCode && !bCode) return -1;
+    if (aCode !== bCode) return aCode.localeCompare(bCode, undefined, { numeric: true });
+    return String(ma.name).localeCompare(String(mb.name));
+  });
 
   const headers = [
     'Name', 'Last Name', 'Employee Code', 'Designation', 'Department',
