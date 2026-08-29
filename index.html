@@ -22385,6 +22385,31 @@ ${brandLines}`;
           '<td data-label="Status">'+(STATUS_LABEL[r.status]||esc(r.status||""))+'</td>'+
         '</tr>';
       }).join("") : '<tr><td colspan="7" style="text-align:center;color:var(--muted)">No leave requests yet.</td></tr>';
+      // "By Employee" breakup — approved leave only (matches how every
+      // other balance figure in the app treats "taken": pending hasn't
+      // happened yet, declined/cancelled never did). WFH is broken out
+      // separately since it never deducts from balance — Total excludes
+      // it, same distinction the rest of the app draws.
+      var byEmp={};
+      all.forEach(function(r){
+        if(r.status!=="approved") return;
+        byEmp[r.member]=byEmp[r.member]||{standard:0,sick:0,wfh:0};
+        var days=leaveRequestDaysDisplay(r);
+        if(r.leave_type==="sick") byEmp[r.member].sick+=days;
+        else if(r.leave_type==="wfh") byEmp[r.member].wfh+=days;
+        else byEmp[r.member].standard+=days;
+      });
+      var empNames=Object.keys(byEmp).sort(function(a,b){return (byEmp[b].standard+byEmp[b].sick)-(byEmp[a].standard+byEmp[a].sick);});
+      var byEmpRowsHtml = empNames.length ? empNames.map(function(n){
+        var e=byEmp[n], total=e.standard+e.sick;
+        return '<tr>'+
+          '<td data-label="Employee"><strong>'+esc(n)+'</strong></td>'+
+          '<td data-label="Standard">'+e.standard+'</td>'+
+          '<td data-label="Sick">'+e.sick+'</td>'+
+          '<td data-label="WFH">'+e.wfh+'</td>'+
+          '<td data-label="Total (excl. WFH)"><b>'+total+'</b></td>'+
+        '</tr>';
+      }).join("") : '<tr><td colspan="5" style="text-align:center;color:var(--muted)">No approved leave yet.</td></tr>';
       sec.innerHTML =
         '<div class="lc-accordion">'+
           '<div class="lc-acc-item">'+
@@ -22392,15 +22417,50 @@ ${brandLines}`;
               '<span class="lc-acc-ic">&#127796;</span><span class="lc-acc-title">Leaves Taken <span class="tag">'+all.length+'</span></span><span class="lc-acc-toggle">+</span>'+
             '</button>'+
             '<div class="lc-acc-body" style="padding-left:18px">'+
-              '<div class="scroll"><table class="att-tbl wide"><thead><tr>'+
-                '<th>Employee</th><th>Date Applied</th><th>Leave Date(s)</th><th>No. of Days</th><th>Reason</th><th>Type</th><th>Status</th>'+
-              '</tr></thead><tbody>'+rowsHtml+'</tbody></table></div>'+
+              '<div class="lv-subacc-group">'+
+                '<div class="lc-acc-item">'+
+                  '<button class="lc-acc-head" onclick="toggleLeaveSubAccordion(this)">'+
+                    '<span class="lc-acc-ic">&#128203;</span><span class="lc-acc-title">All Leaves Taken <span class="tag">'+all.length+'</span></span><span class="lc-acc-toggle">+</span>'+
+                  '</button>'+
+                  '<div class="lc-acc-body" style="padding-left:18px">'+
+                    '<div class="scroll"><table class="att-tbl wide"><thead><tr>'+
+                      '<th>Employee</th><th>Date Applied</th><th>Leave Date(s)</th><th>No. of Days</th><th>Reason</th><th>Type</th><th>Status</th>'+
+                    '</tr></thead><tbody>'+rowsHtml+'</tbody></table></div>'+
+                  '</div>'+
+                '</div>'+
+                '<div class="lc-acc-item">'+
+                  '<button class="lc-acc-head" onclick="toggleLeaveSubAccordion(this)">'+
+                    '<span class="lc-acc-ic">&#128101;</span><span class="lc-acc-title">By Employee <span class="tag">'+empNames.length+'</span></span><span class="lc-acc-toggle">+</span>'+
+                  '</button>'+
+                  '<div class="lc-acc-body" style="padding-left:18px">'+
+                    '<div style="font-size:11px;color:var(--muted);padding:0 0 8px">Approved leave only, in days &middot; WFH never counts toward Total since it doesn\'t deduct from balance.</div>'+
+                    '<div class="scroll"><table class="att-tbl wide"><thead><tr>'+
+                      '<th>Employee</th><th>Standard</th><th>Sick</th><th>WFH</th><th>Total (excl. WFH)</th>'+
+                    '</tr></thead><tbody>'+byEmpRowsHtml+'</tbody></table></div>'+
+                  '</div>'+
+                '</div>'+
+              '</div>'+
             '</div>'+
           '</div>'+
         '</div>'+
         monthlyOverviewBoardHTML();
     }
     window.renderAdminLeaveRecords=renderAdminLeaveRecords; // called from openAdminTab() in the earlier script block
+    // Scoped to the immediate .lv-subacc-group so opening/closing one of
+    // these two inner accordions doesn't trip toggleLcAccordion's
+    // page-wide "close every other open .lc-acc-item" sweep — which would
+    // otherwise also collapse the OUTER "Leaves Taken" accordion these
+    // live inside, since it uses the same class for its own CSS/styling.
+    window.toggleLeaveSubAccordion=function(btn){
+      var item=btn.closest(".lc-acc-item");
+      var group=btn.closest(".lv-subacc-group");
+      var wasOpen=item.classList.contains("open");
+      Array.prototype.forEach.call(group.querySelectorAll(".lc-acc-item.open"),function(it){
+        it.classList.remove("open");
+        var t=it.querySelector(".lc-acc-toggle"); if(t) t.textContent="+";
+      });
+      if(!wasOpen){ item.classList.add("open"); var t=btn.querySelector(".lc-acc-toggle"); if(t) t.textContent="−"; }
+    };
     function renderMyLeaveRequests(name){
       var mine=LEAVE_REQUESTS.filter(function(r){return normName(r.member)===normName(name);})
         .sort(function(a,b){return (b.requested_at||"").localeCompare(a.requested_at||"");});
