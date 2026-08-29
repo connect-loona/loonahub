@@ -683,6 +683,17 @@ async function runSync() {
 async function writeFormattedTab(sheetId, accessToken, tabSheetId, grid, W, colWidths, rowHeights, startRow) {
   startRow = startRow || 0;
   const requests = [];
+  // A newly created tab (and Sheet1's own starting tab) defaults to
+  // Google's standard 26-column x 1000-row grid — updateCells rejects any
+  // range reaching past that with "beyond the last requested column"
+  // (this layout needs up to 95 columns for Yearly Summary). Grow the grid
+  // FIRST, in the same batchUpdate call, before writing any cells into it.
+  requests.push({
+    updateSheetProperties: {
+      properties: { sheetId: tabSheetId, gridProperties: { rowCount: Math.max(1000, startRow + grid.length), columnCount: Math.max(26, W) } },
+      fields: 'gridProperties.rowCount,gridProperties.columnCount'
+    }
+  });
   const CHUNK = 200;
   for (let i = 0; i < grid.length; i += CHUNK) {
     const chunk = grid.slice(i, i + CHUNK);
