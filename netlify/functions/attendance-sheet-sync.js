@@ -307,18 +307,24 @@ async function runSync() {
   const leaveRequests = Object.values(leaveReqRaw || {}).filter(r => r && r.member);
 
   // /loona_attendance is keyed by date -> employeeCode -> {n,i,o,w,b}. Flip
-  // it into name -> date -> rec so it's indexed the same way excused/lateFgv
-  // already are, and collect which months actually have real data.
-  const byNameDate = {};
+  // it into employeeCode -> date -> rec, and collect which months actually
+  // have real data. Deliberately keyed by CODE, not the 'n' (name) field
+  // stored inside each record — index.html's own applyLiveRecords() never
+  // trusts that inner field for identity either; it matches purely via
+  // LIVE.empMap[emp_id] (built from each member's own employeeId). 'n' is
+  // whatever name happened to be current when a punch was recorded and can
+  // drift out of sync with someone's CURRENT profile (a rename, a fixed
+  // typo) — matching by the day's own key instead is what actually stays
+  // correct.
+  const byCodeDate = {};
   const monthsWithData = new Set();
   Object.keys(attendanceRaw || {}).forEach(ds => {
     monthsWithData.add(ds.slice(0, 7));
     const day = attendanceRaw[ds] || {};
     Object.keys(day).forEach(code => {
       const r = day[code] || {};
-      const nm = r.n; if (!nm) return;
-      byNameDate[nm] = byNameDate[nm] || {};
-      byNameDate[nm][ds] = { i: r.i == null ? null : r.i, o: r.o == null ? null : r.o, w: r.w || 0, b: r.b || 0 };
+      byCodeDate[code] = byCodeDate[code] || {};
+      byCodeDate[code][ds] = { i: r.i == null ? null : r.i, o: r.o == null ? null : r.o, w: r.w || 0, b: r.b || 0 };
     });
   });
   const months = Array.from(monthsWithData).sort();
@@ -373,8 +379,10 @@ async function runSync() {
   // cleanly), falling back to their own last real punch date otherwise.
   // Active members have no end date at all.
   const lastPunchDateByName = {};
-  Object.keys(byNameDate).forEach(name => {
-    const dates = Object.keys(byNameDate[name]).sort();
+  names.forEach(name => {
+    const code = mergedByName[name].employeeId;
+    if (!code || !byCodeDate[code]) return;
+    const dates = Object.keys(byCodeDate[code]).sort();
     if (dates.length) lastPunchDateByName[name] = dates[dates.length - 1];
   });
   function effectiveEndDateFor(name) {
@@ -407,7 +415,7 @@ async function runSync() {
       daysInMonth(mo).forEach(ds => {
         if (joinDate && ds < joinDate) { days.push({ ds, outsideEmployment: true }); return; }
         if (endDate && ds > endDate) { days.push({ ds, outsideEmployment: true }); return; }
-        const rec = (byNameDate[name] || {})[ds];
+        const rec = m.employeeId ? (byCodeDate[m.employeeId] || {})[ds] : undefined;
         const isExcused = !!(excused[name] && excused[name][ds]);
         const info = computeDayStatus(rec, ds, isHolidayFn, isExcused);
         if (info.status === 'late') empLateDates.push(ds);

@@ -7508,6 +7508,33 @@
               _db.ref('member_avatars/' + key).set(m.avatar).then(() => _db.ref('members/' + key + '/avatar').remove()).catch(() => {});
             }
           });
+          // A member that's vanished from Firebase entirely (deleteMemberPermanently,
+          // or a duplicate merged away by scanAndMergeDuplicateMembers) needs the SAME
+          // treatment as a new arrival above — otherwise their stale entry keeps
+          // showing on the login picker forever: that picker paints INSTANTLY from
+          // last session's localStorage cache (see the inline bootstrap script near
+          // the top of <body>, well before Firebase even connects), and this
+          // listener only ever refreshed that cache when pickerNeedsRebuild went
+          // true — which, before this, only happened on an ADDITION, never a
+          // removal. A page reload would keep resurrecting the deleted name
+          // indefinitely, until some unrelated new member happened to join and
+          // incidentally trigger a full rebuild.
+          // Only trust an EMPTY-vs-populated comparison when Firebase actually
+          // returned at least one real, named member — an empty/null snapshot
+          // (no data seeded yet, or a transient early fetch before Firebase has
+          // loaded) must never be read as "everyone was deleted": that would
+          // wipe out the static fallback roster some names only ever exist in
+          // (never written to /members at all) the instant it fires.
+          const currentNames = new Set(fbMembers.map(m => m.name));
+          const removedNames = fbMembers.length ? ALL_MEMBERS.filter(n => !currentNames.has(n)) : [];
+          if (removedNames.length) {
+            removedNames.forEach(n => {
+              const idx = ALL_MEMBERS.indexOf(n); if (idx >= 0) ALL_MEMBERS.splice(idx, 1);
+              delete MEMBER_INFO[n];
+              INACTIVE_MEMBERS.delete(n);
+            });
+            pickerNeedsRebuild = true; teamNeedsRender = true;
+          }
           if (currentUser) maybeShowProfileCompletionPrompt();
           // A newly-added member's tasks may have been wrongly dropped by
           // applyRosterFilterToTasks() if the 'tasks' snapshot happened to
