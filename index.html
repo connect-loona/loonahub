@@ -15031,7 +15031,9 @@
     // raw duplicates are still there underneath. Consolidates every
     // duplicate-name group into ONE record living at the standard
     // fbMemberKey(name) path, combining whatever fields are filled in
-    // across the copies (first non-empty value found wins a given field),
+    // across the copies (matching the listener's own precedence — whichever
+    // duplicate was written LAST wins a given field, so the result always
+    // matches what's already shown as this person's current profile info),
     // then deletes the extras. Does NOT touch members_sensitive
     // (PAN/Aadhar/bank) — that's keyed by name too so it isn't duplicated
     // the same way, but worth a manual look per person if in doubt.
@@ -15058,10 +15060,16 @@
       var mergedByName = {};
       dupGroups.forEach(function (g) {
         var canonicalKey = fbMemberKey(g.name);
+        // Same precedence the live 'members' listener already uses to build
+        // what shows on this person's own profile: walk every duplicate in
+        // Firebase's own key order and let each non-empty field overwrite
+        // the previous one, so whichever record was written to LAST wins
+        // per field. Keeps this merge in step with "the final info" that's
+        // already on screen, instead of an arbitrary first-found value.
         var merged = {};
         g.entries.forEach(function (e) {
           Object.keys(e.m).forEach(function (f) {
-            if ((merged[f] == null || merged[f] === '') && e.m[f] != null && e.m[f] !== '') merged[f] = e.m[f];
+            if (e.m[f] != null && e.m[f] !== '') merged[f] = e.m[f];
           });
         });
         mergedByName[g.name] = merged;
