@@ -21017,10 +21017,10 @@ ${brandLines}`;
           '<td data-label="Attendance" class="att-chipcell" title="Full days worked: '+mc.present+' &middot; Half days: '+mc.half+' (click H to review/forgive)"><span class="ac-p">'+mc.present+'P</span> <span class="ac-h att-clickable" onclick="window.attShowHalf(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)">'+mc.half+'H</span></td>'+
           '<td data-label="Absent">'+(function(){var na=Math.max(0,mc.absent-apprMoFull);return '<span class="pend att-clickable" style="'+(na>0?'':'color:var(--muted)')+'" onclick="window.attShowAbsent(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)">'+na+'</span>';})()+'</td>'+'<td data-label="Late">'+(function(){var fg=forgivenLateMo(n,mo);return '<span class="att-clickable" style="'+(mc.late>0?'color:var(--yellow);font-weight:700':'color:var(--muted)')+'" onclick="window.attShowLate(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)">'+mc.late+'</span>'+(fg?(' <span class="sub">('+fg+' forgiven)</span>'):'');})()+'</td>'+
           '<td data-label="Fines" title="Late: &#8377;'+fLate+' &middot; Half Day: &#8377;'+fHalf+' &middot; Absent (short hours): &#8377;'+fShort+'">'+(fine>0?'<span class="fine">&#8377;'+fine+'</span>':'—')+'</td>'+
-          '<td data-label="Leave Taken">'+(apprMo>0?'<b>'+apprMo+'</b>':'—')+'</td>'+
-          '<td data-label="Total Leave Taken (Year)"><b>'+apprYear+'</b> <span class="sub">/ '+earned+' earned</span></td>'+
-          '<td data-label="Leave Left"><span class="left'+(left<=3?" low":"")+'">'+left+'</span> <span class="sub">left</span></td>'+
-          '<td data-label="Unpaid Leave" title="Approved leave days this month that landed beyond the earned balance — for salary deduction">'+(unpaidMo>0?'<span class="fine">'+unpaidMo+'</span>':'—')+'</td>'+
+          '<td data-label="Leave Taken"><span class="att-clickable" style="'+(apprMo>0?"":"color:var(--muted)")+'" onclick="window.attShowLeaveTaken(&quot;'+n+'&quot;,&quot;'+mo+'&quot;,false)">'+(apprMo>0?'<b>'+apprMo+'</b>':'—')+'</span></td>'+
+          '<td data-label="Total Leave Taken (Year)"><span class="att-clickable" onclick="window.attShowLeaveTaken(&quot;'+n+'&quot;,&quot;'+mo+'&quot;,true)"><b>'+apprYear+'</b> <span class="sub">/ '+earned+' earned</span></span></td>'+
+          '<td data-label="Leave Left"><span class="left att-clickable'+(left<=3?" low":"")+'" onclick="window.attShowLeaveTaken(&quot;'+n+'&quot;,&quot;'+mo+'&quot;,true)">'+left+'</span> <span class="sub">left</span></td>'+
+          '<td data-label="Unpaid Leave" title="Approved leave days this month that landed beyond the earned balance — for salary deduction"><span class="att-clickable" style="'+(unpaidMo>0?"":"color:var(--muted)")+'" onclick="window.attShowUnpaid(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)">'+(unpaidMo>0?'<span class="fine">'+unpaidMo+'</span>':'—')+'</span></td>'+
         '</tr>';
       }).join("");
       return '<div class="att-board">'+
@@ -22063,6 +22063,37 @@ ${brandLines}`;
     }
     function formalApprovedLeaves(name){ return formalApprovedLeaveDates(name).length; }
     function formalApprovedLeavesMo(name,mo){ mo=mo||curMonth(); return formalApprovedLeaveDates(name).filter(function(ds){return ds.slice(0,7)===mo;}).length; }
+    // Same dates as formalApprovedLeaveDates(), but keeping the request each
+    // one came from (type/reason) instead of collapsing to a plain list —
+    // feeds the "click a leave number, see the actual dates" popups below.
+    // A date covered by more than one overlapping request just keeps the
+    // first one found (shouldn't happen in practice).
+    function formalApprovedLeaveDetails(name){
+      var out=[], seen={};
+      LEAVE_REQUESTS.forEach(function(r){
+        if(r.member!==name || r.status!=="approved" || r.leave_type==="wfh") return;
+        chargeDatesFor(r).forEach(function(ds){
+          if(seen[ds]) return; seen[ds]=true;
+          out.push({date:ds, type:r.leave_type||"standard", reason:r.reason||""});
+        });
+      });
+      return out.sort(function(a,b){return a.date.localeCompare(b.date);});
+    }
+    // The fuller picture behind approvedLeaves()/cumulativeApprovedThrough()
+    // (and so Unpaid Leave, which is computed from those) — formal requests
+    // PLUS whatever's left over in PERF_EXC with no request behind it at all
+    // (Gokul's direct "Approve leave" toggle), labeled "manual" so the popup
+    // can tell the two apart.
+    function allApprovedLeaveDetails(name){
+      var out=formalApprovedLeaveDetails(name), covered={};
+      out.forEach(function(d){ covered[d.date]=true; });
+      var e=PERF_EXC[name]||{};
+      Object.keys(e).filter(function(ds){return e[ds]&&!covered[ds];}).forEach(function(ds){
+        out.push({date:ds, type:"manual", reason:""});
+      });
+      return out.sort(function(a,b){return a.date.localeCompare(b.date);});
+    }
+    function moLabel(mo){ return new Date(mo+"-01T00:00:00").toLocaleDateString("en-IN",{month:"long",year:"numeric"}); }
     // TOTAL_LEAVE (15) accrues pro-rata across the financial year (Apr-Mar) — 1.25 days per completed
     // month since the later of the FY start or the employee's join date, capped at TOTAL_LEAVE.
     function fyStartDateFor(dateObj){ var y=dateObj.getFullYear(); return new Date(dateObj.getMonth()>=3?y:y-1, 3, 1); }
@@ -22122,6 +22153,71 @@ ${brandLines}`;
       var unpaidThis=Math.max(0,throughThis-earnedThis), unpaidPrev=Math.max(0,throughPrev-earnedPrev);
       return Math.max(0,unpaidThis-unpaidPrev);
     }
+    // Monthly Overview's "Leave Taken"/"Total Leave Taken (Year)"/"Leave
+    // Left" cells click through to this — same formal-only figures, just
+    // with the actual dates behind the number instead of leaving Gokul to
+    // go dig through "All Leaves Taken" for them. yearScope=true covers the
+    // whole FY-to-date (what backs Total Leave Taken (Year)/Leave Left);
+    // false scopes to just the one month (what backs Leave Taken).
+    window.attShowLeaveTaken=function(name,mo,yearScope){
+      var details=formalApprovedLeaveDetails(name);
+      var rows=yearScope
+        ? (function(){ var fyStart=fyStartMonthFor(mo); return details.filter(function(d){return d.date.slice(0,7)>=fyStart && d.date.slice(0,7)<=mo;}); })()
+        : details.filter(function(d){return d.date.slice(0,7)===mo;});
+      var LBL={standard:"Standard",sick:"Sick"};
+      var html=rows.length? rows.map(function(d){
+        return "&bull; "+fmtDate(d.date)+" — <b>"+(LBL[d.type]||"Standard")+"</b>"+(d.reason?' — "'+esc(d.reason)+'"':"");
+      }).join("<br>") : "No approved leave "+(yearScope?"this financial year yet.":"this month.");
+      var label=yearScope?"Leave taken this financial year":"Leave taken in "+moLabel(mo);
+      popupBox("info-pop","&#127796;",esc(name)+" · "+label+" ("+rows.length+")",html,null);
+    };
+    // Unpaid Leave is a balance overflow, not a per-day tag — there's no
+    // single date you can point to as "the unpaid one" once the running FY
+    // balance runs dry partway through a month. So instead of pretending to
+    // identify specific unpaid days, this shows every approved leave day
+    // that fell in the month (formal AND manually-approved — Unpaid Leave
+    // is computed from the full PERF_EXC picture, same as the Absent
+    // column, not the formal-only figures above) alongside the balance
+    // numbers that produced the figure.
+    window.attShowUnpaid=function(name,mo){
+      var rows=allApprovedLeaveDetails(name).filter(function(d){return d.date.slice(0,7)===mo;});
+      var LBL={standard:"Standard",sick:"Sick",manual:"Manually Approved"};
+      var earned=earnedLeaveAsOf(name,lastDateOfMonth(mo));
+      var throughThis=cumulativeApprovedThrough(name,fyStartMonthFor(mo),mo);
+      var unpaidMo=unpaidLeaveDaysForMonth(name,mo);
+      var note='<div style="font-size:11px;color:#8a8178;margin-bottom:10px;line-height:1.5">Earned as of '+moLabel(mo)+': <b>'+earned+'</b> &middot; Approved so far this FY through '+moLabel(mo)+': <b>'+throughThis+'</b> &middot; Unpaid added this month: <b>'+unpaidMo+'</b></div>';
+      var list=rows.length? rows.map(function(d){
+        return "&bull; "+fmtDate(d.date)+" — <b>"+(LBL[d.type]||"Standard")+"</b>"+(d.reason?' — "'+esc(d.reason)+'"':"");
+      }).join("<br>") : "No approved leave this month.";
+      popupBox("info-pop","&#128184;",esc(name)+" · Unpaid leave context — "+moLabel(mo)+" ("+rows.length+")",note+list,null);
+    };
+    // "By Employee" table's Standard/Sick/WFH/Other/Total cells — all-time
+    // (not FY-scoped, matching that table), so pulled straight from
+    // LEAVE_REQUESTS/PERF_EXC rather than the FY-aware helpers above.
+    window.attShowLeaveBreakdown=function(name,kind){
+      var reqs=LEAVE_REQUESTS.filter(function(r){return r.member===name && r.status==="approved";});
+      var covered={};
+      reqs.forEach(function(r){ if(r.leave_type==="wfh") return; chargeDatesFor(r).forEach(function(ds){ covered[ds]=true; }); });
+      var manual=Object.keys(PERF_EXC[name]||{}).filter(function(ds){return PERF_EXC[name][ds]&&!covered[ds];}).sort();
+      var LBL={standard:"Standard Leave",sick:"Sick Leave",wfh:"Work From Home"};
+      var items=[];
+      reqs.forEach(function(r){
+        var bucket=r.leave_type==="sick"?"sick":(r.leave_type==="wfh"?"wfh":"standard");
+        if(kind==="total" ? bucket==="wfh" : kind!==bucket) return;
+        var range=r.from_date===r.to_date?fmtDate(r.from_date):fmtDate(r.from_date)+" – "+fmtDate(r.to_date);
+        var days=leaveRequestDaysDisplay(r);
+        items.push({key:r.from_date, html:"&bull; "+esc(range)+" — <b>"+(LBL[r.leave_type]||"Standard Leave")+"</b> ("+days+" day"+(days===1?"":"s")+")"+(r.reason?' — "'+esc(r.reason)+'"':"")});
+      });
+      if(kind==="other"||kind==="total"){
+        manual.forEach(function(ds){
+          items.push({key:ds, html:"&bull; "+fmtDate(ds)+" — <b>Manually Approved</b> — <span style=\"color:var(--muted);font-style:italic\">excused directly by Gokul, no formal request</span>"});
+        });
+      }
+      items.sort(function(a,b){return a.key.localeCompare(b.key);});
+      var LABELS={standard:"Standard leave",sick:"Sick leave",wfh:"Work From Home",other:"Manually approved leave",total:"All approved leave (excl. WFH)"};
+      var html=items.length? items.map(function(i){return i.html;}).join("<br>") : "No records.";
+      popupBox("info-pop","&#127796;",esc(name)+" · "+(LABELS[kind]||"Leave")+" ("+items.length+")",html,null);
+    };
     // Probation never pauses accrual — earnedLeave() above keeps counting the
     // whole time regardless — it only blocks USING what's built up. Missing
     // the field entirely (an employee record from before this existed) is
@@ -22438,7 +22534,11 @@ ${brandLines}`;
       var sec=document.getElementById("admin-leave-section");
       if(!sec) return;
       if(currentUser!=="Gokul"){ sec.innerHTML=""; return; }
-      var all=LEAVE_REQUESTS.slice().sort(function(a,b){return (b.requested_at||"").localeCompare(a.requested_at||"");});
+      // Past employees (INACTIVE_MEMBERS) keep their historical leave_requests/
+      // PERF_EXC records for good — nothing here deletes them — but they're
+      // filtered out of every leave listing below, same as they already are
+      // everywhere else (Monthly Overview, org chart, login picker, etc.).
+      var all=LEAVE_REQUESTS.filter(function(r){return !INACTIVE_MEMBERS.has(r.member);}).sort(function(a,b){return (b.requested_at||"").localeCompare(a.requested_at||"");});
       var LT_LABEL={standard:"Standard Leave", sick:"Sick Leave", wfh:"Work From Home"};
       var STATUS_LABEL={pending:'<span style="color:var(--yellow)">&#9203; Pending</span>', approved:'<span style="color:var(--green)">&#10003; Approved</span>', cancelled:'<span style="color:var(--red)">&#8416; Cancelled</span>', declined:'<span style="color:var(--red)">&#10007; Declined</span>'};
       // PERF_EXC has a second way to get set besides a formal leave
@@ -22457,7 +22557,7 @@ ${brandLines}`;
         chargeDatesFor(r).forEach(function(ds){ requestCoveredDates[r.member][ds]=true; });
       });
       var manualRows=[];
-      Object.keys(PERF_EXC).forEach(function(n){
+      Object.keys(PERF_EXC).filter(function(n){return !INACTIVE_MEMBERS.has(n);}).forEach(function(n){
         var covered=requestCoveredDates[n]||{};
         Object.keys(PERF_EXC[n]).filter(function(ds){ return PERF_EXC[n][ds] && !covered[ds]; }).forEach(function(ds){
           manualRows.push({member:n, from_date:ds, to_date:ds, reason:"", leave_type:"manual", status:"approved", requested_at:ds+"T00:00:00.000Z", _manual:true});
@@ -22504,11 +22604,11 @@ ${brandLines}`;
         var e=byEmp[n], total=e.standard+e.sick+e.other;
         return '<tr>'+
           '<td data-label="Employee"><strong>'+esc(n)+'</strong></td>'+
-          '<td data-label="Standard">'+e.standard+'</td>'+
-          '<td data-label="Sick">'+e.sick+'</td>'+
-          '<td data-label="WFH">'+e.wfh+'</td>'+
-          '<td data-label="Other (Manually Approved)" title="Excused directly via Gokul\'s Approve-leave toggle on a no-punch absence — no formal leave request behind it">'+(e.other>0?e.other:'—')+'</td>'+
-          '<td data-label="Total (excl. WFH)"><b>'+total+'</b></td>'+
+          '<td data-label="Standard"><span class="att-clickable" onclick="window.attShowLeaveBreakdown(&quot;'+n+'&quot;,&quot;standard&quot;)">'+e.standard+'</span></td>'+
+          '<td data-label="Sick"><span class="att-clickable" onclick="window.attShowLeaveBreakdown(&quot;'+n+'&quot;,&quot;sick&quot;)">'+e.sick+'</span></td>'+
+          '<td data-label="WFH"><span class="att-clickable" onclick="window.attShowLeaveBreakdown(&quot;'+n+'&quot;,&quot;wfh&quot;)">'+e.wfh+'</span></td>'+
+          '<td data-label="Other (Manually Approved)" title="Excused directly via Gokul\'s Approve-leave toggle on a no-punch absence — no formal leave request behind it"><span class="att-clickable" onclick="window.attShowLeaveBreakdown(&quot;'+n+'&quot;,&quot;other&quot;)">'+(e.other>0?e.other:'—')+'</span></td>'+
+          '<td data-label="Total (excl. WFH)"><span class="att-clickable" onclick="window.attShowLeaveBreakdown(&quot;'+n+'&quot;,&quot;total&quot;)"><b>'+total+'</b></span></td>'+
         '</tr>';
       }).join("") : '<tr><td colspan="6" style="text-align:center;color:var(--muted)">No approved leave yet.</td></tr>';
       sec.innerHTML =
@@ -22670,11 +22770,14 @@ ${brandLines}`;
     // Overview boards there.
     function renderLeaveApprovalQueue(){
       if(currentUser!=="Gokul") return "";
-      var pending=LEAVE_REQUESTS.filter(function(r){return r.status==="pending";});
+      // A past employee (INACTIVE_MEMBERS) shouldn't still be showing up
+      // asking for a decision, or sitting in the "cancel if needed" list —
+      // same exclusion as everywhere else leave gets listed.
+      var pending=LEAVE_REQUESTS.filter(function(r){return r.status==="pending" && !INACTIVE_MEMBERS.has(r.member);});
       // Only approved leave that hasn't fully passed yet — upcoming or
       // still ongoing — is worth surfacing here for a possible emergency
       // cancellation; nothing to do about an already-completed one.
-      var approvedActive=LEAVE_REQUESTS.filter(function(r){return r.status==="approved" && r.to_date>=TODAY;})
+      var approvedActive=LEAVE_REQUESTS.filter(function(r){return r.status==="approved" && r.to_date>=TODAY && !INACTIVE_MEMBERS.has(r.member);})
         .sort(function(a,b){return a.from_date.localeCompare(b.from_date);});
       if(!pending.length && !approvedActive.length) return "";
       var LT_LABEL={standard:"", sick:"&#129658; Sick &middot; ", wfh:"&#127968; WFH &middot; "};
