@@ -216,7 +216,7 @@ async function runSync() {
   const headers = [
     'Name', 'Last Name', 'Employee Code', 'Designation', 'Department',
     'Date Joined', 'Birthdate', 'Gender', 'Blood Group',
-    'Mobile', 'Personal Email', 'Work Email', 'Address',
+    'Mobile', 'Personal Email', 'Work Email', 'Google Calendar Email', 'Address',
     'Emergency Contact Name', 'Emergency Contact Phone',
     'Employment Status', 'Probation Status', 'Probation Start Date',
     'PAN', 'Aadhar', 'Bank Account Holder Name', 'Bank Name', 'Bank Branch', 'Bank Account Number', 'Bank IFSC'
@@ -237,6 +237,7 @@ async function runSync() {
       m.mobile || '—',
       m.personalEmail || '—',
       m.workEmail || '—',
+      m.email || '—',
       m.address || '—',
       m.emergencyContactName || '—',
       m.emergencyContactPhone || '—',
@@ -271,7 +272,7 @@ async function runSync() {
   });
 
   const noteRow = rows.length + 3;
-  const activeCount = rows.filter(r => r[15] === 'Active').length;
+  const activeCount = rows.filter(r => r[16] === 'Active').length;
   const noteText = `Last synced: ${fmtIST()} · ${rows.length} total (${activeCount} active)` + (sensitiveSkippedReason ? ` · ${sensitiveSkippedReason}` : '');
   await sheetsRequest(`${sheetId}/values/${encodeURIComponent(SHEET_TAB)}!A${noteRow}?valueInputOption=RAW`, accessToken, {
     method: 'PUT',

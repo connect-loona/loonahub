@@ -5546,6 +5546,7 @@
 
       <div class="section-header">
         <div class="section-title">Employee <span>Directory</span></div>
+        <button onclick="scanAndMergeDuplicateMembers()" style="background:rgba(120,180,255,.1);border:1px solid rgba(120,180,255,.3);color:#78b4ff;padding:5px 12px;border-radius:8px;font-size:11.5px;cursor:pointer;font-weight:600;font-family:var(--font)">🧹 Check for Duplicates</button>
       </div>
       <div id="admin-directory-list" class="admin-directory-list"></div>
 
@@ -13323,6 +13324,7 @@
           <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn btn-primary" onclick="openEditEmployeeModal('${name}')">✎ Edit Details</button>
             ${normName(name) !== 'gokul' ? `<button onclick="removeMember('${name}')" style="background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);color:#e05c5c;padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer">Move to Past Employees</button>` : ''}
+            ${normName(name) !== 'gokul' ? `<button onclick="deleteMemberPermanently('${name}')" title="For a mistake — a test account, a duplicate — not an actual past employee" style="background:rgba(224,92,92,.05);border:1px solid rgba(224,92,92,.2);color:#e05c5c;padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;opacity:.75">🗑 Delete Permanently</button>` : ''}
           </div>
         </div>`;
     }
@@ -14967,6 +14969,115 @@
       buildMemberTabs(currentUser);
       renderOverview();
     }
+
+    // Unlike removeMember() (which just marks someone Inactive — reversible,
+    // keeps their history), this actually erases a person: their profile,
+    // financial/ID details, leave history, and attendance excusal records.
+    // Meant for a genuine mistake (a test/dummy account, a duplicate created
+    // by accident) — never for an actual past employee, who should go
+    // through removeMember()/"Move to Past Employees" instead so their real
+    // history is preserved. Irreversible, so gated behind typing the exact
+    // name rather than a plain confirm().
+    window.deleteMemberPermanently = async function(name) {
+      if (currentUser !== 'Gokul' || !_db) return;
+      var typed = prompt('This PERMANENTLY deletes "' + name + '" — profile, financial/ID details, leave requests, and attendance-excusal records. This cannot be undone.\n\nType the name exactly to confirm:');
+      if (typed === null) return;
+      if (typed !== name) { alert('Name didn\'t match — nothing was deleted.'); return; }
+      try {
+        var key = fbMemberKey(name);
+        var removals = [
+          _db.ref('members/' + key).remove(),
+          _db.ref('inactive_members/' + key).remove(),
+          _db.ref('members_sensitive/' + key).remove(),
+          _db.ref('member_avatars/' + key).remove(),
+          _db.ref('loona_excused/' + name).remove(),
+          _db.ref('loona_late_forgiven/' + name).remove(),
+          _db.ref('loona_half_forgiven/' + name).remove(),
+          _db.ref('loona_short_forgiven/' + name).remove()
+        ];
+        // A person re-added at some point ends up with a SECOND /members
+        // record under a different key — the canonical fbMemberKey(name)
+        // remove() above only catches the standard one, so sweep for any
+        // other record that also carries this exact name.
+        var membersSnap = await _db.ref('members').once('value');
+        var membersVal = membersSnap.val() || {};
+        Object.keys(membersVal).forEach(function (k) { if (membersVal[k] && membersVal[k].name === name && k !== key) removals.push(_db.ref('members/' + k).remove()); });
+        var leaveSnap = await _db.ref('leave_requests').once('value');
+        var leaveVal = leaveSnap.val() || {};
+        Object.keys(leaveVal).forEach(function (k) { if (leaveVal[k] && leaveVal[k].member === name) removals.push(_db.ref('leave_requests/' + k).remove()); });
+        await Promise.all(removals);
+
+        // Local state, updated immediately rather than waiting on Firebase's
+        // own listeners to round-trip back — 'members'/'inactive_members'
+        // would eventually catch up on their own, but there's no reason to
+        // make Gokul wait to see it reflected.
+        var idx = ALL_MEMBERS.indexOf(name); if (idx >= 0) ALL_MEMBERS.splice(idx, 1);
+        delete MEMBER_INFO[name];
+        INACTIVE_MEMBERS.delete(name);
+        closeAdminEmployeeDetail();
+        rebuildLoginPicker();
+        renderTeam();
+        renderAdminDirectory();
+        alert('"' + name + '" has been permanently deleted.');
+      } catch (e) {
+        alert('Something went wrong deleting this record: ' + ((e && e.message) || e));
+      }
+    };
+
+    // Firebase's /members can end up with more than one record for the same
+    // person — a re-add at some point under a different key, most likely.
+    // The app's own display already merges these together silently (see the
+    // 'members' listener above), so nothing looks broken day-to-day, but the
+    // raw duplicates are still there underneath. Consolidates every
+    // duplicate-name group into ONE record living at the standard
+    // fbMemberKey(name) path, combining whatever fields are filled in
+    // across the copies (first non-empty value found wins a given field),
+    // then deletes the extras. Does NOT touch members_sensitive
+    // (PAN/Aadhar/bank) — that's keyed by name too so it isn't duplicated
+    // the same way, but worth a manual look per person if in doubt.
+    window.scanAndMergeDuplicateMembers = async function () {
+      if (currentUser !== 'Gokul' || !_db) return;
+      var snap = await _db.ref('members').once('value');
+      var data = snap.val() || {};
+      var byName = {};
+      Object.keys(data).forEach(function (k) {
+        var m = data[k]; if (!m || !m.name) return;
+        (byName[m.name] = byName[m.name] || []).push({ key: k, m: m });
+      });
+      var dupGroups = Object.keys(byName).filter(function (n) { return byName[n].length > 1; })
+        .map(function (n) { return { name: n, entries: byName[n] }; });
+      if (!dupGroups.length) { alert('No duplicate member records found — nothing to clean up.'); return; }
+
+      var summary = dupGroups.map(function (g) { return '• ' + g.name + ' — ' + g.entries.length + ' records'; }).join('\n');
+      if (!confirm('Found ' + dupGroups.length + ' name(s) with duplicate records:\n\n' + summary +
+        '\n\nMerge each into a single record (combining whatever fields are filled in across the duplicates) and delete the extras?\n\n' +
+        'PAN/Aadhar/bank details are NOT touched by this — worth a manual check per person if any of them have duplicates.\n\n' +
+        'This cannot be undone.')) return;
+
+      var writes = [];
+      var mergedByName = {};
+      dupGroups.forEach(function (g) {
+        var canonicalKey = fbMemberKey(g.name);
+        var merged = {};
+        g.entries.forEach(function (e) {
+          Object.keys(e.m).forEach(function (f) {
+            if ((merged[f] == null || merged[f] === '') && e.m[f] != null && e.m[f] !== '') merged[f] = e.m[f];
+          });
+        });
+        mergedByName[g.name] = merged;
+        writes.push(_db.ref('members/' + canonicalKey).set(merged));
+        g.entries.forEach(function (e) { if (e.key !== canonicalKey) writes.push(_db.ref('members/' + e.key).remove()); });
+      });
+      await Promise.all(writes);
+
+      // Update local state immediately rather than waiting on Firebase's own
+      // listener to round-trip back — same pattern as deleteMemberPermanently.
+      Object.keys(mergedByName).forEach(function (n) { MEMBER_INFO[n] = Object.assign({}, MEMBER_INFO[n], mergedByName[n]); });
+      rebuildLoginPicker();
+      renderTeam();
+      renderAdminDirectory();
+      alert('Merged ' + dupGroups.length + ' duplicate name(s) into single records.');
+    };
 
     function editBrand(brandName) {
       openEditBrand(brandName);
