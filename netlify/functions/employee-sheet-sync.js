@@ -1,28 +1,49 @@
 // ============================================================================
 // LOONA Hub · Firebase → Google Sheets employee directory sync
 // ----------------------------------------------------------------------------
-// Keeps one Google Sheet in step with whatever's actually live in Firebase's
-// /members + /inactive_members — the same fields the Admin → Employee
-// Directory editor writes (name, employeeId, role, department, joinDate,
-// birthdate, workEmail), plus a computed Active/Inactive status. Runs on a
-// schedule (see netlify.toml), the same pattern calendar-sync.js already
-// uses for talking to Google — full rewrite of the sheet's data range each
-// run, not an incremental patch, so a removed member simply stops appearing
-// instead of needing to be diffed out.
+// Keeps "Master Employee Data" in step with whatever's actually live in
+// Firebase's /members + /inactive_members (the same fields the Admin →
+// Employee Directory editor writes) plus /members_sensitive (PAN, Aadhar,
+// bank details — see the auth section below for why that one needs a
+// different credential). Runs on a schedule (see netlify.toml), the same
+// pattern calendar-sync.js already uses for talking to Google — full
+// rewrite of the sheet's data range each run, not an incremental patch, so
+// a removed member simply stops appearing instead of needing to be diffed
+// out.
 //
 // Reuses the SAME service account as calendar-sync.js/calendar-create.js
-// (GOOGLE_CALENDAR_SERVICE_ACCOUNT) — no new credential to create. Unlike
-// those two, this does NOT need domain-wide delegation/impersonation (no
-// "sub" claim): Sheets access here is just the service account acting as
-// itself, authorized the ordinary way by sharing the target spreadsheet with
-// its own client_email as an Editor. See the setup note in netlify.toml.
+// (GOOGLE_CALENDAR_SERVICE_ACCOUNT) for the Sheets write side — no new
+// credential to create for that part. Unlike those two, this does NOT need
+// domain-wide delegation/impersonation for Sheets (no "sub" claim): access
+// there is just the service account acting as itself, authorized the
+// ordinary way by sharing the target spreadsheet with its own client_email
+// as an Editor. See the setup note in netlify.toml.
 //
-// Required env vars (Netlify → Site settings → Environment variables):
-//   GOOGLE_CALENDAR_SERVICE_ACCOUNT   (already set for calendar-sync.js)
+// members_sensitive has a tighter Firebase security rule than the rest of
+// the tree (see the comment at the members-backfill site in index.html) —
+// an ordinary unauthenticated REST read (what /members and
+// /inactive_members use below) gets denied there. Reading it needs a real
+// Firebase Admin credential, which bypasses database rules entirely by
+// design — that's a DIFFERENT, more powerful key than the Sheets one above,
+// generated from Firebase Console -> Project Settings -> Service Accounts
+// -> "Generate new private key". Sensitive columns are simply skipped
+// (left as "—") if that credential isn't configured, so the rest of the
+// sync still runs fine without it.
+//
+// Required env vars (Netlify -> Site settings -> Environment variables):
+//   GOOGLE_CALENDAR_SERVICE_ACCOUNT   (already set for calendar-sync.js) —
+//                                      used for the Sheets write.
 //   GOOGLE_EMPLOYEE_SHEET_ID          (the target spreadsheet's ID — the long
 //                                      id/ segment in its URL. That sheet
-//                                      must be shared with the service
-//                                      account's client_email as Editor.)
+//                                      must be shared with the Sheets
+//                                      service account's client_email as
+//                                      Editor.)
+//   FIREBASE_ADMIN_SERVICE_ACCOUNT    (optional — a Firebase Admin service
+//                                      account JSON key for THIS project,
+//                                      needed only to include PAN/Aadhar/
+//                                      bank details. Omit to sync
+//                                      everything else and leave those
+//                                      columns blank.)
 //   FIREBASE_DB_URL                   (optional; same default as elsewhere)
 //
 // Manual run (for testing): GET /.netlify/functions/employee-sheet-sync
@@ -31,8 +52,9 @@
 const crypto = require('crypto');
 
 const FB = (process.env.FIREBASE_DB_URL || 'https://loona-hub-c85d7-default-rtdb.firebaseio.com').replace(/\/+$/, '');
-const SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
-const SHEET_TAB = 'Employees';
+const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
+const FIREBASE_ADMIN_SCOPE = 'https://www.googleapis.com/auth/firebase.database https://www.googleapis.com/auth/userinfo.email';
+const SHEET_TAB = 'Master Employee Data';
 
 function base64url(buf) {
   return (Buffer.isBuffer(buf) ? buf : Buffer.from(buf)).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -45,14 +67,11 @@ function signJWT(claims, privateKey) {
   return signingInput + '.' + base64url(signature);
 }
 
-// No "sub" here on purpose — this authenticates as the service account
-// itself (direct-share access to one spreadsheet), not as an impersonated
-// Workspace user, so it needs no domain-wide delegation setup at all.
-async function getAccessToken(sa) {
+async function getAccessToken(sa, scope) {
   const now = Math.floor(Date.now() / 1000);
   const jwt = signJWT({
     iss: sa.client_email,
-    scope: SCOPE,
+    scope,
     aud: 'https://oauth2.googleapis.com/token',
     exp: now + 3600,
     iat: now
@@ -67,8 +86,21 @@ async function getAccessToken(sa) {
   return data.access_token;
 }
 
+// Unauthenticated reads for the parts of the tree that are already
+// publicly readable by Firebase rules (matches the existing, already-
+// working pattern for /members and /inactive_members).
 async function fbGet(path) {
   const resp = await fetch(FB + '/' + path + '.json');
+  return resp.json().catch(() => null);
+}
+
+// Authenticated (Admin-token) read for members_sensitive — a valid Google
+// OAuth token for a service account Firebase recognizes as an Admin SDK
+// identity on this project bypasses database rules entirely, which is the
+// only way to reach a path this locked-down from a server context.
+async function fbGetAdmin(path, adminToken) {
+  const resp = await fetch(FB + '/' + path + '.json', { headers: { Authorization: 'Bearer ' + adminToken } });
+  if (!resp.ok) return null;
   return resp.json().catch(() => null);
 }
 
@@ -98,6 +130,8 @@ async function ensureTabExists(sheetId, accessToken) {
   });
 }
 
+const PROBATION_LABEL = { on_probation: 'On Probation', confirmed: 'Confirmed' };
+
 async function runSync() {
   const saRaw = process.env.GOOGLE_CALENDAR_SERVICE_ACCOUNT || process.env.GOOGLE_CALENDER_SERVICE_ACCOUNT;
   if (!saRaw) throw new Error('GOOGLE_CALENDAR_SERVICE_ACCOUNT not set');
@@ -109,26 +143,73 @@ async function runSync() {
   if (!sheetId) throw new Error('GOOGLE_EMPLOYEE_SHEET_ID not set');
 
   const [membersData, inactiveRaw] = await Promise.all([fbGet('members'), fbGet('inactive_members')]);
-  const members = Object.values(membersData || {}).filter(m => m && m.name);
+  const members = membersData || {};
   const inactiveNames = new Set(
     Array.isArray(inactiveRaw) ? inactiveRaw : Object.values(inactiveRaw || {})
   );
 
-  members.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  // Sensitive fields are opt-in — only attempted when a Firebase Admin
+  // credential is actually configured, and any failure there degrades to
+  // "not included" rather than failing the whole sync.
+  let sensitiveData = {}, sensitiveSkippedReason = null;
+  const adminSaRaw = process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT;
+  if (adminSaRaw) {
+    try {
+      const adminSa = JSON.parse(adminSaRaw);
+      const adminToken = await getAccessToken(adminSa, FIREBASE_ADMIN_SCOPE);
+      sensitiveData = (await fbGetAdmin('members_sensitive', adminToken)) || {};
+    } catch (e) {
+      sensitiveSkippedReason = 'FIREBASE_ADMIN_SERVICE_ACCOUNT present but failed: ' + String((e && e.message) || e);
+      sensitiveData = {};
+    }
+  } else {
+    sensitiveSkippedReason = 'FIREBASE_ADMIN_SERVICE_ACCOUNT not set — PAN/Aadhar/bank columns left blank';
+  }
 
-  const headers = ['Name', 'Employee Code', 'Designation', 'Department', 'Date Joined', 'Birthdate', 'Work Email', 'Status'];
-  const rows = members.map(m => [
-    m.name || '',
-    m.employeeId || '—',
-    m.role || '—',
-    m.department || '—',
-    m.joinDate || '—',
-    m.birthdate || '—',
-    m.workEmail || '—',
-    inactiveNames.has(m.name) ? 'Inactive' : 'Active'
-  ]);
+  const keys = Object.keys(members).filter(k => members[k] && members[k].name);
+  keys.sort((a, b) => String(members[a].name).localeCompare(String(members[b].name)));
 
-  const accessToken = await getAccessToken(sa);
+  const headers = [
+    'Name', 'Last Name', 'Employee Code', 'Designation', 'Department',
+    'Date Joined', 'Birthdate', 'Gender', 'Blood Group',
+    'Mobile', 'Personal Email', 'Work Email', 'Address',
+    'Emergency Contact Name', 'Emergency Contact Phone',
+    'Employment Status', 'Probation Status', 'Probation Start Date',
+    'PAN', 'Aadhar', 'Bank Account Holder Name', 'Bank Name', 'Bank Branch', 'Bank Account Number', 'Bank IFSC'
+  ];
+  const rows = keys.map(k => {
+    const m = members[k];
+    const s = sensitiveData[k] || {};
+    return [
+      m.name || '',
+      m.lastName || '—',
+      m.employeeId || '—',
+      m.role || '—',
+      m.department || '—',
+      m.joinDate || '—',
+      m.birthdate || '—',
+      m.gender || '—',
+      m.bloodGroup || '—',
+      m.mobile || '—',
+      m.personalEmail || '—',
+      m.workEmail || '—',
+      m.address || '—',
+      m.emergencyContactName || '—',
+      m.emergencyContactPhone || '—',
+      inactiveNames.has(m.name) ? 'Inactive' : 'Active',
+      PROBATION_LABEL[m.probationStatus] || '—',
+      m.probationStartDate || '—',
+      s.pan || '—',
+      s.aadhar || '—',
+      s.bankAccountName || '—',
+      s.bankName || '—',
+      s.bankBranch || '—',
+      s.bankAccount || '—',
+      s.bankIFSC || '—'
+    ];
+  });
+
+  const accessToken = await getAccessToken(sa, SHEETS_SCOPE);
   await ensureTabExists(sheetId, accessToken);
 
   // Clear a generous range first — a straight overwrite would leave stale
@@ -144,12 +225,14 @@ async function runSync() {
   });
 
   const noteRow = rows.length + 3;
+  const activeCount = rows.filter(r => r[15] === 'Active').length;
+  const noteText = `Last synced: ${fmtIST()} · ${rows.length} total (${activeCount} active)` + (sensitiveSkippedReason ? ` · ${sensitiveSkippedReason}` : '');
   await sheetsRequest(`${sheetId}/values/${encodeURIComponent(SHEET_TAB)}!A${noteRow}?valueInputOption=RAW`, accessToken, {
     method: 'PUT',
-    body: JSON.stringify({ values: [[`Last synced: ${fmtIST()} · ${rows.length} total (${rows.filter(r => r[7] === 'Active').length} active)`]] })
+    body: JSON.stringify({ values: [[noteText]] })
   });
 
-  return { synced: rows.length, active: rows.filter(r => r[7] === 'Active').length, inactive: rows.filter(r => r[7] === 'Inactive').length };
+  return { synced: rows.length, active: activeCount, inactive: rows.length - activeCount, sensitiveIncluded: !sensitiveSkippedReason };
 }
 
 exports.handler = async (event) => {

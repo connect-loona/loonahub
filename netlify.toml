@@ -155,9 +155,23 @@
 #                                  between /d/ and /edit in
 #                                  https://docs.google.com/spreadsheets/d/THIS_PART/edit
 #                               4. Set that as GOOGLE_EMPLOYEE_SHEET_ID here.
-#                             The function creates its own "Employees" tab on first run
-#                             and fully rewrites that tab's data every 15 minutes — safe
-#                             to leave other tabs/notes elsewhere in the same spreadsheet.)
+#                             The function creates its own "Master Employee Data" tab on
+#                             first run and fully rewrites that tab's data every 15
+#                             minutes — safe to leave other tabs/notes elsewhere in the
+#                             same spreadsheet.)
+#   FIREBASE_ADMIN_SERVICE_ACCOUNT   (optional — full JSON key contents for a Firebase
+#                             Admin service account on THIS project. Only needed to
+#                             include PAN/Aadhar/bank details in the employee sheet above
+#                             (they live in /members_sensitive, which has a tighter
+#                             database rule the plain unauthenticated reads elsewhere in
+#                             employee-sheet-sync.js can't get past). Without this set,
+#                             the sync still runs fine — those columns are just left
+#                             blank. One-time setup: Firebase Console -> Project Settings
+#                             -> Service Accounts -> "Generate new private key", then
+#                             paste the downloaded JSON's full contents here. Unlike
+#                             GOOGLE_CALENDAR_SERVICE_ACCOUNT, this key does NOT need to
+#                             be shared with anything — Admin SDK credentials bypass
+#                             database rules by design, on their own.)
 #   FIREBASE_WEB_API_KEY     (optional — defaults to the same public Web API key already
 #                             embedded in index.html's client-side Firebase config. Used by
 #                             add-to-playlist.js/remove-from-playlist.js to verify a caller's
