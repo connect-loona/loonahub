@@ -89,6 +89,14 @@ const OFFICIAL_HOLIDAYS = [
   { date: '2027-04-09', name: 'Ramzan Eid*' }
 ];
 
+// People this attendance policy simply doesn't apply to — the founder, and
+// consultants who aren't tracked against punch-in/late/leave rules at all
+// — left out of the sheet entirely (every tab: Yearly Summary and every
+// month) rather than showing up as an all-blank/all-absent row. A short,
+// hand-maintained list rather than a Firebase-backed flag for now — update
+// it here if who counts as exempt ever changes.
+const EXCLUDED_FROM_ATTENDANCE = ['Gokul', 'Ankita', 'Karnik', 'Hetal'];
+
 // ---- Dark-theme palette, ported 1:1 from Gokul's reference .xlsx ----
 const PALETTE = {
   pageBg: '#121214', titleFg: '#F7F7F7', subtitleFg: '#B7B7BA', orange: '#FF5A1F',
@@ -327,7 +335,7 @@ async function runSync() {
     Object.keys(m).forEach(f => { if (m[f] !== null && m[f] !== undefined && m[f] !== '') merged[f] = m[f]; });
     mergedByName[m.name] = merged;
   });
-  const names = Object.keys(mergedByName);
+  const names = Object.keys(mergedByName).filter(n => !EXCLUDED_FROM_ATTENDANCE.includes(n));
   names.sort((a, b) => {
     const ma = mergedByName[a], mb = mergedByName[b];
     const aInactive = inactiveNames.has(a) ? 1 : 0, bInactive = inactiveNames.has(b) ? 1 : 0;
