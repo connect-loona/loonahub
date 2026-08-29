@@ -19292,7 +19292,7 @@ ${brandLines}`;
   <div id="leave-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;align-items:center;justify-content:center" onclick="if(event.target===this)closeLeaveModal()">
     <div style="background:#1a1a1a;border:1px solid #333;border-radius:14px;padding:26px;width:440px;max-width:92vw;box-shadow:0 24px 80px #000a">
       <h3 style="color:#fff;margin:0 0 16px;font-size:18px">🌴 Apply for Leave</h3>
-      <div id="leave-probation-note" style="display:none;font-size:12px;color:#e05c5c;background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);border-radius:8px;padding:10px 12px;margin-bottom:16px;line-height:1.5">Please note that during probation, no leaves are allowed. Chances of this leave getting approved are highly unlikely. If approved, it will be treated as unpaid leave.</div>
+      <div id="leave-probation-note" style="display:none;font-size:12px;color:#e05c5c;background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);border-radius:8px;padding:10px 12px;margin-bottom:16px;line-height:1.5">Leaves are not allowed during probation. Please note that if approved this will be an unpaid leave.</div>
       <div style="display:flex;gap:10px">
         <div style="flex:1">
           <label style="display:block;font-size:12px;color:#888;margin-bottom:6px">From</label>
@@ -21029,7 +21029,7 @@ ${brandLines}`;
         '<div class="scroll"><table class="att-tbl wide" id="founder-monthly-tbl"><thead><tr>'+
           '<th>Employee</th><th>Attendance (mo)</th><th>Absent (mo)</th><th>Late (mo)</th><th>Fines (mo)</th><th>Leave Taken</th><th>Total Leave Taken (Year)</th><th>Leave Left</th><th>Unpaid Leave</th>'+
         '</tr></thead><tbody>'+rows+'</tbody></table></div>'+
-        '<div class="note">Attendance = full (P) &amp; half (H) days worked in the selected month, click H to review/forgive &middot; Absent = unresolved (no punch = approvable as Official Leave; short hours = fined, click to review) — includes anyone Gokul\'s excused directly, not just formal leave requests &middot; Late = total days late (forgiven count shown alongside), click to review/forgive — forgiving removes it from fees/score but the calendar still shows it as Late &middot; Fines combine late, Half Day and short-hours-absence — first '+LATE_FREE_DAYS+' of each are free, &#8377;'+LATE_FEE+' each after that, for the selected month &middot; Leave Taken is for the selected month only &middot; Total Leave Taken (Year) and Leave Left are running totals for the financial year — for now, both count formal Apply-for-Leave requests only (not leave Gokul\'s excused directly outside that flow — see the Admin panel\'s Leaves Taken &gt; By Employee &gt; "Other" for those) — against the '+TOTAL_LEAVE+'-day yearly balance, accrued pro-rata (1.25/month) since April or join date &middot; Unpaid Leave is month-specific — once the running balance runs out partway through the year, every approved day past that point counts here, in whichever month it actually falls, for payroll to deduct.</div>'+
+        '<div class="note">Attendance = full (P) &amp; half (H) days worked in the selected month, click H to review/forgive &middot; Absent = unresolved (no punch = approvable as Official Leave; short hours = fined, click to review) — includes anyone Gokul\'s excused directly, not just formal leave requests &middot; Late = total days late (forgiven count shown alongside), click to review/forgive — forgiving removes it from fees/score but the calendar still shows it as Late &middot; Fines combine late, Half Day and short-hours-absence — first '+LATE_FREE_DAYS+' of each are free, &#8377;'+LATE_FEE+' each after that, for the selected month &middot; Leave Taken is for the selected month only &middot; Total Leave Taken (Year) and Leave Left are running totals for the financial year — for now, both count formal Apply-for-Leave requests only (not leave Gokul\'s excused directly outside that flow — see the Admin panel\'s Leaves Taken &gt; By Employee &gt; "Other" for those) — against the '+TOTAL_LEAVE+'-day yearly balance, accrued pro-rata (1.25/month) since April or join date &middot; Unpaid Leave is month-specific and counted in whole days for payroll — a day is unpaid if a full day of accrued balance isn\'t actually available for it (never a fractional cut), or if it was approved during probation, or with less notice than required (both always unpaid, regardless of balance, and neither draws down the balance either).</div>'+
       '</div>';
     }
 
@@ -22121,37 +22121,67 @@ ${brandLines}`;
       var d=new Date(y,m,0); // day 0 of next month = last day of this one
       return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
     }
-    // Approved leave draws down a single running FY balance, so which
-    // specific days end up unpaid depends on order — once the balance runs
-    // out partway through the year, every approved day after that point is
-    // unpaid, not just the ones in whichever month happens to be open right
-    // now. Computed as a running shortfall (cumulative approved minus
-    // cumulative earned, both as of a given month's end) so the "unpaid"
-    // count added in one particular month is the marginal increase in that
-    // shortfall — not a fresh per-month balance that would forgive an
-    // earlier overrun. Used for salary deduction, not for cachePerf(),
-    // since like everything else here it's derived fresh from PERF_EXC.
+    // Still used for the "approved so far this FY" context line in the
+    // Unpaid Leave popup — a plain running count, unrelated to who ends up
+    // paid or unpaid for it.
     function cumulativeApprovedThrough(name,fyStart,mo){
       var e=PERF_EXC[name]||{};
       return Object.keys(e).filter(function(d){
         return e[d] && d.slice(0,7)>=fyStart && d.slice(0,7)<=mo;
       }).length;
     }
+    // Dates covered by a formal leave request that was submitted while the
+    // employee was on probation (req.probation, set at submission time —
+    // see submitLeaveRequest()). Per Gokul: probation-approved leave is
+    // ALWAYS unpaid, full stop, no matter how much balance happens to be
+    // sitting banked — probation isn't meant to draw on it at all.
+    function probationLeaveDates(name){
+      var out={};
+      LEAVE_REQUESTS.forEach(function(r){
+        if(r.member!==name || r.status!=="approved" || r.leave_type==="wfh" || !r.probation) return;
+        chargeDatesFor(r).forEach(function(ds){ out[ds]=true; });
+      });
+      return out;
+    }
+    // Dates covered by a formal leave request that fell short of the
+    // required notice period for its length (req.notice_shortfall, set at
+    // submission time). Per Gokul, same treatment as probation: if
+    // approved anyway, it's ALWAYS unpaid regardless of balance — sandwich
+    // days needing special approval for touching a Sunday/holiday (with
+    // adequate notice given) are a separate reason and NOT included here.
+    function noticeShortfallLeaveDates(name){
+      var out={};
+      LEAVE_REQUESTS.forEach(function(r){
+        if(r.member!==name || r.status!=="approved" || r.leave_type==="wfh" || !r.notice_shortfall) return;
+        chargeDatesFor(r).forEach(function(ds){ out[ds]=true; });
+      });
+      return out;
+    }
+    // Walks every approved leave day in the financial year in date order,
+    // spending the accrued balance one WHOLE day at a time. Per Gokul:
+    // payroll cuts whole days, never fractions — a day only counts as paid
+    // if a full day's balance is actually sitting available for it right
+    // then; anything less (a lingering fraction like 0.75, or 0) makes the
+    // ENTIRE day unpaid, not just the sliver that ran over. Unpaid days
+    // don't spend any of that leftover fraction either — it stays banked
+    // for a future day that might actually reach a full day. Probation and
+    // notice-shortfall days are unpaid unconditionally and never touch the
+    // ledger either way, whatever balance is sitting there.
+    function unpaidLeaveDatesForFY(name,fyStart){
+      var e=PERF_EXC[name]||{};
+      var dates=Object.keys(e).filter(function(d){return e[d]&&d.slice(0,7)>=fyStart;}).sort();
+      var probation=probationLeaveDates(name), shortfall=noticeShortfallLeaveDates(name);
+      var used=0, unpaid=[];
+      dates.forEach(function(ds){
+        if(probation[ds]||shortfall[ds]){ unpaid.push(ds); return; }
+        var available=earnedLeaveAsOf(name,ds)-used;
+        if(available>=1){ used+=1; } else { unpaid.push(ds); }
+      });
+      return unpaid;
+    }
     function unpaidLeaveDaysForMonth(name,mo){
       var fyStart=fyStartMonthFor(mo);
-      var y=parseInt(mo.slice(0,4),10), m=parseInt(mo.slice(5,7),10);
-      var prevMo=(m===1?(y-1)+"-12":y+"-"+pad(m-1));
-      var throughThis=cumulativeApprovedThrough(name,fyStart,mo);
-      // No carry-over between financial years — if mo is the FY's first
-      // month, there's nothing earned or taken yet as of the month before
-      // it (which belongs to the PRIOR FY entirely), so both are 0 rather
-      // than pulling that prior FY's own balance into this calculation.
-      var beforeFYStart=prevMo<fyStart;
-      var throughPrev=beforeFYStart?0:cumulativeApprovedThrough(name,fyStart,prevMo);
-      var earnedThis=earnedLeaveAsOf(name,lastDateOfMonth(mo));
-      var earnedPrev=beforeFYStart?0:earnedLeaveAsOf(name,lastDateOfMonth(prevMo));
-      var unpaidThis=Math.max(0,throughThis-earnedThis), unpaidPrev=Math.max(0,throughPrev-earnedPrev);
-      return Math.max(0,unpaidThis-unpaidPrev);
+      return unpaidLeaveDatesForFY(name,fyStart).filter(function(ds){return ds.slice(0,7)===mo;}).length;
     }
     // Monthly Overview's "Leave Taken"/"Total Leave Taken (Year)"/"Leave
     // Left" cells click through to this — same formal-only figures, just
@@ -22171,25 +22201,29 @@ ${brandLines}`;
       var label=yearScope?"Leave taken this financial year":"Leave taken in "+moLabel(mo);
       popupBox("info-pop","&#127796;",esc(name)+" · "+label+" ("+rows.length+")",html,null);
     };
-    // Unpaid Leave is a balance overflow, not a per-day tag — there's no
-    // single date you can point to as "the unpaid one" once the running FY
-    // balance runs dry partway through a month. So instead of pretending to
-    // identify specific unpaid days, this shows every approved leave day
-    // that fell in the month (formal AND manually-approved — Unpaid Leave
-    // is computed from the full PERF_EXC picture, same as the Absent
-    // column, not the formal-only figures above) alongside the balance
-    // numbers that produced the figure.
+    // Unpaid Leave is now an exact day-by-day ledger (see
+    // unpaidLeaveDatesForFY()), so unlike before, every day in the month
+    // gets a definite paid/unpaid tag — formal AND manually-approved alike
+    // (Unpaid Leave is computed from the full PERF_EXC picture, same as
+    // the Absent column, not the formal-only figures above).
     window.attShowUnpaid=function(name,mo){
+      var fyStart=fyStartMonthFor(mo);
+      var unpaidSet={}; unpaidLeaveDatesForFY(name,fyStart).forEach(function(ds){ unpaidSet[ds]=true; });
+      var probationSet=probationLeaveDates(name), shortfallSet=noticeShortfallLeaveDates(name);
       var rows=allApprovedLeaveDetails(name).filter(function(d){return d.date.slice(0,7)===mo;});
       var LBL={standard:"Standard",sick:"Sick",manual:"Manually Approved"};
       var earned=earnedLeaveAsOf(name,lastDateOfMonth(mo));
-      var throughThis=cumulativeApprovedThrough(name,fyStartMonthFor(mo),mo);
+      var throughThis=cumulativeApprovedThrough(name,fyStart,mo);
       var unpaidMo=unpaidLeaveDaysForMonth(name,mo);
-      var note='<div style="font-size:11px;color:#8a8178;margin-bottom:10px;line-height:1.5">Earned as of '+moLabel(mo)+': <b>'+earned+'</b> &middot; Approved so far this FY through '+moLabel(mo)+': <b>'+throughThis+'</b> &middot; Unpaid added this month: <b>'+unpaidMo+'</b></div>';
+      var note='<div style="font-size:11px;color:#8a8178;margin-bottom:10px;line-height:1.5">Earned as of '+moLabel(mo)+': <b>'+earned+'</b> &middot; Approved so far this FY through '+moLabel(mo)+': <b>'+throughThis+'</b> &middot; Unpaid this month: <b>'+unpaidMo+'</b> of '+rows.length+'</div>';
       var list=rows.length? rows.map(function(d){
-        return "&bull; "+fmtDate(d.date)+" — <b>"+(LBL[d.type]||"Standard")+"</b>"+(d.reason?' — "'+esc(d.reason)+'"':"");
+        var tag = probationSet[d.date] ? ' <span style="color:#f0b03f">(probation — always unpaid)</span>'
+          : shortfallSet[d.date] ? ' <span style="color:#f0b03f">(short notice — always unpaid)</span>'
+          : unpaidSet[d.date] ? ' <span style="color:var(--red)">(unpaid — less than a full day of balance)</span>'
+          : ' <span style="color:var(--green)">(paid)</span>';
+        return "&bull; "+fmtDate(d.date)+" — <b>"+(LBL[d.type]||"Standard")+"</b>"+(d.reason?' — "'+esc(d.reason)+'"':"")+tag;
       }).join("<br>") : "No approved leave this month.";
-      popupBox("info-pop","&#128184;",esc(name)+" · Unpaid leave context — "+moLabel(mo)+" ("+rows.length+")",note+list,null);
+      popupBox("info-pop","&#128184;",esc(name)+" · Unpaid leave — "+moLabel(mo)+" ("+unpaidMo+" unpaid)",note+list,null);
     };
     // "By Employee" table's Standard/Sick/WFH/Other/Total cells — all-time
     // (not FY-scoped, matching that table), so pulled straight from
@@ -22663,21 +22697,39 @@ ${brandLines}`;
       if(!wasOpen){ item.classList.add("open"); var t=btn.querySelector(".lc-acc-toggle"); if(t) t.textContent="−"; }
     };
     function renderMyLeaveRequests(name){
-      var mine=LEAVE_REQUESTS.filter(function(r){return normName(r.member)===normName(name);})
-        .sort(function(a,b){return (b.requested_at||"").localeCompare(a.requested_at||"");});
+      var mine=LEAVE_REQUESTS.filter(function(r){return normName(r.member)===normName(name);});
+      // Same second path PERF_EXC can get set from as everywhere else in
+      // the app (see renderAdminLeaveRecords()'s manualRows) — Gokul's
+      // direct "Approve leave" toggle on a no-punch absence, with no
+      // leave_requests record behind it at all. Without this, an
+      // employee's own leave history would silently be missing days Gokul
+      // excused directly, even though the admin's "All Leaves Taken"
+      // already shows them — this keeps the two lists showing the same
+      // final picture for the same person.
+      var covered={};
+      mine.forEach(function(r){
+        if(r.status!=="approved"||r.leave_type==="wfh") return;
+        chargeDatesFor(r).forEach(function(ds){ covered[ds]=true; });
+      });
+      var manualRows=Object.keys(PERF_EXC[name]||{}).filter(function(ds){ return PERF_EXC[name][ds]&&!covered[ds]; }).map(function(ds){
+        return {member:name, from_date:ds, to_date:ds, reason:"", leave_type:"manual", status:"approved", requested_at:ds+"T00:00:00.000Z", _manual:true};
+      });
+      var all=mine.concat(manualRows).sort(function(a,b){return (b.requested_at||"").localeCompare(a.requested_at||"");});
       var body;
-      if(!mine.length){
+      if(!all.length){
         body='<div style="font-size:11.5px;color:var(--muted);padding:4px 0 2px">No leave requests yet.</div>';
       } else {
-        body=mine.map(function(r){
-          var badge = r.status==="pending" ? '<span style="color:var(--yellow)">&#9203; Pending</span>'
+        body=all.map(function(r){
+          var badge = r._manual ? '<span style="color:var(--green)">&#10003; Approved</span>'
+            : r.status==="pending" ? '<span style="color:var(--yellow)">&#9203; Pending</span>'
             : r.status==="approved" ? '<span style="color:var(--green)">&#10003; Approved</span>'
             : r.status==="cancelled" ? '<span style="color:var(--red)">&#8416; Cancelled</span>'
             : '<span style="color:var(--red)">&#10007; Declined</span>';
           var range = r.from_date===r.to_date ? fmtDate(r.from_date) : fmtDate(r.from_date)+" – "+fmtDate(r.to_date);
-          var cancelBtn = r.status==="pending" ? '<button onclick="cancelLeaveRequest(&quot;'+r._key+'&quot;)" style="background:none;border:none;color:#666;cursor:pointer;font-size:12px;font-family:inherit">Withdraw</button>' : '';
+          var cancelBtn = (!r._manual && r.status==="pending") ? '<button onclick="cancelLeaveRequest(&quot;'+r._key+'&quot;)" style="background:none;border:none;color:#666;cursor:pointer;font-size:12px;font-family:inherit">Withdraw</button>' : '';
+          var reasonText = r._manual ? '<span style="font-style:italic">Excused directly by Gokul — no formal request</span>' : esc(r.reason||"");
           return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);gap:10px">'+
-            '<div><div style="font-size:12.5px;font-weight:600">'+esc(range)+'</div><div style="font-size:11px;color:var(--muted)">'+esc(r.reason||"")+'</div></div>'+
+            '<div><div style="font-size:12.5px;font-weight:600">'+esc(range)+'</div><div style="font-size:11px;color:var(--muted)">'+reasonText+'</div></div>'+
             '<div style="display:flex;align-items:center;gap:8px;font-size:11.5px;white-space:nowrap">'+badge+cancelBtn+'</div></div>';
         }).join("");
       }
