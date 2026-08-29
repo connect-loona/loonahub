@@ -22663,21 +22663,39 @@ ${brandLines}`;
       if(!wasOpen){ item.classList.add("open"); var t=btn.querySelector(".lc-acc-toggle"); if(t) t.textContent="−"; }
     };
     function renderMyLeaveRequests(name){
-      var mine=LEAVE_REQUESTS.filter(function(r){return normName(r.member)===normName(name);})
-        .sort(function(a,b){return (b.requested_at||"").localeCompare(a.requested_at||"");});
+      var mine=LEAVE_REQUESTS.filter(function(r){return normName(r.member)===normName(name);});
+      // Same second path PERF_EXC can get set from as everywhere else in
+      // the app (see renderAdminLeaveRecords()'s manualRows) — Gokul's
+      // direct "Approve leave" toggle on a no-punch absence, with no
+      // leave_requests record behind it at all. Without this, an
+      // employee's own leave history would silently be missing days Gokul
+      // excused directly, even though the admin's "All Leaves Taken"
+      // already shows them — this keeps the two lists showing the same
+      // final picture for the same person.
+      var covered={};
+      mine.forEach(function(r){
+        if(r.status!=="approved"||r.leave_type==="wfh") return;
+        chargeDatesFor(r).forEach(function(ds){ covered[ds]=true; });
+      });
+      var manualRows=Object.keys(PERF_EXC[name]||{}).filter(function(ds){ return PERF_EXC[name][ds]&&!covered[ds]; }).map(function(ds){
+        return {member:name, from_date:ds, to_date:ds, reason:"", leave_type:"manual", status:"approved", requested_at:ds+"T00:00:00.000Z", _manual:true};
+      });
+      var all=mine.concat(manualRows).sort(function(a,b){return (b.requested_at||"").localeCompare(a.requested_at||"");});
       var body;
-      if(!mine.length){
+      if(!all.length){
         body='<div style="font-size:11.5px;color:var(--muted);padding:4px 0 2px">No leave requests yet.</div>';
       } else {
-        body=mine.map(function(r){
-          var badge = r.status==="pending" ? '<span style="color:var(--yellow)">&#9203; Pending</span>'
+        body=all.map(function(r){
+          var badge = r._manual ? '<span style="color:var(--green)">&#10003; Approved</span>'
+            : r.status==="pending" ? '<span style="color:var(--yellow)">&#9203; Pending</span>'
             : r.status==="approved" ? '<span style="color:var(--green)">&#10003; Approved</span>'
             : r.status==="cancelled" ? '<span style="color:var(--red)">&#8416; Cancelled</span>'
             : '<span style="color:var(--red)">&#10007; Declined</span>';
           var range = r.from_date===r.to_date ? fmtDate(r.from_date) : fmtDate(r.from_date)+" – "+fmtDate(r.to_date);
-          var cancelBtn = r.status==="pending" ? '<button onclick="cancelLeaveRequest(&quot;'+r._key+'&quot;)" style="background:none;border:none;color:#666;cursor:pointer;font-size:12px;font-family:inherit">Withdraw</button>' : '';
+          var cancelBtn = (!r._manual && r.status==="pending") ? '<button onclick="cancelLeaveRequest(&quot;'+r._key+'&quot;)" style="background:none;border:none;color:#666;cursor:pointer;font-size:12px;font-family:inherit">Withdraw</button>' : '';
+          var reasonText = r._manual ? '<span style="font-style:italic">Excused directly by Gokul — no formal request</span>' : esc(r.reason||"");
           return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);gap:10px">'+
-            '<div><div style="font-size:12.5px;font-weight:600">'+esc(range)+'</div><div style="font-size:11px;color:var(--muted)">'+esc(r.reason||"")+'</div></div>'+
+            '<div><div style="font-size:12.5px;font-weight:600">'+esc(range)+'</div><div style="font-size:11px;color:var(--muted)">'+reasonText+'</div></div>'+
             '<div style="display:flex;align-items:center;gap:8px;font-size:11.5px;white-space:nowrap">'+badge+cancelBtn+'</div></div>';
         }).join("");
       }
