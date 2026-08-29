@@ -20996,12 +20996,20 @@ ${brandLines}`;
         // showing 6 — most of those days were from July, not August).
         // "Total Leave Taken (Year)" now carries that FY running total
         // explicitly, alongside Leave Left which still needs it.
-        var apprMo=approvedLeavesMo(n,mo), apprYear=approvedLeaves(n), earned=earnedLeave(n), left=earned-apprYear;
+        //
+        // Absent still needs the FULL count (formal + manually-approved)
+        // so a no-punch day Gokul excused directly doesn't wrongly keep
+        // showing as an unresolved absence — but per Gokul, for now
+        // "Leave Taken"/"Total Leave Taken (Year)"/"Leave Left" should
+        // reflect the formal Apply-for-Leave flow only, excluding those
+        // manual excusals (see formalApprovedLeaves() above).
+        var apprMoFull=approvedLeavesMo(n,mo);
+        var apprMo=formalApprovedLeavesMo(n,mo), apprYear=formalApprovedLeaves(n), earned=earnedLeave(n), left=earned-apprYear;
         var unpaidMo=unpaidLeaveDaysForMonth(n,mo);
         return '<tr>'+
           '<td data-label="Employee" class="att-clickable" style="cursor:pointer" onclick="window.attShowMonthlyDetail(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)" title="Tap for the full daily breakdown"><strong>'+esc(n)+'</strong><div class="sub"><span class="code">'+esc(a.code)+'</span> · '+esc(a.desg)+'</div></td>'+
           '<td data-label="Attendance" class="att-chipcell" title="Full days worked: '+mc.present+' &middot; Half days: '+mc.half+' (click H to review/forgive)"><span class="ac-p">'+mc.present+'P</span> <span class="ac-h att-clickable" onclick="window.attShowHalf(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)">'+mc.half+'H</span></td>'+
-          '<td data-label="Absent">'+(function(){var na=Math.max(0,mc.absent-apprMo);return '<span class="pend att-clickable" style="'+(na>0?'':'color:var(--muted)')+'" onclick="window.attShowAbsent(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)">'+na+'</span>';})()+'</td>'+'<td data-label="Late">'+(function(){var fg=forgivenLateMo(n,mo);return '<span class="att-clickable" style="'+(mc.late>0?'color:var(--yellow);font-weight:700':'color:var(--muted)')+'" onclick="window.attShowLate(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)">'+mc.late+'</span>'+(fg?(' <span class="sub">('+fg+' forgiven)</span>'):'');})()+'</td>'+
+          '<td data-label="Absent">'+(function(){var na=Math.max(0,mc.absent-apprMoFull);return '<span class="pend att-clickable" style="'+(na>0?'':'color:var(--muted)')+'" onclick="window.attShowAbsent(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)">'+na+'</span>';})()+'</td>'+'<td data-label="Late">'+(function(){var fg=forgivenLateMo(n,mo);return '<span class="att-clickable" style="'+(mc.late>0?'color:var(--yellow);font-weight:700':'color:var(--muted)')+'" onclick="window.attShowLate(&quot;'+n+'&quot;,&quot;'+mo+'&quot;)">'+mc.late+'</span>'+(fg?(' <span class="sub">('+fg+' forgiven)</span>'):'');})()+'</td>'+
           '<td data-label="Fines" title="Late: &#8377;'+fLate+' &middot; Half Day: &#8377;'+fHalf+' &middot; Absent (short hours): &#8377;'+fShort+'">'+(fine>0?'<span class="fine">&#8377;'+fine+'</span>':'—')+'</td>'+
           '<td data-label="Leave Taken">'+(apprMo>0?'<b>'+apprMo+'</b>':'—')+'</td>'+
           '<td data-label="Total Leave Taken (Year)"><b>'+apprYear+'</b> <span class="sub">/ '+earned+' earned</span></td>'+
@@ -21015,7 +21023,7 @@ ${brandLines}`;
         '<div class="scroll"><table class="att-tbl wide" id="founder-monthly-tbl"><thead><tr>'+
           '<th>Employee</th><th>Attendance (mo)</th><th>Absent (mo)</th><th>Late (mo)</th><th>Fines (mo)</th><th>Leave Taken</th><th>Total Leave Taken (Year)</th><th>Leave Left</th><th>Unpaid Leave</th>'+
         '</tr></thead><tbody>'+rows+'</tbody></table></div>'+
-        '<div class="note">Attendance = full (P) &amp; half (H) days worked in the selected month, click H to review/forgive &middot; Absent = unresolved (no punch = approvable as Official Leave; short hours = fined, click to review) &middot; Late = total days late (forgiven count shown alongside), click to review/forgive — forgiving removes it from fees/score but the calendar still shows it as Late &middot; Fines combine late, Half Day and short-hours-absence — first '+LATE_FREE_DAYS+' of each are free, &#8377;'+LATE_FEE+' each after that, for the selected month &middot; Leave Taken is for the selected month only &middot; Total Leave Taken (Year) and Leave Left are running totals for the financial year — approved no-punch absences against the '+TOTAL_LEAVE+'-day yearly balance, accrued pro-rata (1.25/month) since April or join date &middot; Unpaid Leave is month-specific — once the running balance runs out partway through the year, every approved day past that point counts here, in whichever month it actually falls, for payroll to deduct.</div>'+
+        '<div class="note">Attendance = full (P) &amp; half (H) days worked in the selected month, click H to review/forgive &middot; Absent = unresolved (no punch = approvable as Official Leave; short hours = fined, click to review) — includes anyone Gokul\'s excused directly, not just formal leave requests &middot; Late = total days late (forgiven count shown alongside), click to review/forgive — forgiving removes it from fees/score but the calendar still shows it as Late &middot; Fines combine late, Half Day and short-hours-absence — first '+LATE_FREE_DAYS+' of each are free, &#8377;'+LATE_FEE+' each after that, for the selected month &middot; Leave Taken is for the selected month only &middot; Total Leave Taken (Year) and Leave Left are running totals for the financial year — for now, both count formal Apply-for-Leave requests only (not leave Gokul\'s excused directly outside that flow — see the Admin panel\'s Leaves Taken &gt; By Employee &gt; "Other" for those) — against the '+TOTAL_LEAVE+'-day yearly balance, accrued pro-rata (1.25/month) since April or join date &middot; Unpaid Leave is month-specific — once the running balance runs out partway through the year, every approved day past that point counts here, in whichever month it actually falls, for payroll to deduct.</div>'+
       '</div>';
     }
 
@@ -22028,6 +22036,27 @@ ${brandLines}`;
     // counts — nothing legitimate needs a second opinion from LIVEDAYS.
     function approvedLeaves(name){ var e=PERF_EXC[name]||{}; return Object.keys(e).filter(function(d){return e[d];}).length; }
     function approvedLeavesMo(name,mo){ mo=mo||curMonth(); var e=PERF_EXC[name]||{}; return Object.keys(e).filter(function(d){return e[d]&&d.slice(0,7)===mo;}).length; }
+    // "Formal" means backed by an actual leave_requests record (approved,
+    // non-WFH) — excludes any PERF_EXC date whose ONLY excusal is Gokul's
+    // direct "Approve leave" toggle (perfExcuse(), no request behind it at
+    // all). Per Gokul: for now, Monthly Overview's "Total Leave Taken
+    // (Year)"/"Leave Left" should reflect only the formal Apply-for-Leave
+    // flow, not those ad hoc manual excusals — even though PERF_EXC (and
+    // approvedLeaves() above, still used for the Absent column and the
+    // Apply-for-Leave balance warning) doesn't distinguish them. See
+    // renderAdminLeaveRecords()'s "Other (Manually Approved)" column,
+    // which surfaces exactly this excluded gap for anyone who wants to
+    // see it.
+    function formalApprovedLeaveDates(name){
+      var out={};
+      LEAVE_REQUESTS.forEach(function(r){
+        if(r.member!==name || r.status!=="approved" || r.leave_type==="wfh") return;
+        chargeDatesFor(r).forEach(function(ds){ out[ds]=true; });
+      });
+      return Object.keys(out);
+    }
+    function formalApprovedLeaves(name){ return formalApprovedLeaveDates(name).length; }
+    function formalApprovedLeavesMo(name,mo){ mo=mo||curMonth(); return formalApprovedLeaveDates(name).filter(function(ds){return ds.slice(0,7)===mo;}).length; }
     // TOTAL_LEAVE (15) accrues pro-rata across the financial year (Apr-Mar) — 1.25 days per completed
     // month since the later of the FY start or the employee's join date, capped at TOTAL_LEAVE.
     function fyStartDateFor(dateObj){ var y=dateObj.getFullYear(); return new Date(dateObj.getMonth()>=3?y:y-1, 3, 1); }
@@ -22406,16 +22435,39 @@ ${brandLines}`;
       var all=LEAVE_REQUESTS.slice().sort(function(a,b){return (b.requested_at||"").localeCompare(a.requested_at||"");});
       var LT_LABEL={standard:"Standard Leave", sick:"Sick Leave", wfh:"Work From Home"};
       var STATUS_LABEL={pending:'<span style="color:var(--yellow)">&#9203; Pending</span>', approved:'<span style="color:var(--green)">&#10003; Approved</span>', cancelled:'<span style="color:var(--red)">&#8416; Cancelled</span>', declined:'<span style="color:var(--red)">&#10007; Declined</span>'};
-      var rowsHtml = all.length ? all.map(function(r){
+      // PERF_EXC has a second way to get set besides a formal leave
+      // request: Gokul's own "Approve leave" toggle on a no-punch absence
+      // (perfExcuse(), in the Absence Review popup) — a direct excuse with
+      // no leave_requests record behind it at all. requestCoveredDates
+      // tracks exactly which dates ARE backed by a formal approved
+      // request, so window.formalApprovedLeaveDates() below (used by
+      // Monthly Overview) can tell the two apart, and so the leftover
+      // dates here can be surfaced as their own pseudo-rows/pseudo-entries
+      // instead of just vanishing from "All Leaves Taken"/"By Employee".
+      var requestCoveredDates={};
+      all.forEach(function(r){
+        if(r.status!=="approved" || r.leave_type==="wfh") return;
+        requestCoveredDates[r.member]=requestCoveredDates[r.member]||{};
+        chargeDatesFor(r).forEach(function(ds){ requestCoveredDates[r.member][ds]=true; });
+      });
+      var manualRows=[];
+      Object.keys(PERF_EXC).forEach(function(n){
+        var covered=requestCoveredDates[n]||{};
+        Object.keys(PERF_EXC[n]).filter(function(ds){ return PERF_EXC[n][ds] && !covered[ds]; }).forEach(function(ds){
+          manualRows.push({member:n, from_date:ds, to_date:ds, reason:"", leave_type:"manual", status:"approved", requested_at:ds+"T00:00:00.000Z", _manual:true});
+        });
+      });
+      var allForDisplay=all.concat(manualRows).sort(function(a,b){return (b.requested_at||"").localeCompare(a.requested_at||"");});
+      var rowsHtml = allForDisplay.length ? allForDisplay.map(function(r){
         var range = r.from_date===r.to_date ? fmtDate(r.from_date) : fmtDate(r.from_date)+" – "+fmtDate(r.to_date);
-        var applied = r.requested_at ? fmtDate(r.requested_at.slice(0,10)) : "—";
+        var applied = r._manual ? "—" : (r.requested_at ? fmtDate(r.requested_at.slice(0,10)) : "—");
         return '<tr>'+
           '<td data-label="Employee"><strong>'+esc(r.member)+'</strong></td>'+
           '<td data-label="Date Applied">'+applied+'</td>'+
           '<td data-label="Leave Date(s)">'+esc(range)+'</td>'+
-          '<td data-label="No. of Days">'+leaveRequestDaysDisplay(r)+'</td>'+
-          '<td data-label="Reason" style="max-width:220px;white-space:normal">'+esc(r.reason||"")+'</td>'+
-          '<td data-label="Type">'+(LT_LABEL[r.leave_type]||"Standard Leave")+'</td>'+
+          '<td data-label="No. of Days">'+(r._manual?1:leaveRequestDaysDisplay(r))+'</td>'+
+          '<td data-label="Reason" style="max-width:220px;white-space:normal">'+(r._manual?'<span style="color:var(--muted);font-style:italic">Excused directly by Gokul, no formal request</span>':esc(r.reason||""))+'</td>'+
+          '<td data-label="Type">'+(r._manual?"Manually Approved":(LT_LABEL[r.leave_type]||"Standard Leave"))+'</td>'+
           '<td data-label="Status">'+(STATUS_LABEL[r.status]||esc(r.status||""))+'</td>'+
         '</tr>';
       }).join("") : '<tr><td colspan="7" style="text-align:center;color:var(--muted)">No leave requests yet.</td></tr>';
@@ -22423,18 +22475,11 @@ ${brandLines}`;
       // other balance figure in the app treats "taken": pending hasn't
       // happened yet, declined/cancelled never did). WFH is broken out
       // separately since it never deducts from balance — Total excludes
-      // it, same distinction the rest of the app draws.
-      //
-      // PERF_EXC (what the Monthly Overview's balance actually counts
-      // from) has a second way to get set besides a formal leave request:
-      // Gokul's own "Approve leave" toggle on a no-punch absence
-      // (perfExcuse(), in the Absence Review popup) — a direct excuse with
-      // no leave_requests record behind it at all. Without accounting for
-      // those, this table's Total would silently disagree with the
-      // Monthly Overview's "Total Leave Taken (Year)" for anyone Gokul's
-      // ever excused that way — exactly the gap that surfaced for Vivaan.
-      // "Other (Manually Approved)" surfaces the difference explicitly so
-      // the two numbers reconcile instead of just quietly not matching.
+      // it, same distinction the rest of the app draws. "Other (Manually
+      // Approved)" is exactly the manualRows computed above, so this
+      // table's Total always reconciles with what Monthly Overview would
+      // show if it counted manual approvals too (see the note on
+      // formalApprovedLeaveDates() below for why it currently doesn't).
       var byEmp={};
       all.forEach(function(r){
         if(r.status!=="approved") return;
@@ -22444,18 +22489,9 @@ ${brandLines}`;
         else if(r.leave_type==="wfh") byEmp[r.member].wfh+=days;
         else byEmp[r.member].standard+=days;
       });
-      var requestCoveredDates={};
-      all.forEach(function(r){
-        if(r.status!=="approved" || r.leave_type==="wfh") return;
-        requestCoveredDates[r.member]=requestCoveredDates[r.member]||{};
-        chargeDatesFor(r).forEach(function(ds){ requestCoveredDates[r.member][ds]=true; });
-      });
-      Object.keys(PERF_EXC).forEach(function(n){
-        var covered=requestCoveredDates[n]||{};
-        var other=Object.keys(PERF_EXC[n]).filter(function(ds){ return PERF_EXC[n][ds] && !covered[ds]; }).length;
-        if(!other) return;
-        byEmp[n]=byEmp[n]||{standard:0,sick:0,wfh:0,other:0};
-        byEmp[n].other=other;
+      manualRows.forEach(function(r){
+        byEmp[r.member]=byEmp[r.member]||{standard:0,sick:0,wfh:0,other:0};
+        byEmp[r.member].other+=1;
       });
       var empNames=Object.keys(byEmp).sort(function(a,b){return (byEmp[b].standard+byEmp[b].sick+byEmp[b].other)-(byEmp[a].standard+byEmp[a].sick+byEmp[a].other);});
       var byEmpRowsHtml = empNames.length ? empNames.map(function(n){
@@ -22473,13 +22509,13 @@ ${brandLines}`;
         '<div class="lc-accordion">'+
           '<div class="lc-acc-item">'+
             '<button class="lc-acc-head" onclick="toggleLcAccordion(this)">'+
-              '<span class="lc-acc-ic">&#127796;</span><span class="lc-acc-title">Leaves Taken <span class="tag">'+all.length+'</span></span><span class="lc-acc-toggle">+</span>'+
+              '<span class="lc-acc-ic">&#127796;</span><span class="lc-acc-title">Leaves Taken <span class="tag">'+allForDisplay.length+'</span></span><span class="lc-acc-toggle">+</span>'+
             '</button>'+
             '<div class="lc-acc-body" style="padding-left:18px">'+
               '<div class="lv-subacc-group">'+
                 '<div class="lc-acc-item">'+
                   '<button class="lc-acc-head" onclick="toggleLeaveSubAccordion(this)">'+
-                    '<span class="lc-acc-ic">&#128203;</span><span class="lc-acc-title">All Leaves Taken <span class="tag">'+all.length+'</span></span><span class="lc-acc-toggle">+</span>'+
+                    '<span class="lc-acc-ic">&#128203;</span><span class="lc-acc-title">All Leaves Taken <span class="tag">'+allForDisplay.length+'</span></span><span class="lc-acc-toggle">+</span>'+
                   '</button>'+
                   '<div class="lc-acc-body" style="padding-left:18px">'+
                     '<div class="scroll"><table class="att-tbl wide"><thead><tr>'+
@@ -22492,7 +22528,7 @@ ${brandLines}`;
                     '<span class="lc-acc-ic">&#128101;</span><span class="lc-acc-title">By Employee <span class="tag">'+empNames.length+'</span></span><span class="lc-acc-toggle">+</span>'+
                   '</button>'+
                   '<div class="lc-acc-body" style="padding-left:18px">'+
-                    '<div style="font-size:11px;color:var(--muted);padding:0 0 8px">Approved leave only, in days &middot; WFH never counts toward Total since it doesn\'t deduct from balance &middot; Other (Manually Approved) is a no-punch absence Gokul excused directly, outside a formal leave request &middot; Total matches the Monthly Overview\'s "Total Leave Taken (Year)" below.</div>'+
+                    '<div style="font-size:11px;color:var(--muted);padding:0 0 8px">Approved leave only, in days &middot; WFH never counts toward Total since it doesn\'t deduct from balance &middot; Other (Manually Approved) is a no-punch absence Gokul excused directly, outside a formal leave request &middot; for now, Other is NOT included in the Monthly Overview\'s "Total Leave Taken (Year)"/"Leave Left" below — those two reflect formal leave requests only.</div>'+
                     '<div class="scroll"><table class="att-tbl wide"><thead><tr>'+
                       '<th>Employee</th><th>Standard</th><th>Sick</th><th>WFH</th><th>Other (Manually Approved)</th><th>Total (excl. WFH)</th>'+
                     '</tr></thead><tbody>'+byEmpRowsHtml+'</tbody></table></div>'+
