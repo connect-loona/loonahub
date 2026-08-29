@@ -20639,6 +20639,25 @@ ${brandLines}`;
     // First LATE_FREE_DAYS occurrences this month are free; every one after
     // that costs LATE_FEE — e.g. 4 late days = ₹0, 5 = ₹200, 6 = ₹400.
     function lateFine(days){ return Math.max(0, days-LATE_FREE_DAYS)*LATE_FEE; }
+    // The OLD system's fee formula, before it was replaced: ₹200 charged
+    // for every 3rd occurrence, a repeating block with no separate
+    // free-day count (e.g. 3 -> ₹200, 6 -> ₹400).
+    function oldBlockFine(n){ return Math.floor(n/3)*LATE_FEE; }
+    // A month that straddles POLICY_CUTOVER_DATE has occurrences priced
+    // under both formulas — the date alone decides which one prices a
+    // given occurrence, same principle as graceMinFor() for the grace
+    // period itself. Per Gokul: the old period's occurrences price
+    // themselves via the old block formula AND ALSO count against the
+    // SAME LATE_FREE_DAYS allowance the new period uses — it isn't a
+    // fresh allowance for the new period. So someone who's already used
+    // up their free days under the old system gets charged immediately
+    // for a late day today, with no grace period of their own.
+    function splitPeriodFine(dates){
+      var oldN=0, newN=0;
+      dates.forEach(function(ds){ if(ds<POLICY_CUTOVER_DATE) oldN++; else newN++; });
+      var remainingFree=Math.max(0, LATE_FREE_DAYS-oldN);
+      return oldBlockFine(oldN) + Math.max(0, newN-remainingFree)*LATE_FEE;
+    }
     function fmtDate(iso){ if(!iso)return "—"; return new Date(iso+"T00:00:00").toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"}); }
     function daysAt(iso){ if(!iso)return 0; return Math.round((new Date(TODAY+"T00:00:00")-new Date(iso+"T00:00:00"))/86400000); }
     function isSat(ds){ return new Date(ds+"T00:00:00").getDay()===6; }
@@ -20719,27 +20738,37 @@ ${brandLines}`;
       return {present:pres, late:late, absent:abs, half:half};
     }
     function forgivenLateMo(name,mo){ mo=mo||curMonth(); var e=LATE_FGV[name]||{}; return Object.keys(e).filter(function(d){return e[d]&&d.slice(0,7)===mo;}).length; }
+    function monthLateDates(name,mo){ mo=mo||curMonth(); var ld=LIVEDAYS[name]||{}; return Object.keys(ld).filter(function(ds){return ds.slice(0,7)===mo && ds!==TODAY && ld[ds].status==="late";}); }
     function effLate(name,mo){ mo=mo||curMonth(); return Math.max(0, monthStatusCounts(name,mo).late-forgivenLateMo(name,mo)); }
-    // No cutover-month special-casing on the fee itself — graceMinFor()
-    // already makes effLate() report the TRUE late count for the month
-    // (old 10:30 grace before the cutover, new 10:10 grace from it onward),
-    // so the plain fee formula just applies to that real total directly:
-    // whoever's already past 4 late days this month is already accruing a
-    // real fine right now, and every additional late day on/after the
-    // cutover (tomorrow, the day after, etc.) just adds ₹200 more on top of
-    // that running total as it happens.
-    function lateFineForMonth(name,mo){ return lateFine(effLate(name,mo)); }
+    // The fee (unlike effLate() above, which stays a simple net count for
+    // display/scoring elsewhere) needs the actual DATES, not just a count —
+    // splitPeriodFine() prices each occurrence by whichever formula was in
+    // effect on its own date. Forgiven dates are dropped before splitting,
+    // same effect as subtracting them from the count used to have.
+    function lateFineForMonth(name,mo){
+      mo=mo||curMonth();
+      var fg=LATE_FGV[name]||{};
+      return splitPeriodFine(monthLateDates(name,mo).filter(function(ds){return !fg[ds];}));
+    }
     // Half Days and hours-shortfall absences (punched in but under half the required hours) are
     // fined like late arrivals instead of touching the leave balance — same ₹/block rule, own Forgive toggle.
     function isShortAbsentDay(name,ds){ var r=LIVEDAYS[name]&&LIVEDAYS[name][ds]; return !!r && r.status==="absent" && r.im!=null; }
     function forgivenHalfMo(name,mo){ mo=mo||curMonth(); var e=HALF_FGV[name]||{}; return Object.keys(e).filter(function(d){return e[d]&&d.slice(0,7)===mo;}).length; }
     function monthHalfDates(name,mo){ mo=mo||curMonth(); var ld=LIVEDAYS[name]||{}; return Object.keys(ld).filter(function(ds){return ds.slice(0,7)===mo && ld[ds].status==="half";}); }
     function effHalf(name,mo){ mo=mo||curMonth(); return Math.max(0, monthHalfDates(name,mo).length - forgivenHalfMo(name,mo)); }
-    function halfDayFine(name,mo){ return lateFine(effHalf(name,mo)); }
+    function halfDayFine(name,mo){
+      mo=mo||curMonth();
+      var fg=HALF_FGV[name]||{};
+      return splitPeriodFine(monthHalfDates(name,mo).filter(function(ds){return !fg[ds];}));
+    }
     function forgivenShortMo(name,mo){ mo=mo||curMonth(); var e=SHORT_FGV[name]||{}; return Object.keys(e).filter(function(d){return e[d]&&d.slice(0,7)===mo;}).length; }
     function monthShortAbsentDates(name,mo){ mo=mo||curMonth(); var ld=LIVEDAYS[name]||{}; return Object.keys(ld).filter(function(ds){return ds.slice(0,7)===mo && isShortAbsentDay(name,ds);}); }
     function effShortAbsent(name,mo){ mo=mo||curMonth(); return Math.max(0, monthShortAbsentDates(name,mo).length - forgivenShortMo(name,mo)); }
-    function shortAbsentFine(name,mo){ return lateFine(effShortAbsent(name,mo)); }
+    function shortAbsentFine(name,mo){
+      mo=mo||curMonth();
+      var fg=SHORT_FGV[name]||{};
+      return splitPeriodFine(monthShortAbsentDates(name,mo).filter(function(ds){return !fg[ds];}));
+    }
     function totalFine(name,mo){ return lateFineForMonth(name,mo) + halfDayFine(name,mo) + shortAbsentFine(name,mo); }
     function lateFeeBar(name){
       var a=ATT[name]||DEFAULT;
