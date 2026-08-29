@@ -683,6 +683,7 @@ async function runSync() {
 async function writeFormattedTab(sheetId, accessToken, tabSheetId, grid, W, colWidths, rowHeights, startRow) {
   startRow = startRow || 0;
   const requests = [];
+  const gridRowCount = Math.max(1000, startRow + grid.length), gridColCount = Math.max(26, W);
   // A newly created tab (and Sheet1's own starting tab) defaults to
   // Google's standard 26-column x 1000-row grid — updateCells rejects any
   // range reaching past that with "beyond the last requested column"
@@ -690,10 +691,30 @@ async function writeFormattedTab(sheetId, accessToken, tabSheetId, grid, W, colW
   // FIRST, in the same batchUpdate call, before writing any cells into it.
   requests.push({
     updateSheetProperties: {
-      properties: { sheetId: tabSheetId, gridProperties: { rowCount: Math.max(1000, startRow + grid.length), columnCount: Math.max(26, W) } },
+      properties: { sheetId: tabSheetId, gridProperties: { rowCount: gridRowCount, columnCount: gridColCount } },
       fields: 'gridProperties.rowCount,gridProperties.columnCount'
     }
   });
+  // Only on the main content write (startRow 0, not the footer-note
+  // follow-up call): wipe the WHOLE grid — values AND formatting — before
+  // laying down the new content. A tab that's been synced before under an
+  // EARLIER version of this layout (or the old flat-table format) can have
+  // leftover rows/columns past wherever this run's content ends; plain
+  // updateCells only overwrites the cells it actually addresses; it never
+  // clears what it doesn't touch, so stale data (with stale, undark
+  // formatting) would otherwise linger indefinitely below/beside the real
+  // content. repeatCell with no value in its CellData clears both the
+  // value and the background in one shot, painting everything the same
+  // page background the real content will draw over a moment later.
+  if (!startRow) {
+    requests.push({
+      repeatCell: {
+        range: { sheetId: tabSheetId, startRowIndex: 0, endRowIndex: gridRowCount, startColumnIndex: 0, endColumnIndex: gridColCount },
+        cell: { userEnteredFormat: { backgroundColor: hexToRgb(PALETTE.pageBg) } },
+        fields: 'userEnteredValue,userEnteredFormat.backgroundColor'
+      }
+    });
+  }
   const CHUNK = 200;
   for (let i = 0; i < grid.length; i += CHUNK) {
     const chunk = grid.slice(i, i + CHUNK);
