@@ -356,6 +356,35 @@ async function runSync() {
   });
   const LEAVE_TYPE_LABEL = { standard: 'Standard', sick: 'Sick', wfh: 'Work From Home', other: 'Other' };
 
+  // An inactive member's data shouldn't keep getting "carried ahead" past
+  // the day they actually left — every day after that would otherwise show
+  // up as an indefinite string of Absent days, which is just noise. Ends
+  // at whichever is set: an explicit m.lastWorkingDay override (for the
+  // rare case punch data doesn't reflect the real last day — a stray
+  // post-departure punch, or someone who left without ever punching out
+  // cleanly), falling back to their own last real punch date otherwise.
+  // Active members have no end date at all.
+  const lastPunchDateByName = {};
+  Object.keys(byNameDate).forEach(name => {
+    const dates = Object.keys(byNameDate[name]).sort();
+    if (dates.length) lastPunchDateByName[name] = dates[dates.length - 1];
+  });
+  function effectiveEndDateFor(name) {
+    if (!inactiveNames.has(name)) return null;
+    const m = mergedByName[name];
+    return m.lastWorkingDay || lastPunchDateByName[name] || null;
+  }
+  // Whether ANY day of month `mo` falls within name's employment window —
+  // used by the Yearly Summary to tell "genuinely zero that month" apart
+  // from "not employed that month at all" (shown as a dash, not a 0).
+  function monthOverlapsEmployment(name, mo) {
+    const m = mergedByName[name], endDate = effectiveEndDateFor(name);
+    const monthDates = daysInMonth(mo);
+    if (m.joinDate && m.joinDate > monthDates[monthDates.length - 1]) return false;
+    if (endDate && endDate < monthDates[0]) return false;
+    return true;
+  }
+
   // ---- Per-day info for every name x every date across ALL months with
   // data — computed once, reused by both the per-month detail tabs and the
   // Yearly Summary's per-month aggregate columns. ----
@@ -364,10 +393,12 @@ async function runSync() {
     names.forEach(name => {
       const m = mergedByName[name];
       const joinDate = m.joinDate;
+      const endDate = effectiveEndDateFor(name);
       const days = [];
       const empLateDates = [];
       daysInMonth(mo).forEach(ds => {
-        if (joinDate && ds < joinDate) { days.push({ ds, notEmployedYet: true }); return; }
+        if (joinDate && ds < joinDate) { days.push({ ds, outsideEmployment: true }); return; }
+        if (endDate && ds > endDate) { days.push({ ds, outsideEmployment: true }); return; }
         const rec = (byNameDate[name] || {})[ds];
         const isExcused = !!(excused[name] && excused[name][ds]);
         const info = computeDayStatus(rec, ds, isHolidayFn, isExcused);
@@ -396,7 +427,7 @@ async function runSync() {
 
       const s = { present: 0, half: 0, wfh: 0, standard: 0, sick: 0, other: 0, absent: 0, late: 0, forgivenLate: 0, lateFine: 0, workedMin: 0, leaveTaken: 0 };
       days.forEach(d => {
-        if (d.notEmployedYet) return;
+        if (d.outsideEmployment) return;
         if (d.status === 'wfh') s.wfh++;
         else if (d.status === 'present' || d.status === 'late') s.present++;
         else if (d.status === 'half') s.half++;
@@ -458,17 +489,20 @@ async function runSync() {
     grid.push(padRow(summaryHeaderRow, W));
 
     const empKeysForMonth = names.filter(name => {
-      const m = mergedByName[name]; return !m.joinDate || m.joinDate <= dates[dates.length - 1];
+      const m = mergedByName[name]; const endDate = effectiveEndDateFor(name);
+      return (!m.joinDate || m.joinDate <= dates[dates.length - 1]) && (!endDate || endDate >= dates[0]);
     });
     empKeysForMonth.forEach(name => {
       const m = mergedByName[name];
+      const endDate = effectiveEndDateFor(name);
       const s = perName[name].summary;
-      const workingDays = dates.filter(ds => (!m.joinDate || ds >= m.joinDate) && !isSun(ds) && !isHolidayFn(ds)).length;
+      const workingDays = dates.filter(ds => (!m.joinDate || ds >= m.joinDate) && (!endDate || ds <= endDate) && !isSun(ds) && !isHolidayFn(ds)).length;
       const otherFine = 0; // not yet attributed per-day — see file header note
       const totalFine = s.lateFine + otherFine;
       const unpaidLeaveDeduction = 0; // paid/unpaid classification not yet ported — see file header note
       const totalDeduction = totalFine + unpaidLeaveDeduction;
-      const leaveLeft = Math.round((earnedLeaveAsOf(m.joinDate, dates[dates.length - 1]) - s.leaveTaken) * 100) / 100;
+      const asOfDate = endDate && endDate < dates[dates.length - 1] ? endDate : dates[dates.length - 1];
+      const leaveLeft = Math.round((earnedLeaveAsOf(m.joinDate, asOfDate) - s.leaveTaken) * 100) / 100;
       const row = [
         C(m.name, { bg: PALETTE.identityBg, bold: true, size: 9, align: 'LEFT' }),
         C(m.employeeId || '—', { bg: PALETTE.identityBg, size: 9, align: 'LEFT' }),
@@ -536,7 +570,7 @@ async function runSync() {
   // Renders one data cell in the "DETAILED MONTHLY ATTENDANCE" block for a
   // single employee/day/row-label combination.
   function detailCellFor(rowLabel, d, style) {
-    if (d.notEmployedYet) return C('—', { bg: PALETTE.noDataBg, size: 8 });
+    if (d.outsideEmployment) return C('—', { bg: PALETTE.noDataBg, size: 8 });
     const status = d.status;
     if (rowLabel === 'Status') {
       return C(STATUS_LABEL[status] || status, { bg: PALETTE.status[status] || PALETTE.group1Bg, bold: true, size: 8 });
@@ -617,7 +651,7 @@ async function runSync() {
     monthKeysOfYear.forEach(mo => {
       const perName = monthDataCache[mo];
       const s = perName && perName[name] && perName[name].summary;
-      if (!s) { for (let i = 0; i < 6; i++) row.push(C('—', { bg: PALETTE.countsBg, size: 9 })); row.push(C('—', { bg: PALETTE.moneyBg, size: 9 })); return; }
+      if (!s || !monthOverlapsEmployment(name, mo)) { for (let i = 0; i < 6; i++) row.push(C('—', { bg: PALETTE.countsBg, size: 9 })); row.push(C('—', { bg: PALETTE.moneyBg, size: 9 })); return; }
       totalLeave += s.leaveTaken; totalLate += s.late; totalLateFine += s.lateFine;
       row.push(C(s.leaveTaken, { bg: PALETTE.countsBg, size: 9 }));
       row.push(C(0, { bg: PALETTE.countsBg, size: 9 })); // Unpaid Leave — see file header note
@@ -627,7 +661,11 @@ async function runSync() {
       row.push(C(s.lateFine, { bg: PALETTE.countsBg, size: 9, numberFormat: { type: 'CURRENCY', pattern: '₹#,##0' } }));
       row.push(C(s.lateFine, { bg: PALETTE.moneyBg, size: 9, numberFormat: { type: 'CURRENCY', pattern: '₹#,##0' } }));
     });
-    const asOfDate = months.length ? daysInMonth(months[months.length - 1]).slice(-1)[0] : (yearNow + '-12-31');
+    // Someone who's left shouldn't keep accruing leave past their own last
+    // working day just because other, still-active people have later data.
+    const latestDataDate = months.length ? daysInMonth(months[months.length - 1]).slice(-1)[0] : (yearNow + '-12-31');
+    const personEndDate = effectiveEndDateFor(name);
+    const asOfDate = personEndDate && personEndDate < latestDataDate ? personEndDate : latestDataDate;
     const leaveBalance = Math.round((earnedLeaveAsOf(m.joinDate, asOfDate) - totalLeave) * 100) / 100;
     row.push(C(totalLeave, { bg: PALETTE.moneyBg, bold: true, size: 9 }));
     row.push(C(0, { bg: PALETTE.moneyBg, bold: true, size: 9 })); // Total Unpaid Leave — see note
