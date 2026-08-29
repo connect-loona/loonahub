@@ -22419,26 +22419,51 @@ ${brandLines}`;
       // happened yet, declined/cancelled never did). WFH is broken out
       // separately since it never deducts from balance — Total excludes
       // it, same distinction the rest of the app draws.
+      //
+      // PERF_EXC (what the Monthly Overview's balance actually counts
+      // from) has a second way to get set besides a formal leave request:
+      // Gokul's own "Approve leave" toggle on a no-punch absence
+      // (perfExcuse(), in the Absence Review popup) — a direct excuse with
+      // no leave_requests record behind it at all. Without accounting for
+      // those, this table's Total would silently disagree with the
+      // Monthly Overview's "Total Leave Taken (Year)" for anyone Gokul's
+      // ever excused that way — exactly the gap that surfaced for Vivaan.
+      // "Other (Manually Approved)" surfaces the difference explicitly so
+      // the two numbers reconcile instead of just quietly not matching.
       var byEmp={};
       all.forEach(function(r){
         if(r.status!=="approved") return;
-        byEmp[r.member]=byEmp[r.member]||{standard:0,sick:0,wfh:0};
+        byEmp[r.member]=byEmp[r.member]||{standard:0,sick:0,wfh:0,other:0};
         var days=leaveRequestDaysDisplay(r);
         if(r.leave_type==="sick") byEmp[r.member].sick+=days;
         else if(r.leave_type==="wfh") byEmp[r.member].wfh+=days;
         else byEmp[r.member].standard+=days;
       });
-      var empNames=Object.keys(byEmp).sort(function(a,b){return (byEmp[b].standard+byEmp[b].sick)-(byEmp[a].standard+byEmp[a].sick);});
+      var requestCoveredDates={};
+      all.forEach(function(r){
+        if(r.status!=="approved" || r.leave_type==="wfh") return;
+        requestCoveredDates[r.member]=requestCoveredDates[r.member]||{};
+        chargeDatesFor(r).forEach(function(ds){ requestCoveredDates[r.member][ds]=true; });
+      });
+      Object.keys(PERF_EXC).forEach(function(n){
+        var covered=requestCoveredDates[n]||{};
+        var other=Object.keys(PERF_EXC[n]).filter(function(ds){ return PERF_EXC[n][ds] && !covered[ds]; }).length;
+        if(!other) return;
+        byEmp[n]=byEmp[n]||{standard:0,sick:0,wfh:0,other:0};
+        byEmp[n].other=other;
+      });
+      var empNames=Object.keys(byEmp).sort(function(a,b){return (byEmp[b].standard+byEmp[b].sick+byEmp[b].other)-(byEmp[a].standard+byEmp[a].sick+byEmp[a].other);});
       var byEmpRowsHtml = empNames.length ? empNames.map(function(n){
-        var e=byEmp[n], total=e.standard+e.sick;
+        var e=byEmp[n], total=e.standard+e.sick+e.other;
         return '<tr>'+
           '<td data-label="Employee"><strong>'+esc(n)+'</strong></td>'+
           '<td data-label="Standard">'+e.standard+'</td>'+
           '<td data-label="Sick">'+e.sick+'</td>'+
           '<td data-label="WFH">'+e.wfh+'</td>'+
+          '<td data-label="Other (Manually Approved)" title="Excused directly via Gokul\'s Approve-leave toggle on a no-punch absence — no formal leave request behind it">'+(e.other>0?e.other:'—')+'</td>'+
           '<td data-label="Total (excl. WFH)"><b>'+total+'</b></td>'+
         '</tr>';
-      }).join("") : '<tr><td colspan="5" style="text-align:center;color:var(--muted)">No approved leave yet.</td></tr>';
+      }).join("") : '<tr><td colspan="6" style="text-align:center;color:var(--muted)">No approved leave yet.</td></tr>';
       sec.innerHTML =
         '<div class="lc-accordion">'+
           '<div class="lc-acc-item">'+
@@ -22462,9 +22487,9 @@ ${brandLines}`;
                     '<span class="lc-acc-ic">&#128101;</span><span class="lc-acc-title">By Employee <span class="tag">'+empNames.length+'</span></span><span class="lc-acc-toggle">+</span>'+
                   '</button>'+
                   '<div class="lc-acc-body" style="padding-left:18px">'+
-                    '<div style="font-size:11px;color:var(--muted);padding:0 0 8px">Approved leave only, in days &middot; WFH never counts toward Total since it doesn\'t deduct from balance.</div>'+
+                    '<div style="font-size:11px;color:var(--muted);padding:0 0 8px">Approved leave only, in days &middot; WFH never counts toward Total since it doesn\'t deduct from balance &middot; Other (Manually Approved) is a no-punch absence Gokul excused directly, outside a formal leave request &middot; Total matches the Monthly Overview\'s "Total Leave Taken (Year)" below.</div>'+
                     '<div class="scroll"><table class="att-tbl wide"><thead><tr>'+
-                      '<th>Employee</th><th>Standard</th><th>Sick</th><th>WFH</th><th>Total (excl. WFH)</th>'+
+                      '<th>Employee</th><th>Standard</th><th>Sick</th><th>WFH</th><th>Other (Manually Approved)</th><th>Total (excl. WFH)</th>'+
                     '</tr></thead><tbody>'+byEmpRowsHtml+'</tbody></table></div>'+
                   '</div>'+
                 '</div>'+
