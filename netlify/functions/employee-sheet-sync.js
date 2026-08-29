@@ -104,6 +104,14 @@ async function fbGetAdmin(path, adminToken) {
   return resp.json().catch(() => null);
 }
 
+// Mirrors index.html's fbMemberKey() exactly — members_sensitive is keyed
+// by this, one entry per name (not duplicated the way /members can be), so
+// looking it up needs the canonical key derived from the name, not
+// whichever raw /members key happened to win the merge below.
+function fbMemberKey(name) {
+  return (name || '').replace(/[.#$/\[\]\s]/g, '_');
+}
+
 function fmtIST() {
   return new Date(Date.now() + 5.5 * 3600 * 1000).toISOString().replace('T', ' ').slice(0, 16) + ' IST';
 }
@@ -174,43 +182,47 @@ async function runSync() {
 
   // Firebase's /members tree can end up with more than one record for the
   // same person (e.g. re-added under a slightly different key at some
-  // point) — collapse those down to one row per name before anything
-  // else. This is a presentation-layer safety net for the sheet only; it
-  // doesn't touch the underlying duplicate records in Firebase itself,
-  // which are still worth cleaning up separately in the Admin panel.
-  // Prefers whichever copy is Active over an Inactive one (a leftover
-  // duplicate is more likely to be the stale/inactive copy), then
-  // whichever has more fields actually filled in.
-  const filledFieldCount = (m) => Object.values(m).filter(v => v !== null && v !== undefined && v !== '').length;
+  // point) — collapse those down to ONE merged record per name before
+  // anything else. This is a presentation-layer safety net for the sheet
+  // only; it doesn't touch the underlying duplicate records in Firebase
+  // itself, which are still worth cleaning up separately in the Admin
+  // panel (scanAndMergeDuplicateMembers).
+  //
+  // Merges field-by-field using the exact same precedence index.html's own
+  // 'members' listener uses to build what shows on a person's profile:
+  // walk every duplicate in Firebase's own key order and let each
+  // non-empty field overwrite the previous one, so whichever record was
+  // written to LAST wins per field. That guarantees this sheet always
+  // matches "the final info" on that person's own profile — not just
+  // whichever single duplicate happens to have the most fields filled in
+  // overall (a field updated on the OTHER duplicate after the "more
+  // complete" one was created would otherwise get silently dropped).
   const allKeys = Object.keys(members).filter(k => members[k] && members[k].name);
-  const byName = {};
+  const mergedByName = {};
   allKeys.forEach(k => {
     const m = members[k];
-    const existingKey = byName[m.name];
-    if (!existingKey) { byName[m.name] = k; return; }
-    const existing = members[existingKey];
-    const existingInactive = inactiveNames.has(existing.name), thisInactive = inactiveNames.has(m.name);
-    if (existingInactive && !thisInactive) byName[m.name] = k;
-    else if (existingInactive === thisInactive && filledFieldCount(m) > filledFieldCount(existing)) byName[m.name] = k;
+    const merged = mergedByName[m.name] || {};
+    Object.keys(m).forEach(f => { if (m[f] !== null && m[f] !== undefined && m[f] !== '') merged[f] = m[f]; });
+    mergedByName[m.name] = merged;
   });
-  const keys = Object.values(byName);
-  if (allKeys.length !== keys.length) {
-    console.log('employee-sheet-sync: collapsed', allKeys.length - keys.length, 'duplicate member record(s) by name —',
-      allKeys.length, 'raw records ->', keys.length, 'unique people');
+  const names = Object.keys(mergedByName);
+  if (allKeys.length !== names.length) {
+    console.log('employee-sheet-sync: collapsed', allKeys.length - names.length, 'duplicate member record(s) by name —',
+      allKeys.length, 'raw records ->', names.length, 'unique people');
   }
 
   // Active employees first, Inactive ones grouped at the end; within each
   // group, ordered by Employee Code (missing codes sort last), with name
   // as the tiebreak when codes match or are both missing.
-  keys.sort((a, b) => {
-    const ma = members[a], mb = members[b];
-    const aInactive = inactiveNames.has(ma.name) ? 1 : 0, bInactive = inactiveNames.has(mb.name) ? 1 : 0;
+  names.sort((a, b) => {
+    const ma = mergedByName[a], mb = mergedByName[b];
+    const aInactive = inactiveNames.has(a) ? 1 : 0, bInactive = inactiveNames.has(b) ? 1 : 0;
     if (aInactive !== bInactive) return aInactive - bInactive;
     const aCode = ma.employeeId || '', bCode = mb.employeeId || '';
     if (!aCode && bCode) return 1;
     if (aCode && !bCode) return -1;
     if (aCode !== bCode) return aCode.localeCompare(bCode, undefined, { numeric: true });
-    return String(ma.name).localeCompare(String(mb.name));
+    return String(a).localeCompare(String(b));
   });
 
   const headers = [
@@ -221,11 +233,11 @@ async function runSync() {
     'Employment Status', 'Probation Status', 'Probation Start Date',
     'PAN', 'Aadhar', 'Bank Account Holder Name', 'Bank Name', 'Bank Branch', 'Bank Account Number', 'Bank IFSC'
   ];
-  const rows = keys.map(k => {
-    const m = members[k];
-    const s = sensitiveData[k] || {};
+  const rows = names.map(name => {
+    const m = mergedByName[name];
+    const s = sensitiveData[fbMemberKey(name)] || {};
     return [
-      m.name || '',
+      m.name || name || '',
       m.lastName || '—',
       m.employeeId || '—',
       m.role || '—',
@@ -241,7 +253,7 @@ async function runSync() {
       m.address || '—',
       m.emergencyContactName || '—',
       m.emergencyContactPhone || '—',
-      inactiveNames.has(m.name) ? 'Inactive' : 'Active',
+      inactiveNames.has(name) ? 'Inactive' : 'Active',
       PROBATION_LABEL[m.probationStatus] || '—',
       m.probationStartDate || '—',
       s.pan || '—',
