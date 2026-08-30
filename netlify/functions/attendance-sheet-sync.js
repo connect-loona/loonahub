@@ -22,7 +22,8 @@
 //       or Unpaid) / Approved By, Remarks. Required Hours isn't its own
 //       row — it's a fixed policy value, the same for every employee every
 //       day, so it's stated once in the subtitle banner instead.
-//   - "Yearly Summary" tab: one row per employee, JAN-DEC grouped
+//   - "Yearly Summary" tab: one row per employee, APR-MAR (financial year,
+//     matching every other FY-scoped figure in this file) grouped
 //     horizontally (Leave Taken/Unpaid Leave/Late Days/fines/deduction per
 //     month), plus a Year Totals block and current leave balance.
 //
@@ -213,17 +214,31 @@ async function sheetsRequest(path, accessToken, init) {
 // of wantedTitles that's missing (batched into ONE addSheet call). Needed
 // because updateCells requests address a tab by its numeric sheetId, not
 // its title.
+// Also deletes any tab that ISN'T one of wantedTitles — this spreadsheet is
+// dedicated solely to this sync (Yearly Summary + one tab per month), so
+// anything else sitting in it is leftover cruft: the default "Sheet1" every
+// brand-new spreadsheet starts with, or a stray tab from an earlier version
+// of this script (before it moved to the fully formatted updateCells
+// layout) that never got cleaned up. Adds and deletes happen in the SAME
+// batchUpdate call so a spreadsheet that currently has only that one
+// leftover tab never hits Google's "a spreadsheet must have at least one
+// sheet" error along the way.
 async function ensureTabsExist(sheetId, accessToken, wantedTitles) {
   const meta = await sheetsRequest(`${sheetId}?fields=sheets.properties.title,sheets.properties.sheetId`, accessToken);
   const byTitle = {};
   (meta.sheets || []).forEach(s => { byTitle[s.properties.title] = s.properties.sheetId; });
+  const wantedSet = new Set(wantedTitles);
   const missing = wantedTitles.filter(t => !(t in byTitle));
-  if (missing.length) {
-    const res = await sheetsRequest(`${sheetId}:batchUpdate`, accessToken, {
-      method: 'POST',
-      body: JSON.stringify({ requests: missing.map(title => ({ addSheet: { properties: { title } } })) })
-    });
+  const staleTitles = Object.keys(byTitle).filter(t => !wantedSet.has(t));
+  const requests = [
+    ...missing.map(title => ({ addSheet: { properties: { title } } })),
+    ...staleTitles.map(title => ({ deleteSheet: { sheetId: byTitle[title] } }))
+  ];
+  if (requests.length) {
+    const res = await sheetsRequest(`${sheetId}:batchUpdate`, accessToken, { method: 'POST', body: JSON.stringify({ requests }) });
     (res.replies || []).forEach(r => { if (r.addSheet) byTitle[r.addSheet.properties.title] = r.addSheet.properties.sheetId; });
+    staleTitles.forEach(t => { delete byTitle[t]; });
+    if (staleTitles.length) console.log('attendance-sheet-sync: removed stale tab(s):', JSON.stringify(staleTitles));
   }
   return byTitle;
 }
@@ -758,18 +773,28 @@ async function runSync() {
   }
 
   // ============================================================
-  // "Yearly Summary" tab
+  // "Yearly Summary" tab — ordered as a financial year (Apr-Mar), matching
+  // every other FY-scoped figure in this file (earnedLeaveAsOf/leave
+  // balance) instead of a plain calendar year. fyStartYear is whichever
+  // April this "now" falls after — e.g. any date from Apr 2026 through
+  // Mar 2027 belongs to FY starting 2026.
   // ============================================================
-  const MONTH_ABBR = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-  const yearNow = new Date(Date.now() + 5.5 * 3600 * 1000).getFullYear();
-  const monthKeysOfYear = MONTH_ABBR.map((_, i) => yearNow + '-' + String(i + 1).padStart(2, '0'));
+  const MONTH_ABBR = ['APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC', 'JAN', 'FEB', 'MAR'];
+  const nowIST = new Date(Date.now() + 5.5 * 3600 * 1000);
+  const fyStartYear = nowIST.getMonth() >= 3 ? nowIST.getFullYear() : nowIST.getFullYear() - 1;
+  const fyLabel = 'FY ' + fyStartYear + '-' + String((fyStartYear + 1) % 100).padStart(2, '0');
+  const monthKeysOfYear = MONTH_ABBR.map((_, i) => {
+    const y = fyStartYear + (i < 9 ? 0 : 1);
+    const m = ((i + 3) % 12) + 1;
+    return y + '-' + String(m).padStart(2, '0');
+  });
   const monthDataCache = {};
   months.forEach(mo => { monthDataCache[mo] = computeMonth(mo); });
 
   const yearlyW = 3 + 12 * 7 + 8;
   const yGrid = [];
   yGrid.push(bannerRow('LOONA · YEARLY ATTENDANCE & PAYROLL SUMMARY', PALETTE.pageBg, yearlyW, { fg: PALETTE.titleFg, size: 17, bold: true }));
-  yGrid.push(bannerRow(yearNow + ' · Auto-synced from Loona Hub', PALETTE.pageBg, yearlyW, { fg: PALETTE.subtitleFg, size: 10 }));
+  yGrid.push(bannerRow(fyLabel + ' · Auto-synced from Loona Hub', PALETTE.pageBg, yearlyW, { fg: PALETTE.subtitleFg, size: 10 }));
   yGrid.push(blankRow(yearlyW, PALETTE.pageBg));
 
   const yHeader1 = [
@@ -816,7 +841,7 @@ async function runSync() {
     });
     // Someone who's left shouldn't keep accruing leave past their own last
     // working day just because other, still-active people have later data.
-    const latestDataDate = months.length ? daysInMonth(months[months.length - 1]).slice(-1)[0] : (yearNow + '-12-31');
+    const latestDataDate = months.length ? daysInMonth(months[months.length - 1]).slice(-1)[0] : ((fyStartYear + 1) + '-03-31');
     const personEndDate = effectiveEndDateFor(name);
     const asOfDate = personEndDate && personEndDate < latestDataDate ? personEndDate : latestDataDate;
     // Matches the dashboard's Monthly Overview "Leave Left" exactly — see
