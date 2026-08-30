@@ -56,6 +56,13 @@ const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 const FIREBASE_ADMIN_SCOPE = 'https://www.googleapis.com/auth/firebase.database https://www.googleapis.com/auth/userinfo.email';
 const SHEET_TAB = 'Master Employee Data';
 
+// Left out of this sheet entirely by request — not an attendance-tracking
+// distinction (see EXCLUDED_FROM_ATTENDANCE in attendance-sheet-sync.js,
+// a different list for a different reason), just someone Gokul wants
+// scrubbed from this specific export. A short, hand-maintained list —
+// update it here if who's excluded ever changes.
+const EXCLUDED_FROM_EMPLOYEE_SHEET = ['Archisha'];
+
 function base64url(buf) {
   return (Buffer.isBuffer(buf) ? buf : Buffer.from(buf)).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
@@ -205,10 +212,14 @@ async function runSync() {
     Object.keys(m).forEach(f => { if (m[f] !== null && m[f] !== undefined && m[f] !== '') merged[f] = m[f]; });
     mergedByName[m.name] = merged;
   });
-  const names = Object.keys(mergedByName);
-  if (allKeys.length !== names.length) {
-    console.log('employee-sheet-sync: collapsed', allKeys.length - names.length, 'duplicate member record(s) by name —',
-      allKeys.length, 'raw records ->', names.length, 'unique people');
+  const uniqueNames = Object.keys(mergedByName);
+  if (allKeys.length !== uniqueNames.length) {
+    console.log('employee-sheet-sync: collapsed', allKeys.length - uniqueNames.length, 'duplicate member record(s) by name —',
+      allKeys.length, 'raw records ->', uniqueNames.length, 'unique people');
+  }
+  const names = uniqueNames.filter(n => !EXCLUDED_FROM_EMPLOYEE_SHEET.includes(n));
+  if (names.length !== uniqueNames.length) {
+    console.log('employee-sheet-sync: excluded', uniqueNames.length - names.length, 'name(s) from this sheet by request:', JSON.stringify(EXCLUDED_FROM_EMPLOYEE_SHEET.filter(n => uniqueNames.includes(n))));
   }
 
   // Active employees first, Inactive ones grouped at the end; within each

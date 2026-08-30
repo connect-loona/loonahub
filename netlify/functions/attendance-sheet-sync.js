@@ -14,11 +14,14 @@
 //   - One tab PER MONTH (e.g. "August 2026"):
 //       "MONTHLY PAYROLL SUMMARY" — one row per employee, aggregate counts
 //       for the month plus fines/deductions.
-//       "DETAILED MONTHLY ATTENDANCE" — one 22-row block per employee,
-//       dates running across the columns: Status, Punch In/Out, Gross/Net/
-//       Break/Required hours, Late By/Early Exit/Short Hours, Work Mode,
-//       Leave Type/Duration, Paid or Unpaid, Approval Status/By, Late
-//       Forgiven, Late/Other/Total Fine ₹, Remarks.
+//       "DETAILED MONTHLY ATTENDANCE" — one 16-row block per employee,
+//       dates running across the columns: Status, Punch In/Out, Total Work
+//       Hours, Breaks, Late (a plain yellow flag, no text) / Late By /
+//       Short Hours, Late Fee / Late Forgiven / Other Fine / Total Fine,
+//       Leave (a plain red flag naming the leave type) / Leave Type (Paid
+//       or Unpaid) / Approved By, Remarks. Required Hours isn't its own
+//       row — it's a fixed policy value, the same for every employee every
+//       day, so it's stated once in the subtitle banner instead.
 //   - "Yearly Summary" tab: one row per employee, JAN-DEC grouped
 //     horizontally (Leave Taken/Unpaid Leave/Late Days/fines/deduction per
 //     month), plus a Year Totals block and current leave balance.
@@ -26,14 +29,18 @@
 // This re-derives the SAME day-by-day status/fine logic the live dashboard
 // computes client-side in index.html (see applyLiveRecords()/dayRecord()/
 // splitPeriodFine() there) — there's no server-stored "status" field to just
-// read, only raw punches in /loona_attendance.
+// read, only raw punches in /loona_attendance. Paid vs Unpaid is a full port
+// of unpaidLeaveDatesForFY() (day-by-day balance walk across the financial
+// year, probation/notice-shortfall flags read straight off each leave
+// request) — see unpaidDateSetFor() below.
 //
 // Known, deliberate gaps (no real data to back these yet — shown as "—"
-// rather than a fabricated value): Leave Duration (half vs full day), Paid/
-// Unpaid classification and its per-day Unpaid Leave count, Approved By,
-// Remarks, and any non-late ("Other") fine — none of index.html's fuller
-// unpaid-leave/probation/notice-period logic is ported here. Flag to Gokul
-// if any of these turn out to matter enough to port properly.
+// rather than a fabricated value): Remarks (no free-text tracked per day),
+// and any non-late ("Other") fine (Half Day/short-hours fine attribution
+// isn't attributed per-day yet). The Unpaid Leave DEDUCTION (₹) is left at
+// 0 rather than a guess — no per-employee wage/salary is tracked anywhere
+// in Loona Hub, so an actual rupee amount can't be computed, only the day
+// count. Flag to Gokul if either turns out to matter enough to port.
 //
 // Full rewrite of every tab's data range each run (same reasoning as
 // employee-sheet-sync.js) — a forgiven late day retroactively clearing a
@@ -95,7 +102,7 @@ const OFFICIAL_HOLIDAYS = [
 // month) rather than showing up as an all-blank/all-absent row. A short,
 // hand-maintained list rather than a Firebase-backed flag for now — update
 // it here if who counts as exempt ever changes.
-const EXCLUDED_FROM_ATTENDANCE = ['Gokul', 'Ankita', 'Karnik', 'Hetal'];
+const EXCLUDED_FROM_ATTENDANCE = ['Gokul', 'Ankita', 'Karnik', 'Hetal', 'Archisha'];
 
 // ---- Dark-theme palette, ported 1:1 from Gokul's reference .xlsx ----
 const PALETTE = {
@@ -104,6 +111,10 @@ const PALETTE = {
   identityBg: '#18181B', countsBg: '#1A1A1E', moneyBg: '#241B17', amberFg: '#D6A45E',
   dateHeaderBg: '#16161A', noDataBg: '#16161A',
   group1Bg: '#151518', group2Bg: '#181615', group3Bg: '#171719',
+  // Deliberately brighter than the rest of the dark palette — these two
+  // rows are meant to jump out as payroll-relevant flags at a glance,
+  // unlike the subtler all-day status shading elsewhere.
+  lateFlagBg: '#E8B93B', leaveFlagBg: '#B33A3A',
   status: {
     present: '#20352A', late: '#20352A', wfh: '#1E293B', leave: '#36251A', weekoff: '#1B1B1F',
     // Not directly demonstrated in the reference file (its sample data
@@ -354,21 +365,75 @@ async function runSync() {
   });
 
   // Every formal (leave_requests-backed) approved leave date, per name —
-  // used for Leave Type/Approval Status in the detail tabs and for Leave
-  // Taken/Current Leave Balance in the Yearly Summary.
-  const formalLeaveByNameDate = {}; // name -> date -> leave_type
-  leaveRequests.forEach(r => {
-    if (r.status !== 'approved') return;
+  // used for the Leave row in the detail tabs and for Leave Taken/Current
+  // Leave Balance in the Yearly Summary. Prefers each request's own stored
+  // charge_dates (the exact days actually charged — already excludes
+  // sandwiched Sundays/holidays) over a naive from_date..to_date walk,
+  // mirroring chargeDatesFor() in index.html; falls back to a plain
+  // weekday/non-holiday expansion for any older record with no
+  // charge_dates saved.
+  function chargeDatesForReq(r) {
+    if (r.charge_dates && r.charge_dates.length) return r.charge_dates;
+    const out = [];
     let d = new Date(r.from_date + 'T00:00:00');
     const end = new Date(r.to_date + 'T00:00:00');
     while (d <= end) {
       const ds = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-      formalLeaveByNameDate[r.member] = formalLeaveByNameDate[r.member] || {};
-      formalLeaveByNameDate[r.member][ds] = r.leave_type || 'standard';
+      if (!isSun(ds) && !isHolidayFn(ds)) out.push(ds);
       d.setDate(d.getDate() + 1);
     }
+    return out;
+  }
+  const formalLeaveByNameDate = {}; // name -> date -> leave_type
+  // A request's probation/notice_shortfall flags are decided once, at
+  // submission time (see index.html's submitLeaveRequest()), and stored
+  // directly on the record — ported here as a straight read, not
+  // re-derived, exactly like index.html's own probationLeaveDates()/
+  // noticeShortfallLeaveDates() do.
+  const probationLeaveDates = new Set(), noticeShortfallLeaveDates = new Set(); // "name|date"
+  leaveRequests.forEach(r => {
+    if (r.status !== 'approved') return;
+    chargeDatesForReq(r).forEach(ds => {
+      formalLeaveByNameDate[r.member] = formalLeaveByNameDate[r.member] || {};
+      formalLeaveByNameDate[r.member][ds] = r.leave_type || 'standard';
+      if (r.probation) probationLeaveDates.add(r.member + '|' + ds);
+      if (r.notice_shortfall) noticeShortfallLeaveDates.add(r.member + '|' + ds);
+    });
   });
-  const LEAVE_TYPE_LABEL = { standard: 'Standard', sick: 'Sick', wfh: 'Work From Home', other: 'Other' };
+  const LEAVE_TYPE_LABEL = { standard: 'Standard Leave', sick: 'Sick Leave', wfh: 'WFH', other: 'Other' };
+
+  // Paid vs Unpaid — ported from index.html's unpaidLeaveDatesForFY(): walk
+  // every excused day in financial-year order (Apr-Mar), spending the
+  // accrued balance one WHOLE day at a time. Payroll cuts whole days only —
+  // a day is paid only if a full day's balance is actually available for
+  // it right then; anything less makes the ENTIRE day unpaid without
+  // touching the leftover fraction, which stays banked for a day that
+  // might actually reach a full one. Probation/notice-shortfall days are
+  // unpaid unconditionally and never touch the ledger either way. WFH is
+  // excluded entirely — it never draws on the leave balance in the first
+  // place (its impact is decided by whether they actually punch in, not by
+  // spending a leave day).
+  const fyStartMonthFor = mo => { const y = parseInt(mo.slice(0, 4), 10), m = parseInt(mo.slice(5, 7), 10); return (m >= 4 ? y : y - 1) + '-04'; };
+  const unpaidDateSetByName = {};
+  function unpaidDateSetFor(name) {
+    if (unpaidDateSetByName[name]) return unpaidDateSetByName[name];
+    const m = mergedByName[name];
+    const exc = excused[name] || {};
+    const relevantDates = Object.keys(exc).filter(ds => exc[ds] && (formalLeaveByNameDate[name] || {})[ds] !== 'wfh').sort();
+    const byFY = {};
+    relevantDates.forEach(ds => { const fy = fyStartMonthFor(ds.slice(0, 7)); (byFY[fy] = byFY[fy] || []).push(ds); });
+    const unpaid = new Set();
+    Object.keys(byFY).forEach(fy => {
+      let used = 0;
+      byFY[fy].forEach(ds => {
+        if (probationLeaveDates.has(name + '|' + ds) || noticeShortfallLeaveDates.has(name + '|' + ds)) { unpaid.add(ds); return; }
+        const available = earnedLeaveAsOf(m.joinDate, ds) - used;
+        if (available >= 1) used += 1; else unpaid.add(ds);
+      });
+    });
+    unpaidDateSetByName[name] = unpaid;
+    return unpaid;
+  }
 
   // An inactive member's data shouldn't keep getting "carried ahead" past
   // the day they actually left — every day after that would otherwise show
@@ -470,23 +535,28 @@ async function runSync() {
     'Late Fine ₹', 'Other Fine ₹', 'Total Fine ₹', 'Unpaid Leave Deduction ₹', 'Total Attendance Deduction ₹',
     'Leave Taken', 'Leave Balance'
   ];
+  // Required Hours dropped as a per-day row — it's a fixed policy value
+  // (7h weekdays, 5h Saturdays), the same for every employee every day, so
+  // it's stated once in the subtitle banner instead of repeated down every
+  // single column of every single employee's block. Short Hours still
+  // computes off it internally, just doesn't show it as its own row.
   const DETAIL_ROWS = [
-    'Status', 'Punch In', 'Punch Out', 'Gross Hours', 'Break Time', 'Net Hours', 'Required Hours',
-    'Late By', 'Early Exit', 'Short Hours', 'Work Mode', 'Leave Type', 'Leave Duration', 'Paid / Unpaid',
-    'Unpaid Leave', 'Approval Status', 'Approved By', 'Late Forgiven', 'Late Fine ₹', 'Other Fine ₹', 'Total Fine ₹', 'Remarks'
+    'Status', 'Punch In', 'Punch Out', 'Total Work Hours', 'Breaks', 'Late', 'Late By', 'Short Hours',
+    'Late Fee', 'Late Forgiven', 'Other Fine', 'Total Fine', 'Leave', 'Leave Type', 'Approved By', 'Remarks'
   ];
-  // Row-group background per detail row (Status is special-cased per-status
-  // below); amber font for the money/leave-count rows.
+  // Row-group background per detail row ('Status' is per-status colored,
+  // 'Late'/'Leave' are per-day flags — all three special-cased separately);
+  // amber font for the fine rows.
   const ROW_STYLE = {
-    'Status': { bg: null, bold: true }, // per-status color, handled specially
-    'Punch In': { bg: PALETTE.group1Bg }, 'Punch Out': { bg: PALETTE.group1Bg }, 'Gross Hours': { bg: PALETTE.group1Bg },
-    'Break Time': { bg: PALETTE.group1Bg }, 'Net Hours': { bg: PALETTE.group1Bg }, 'Required Hours': { bg: PALETTE.group1Bg },
-    'Late By': { bg: PALETTE.group2Bg }, 'Early Exit': { bg: PALETTE.group2Bg }, 'Short Hours': { bg: PALETTE.group2Bg },
-    'Work Mode': { bg: PALETTE.group2Bg }, 'Leave Type': { bg: PALETTE.group2Bg }, 'Leave Duration': { bg: PALETTE.group2Bg },
-    'Paid / Unpaid': { bg: PALETTE.group2Bg }, 'Unpaid Leave': { bg: PALETTE.group2Bg, fg: PALETTE.amberFg },
-    'Approval Status': { bg: PALETTE.group3Bg }, 'Approved By': { bg: PALETTE.group3Bg }, 'Late Forgiven': { bg: PALETTE.group3Bg },
-    'Late Fine ₹': { bg: PALETTE.group3Bg, fg: PALETTE.amberFg }, 'Other Fine ₹': { bg: PALETTE.group3Bg, fg: PALETTE.amberFg },
-    'Total Fine ₹': { bg: PALETTE.group3Bg, fg: PALETTE.amberFg }, 'Remarks': { bg: PALETTE.group3Bg }
+    'Status': { bg: null, bold: true },
+    'Punch In': { bg: PALETTE.group1Bg }, 'Punch Out': { bg: PALETTE.group1Bg },
+    'Total Work Hours': { bg: PALETTE.group1Bg }, 'Breaks': { bg: PALETTE.group1Bg },
+    'Late': { bg: null }, // per-day flag color, handled specially
+    'Late By': { bg: PALETTE.group2Bg }, 'Short Hours': { bg: PALETTE.group2Bg },
+    'Late Fee': { bg: PALETTE.group3Bg, fg: PALETTE.amberFg }, 'Late Forgiven': { bg: PALETTE.group3Bg },
+    'Other Fine': { bg: PALETTE.group3Bg, fg: PALETTE.amberFg }, 'Total Fine': { bg: PALETTE.group3Bg, fg: PALETTE.amberFg },
+    'Leave': { bg: null }, // per-day flag color, handled specially
+    'Leave Type': { bg: PALETTE.group3Bg }, 'Approved By': { bg: PALETTE.group3Bg }, 'Remarks': { bg: PALETTE.group3Bg }
   };
 
   const monthTabs = []; // { tabName, W, grid }
@@ -497,7 +567,8 @@ async function runSync() {
     const grid = [];
 
     grid.push(bannerRow('LOONA · MONTHLY ATTENDANCE', PALETTE.pageBg, W, { fg: PALETTE.titleFg, size: 17, bold: true, valign: 'MIDDLE' }));
-    grid.push(bannerRow(moLabel(mo).toUpperCase() + ' · Auto-synced from Loona Hub', PALETTE.pageBg, W, { fg: PALETTE.subtitleFg, size: 10 }));
+    grid.push(bannerRow(moLabel(mo).toUpperCase() + ' · Auto-synced from Loona Hub · Standard Work Hours: '
+      + REQ_WD + 'h (Weekdays), ' + REQ_SAT + 'h (Saturdays)', PALETTE.pageBg, W, { fg: PALETTE.subtitleFg, size: 10 }));
     grid.push(blankRow(W, PALETTE.pageBg));
     grid.push(bannerRow('MONTHLY PAYROLL SUMMARY', PALETTE.orange, W, { fg: PALETTE.titleFg, size: 11, bold: true }));
 
@@ -513,9 +584,13 @@ async function runSync() {
       const endDate = effectiveEndDateFor(name);
       const s = perName[name].summary;
       const workingDays = dates.filter(ds => (!m.joinDate || ds >= m.joinDate) && (!endDate || ds <= endDate) && !isSun(ds) && !isHolidayFn(ds)).length;
+      const unpaidCount = Array.from(unpaidDateSetFor(name)).filter(ds => ds.slice(0, 7) === mo).length;
       const otherFine = 0; // not yet attributed per-day — see file header note
       const totalFine = s.lateFine + otherFine;
-      const unpaidLeaveDeduction = 0; // paid/unpaid classification not yet ported — see file header note
+      // No per-employee wage/salary is tracked anywhere in Loona Hub, so an
+      // actual rupee deduction for unpaid days can't be computed — only
+      // the day COUNT above is real. Left at 0 rather than a guess.
+      const unpaidLeaveDeduction = 0;
       const totalDeduction = totalFine + unpaidLeaveDeduction;
       const asOfDate = endDate && endDate < dates[dates.length - 1] ? endDate : dates[dates.length - 1];
       const leaveLeft = Math.round((earnedLeaveAsOf(m.joinDate, asOfDate) - s.leaveTaken) * 100) / 100;
@@ -530,7 +605,7 @@ async function runSync() {
         C(s.standard, { bg: PALETTE.countsBg, size: 9 }),
         C(s.sick, { bg: PALETTE.countsBg, size: 9 }),
         C(s.other, { bg: PALETTE.countsBg, size: 9 }),
-        C(0, { bg: PALETTE.moneyBg, fg: PALETTE.amberFg, bold: true, size: 9 }), // Unpaid Leave (count) — see note
+        C(unpaidCount, { bg: PALETTE.moneyBg, fg: PALETTE.amberFg, bold: true, size: 9 }),
         C(s.absent, { bg: PALETTE.moneyBg, size: 9 }),
         C(s.late, { bg: PALETTE.moneyBg, size: 9 }),
         C(s.forgivenLate, { bg: PALETTE.moneyBg, size: 9 }),
@@ -563,6 +638,7 @@ async function runSync() {
     empKeysForMonth.forEach(name => {
       const m = mergedByName[name];
       const days = perName[name].days;
+      const unpaidDates = unpaidDateSetFor(name);
       DETAIL_ROWS.forEach((rowLabel, ri) => {
         const style = ROW_STYLE[rowLabel];
         const row = [];
@@ -571,7 +647,7 @@ async function runSync() {
           : C(null, { bg: PALETTE.identityBg }));
         row.push(C(rowLabel, { bg: style.bg || PALETTE.group1Bg, bold: true, size: 8, align: 'LEFT' }));
         days.forEach(d => {
-          const cell = detailCellFor(rowLabel, d, style);
+          const cell = detailCellFor(rowLabel, d, style, unpaidDates);
           row.push(cell);
         });
         grid.push(row);
@@ -584,8 +660,10 @@ async function runSync() {
   });
 
   // Renders one data cell in the "DETAILED MONTHLY ATTENDANCE" block for a
-  // single employee/day/row-label combination.
-  function detailCellFor(rowLabel, d, style) {
+  // single employee/day/row-label combination. unpaidDates is this
+  // employee's own full financial-year unpaid-day set (see
+  // unpaidDateSetFor) — passed in rather than recomputed per cell.
+  function detailCellFor(rowLabel, d, style, unpaidDates) {
     if (d.outsideEmployment) return C('—', { bg: PALETTE.noDataBg, size: 8 });
     const status = d.status;
     if (rowLabel === 'Status') {
@@ -594,28 +672,35 @@ async function runSync() {
     const isWorkDay = status !== 'weekoff' && status !== 'holiday';
     const hasPunch = !!(d.rec && d.rec.i != null);
     const na = () => C('—', { bg: PALETTE.noDataBg, size: 8 });
+    const blank = bg => C(null, { bg, size: 8 });
+    // A day covered by an approved leave/WFH request — the trigger for
+    // both the Leave flag row and Approved By, regardless of whether it's
+    // a formal absence (status 'leave') or a WFH day that still has real
+    // punches (status 'wfh').
+    const isApprovedDay = status === 'leave' || status === 'wfh';
 
     switch (rowLabel) {
       case 'Punch In': return hasPunch ? C(minToClock(d.rec.i), { bg: style.bg, size: 8 }) : na();
       case 'Punch Out': return hasPunch && d.rec.o != null ? C(minToClock(d.rec.o), { bg: style.bg, size: 8 }) : na();
-      case 'Gross Hours': return hasPunch && d.rec.o != null ? C(minToHM(d.rec.o - d.rec.i), { bg: style.bg, size: 8 }) : na();
-      case 'Break Time': return hasPunch ? C(minToHM(d.rec.b || 0), { bg: style.bg, size: 8 }) : na();
-      case 'Net Hours': return hasPunch ? C(minToHM(d.rec.w || 0), { bg: style.bg, size: 8 }) : na();
-      case 'Required Hours': return isWorkDay ? C(minToHM(reqMinFor(d.ds)), { bg: style.bg, size: 8 }) : na();
+      case 'Total Work Hours': return hasPunch && d.rec.o != null ? C(minToHM(d.rec.o - d.rec.i), { bg: style.bg, size: 8 }) : na();
+      case 'Breaks': return hasPunch ? C(minToHM(d.rec.b || 0), { bg: style.bg, size: 8 }) : na();
+      // Pure visual flag — no text either way, just yellow on a late day.
+      case 'Late': return d.isLate ? blank(PALETTE.lateFlagBg) : blank(PALETTE.noDataBg);
       case 'Late By': return hasPunch && d.rec.i > SHIFT_START_MIN ? C(minToHM(d.rec.i - SHIFT_START_MIN), { bg: style.bg, size: 8 }) : na();
-      case 'Early Exit': return hasPunch && d.rec.o != null && d.rec.o < SHIFT_END_MIN ? C(minToHM(SHIFT_END_MIN - d.rec.o), { bg: style.bg, size: 8 }) : na();
       case 'Short Hours': { if (!isWorkDay) return na(); const short = reqMinFor(d.ds) - (d.rec ? (d.rec.w || 0) : 0); return short > 0 ? C(minToHM(short), { bg: style.bg, size: 8 }) : na(); }
-      case 'Work Mode': return status === 'wfh' ? C('Work From Home', { bg: style.bg, size: 8 }) : (status === 'present' || status === 'late' || status === 'half') ? C('Office', { bg: style.bg, size: 8 }) : na();
-      case 'Leave Type': return status === 'leave' ? C(LEAVE_TYPE_LABEL[d.formalType] || 'Other', { bg: style.bg, size: 8 }) : isWorkDay ? C('None', { bg: style.bg, size: 8 }) : na();
-      case 'Leave Duration': return status === 'leave' ? C('Full Day', { bg: style.bg, size: 8 }) : isWorkDay ? C('None', { bg: style.bg, size: 8 }) : na();
-      case 'Paid / Unpaid': return na(); // classification not ported — see file header note
-      case 'Unpaid Leave': return na(); // see file header note
-      case 'Approval Status': return status === 'leave' ? C('Approved', { bg: style.bg, size: 8 }) : isWorkDay ? C('Not Required', { bg: style.bg, size: 8 }) : na();
-      case 'Approved By': return na(); // no approver identity tracked per day
+      case 'Late Fee': return d.isLate ? C(rupee(d.lateFine), { bg: style.bg, size: 8 }) : na();
       case 'Late Forgiven': return d.isLate ? C(d.lateForgiven ? 'Yes' : 'No', { bg: style.bg, size: 8 }) : na();
-      case 'Late Fine ₹': return d.isLate ? C(rupee(d.lateFine), { bg: style.bg, size: 8 }) : na();
-      case 'Other Fine ₹': return isWorkDay ? C(rupee(0), { bg: style.bg, size: 8 }) : na(); // not attributed per-day yet
-      case 'Total Fine ₹': return isWorkDay ? C(rupee(d.isLate ? d.lateFine : 0), { bg: style.bg, size: 8 }) : na();
+      case 'Other Fine': return isWorkDay ? C(rupee(0), { bg: style.bg, size: 8 }) : na(); // not attributed per-day yet
+      case 'Total Fine': return isWorkDay ? C(rupee(d.isLate ? d.lateFine : 0), { bg: style.bg, size: 8 }) : na();
+      // Red flag with the leave type written directly in the cell — covers
+      // WFH too (WFH is approved through the same leave_requests flow).
+      case 'Leave': return isApprovedDay ? C(LEAVE_TYPE_LABEL[d.formalType] || 'Other', { bg: PALETTE.leaveFlagBg, size: 8 }) : blank(PALETTE.noDataBg);
+      // Paid/Unpaid — only meaningful for an actual leave day (WFH never
+      // draws on the leave balance at all, so it's neither).
+      case 'Leave Type': return status === 'leave' ? C(unpaidDates.has(d.ds) ? 'Unpaid' : 'Paid', { bg: style.bg, size: 8 }) : na();
+      // Gokul is currently the sole approver — named directly rather than
+      // a generic "Approved" label, matching how it actually works today.
+      case 'Approved By': return isApprovedDay ? C('Gokul', { bg: style.bg, size: 8 }) : na();
       case 'Remarks': return na(); // no free-text remarks tracked per day
       default: return na();
     }
