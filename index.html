@@ -7502,7 +7502,7 @@
             attachAvatarListener(m.name);
             attachFavoritesListener(m.name);
             const existing = MEMBER_INFO[m.name] || {};
-            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || null, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null, mobile: m.mobile || existing.mobile || null, gender: m.gender || existing.gender || null, personalEmail: m.personalEmail || existing.personalEmail || null, address: m.address || existing.address || null, lastName: m.lastName || existing.lastName || null, emergencyContactName: m.emergencyContactName || existing.emergencyContactName || null, emergencyContactPhone: m.emergencyContactPhone || existing.emergencyContactPhone || null, bloodGroup: m.bloodGroup || existing.bloodGroup || null, workEmail: m.workEmail || existing.workEmail || null, email: m.email || existing.email || null, knownFor: m.knownFor || existing.knownFor || null, mbti: m.mbti || existing.mbti || null, style: m.style || existing.style || null, nowPlayingSong: m.nowPlayingSong || existing.nowPlayingSong || null, nowPlayingArtist: m.nowPlayingArtist || existing.nowPlayingArtist || null, funFacts: m.funFacts || existing.funFacts || null, favMovie: m.favMovie || existing.favMovie || null, favSnack: m.favSnack || existing.favSnack || null, favBook: m.favBook || existing.favBook || null, favDestination: m.favDestination || existing.favDestination || null, favMovieImg: existing.favMovieImg || null, favSnackImg: existing.favSnackImg || null, favBookImg: existing.favBookImg || null, favDestinationImg: existing.favDestinationImg || null, nowPlayingImg: existing.nowPlayingImg || null, profilePromptDismissed: m.profilePromptDismissed || existing.profilePromptDismissed || false, loonaPersonality: m.loonaPersonality || existing.loonaPersonality || null, probationStatus: m.probationStatus || existing.probationStatus || null, probationStartDate: m.probationStartDate || existing.probationStartDate || null, lastWorkingDay: m.lastWorkingDay || existing.lastWorkingDay || null };
+            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || null, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null, mobile: m.mobile || existing.mobile || null, gender: m.gender || existing.gender || null, personalEmail: m.personalEmail || existing.personalEmail || null, address: m.address || existing.address || null, lastName: m.lastName || existing.lastName || null, emergencyContactName: m.emergencyContactName || existing.emergencyContactName || null, emergencyContactPhone: m.emergencyContactPhone || existing.emergencyContactPhone || null, bloodGroup: m.bloodGroup || existing.bloodGroup || null, workEmail: m.workEmail || existing.workEmail || null, email: m.email || existing.email || null, knownFor: m.knownFor || existing.knownFor || null, mbti: m.mbti || existing.mbti || null, style: m.style || existing.style || null, nowPlayingSong: m.nowPlayingSong || existing.nowPlayingSong || null, nowPlayingArtist: m.nowPlayingArtist || existing.nowPlayingArtist || null, funFacts: m.funFacts || existing.funFacts || null, favMovie: m.favMovie || existing.favMovie || null, favSnack: m.favSnack || existing.favSnack || null, favBook: m.favBook || existing.favBook || null, favDestination: m.favDestination || existing.favDestination || null, favMovieImg: existing.favMovieImg || null, favSnackImg: existing.favSnackImg || null, favBookImg: existing.favBookImg || null, favDestinationImg: existing.favDestinationImg || null, nowPlayingImg: existing.nowPlayingImg || null, profilePromptDismissed: m.profilePromptDismissed || existing.profilePromptDismissed || false, loonaPersonality: m.loonaPersonality || existing.loonaPersonality || null, probationStatus: m.probationStatus || existing.probationStatus || null, probationStartDate: m.probationStartDate || existing.probationStartDate || null, probationMonths: m.probationMonths || existing.probationMonths || null, employmentType: m.employmentType || existing.employmentType || null, lastWorkingDay: m.lastWorkingDay || existing.lastWorkingDay || null };
             // Older records still carry the avatar inline on this same node — use it right away,
             // then migrate it out to member_avatars/ so this node stays small for everyone from now on.
             if (m.avatar && m.avatar !== MEMBER_INFO[m.name].avatar) {
@@ -8327,6 +8327,10 @@
         employeeId: employeeId || null,
         joinDate: document.getElementById('ob-joindate').value || null,
         birthdate: document.getElementById('ob-birthdate').value || null,
+        // Carried through into their probationMonths once Gokul approves
+        // this (see approvePendingEmployee) — probation itself always
+        // starts automatically on approval, from this joining date.
+        probationMonths: parseInt(document.getElementById('ob-probation-months').value, 10) || 3,
         submittedAt: new Date().toISOString()
       };
       const key = fbMemberKey(name);
@@ -13115,11 +13119,14 @@
 
       const memberRole = role || dept || 'Team Member';
       if (!ALL_MEMBERS.includes(name)) ALL_MEMBERS.push(name);
-      // Standing policy: every new joinee starts on a 3-month probation
-      // (see isOnProbation()/probationEndDate()) unless someone comes back
-      // and changes it via Edit Employee — never confirmed by default.
+      // Standing policy: every new joinee starts on a standard 3-month
+      // probation (see isOnProbation()/probationEndDate()) unless someone
+      // comes back and changes the period or status via Edit Employee —
+      // never confirmed by default. Full Time by default too — flip to
+      // Consultant via Edit Employee for a hire that skips probation
+      // entirely.
       const probationStartDate = joinDate || calTodayIST();
-      MEMBER_INFO[name] = { color, emoji, role: memberRole, avatar: avatar || null, department: dept || null, joinDate: joinDate || null, employeeId: employeeId || null, birthdate: birthdate || null, lastName: lastName || null, workEmail: loginDeriveEmail(name), probationStatus: 'on_probation', probationStartDate };
+      MEMBER_INFO[name] = { color, emoji, role: memberRole, avatar: avatar || null, department: dept || null, joinDate: joinDate || null, employeeId: employeeId || null, birthdate: birthdate || null, lastName: lastName || null, workEmail: loginDeriveEmail(name), probationStatus: 'on_probation', probationStartDate, probationMonths: 3, employmentType: 'full_time' };
 
       // Update UI instantly — don't wait for Firebase round-trip
       buildMemberTabs(currentUser);
@@ -13128,7 +13135,7 @@
       rebuildLoginPicker();
 
       // Persist to Firebase in the background
-      if (_db) _db.ref('members/' + fbMemberKey(name)).set({ name, color, emoji, role: memberRole, avatar: avatar || null, department: dept || null, joinDate: joinDate || null, employeeId: employeeId || null, birthdate: birthdate || null, lastName: lastName || null, workEmail: loginDeriveEmail(name), probationStatus: 'on_probation', probationStartDate });
+      if (_db) _db.ref('members/' + fbMemberKey(name)).set({ name, color, emoji, role: memberRole, avatar: avatar || null, department: dept || null, joinDate: joinDate || null, employeeId: employeeId || null, birthdate: birthdate || null, lastName: lastName || null, workEmail: loginDeriveEmail(name), probationStatus: 'on_probation', probationStartDate, probationMonths: 3, employmentType: 'full_time' });
 
       closeAddMember();
       document.getElementById('toast-emoji').textContent = '🎉';
@@ -13238,7 +13245,18 @@
       const color = COLORS[Math.floor(Math.random() * COLORS.length)];
       const emoji = '👤';
       const role = p.role || p.department || 'Team Member';
-      const info = { color, emoji, role, avatar: null, department: p.department || null, joinDate: p.joinDate || null, employeeId: p.employeeId || null, birthdate: p.birthdate || null, mobile: p.mobile || null, gender: p.gender || null, personalEmail: p.personalEmail || null, address: p.address || null, lastName: p.lastName || null, emergencyContactName: p.emergencyContactName || null, emergencyContactPhone: p.emergencyContactPhone || null, bloodGroup: p.bloodGroup || null, workEmail: loginDeriveEmail(name) };
+      // Standing policy: every employee onboarded through this flow starts
+      // on probation automatically from their joining date, for whatever
+      // period they picked on the onboarding form (see submitOnboardingForm)
+      // — defaulting to the standard 3 months for an older pending record
+      // submitted before that field existed. This was previously missing
+      // entirely here (submitAddMember(), the OTHER onboarding path — the
+      // Admin panel's direct "Add Team Member" — already set this; this one
+      // silently didn't, so anyone onboarded the intended way never got
+      // probation tracked at all). employmentType defaults to Full Time —
+      // Gokul flips it to Consultant via Edit Employee for the rare hire
+      // that doesn't go through probation at all.
+      const info = { color, emoji, role, avatar: null, department: p.department || null, joinDate: p.joinDate || null, employeeId: p.employeeId || null, birthdate: p.birthdate || null, mobile: p.mobile || null, gender: p.gender || null, personalEmail: p.personalEmail || null, address: p.address || null, lastName: p.lastName || null, emergencyContactName: p.emergencyContactName || null, emergencyContactPhone: p.emergencyContactPhone || null, bloodGroup: p.bloodGroup || null, workEmail: loginDeriveEmail(name), probationStatus: 'on_probation', probationStartDate: p.joinDate || calTodayIST(), probationMonths: p.probationMonths || 3, employmentType: 'full_time' };
       const memberRecord = Object.assign({ name }, info);
 
       ALL_MEMBERS.push(name);
@@ -13294,6 +13312,21 @@
       });
     }
 
+    // A person is one of exactly three things for this purpose: a
+    // Consultant (an explicit designation — today Ankita/Hetal/Karnik,
+    // same three EXCLUDED_FROM_ATTENDANCE never tracked against punch
+    // rules), someone still on Probation (isOnProbation() — takes priority
+    // over Full Time for anyone not a consultant), or Full Time (the
+    // default once probation is confirmed, or for anyone with no
+    // probation field at all — an employee onboarded before this existed).
+    function employmentStatusInfo(name) {
+      const info = memberDisplayInfo(name);
+      if (info.employmentType === 'consultant') return { label: 'Consultant', color: '#9d8cff' };
+      if (info.probationStatus === 'on_probation') return { label: 'Probation', color: '#f0b03f' };
+      return { label: 'Full Time', color: '#4caf7d' };
+    }
+    window.employmentStatusInfo = employmentStatusInfo;
+
     function renderAdminDirectory() {
       const list = document.getElementById('admin-directory-list');
       if (!list) return;
@@ -13308,11 +13341,13 @@
         // since this is exactly the kind of thing that looks like "the new
         // person isn't showing up" without explaining why.
         const missingEmpId = !info.employeeId;
+        const es = employmentStatusInfo(n);
         return `<div class="admin-emp-card" onclick="showAdminEmployeeDetail('${n}')">
           <div class="admin-emp-avatar" style="background:${mColor(n)}20;color:${mColor(n)};${info.avatar ? 'padding:0;' : ''}overflow:hidden">${mAvatar(n)}</div>
           <div class="admin-emp-name">${n}</div>
           <div class="admin-emp-role">${info.role || 'Team Member'}</div>
           ${info.department ? `<div class="admin-emp-dept">${info.department}</div>` : ''}
+          <div style="margin-top:4px;font-size:10.5px;font-weight:700;color:${es.color}">${es.label}</div>
           ${missingEmpId ? `<div class="admin-emp-warn" title="No Employee ID linked — attendance won't sync for them">⚠ No Employee ID</div>` : ''}
         </div>`;
       };
@@ -13382,6 +13417,12 @@
           <div class="member-stat-row"><span class="k">Department</span><span>${info.department || '—'}</span></div>
           <div class="member-stat-row"><span class="k">Role / Title</span><span>${info.role || '—'}</span></div>
           <div class="member-stat-row"><span class="k">Joining Date</span><span>${info.joinDate ? fmtDate(info.joinDate) : '—'}</span></div>
+          ${(() => {
+            const es = employmentStatusInfo(name);
+            const probationNote = es.label === 'Probation' && info.probationStartDate
+              ? ` (until ${fmtDate(probationEndDate(info.probationStartDate, info.probationMonths))})` : '';
+            return `<div class="member-stat-row"><span class="k">Employment Status</span><span style="color:${es.color};font-weight:700">${es.label}${probationNote}</span></div>`;
+          })()}
           ${INACTIVE_MEMBERS.has(name) ? `<div class="member-stat-row"><span class="k">Last Working Day</span><span>${info.lastWorkingDay ? fmtDate(info.lastWorkingDay) : '— (auto-detected from last punch, if any — set it below via ✎ Edit Details)'}</span></div>` : ''}
 
           <div class="admin-detail-section-title">🔒 Financial &amp; ID <span class="admin-detail-section-note">visible only to Gokul</span></div>
@@ -13417,11 +13458,15 @@
 
     // Shared with isOnProbation() in the attendance-module script block
     // (exposed on window below) so there's exactly one place that knows how
-    // long probation lasts and how its end date is computed.
+    // long probation lasts and how its end date is computed. PROBATION_MONTHS
+    // is only the FALLBACK now — per Gokul, the period is chosen per person
+    // at onboarding (1/2/3 months, stored as probationMonths on their
+    // record) and defaults to this 3-month standard only when unset, e.g.
+    // for anyone onboarded before this field existed.
     const PROBATION_MONTHS = 3;
-    function probationEndDate(startDate) {
+    function probationEndDate(startDate, months) {
       const d = new Date(startDate + 'T00:00:00');
-      d.setMonth(d.getMonth() + PROBATION_MONTHS);
+      d.setMonth(d.getMonth() + (months || PROBATION_MONTHS));
       return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     }
     window.probationEndDate = probationEndDate;
@@ -13429,8 +13474,9 @@
       const hint = document.getElementById('eem-probation-end-hint');
       const status = document.getElementById('eem-probation-status').value;
       const start = document.getElementById('eem-probation-start').value;
+      const months = parseInt(document.getElementById('eem-probation-months').value, 10) || PROBATION_MONTHS;
       if (status === 'on_probation' && start) {
-        hint.textContent = `Probation runs until ${fmtDate(probationEndDate(start))} (${PROBATION_MONTHS} months from start). A confirmation request will show up on your founder board a week before that date — nothing auto-confirms without your approval.`;
+        hint.textContent = `Probation runs until ${fmtDate(probationEndDate(start, months))} (${months} month${months === 1 ? '' : 's'} from start). A confirmation request will show up on your founder board a week before that date — nothing auto-confirms without your approval.`;
       } else {
         hint.textContent = '';
       }
@@ -13455,9 +13501,13 @@
       // existing employee shouldn't suddenly get locked out just because this
       // field is new and unset on their record.
       document.getElementById('eem-probation-row').style.display = _eemContext === 'admin' ? 'grid' : 'none';
+      document.getElementById('eem-probation-months-row').style.display = _eemContext === 'admin' ? 'grid' : 'none';
       document.getElementById('eem-probation-status').value = info.probationStatus || 'confirmed';
       document.getElementById('eem-probation-start').value = info.probationStartDate || '';
+      document.getElementById('eem-probation-months').value = info.probationMonths || 3;
       updateProbationEndHint();
+      document.getElementById('eem-employment-type-row').style.display = _eemContext === 'admin' ? 'grid' : 'none';
+      document.getElementById('eem-employment-type').value = info.employmentType || 'full_time';
       document.getElementById('eem-lastworkingday-row').style.display = _eemContext === 'admin' ? 'grid' : 'none';
       document.getElementById('eem-lastworkingday').value = info.lastWorkingDay || '';
       document.getElementById('eem-mobile').value = info.mobile || '';
@@ -13573,6 +13623,8 @@
       if (_eemContext === 'admin') {
         nonSensitive.probationStatus = document.getElementById('eem-probation-status').value || 'confirmed';
         nonSensitive.probationStartDate = document.getElementById('eem-probation-start').value || null;
+        nonSensitive.probationMonths = parseInt(document.getElementById('eem-probation-months').value, 10) || 3;
+        nonSensitive.employmentType = document.getElementById('eem-employment-type').value || 'full_time';
         nonSensitive.lastWorkingDay = document.getElementById('eem-lastworkingday').value || null;
       }
       MEMBER_INFO[name] = Object.assign({}, existing, nonSensitive);
@@ -19203,6 +19255,15 @@ ${brandLines}`;
           <input class="form-control" type="date" id="ob-birthdate">
         </div>
       </div>
+      <div class="form-group">
+        <label>Probation Period</label>
+        <select class="form-control" id="ob-probation-months">
+          <option value="1">1 month</option>
+          <option value="2">2 months</option>
+          <option value="3" selected>3 months (standard)</option>
+        </select>
+        <div style="font-size:10.5px;color:var(--muted);margin-top:4px">Starts from your joining date above — Gokul can adjust this later if needed.</div>
+      </div>
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="closeOnboardingForm()">Cancel</button>
         <button class="btn btn-primary" onclick="submitOnboardingForm()">Continue</button>
@@ -19255,10 +19316,12 @@ ${brandLines}`;
            isOnProbation()) regardless of accrued balance. Never shown when an
            employee is editing their own profile — only the Admin Directory route
            (_eemContext==='admin') sets this section visible, same pattern as the
-           Financial & ID section being Gokul-only. Probation Start Date is the
-           only date needed — the 3-month end is always computed from it (see
-           probationEndDate()), so "On Probation" auto-expires into confirmed on
-           its own; nobody needs to remember to come back and flip this. -->
+           Financial & ID section being Gokul-only. Start Date + Period together
+           give the end date (see probationEndDate()), so "On Probation"
+           auto-surfaces a confirmation request a week out on its own; nobody
+           needs to remember to come back and flip this. Period defaults to the
+           standard 3 months but is chosen per person at onboarding — pulled
+           straight from their onboarding form submission when there was one. -->
       <div class="form-row" id="eem-probation-row" style="display:none">
         <div class="form-group">
           <label>Probation Status</label>
@@ -19270,7 +19333,33 @@ ${brandLines}`;
         <div class="form-group">
           <label>Probation Start Date</label>
           <input class="form-control" type="date" id="eem-probation-start" onchange="updateProbationEndHint()">
+        </div>
+      </div>
+      <div class="form-row" id="eem-probation-months-row" style="display:none">
+        <div class="form-group">
+          <label>Probation Period</label>
+          <select class="form-control" id="eem-probation-months" onchange="updateProbationEndHint()">
+            <option value="1">1 month</option>
+            <option value="2">2 months</option>
+            <option value="3">3 months (standard)</option>
+          </select>
           <div id="eem-probation-end-hint" style="font-size:11px;color:#888;margin-top:4px"></div>
+        </div>
+      </div>
+      <!-- Gokul-only, same gating as probation. A consultant (Ankita/Hetal/
+           Karnik today) is never tracked against attendance/punch rules —
+           see EXCLUDED_FROM_ATTENDANCE — and never goes through probation;
+           everyone else defaults to Full Time. Purely a label for anyone
+           scanning the directory, doesn't itself change any behavior — the
+           attendance exclusion list is still the actual source of truth for
+           who's tracked. -->
+      <div class="form-row" id="eem-employment-type-row" style="display:none">
+        <div class="form-group">
+          <label>Employment Type</label>
+          <select class="form-control" id="eem-employment-type">
+            <option value="full_time">Full Time</option>
+            <option value="consultant">Consultant</option>
+          </select>
         </div>
       </div>
       <!-- Gokul-only, same gating as the probation row above. Attendance
@@ -21244,6 +21333,7 @@ ${brandLines}`;
       renderUnapprovedAbsenceNotice()+
       renderLeaveApprovalQueue()+
       renderLeaveHistoryImportNotice()+
+      renderEmploymentStatusFixNotice()+
       '<div class="att-board">'+
         '<div class="bh">&#128197; Daily Overview <span class="tag">Founder only</span></div>'+
         '<div class="att-sync" style="margin-bottom:6px"><span><b>Viewing:</b> <input type="date" id="daily-sel" value="'+DAILY_SEL+'" max="'+TODAY+'" onchange="window.attSetDailyDate(this.value)"></span>'+(DAILY_SEL!==TODAY?'<button onclick="window.attSetDailyDate(&quot;'+TODAY+'&quot;)">Jump to today</button>':'')+'<span class="sub" style="margin-left:8px">&#8592; this controls the cards below</span></div>'+
@@ -22831,6 +22921,86 @@ ${brandLines}`;
         '<button onclick="window.importLeaveHistory2026()" style="background:rgba(120,180,255,.15);border:1px solid rgba(120,180,255,.35);color:#78b4ff;padding:6px 14px;border-radius:8px;font-size:11.5px;cursor:pointer;font-weight:600;font-family:var(--font)">Import 2026 Leave History</button>'+
       '</div>';
     }
+    // ─── One-time backfill: Employment Status (see employmentStatusInfo()
+    // above) is a brand-new field — nobody's existing record has it set
+    // yet. Per Gokul: Saloni and Vivaan are currently on probation, Ankita/
+    // Hetal/Karnik are consultants (same three EXCLUDED_FROM_ATTENDANCE
+    // never tracked against punch rules — this just makes that explicit as
+    // a label), everyone else defaults to Full Time on its own (see
+    // employmentStatusInfo()'s fallback), so nothing needs writing for
+    // them. Never overwrites an existing probationStartDate/probationMonths
+    // already on record for Saloni/Vivaan — only fills them in if genuinely
+    // missing (falling back to today's date with a clear note to verify it,
+    // rather than guessing). Idempotent and safe to re-run; button hides
+    // itself once nothing's left to change.
+    var EMPLOYMENT_STATUS_FIXES_2026 = {
+      Saloni: { probation: true },
+      Vivaan: { probation: true },
+      Ankita: { consultant: true },
+      Hetal: { consultant: true },
+      Karnik: { consultant: true }
+    };
+    function employmentStatusFixesDue(){
+      return Object.keys(EMPLOYMENT_STATUS_FIXES_2026).filter(function(n){
+        if(!ALL_MEMBERS.includes(n)) return false; // not in this roster (e.g. a different Firebase project/test data)
+        var info=window.MEMBER_INFO[n]||{};
+        var want=EMPLOYMENT_STATUS_FIXES_2026[n];
+        if(want.consultant) return info.employmentType!=="consultant";
+        if(want.probation) return info.probationStatus!=="on_probation";
+        return false;
+      });
+    }
+    window.employmentStatusFixesDue=employmentStatusFixesDue;
+    window.applyEmploymentStatusFixes2026=function(){
+      if(currentUser!=="Gokul") return;
+      var todo=employmentStatusFixesDue();
+      if(!todo.length){ alert("Nothing to apply — everyone already matches."); return; }
+      var lines=todo.map(function(n){
+        var want=EMPLOYMENT_STATUS_FIXES_2026[n];
+        if(want.consultant) return n+" → Consultant";
+        var info=window.MEMBER_INFO[n]||{};
+        var start=info.probationStartDate || info.joinDate;
+        var startNote=start ? " (starting "+fmtDate(start)+")" : " (no joining date on record — defaulting probation start to today; please verify/correct their real joining date via Edit Employee)";
+        return n+" → Probation"+startNote;
+      });
+      if(!confirm("Apply employment status for "+todo.length+" employee(s)?\n\n"+lines.join("\n")+"\n\nThis can be adjusted anytime afterward via Edit Employee.")) return;
+      todo.forEach(function(n){
+        var want=EMPLOYMENT_STATUS_FIXES_2026[n];
+        var info=window.MEMBER_INFO[n]||{};
+        var updates;
+        if(want.consultant){
+          updates={employmentType:"consultant"};
+        } else {
+          updates={
+            probationStatus:"on_probation",
+            // Prefer an existing probationStartDate (already tracked, don't
+            // second-guess it), else their actual joining date, else fall
+            // back to today with a clear note above that it needs a real
+            // date filled in.
+            probationStartDate: info.probationStartDate || info.joinDate || calTodayIST(),
+            probationMonths: info.probationMonths || 3
+          };
+        }
+        window.MEMBER_INFO[n]=Object.assign({}, info, updates);
+        // This script block doesn't have _db in scope (see
+        // confirmProbationCompletion right below, same pattern) — write via
+        // firebase.database() directly, gated on _perfReady same as that.
+        if(_perfReady){ try{ firebase.database().ref("members/"+fbMemberKey(n)).update(updates); }catch(e){} }
+      });
+      if(typeof renderAdminDirectory==="function") renderAdminDirectory();
+      perfRerender();
+      alert("Applied employment status for "+todo.length+" employee(s).");
+    };
+    function renderEmploymentStatusFixNotice(){
+      if(currentUser!=="Gokul") return "";
+      var due=employmentStatusFixesDue();
+      if(!due.length) return "";
+      return '<div class="att-board">'+
+        '<div class="bh">&#128203; Employment Status Setup <span class="tag">one-time</span></div>'+
+        '<div style="font-size:11.5px;color:var(--muted);padding:6px 0 10px;line-height:1.5">'+due.length+' employee(s) need their Employment Status set for the first time — '+due.join(', ')+'.</div>'+
+        '<button onclick="window.applyEmploymentStatusFixes2026()" style="background:rgba(120,180,255,.15);border:1px solid rgba(120,180,255,.35);color:#78b4ff;padding:6px 14px;border-radius:8px;font-size:11.5px;cursor:pointer;font-weight:600;font-family:var(--font)">Apply Employment Status</button>'+
+      '</div>';
+    }
     // Gokul-only — every leave request that's ever come in, one row per
     // request, newest applied first. Lives on the Admin panel (moved off
     // Overview at Gokul's request), collapsed in an accordion so it's out
@@ -23057,7 +23227,7 @@ ${brandLines}`;
         if(n==="Gokul") return;
         var info=window.MEMBER_INFO[n];
         if(!info || info.probationStatus!=="on_probation" || !info.probationStartDate) return;
-        var end=window.probationEndDate(info.probationStartDate);
+        var end=window.probationEndDate(info.probationStartDate, info.probationMonths);
         var d=new Date(end+"T00:00:00"); d.setDate(d.getDate()-7);
         var noticeFrom=isoOfDate(d);
         if(TODAY>=noticeFrom) out.push({name:n, end:end});

@@ -91,6 +91,10 @@
 
 const crypto = require('crypto');
 
+// Matches index.html's own normName() exactly — see the duplicate-merge
+// comment below for why.
+function normName(v) { return String(v || '').trim().toLowerCase(); }
+
 const FB = (process.env.FIREBASE_DB_URL || 'https://loona-hub-c85d7-default-rtdb.firebaseio.com').replace(/\/+$/, '');
 const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 const YEARLY_TAB = 'Yearly Summary';
@@ -427,13 +431,22 @@ async function runSync() {
   // Same field-by-field duplicate merge as employee-sheet-sync.js — last
   // non-empty value in Firebase key order wins, matching index.html's own
   // 'members' listener precedence, so this sheet agrees with the profile.
+  // Grouped by normName (case/whitespace-insensitive, matching the live
+  // dashboard's own scanAndMergeDuplicateMembers() tool), not exact name —
+  // otherwise a duplicate that only differs by casing (the real "test"/
+  // "Test" case seen live) would still show as two people here even after
+  // that cleanup tool has been run.
   const allKeys = Object.keys(members).filter(k => members[k] && members[k].name);
-  const mergedByName = {};
+  const byNorm = {};
   allKeys.forEach(k => {
-    const m = members[k];
-    const merged = mergedByName[m.name] || {};
-    Object.keys(m).forEach(f => { if (m[f] !== null && m[f] !== undefined && m[f] !== '') merged[f] = m[f]; });
-    mergedByName[m.name] = merged;
+    const norm = normName(members[k].name);
+    (byNorm[norm] = byNorm[norm] || []).push(members[k]);
+  });
+  const mergedByName = {};
+  Object.keys(byNorm).forEach(norm => {
+    const merged = {};
+    byNorm[norm].forEach(m => { Object.keys(m).forEach(f => { if (m[f] !== null && m[f] !== undefined && m[f] !== '') merged[f] = m[f]; }); });
+    mergedByName[merged.name] = merged;
   });
   const names = Object.keys(mergedByName).filter(n => !EXCLUDED_FROM_ATTENDANCE.includes(n));
   names.sort((a, b) => {
