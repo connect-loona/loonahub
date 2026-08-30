@@ -14,14 +14,14 @@
 //   - One tab PER MONTH (e.g. "August 2026"):
 //       "MONTHLY PAYROLL SUMMARY" — one row per employee, aggregate counts
 //       for the month plus fines/deductions.
-//       "DETAILED MONTHLY ATTENDANCE" — one 15-row block per employee,
-//       dates running across the columns: Punch In/Out, Total Work Hours,
-//       Breaks, Late (a plain yellow flag, no text) / Late By / Short
-//       Hours, Late Fee / Late Forgiven / Other Fine / Total Fine, Leave
-//       (a plain red flag naming the leave type) / Leave Type (Paid or
-//       Unpaid) / Approved By, Remarks. Required Hours isn't its own row —
-//       it's a fixed policy value, the same for every employee every day,
-//       so it's stated once in the subtitle banner instead.
+//       "DETAILED MONTHLY ATTENDANCE" — one 16-row block per employee,
+//       dates running across the columns: Status, Punch In/Out, Total Work
+//       Hours, Breaks, Late (a plain yellow flag, no text) / Late By /
+//       Short Hours, Late Fee / Late Forgiven / Other Fine / Total Fine,
+//       Leave (a plain red flag naming the leave type) / Leave Type (Paid
+//       or Unpaid) / Approved By, Remarks. Required Hours isn't its own
+//       row — it's a fixed policy value, the same for every employee every
+//       day, so it's stated once in the subtitle banner instead.
 //   - "Yearly Summary" tab: one row per employee, JAN-DEC grouped
 //     horizontally (Leave Taken/Unpaid Leave/Late Days/fines/deduction per
 //     month), plus a Year Totals block and current leave balance.
@@ -114,7 +114,15 @@ const PALETTE = {
   // Deliberately brighter than the rest of the dark palette — these two
   // rows are meant to jump out as payroll-relevant flags at a glance,
   // unlike the subtler all-day status shading elsewhere.
-  lateFlagBg: '#E8B93B', leaveFlagBg: '#B33A3A'
+  lateFlagBg: '#E8B93B', leaveFlagBg: '#B33A3A',
+  status: {
+    present: '#20352A', late: '#20352A', wfh: '#1E293B', leave: '#36251A', weekoff: '#1B1B1F',
+    // Not directly demonstrated in the reference file (its sample data
+    // happened not to include these) — extended consistently from the same
+    // dark palette family. Worth a look once live and worth tweaking on
+    // feedback if they don't read well next to the others.
+    half: '#332A18', absent: '#3A1F1F', holiday: '#241B36'
+  }
 };
 
 function hexToRgb(hex) {
@@ -281,6 +289,7 @@ function earnedLeaveAsOf(joinDate, dateStr) {
   return Math.min(TOTAL_LEAVE, Math.round(fullMonthsElapsed(effStart, asOf) * (TOTAL_LEAVE / 12) * 100) / 100);
 }
 
+const STATUS_LABEL = { holiday: 'Holiday', weekoff: 'WO', absent: 'Absent', late: 'P', half: 'Half', present: 'P', leave: 'Leave', wfh: 'Work From Home' };
 const PROBATION_LABEL = { on_probation: 'On Probation', confirmed: 'Confirmed' };
 
 async function runSync() {
@@ -532,12 +541,14 @@ async function runSync() {
   // single column of every single employee's block. Short Hours still
   // computes off it internally, just doesn't show it as its own row.
   const DETAIL_ROWS = [
-    'Punch In', 'Punch Out', 'Total Work Hours', 'Breaks', 'Late', 'Late By', 'Short Hours',
+    'Status', 'Punch In', 'Punch Out', 'Total Work Hours', 'Breaks', 'Late', 'Late By', 'Short Hours',
     'Late Fee', 'Late Forgiven', 'Other Fine', 'Total Fine', 'Leave', 'Leave Type', 'Approved By', 'Remarks'
   ];
-  // Row-group background per detail row ('Late'/'Leave' are special-cased
-  // per-day flags, handled separately); amber font for the fine rows.
+  // Row-group background per detail row ('Status' is per-status colored,
+  // 'Late'/'Leave' are per-day flags — all three special-cased separately);
+  // amber font for the fine rows.
   const ROW_STYLE = {
+    'Status': { bg: null, bold: true },
     'Punch In': { bg: PALETTE.group1Bg }, 'Punch Out': { bg: PALETTE.group1Bg },
     'Total Work Hours': { bg: PALETTE.group1Bg }, 'Breaks': { bg: PALETTE.group1Bg },
     'Late': { bg: null }, // per-day flag color, handled specially
@@ -655,6 +666,9 @@ async function runSync() {
   function detailCellFor(rowLabel, d, style, unpaidDates) {
     if (d.outsideEmployment) return C('—', { bg: PALETTE.noDataBg, size: 8 });
     const status = d.status;
+    if (rowLabel === 'Status') {
+      return C(STATUS_LABEL[status] || status, { bg: PALETTE.status[status] || PALETTE.group1Bg, bold: true, size: 8 });
+    }
     const isWorkDay = status !== 'weekoff' && status !== 'holiday';
     const hasPunch = !!(d.rec && d.rec.i != null);
     const na = () => C('—', { bg: PALETTE.noDataBg, size: 8 });
