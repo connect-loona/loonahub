@@ -22,7 +22,8 @@
 //       or Unpaid) / Approved By, Remarks. Required Hours isn't its own
 //       row — it's a fixed policy value, the same for every employee every
 //       day, so it's stated once in the subtitle banner instead.
-//   - "Yearly Summary" tab: one row per employee, JAN-DEC grouped
+//   - "Yearly Summary" tab: one row per employee, APR-MAR (financial year,
+//     matching every other FY-scoped figure in this file) grouped
 //     horizontally (Leave Taken/Unpaid Leave/Late Days/fines/deduction per
 //     month), plus a Year Totals block and current leave balance.
 //
@@ -35,12 +36,20 @@
 // request) — see unpaidDateSetFor() below.
 //
 // Known, deliberate gaps (no real data to back these yet — shown as "—"
-// rather than a fabricated value): Remarks (no free-text tracked per day),
-// and any non-late ("Other") fine (Half Day/short-hours fine attribution
-// isn't attributed per-day yet). The Unpaid Leave DEDUCTION (₹) is left at
-// 0 rather than a guess — no per-employee wage/salary is tracked anywhere
-// in Loona Hub, so an actual rupee amount can't be computed, only the day
-// count. Flag to Gokul if either turns out to matter enough to port.
+// rather than a fabricated value): Remarks (no free-text tracked per day).
+// The Unpaid Leave DEDUCTION (₹) is left at 0 rather than a guess — no
+// per-employee wage/salary is tracked anywhere in Loona Hub, so an actual
+// rupee amount can't be computed, only the day count. Flag to Gokul if
+// either turns out to matter enough to port.
+//
+// "Other Fine" (Half Day + short-hours-absence fines) IS fully attributed
+// per-day — ported from index.html's halfDayFine()/shortAbsentFine(), each
+// with its own independent LATE_FREE_DAYS allowance and forgive toggle
+// (loona_half_forgiven/loona_short_forgiven), same block-fee math as late
+// fines. "Leave Balance"/"Leave Left" mirrors the dashboard's Monthly
+// Overview cell exactly (see formalApprovedLeaveCount()) — an all-time,
+// formal-leave-request-only count, deliberately NOT the per-month/
+// manual-inclusive s.leaveTaken used for the "Leave Taken" column.
 //
 // Full rewrite of every tab's data range each run (same reasoning as
 // employee-sheet-sync.js) — a forgiven late day retroactively clearing a
@@ -205,17 +214,31 @@ async function sheetsRequest(path, accessToken, init) {
 // of wantedTitles that's missing (batched into ONE addSheet call). Needed
 // because updateCells requests address a tab by its numeric sheetId, not
 // its title.
+// Also deletes any tab that ISN'T one of wantedTitles — this spreadsheet is
+// dedicated solely to this sync (Yearly Summary + one tab per month), so
+// anything else sitting in it is leftover cruft: the default "Sheet1" every
+// brand-new spreadsheet starts with, or a stray tab from an earlier version
+// of this script (before it moved to the fully formatted updateCells
+// layout) that never got cleaned up. Adds and deletes happen in the SAME
+// batchUpdate call so a spreadsheet that currently has only that one
+// leftover tab never hits Google's "a spreadsheet must have at least one
+// sheet" error along the way.
 async function ensureTabsExist(sheetId, accessToken, wantedTitles) {
   const meta = await sheetsRequest(`${sheetId}?fields=sheets.properties.title,sheets.properties.sheetId`, accessToken);
   const byTitle = {};
   (meta.sheets || []).forEach(s => { byTitle[s.properties.title] = s.properties.sheetId; });
+  const wantedSet = new Set(wantedTitles);
   const missing = wantedTitles.filter(t => !(t in byTitle));
-  if (missing.length) {
-    const res = await sheetsRequest(`${sheetId}:batchUpdate`, accessToken, {
-      method: 'POST',
-      body: JSON.stringify({ requests: missing.map(title => ({ addSheet: { properties: { title } } })) })
-    });
+  const staleTitles = Object.keys(byTitle).filter(t => !wantedSet.has(t));
+  const requests = [
+    ...missing.map(title => ({ addSheet: { properties: { title } } })),
+    ...staleTitles.map(title => ({ deleteSheet: { sheetId: byTitle[title] } }))
+  ];
+  if (requests.length) {
+    const res = await sheetsRequest(`${sheetId}:batchUpdate`, accessToken, { method: 'POST', body: JSON.stringify({ requests }) });
     (res.replies || []).forEach(r => { if (r.addSheet) byTitle[r.addSheet.properties.title] = r.addSheet.properties.sheetId; });
+    staleTitles.forEach(t => { delete byTitle[t]; });
+    if (staleTitles.length) console.log('attendance-sheet-sync: removed stale tab(s):', JSON.stringify(staleTitles));
   }
   return byTitle;
 }
@@ -303,8 +326,8 @@ async function runSync() {
   if (!sheetId) throw new Error('GOOGLE_ATTENDANCE_SHEET_ID not set');
   console.log('attendance-sheet-sync: using sheetId =', JSON.stringify(sheetId));
 
-  const [membersRaw, inactiveRaw, attendanceRaw, excusedRaw, holidaysRaw, lateFgvRaw, leaveReqRaw] = await Promise.all([
-    fbGet('members'), fbGet('inactive_members'), fbGet('loona_attendance'), fbGet('loona_excused'), fbGet('loona_holidays'), fbGet('loona_late_forgiven'), fbGet('leave_requests')
+  const [membersRaw, inactiveRaw, attendanceRaw, excusedRaw, holidaysRaw, lateFgvRaw, halfFgvRaw, shortFgvRaw, leaveReqRaw] = await Promise.all([
+    fbGet('members'), fbGet('inactive_members'), fbGet('loona_attendance'), fbGet('loona_excused'), fbGet('loona_holidays'), fbGet('loona_late_forgiven'), fbGet('loona_half_forgiven'), fbGet('loona_short_forgiven'), fbGet('leave_requests')
   ]);
   console.log('attendance-sheet-sync: fetched', Object.keys(membersRaw || {}).length, 'members,',
     Object.keys(attendanceRaw || {}).length, 'dates of raw attendance data');
@@ -315,6 +338,8 @@ async function runSync() {
   const isHolidayFn = isHolidayFactory(liveHolidays);
   const excused = excusedRaw || {}; // { name: { date: true } }
   const lateFgv = lateFgvRaw || {}; // { name: { date: true } }
+  const halfFgv = halfFgvRaw || {}; // { name: { date: true } }
+  const shortFgv = shortFgvRaw || {}; // { name: { date: true } }
   const leaveRequests = Object.values(leaveReqRaw || {}).filter(r => r && r.member);
 
   // /loona_attendance is keyed by date -> employeeCode -> {n,i,o,w,b}. Flip
@@ -401,6 +426,19 @@ async function runSync() {
     });
   });
   const LEAVE_TYPE_LABEL = { standard: 'Standard Leave', sick: 'Sick Leave', wfh: 'WFH', other: 'Other' };
+  // "Leave Balance" (both the per-month tabs and Yearly Summary) mirrors the
+  // dashboard's own Monthly Overview "Leave Left" cell exactly — ported from
+  // its earned-earned-apprYear math, where apprYear=formalApprovedLeaves(n)
+  // there is a plain ALL-TIME count of every approved, non-WFH leave
+  // request's charge dates (no FY or month bound at all, same value no
+  // matter which month you're looking at). Deliberately NOT the per-month
+  // s.leaveTaken figure used elsewhere on this sheet (which also counts
+  // manually-approved/no-request excusals) — that mismatch was exactly why
+  // Gokul saw completely different balances on the sheet vs. the dashboard.
+  function formalApprovedLeaveCount(name) {
+    const d = formalLeaveByNameDate[name] || {};
+    return Object.keys(d).filter(ds => d[ds] !== 'wfh').length;
+  }
 
   // Paid vs Unpaid — ported from index.html's unpaidLeaveDatesForFY(): walk
   // every excused day in financial-year order (Apr-Mar), spending the
@@ -477,6 +515,8 @@ async function runSync() {
       const endDate = effectiveEndDateFor(name);
       const days = [];
       const empLateDates = [];
+      const empHalfDates = [];
+      const empShortDates = [];
       daysInMonth(mo).forEach(ds => {
         if (joinDate && ds < joinDate) { days.push({ ds, outsideEmployment: true }); return; }
         if (endDate && ds > endDate) { days.push({ ds, outsideEmployment: true }); return; }
@@ -484,6 +524,17 @@ async function runSync() {
         const isExcused = !!(excused[name] && excused[name][ds]);
         const info = computeDayStatus(rec, ds, isHolidayFn, isExcused);
         if (info.status === 'late') empLateDates.push(ds);
+        // Half days and hours-shortfall absences (punched in but under half
+        // the required hours) are fined like late arrivals instead of
+        // touching the leave balance — ported from index.html's own
+        // isShortAbsentDay()/monthHalfDates(): same ₹/block rule as late
+        // fines, but each with its own independent free-days allowance and
+        // forgive toggle, keyed off the RAW status (before the WFH display
+        // override below) — the dashboard never exempts a WFH day from
+        // these either.
+        if (info.status === 'half') empHalfDates.push(ds);
+        const isShortAbsent = info.status === 'absent' && !!rec && rec.i != null;
+        if (isShortAbsent) empShortDates.push(ds);
         const formalType = (formalLeaveByNameDate[name] || {})[ds];
         // computeDayStatus() only knows "excused or not" — a WFH day is
         // recorded as an ordinary excusal too (approving a WFH leave
@@ -500,13 +551,22 @@ async function runSync() {
         // display override above — someone who worked from home late is
         // still late for fine/forgiveness purposes, even though the
         // Status column shows "Work From Home" rather than "P".
-        days.push({ ds, rec, status, isLate: info.status === 'late', formalType });
+        days.push({ ds, rec, status, isLate: info.status === 'late', isHalf: info.status === 'half', isShortAbsent, formalType });
       });
       const forgiven = new Set(Object.keys((lateFgv[name] || {})).filter(d => lateFgv[name][d]));
       const fineByDate = attributeLateFines(empLateDates.filter(d => !forgiven.has(d)));
-      days.forEach(d => { d.lateFine = fineByDate[d.ds] || 0; d.lateForgiven = d.isLate && forgiven.has(d.ds); });
+      const halfForgiven = new Set(Object.keys((halfFgv[name] || {})).filter(d => halfFgv[name][d]));
+      const halfFineByDate = attributeLateFines(empHalfDates.filter(d => !halfForgiven.has(d)));
+      const shortForgiven = new Set(Object.keys((shortFgv[name] || {})).filter(d => shortFgv[name][d]));
+      const shortFineByDate = attributeLateFines(empShortDates.filter(d => !shortForgiven.has(d)));
+      days.forEach(d => {
+        d.lateFine = fineByDate[d.ds] || 0; d.lateForgiven = d.isLate && forgiven.has(d.ds);
+        d.halfFine = halfFineByDate[d.ds] || 0; d.halfForgiven = d.isHalf && halfForgiven.has(d.ds);
+        d.shortFine = shortFineByDate[d.ds] || 0; d.shortForgiven = d.isShortAbsent && shortForgiven.has(d.ds);
+        d.otherFine = d.halfFine + d.shortFine;
+      });
 
-      const s = { present: 0, half: 0, wfh: 0, standard: 0, sick: 0, other: 0, absent: 0, late: 0, forgivenLate: 0, lateFine: 0, workedMin: 0, leaveTaken: 0 };
+      const s = { present: 0, half: 0, wfh: 0, standard: 0, sick: 0, other: 0, absent: 0, late: 0, forgivenLate: 0, lateFine: 0, otherFine: 0, workedMin: 0, leaveTaken: 0 };
       days.forEach(d => {
         if (d.outsideEmployment) return;
         if (d.status === 'wfh') s.wfh++;
@@ -519,6 +579,7 @@ async function runSync() {
           if (t === 'standard') s.standard++; else if (t === 'sick') s.sick++; else s.other++;
         }
         if (d.isLate) { s.late++; if (d.lateForgiven) s.forgivenLate++; s.lateFine += d.lateFine; }
+        s.otherFine += d.otherFine || 0;
         if (d.rec && d.rec.w) s.workedMin += d.rec.w;
       });
       perName[name] = { days, summary: s };
@@ -585,7 +646,7 @@ async function runSync() {
       const s = perName[name].summary;
       const workingDays = dates.filter(ds => (!m.joinDate || ds >= m.joinDate) && (!endDate || ds <= endDate) && !isSun(ds) && !isHolidayFn(ds)).length;
       const unpaidCount = Array.from(unpaidDateSetFor(name)).filter(ds => ds.slice(0, 7) === mo).length;
-      const otherFine = 0; // not yet attributed per-day — see file header note
+      const otherFine = s.otherFine; // half-day + short-hours-absence fines, attributed per-day above
       const totalFine = s.lateFine + otherFine;
       // No per-employee wage/salary is tracked anywhere in Loona Hub, so an
       // actual rupee deduction for unpaid days can't be computed — only
@@ -593,7 +654,10 @@ async function runSync() {
       const unpaidLeaveDeduction = 0;
       const totalDeduction = totalFine + unpaidLeaveDeduction;
       const asOfDate = endDate && endDate < dates[dates.length - 1] ? endDate : dates[dates.length - 1];
-      const leaveLeft = Math.round((earnedLeaveAsOf(m.joinDate, asOfDate) - s.leaveTaken) * 100) / 100;
+      // Matches the dashboard's own Monthly Overview "Leave Left" exactly —
+      // see formalApprovedLeaveCount() above for why this is an all-time,
+      // formal-only count rather than this month's s.leaveTaken.
+      const leaveLeft = Math.round((earnedLeaveAsOf(m.joinDate, asOfDate) - formalApprovedLeaveCount(name)) * 100) / 100;
       const row = [
         C(m.name, { bg: PALETTE.identityBg, bold: true, size: 9, align: 'LEFT' }),
         C(m.employeeId || '—', { bg: PALETTE.identityBg, size: 9, align: 'LEFT' }),
@@ -690,8 +754,10 @@ async function runSync() {
       case 'Short Hours': { if (!isWorkDay) return na(); const short = reqMinFor(d.ds) - (d.rec ? (d.rec.w || 0) : 0); return short > 0 ? C(minToHM(short), { bg: style.bg, size: 8 }) : na(); }
       case 'Late Fee': return d.isLate ? C(rupee(d.lateFine), { bg: style.bg, size: 8 }) : na();
       case 'Late Forgiven': return d.isLate ? C(d.lateForgiven ? 'Yes' : 'No', { bg: style.bg, size: 8 }) : na();
-      case 'Other Fine': return isWorkDay ? C(rupee(0), { bg: style.bg, size: 8 }) : na(); // not attributed per-day yet
-      case 'Total Fine': return isWorkDay ? C(rupee(d.isLate ? d.lateFine : 0), { bg: style.bg, size: 8 }) : na();
+      // Half-day and short-hours-absence fines — same ₹/block rule as Late
+      // Fee, priced independently (their own free-days allowance each).
+      case 'Other Fine': return (d.isHalf || d.isShortAbsent) ? C(rupee(d.otherFine), { bg: style.bg, size: 8 }) : na();
+      case 'Total Fine': return isWorkDay ? C(rupee((d.isLate ? d.lateFine : 0) + (d.otherFine || 0)), { bg: style.bg, size: 8 }) : na();
       // Red flag with the leave type written directly in the cell — covers
       // WFH too (WFH is approved through the same leave_requests flow).
       case 'Leave': return isApprovedDay ? C(LEAVE_TYPE_LABEL[d.formalType] || 'Other', { bg: PALETTE.leaveFlagBg, size: 8 }) : blank(PALETTE.noDataBg);
@@ -707,18 +773,28 @@ async function runSync() {
   }
 
   // ============================================================
-  // "Yearly Summary" tab
+  // "Yearly Summary" tab — ordered as a financial year (Apr-Mar), matching
+  // every other FY-scoped figure in this file (earnedLeaveAsOf/leave
+  // balance) instead of a plain calendar year. fyStartYear is whichever
+  // April this "now" falls after — e.g. any date from Apr 2026 through
+  // Mar 2027 belongs to FY starting 2026.
   // ============================================================
-  const MONTH_ABBR = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-  const yearNow = new Date(Date.now() + 5.5 * 3600 * 1000).getFullYear();
-  const monthKeysOfYear = MONTH_ABBR.map((_, i) => yearNow + '-' + String(i + 1).padStart(2, '0'));
+  const MONTH_ABBR = ['APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC', 'JAN', 'FEB', 'MAR'];
+  const nowIST = new Date(Date.now() + 5.5 * 3600 * 1000);
+  const fyStartYear = nowIST.getMonth() >= 3 ? nowIST.getFullYear() : nowIST.getFullYear() - 1;
+  const fyLabel = 'FY ' + fyStartYear + '-' + String((fyStartYear + 1) % 100).padStart(2, '0');
+  const monthKeysOfYear = MONTH_ABBR.map((_, i) => {
+    const y = fyStartYear + (i < 9 ? 0 : 1);
+    const m = ((i + 3) % 12) + 1;
+    return y + '-' + String(m).padStart(2, '0');
+  });
   const monthDataCache = {};
   months.forEach(mo => { monthDataCache[mo] = computeMonth(mo); });
 
   const yearlyW = 3 + 12 * 7 + 8;
   const yGrid = [];
   yGrid.push(bannerRow('LOONA · YEARLY ATTENDANCE & PAYROLL SUMMARY', PALETTE.pageBg, yearlyW, { fg: PALETTE.titleFg, size: 17, bold: true }));
-  yGrid.push(bannerRow(yearNow + ' · Auto-synced from Loona Hub', PALETTE.pageBg, yearlyW, { fg: PALETTE.subtitleFg, size: 10 }));
+  yGrid.push(bannerRow(fyLabel + ' · Auto-synced from Loona Hub', PALETTE.pageBg, yearlyW, { fg: PALETTE.subtitleFg, size: 10 }));
   yGrid.push(blankRow(yearlyW, PALETTE.pageBg));
 
   const yHeader1 = [
@@ -748,33 +824,39 @@ async function runSync() {
       C(m.employeeId || '—', { bg: PALETTE.identityBg, size: 9, align: 'LEFT' }),
       C(m.department || '—', { bg: PALETTE.identityBg, size: 9, align: 'LEFT' })
     ];
-    let totalLeave = 0, totalLate = 0, totalLateFine = 0;
+    let totalLeave = 0, totalLate = 0, totalLateFine = 0, totalOtherFine = 0;
     monthKeysOfYear.forEach(mo => {
       const perName = monthDataCache[mo];
       const s = perName && perName[name] && perName[name].summary;
       if (!s || !monthOverlapsEmployment(name, mo)) { for (let i = 0; i < 6; i++) row.push(C('—', { bg: PALETTE.countsBg, size: 9 })); row.push(C('—', { bg: PALETTE.moneyBg, size: 9 })); return; }
-      totalLeave += s.leaveTaken; totalLate += s.late; totalLateFine += s.lateFine;
+      const moTotalFine = s.lateFine + s.otherFine;
+      totalLeave += s.leaveTaken; totalLate += s.late; totalLateFine += s.lateFine; totalOtherFine += s.otherFine;
       row.push(C(s.leaveTaken, { bg: PALETTE.countsBg, size: 9 }));
       row.push(C(0, { bg: PALETTE.countsBg, size: 9 })); // Unpaid Leave — see file header note
       row.push(C(s.late, { bg: PALETTE.countsBg, size: 9 }));
       row.push(C(s.lateFine, { bg: PALETTE.countsBg, size: 9, numberFormat: { type: 'CURRENCY', pattern: '₹#,##0' } }));
-      row.push(C(0, { bg: PALETTE.countsBg, size: 9, numberFormat: { type: 'CURRENCY', pattern: '₹#,##0' } })); // Other Fine — see note
-      row.push(C(s.lateFine, { bg: PALETTE.countsBg, size: 9, numberFormat: { type: 'CURRENCY', pattern: '₹#,##0' } }));
-      row.push(C(s.lateFine, { bg: PALETTE.moneyBg, size: 9, numberFormat: { type: 'CURRENCY', pattern: '₹#,##0' } }));
+      row.push(C(s.otherFine, { bg: PALETTE.countsBg, size: 9, numberFormat: { type: 'CURRENCY', pattern: '₹#,##0' } }));
+      row.push(C(moTotalFine, { bg: PALETTE.countsBg, size: 9, numberFormat: { type: 'CURRENCY', pattern: '₹#,##0' } }));
+      row.push(C(moTotalFine, { bg: PALETTE.moneyBg, size: 9, numberFormat: { type: 'CURRENCY', pattern: '₹#,##0' } }));
     });
     // Someone who's left shouldn't keep accruing leave past their own last
     // working day just because other, still-active people have later data.
-    const latestDataDate = months.length ? daysInMonth(months[months.length - 1]).slice(-1)[0] : (yearNow + '-12-31');
+    const latestDataDate = months.length ? daysInMonth(months[months.length - 1]).slice(-1)[0] : ((fyStartYear + 1) + '-03-31');
     const personEndDate = effectiveEndDateFor(name);
     const asOfDate = personEndDate && personEndDate < latestDataDate ? personEndDate : latestDataDate;
-    const leaveBalance = Math.round((earnedLeaveAsOf(m.joinDate, asOfDate) - totalLeave) * 100) / 100;
+    // Matches the dashboard's Monthly Overview "Leave Left" exactly — see
+    // formalApprovedLeaveCount() above (all-time, formal-leave-only count,
+    // not the totalLeave running total just above, which also includes
+    // manually-approved/no-request excusals).
+    const leaveBalance = Math.round((earnedLeaveAsOf(m.joinDate, asOfDate) - formalApprovedLeaveCount(name)) * 100) / 100;
+    const totalFineAll = totalLateFine + totalOtherFine;
     row.push(C(totalLeave, { bg: PALETTE.moneyBg, bold: true, size: 9 }));
     row.push(C(0, { bg: PALETTE.moneyBg, bold: true, size: 9 })); // Total Unpaid Leave — see note
     row.push(C(totalLate, { bg: PALETTE.moneyBg, bold: true, size: 9 }));
     row.push(C(totalLateFine, { bg: PALETTE.moneyBg, bold: true, size: 9, numberFormat: { type: 'CURRENCY', pattern: '₹#,##0' } }));
-    row.push(C(0, { bg: PALETTE.moneyBg, bold: true, size: 9, numberFormat: { type: 'CURRENCY', pattern: '₹#,##0' } })); // Total Other Fine — see note
-    row.push(C(totalLateFine, { bg: PALETTE.moneyBg, bold: true, size: 9, numberFormat: { type: 'CURRENCY', pattern: '₹#,##0' } }));
-    row.push(C(totalLateFine, { bg: PALETTE.moneyBg, fg: PALETTE.orange, bold: true, size: 9, numberFormat: { type: 'CURRENCY', pattern: '₹#,##0' } }));
+    row.push(C(totalOtherFine, { bg: PALETTE.moneyBg, bold: true, size: 9, numberFormat: { type: 'CURRENCY', pattern: '₹#,##0' } }));
+    row.push(C(totalFineAll, { bg: PALETTE.moneyBg, bold: true, size: 9, numberFormat: { type: 'CURRENCY', pattern: '₹#,##0' } }));
+    row.push(C(totalFineAll, { bg: PALETTE.moneyBg, fg: PALETTE.orange, bold: true, size: 9, numberFormat: { type: 'CURRENCY', pattern: '₹#,##0' } }));
     row.push(C(leaveBalance, { bg: PALETTE.moneyBg, fg: PALETTE.amberFg, bold: true, size: 9 }));
     yGrid.push(row);
   });

@@ -13360,6 +13360,7 @@
           <div class="member-stat-row"><span class="k">Department</span><span>${info.department || '—'}</span></div>
           <div class="member-stat-row"><span class="k">Role / Title</span><span>${info.role || '—'}</span></div>
           <div class="member-stat-row"><span class="k">Joining Date</span><span>${info.joinDate ? fmtDate(info.joinDate) : '—'}</span></div>
+          ${INACTIVE_MEMBERS.has(name) ? `<div class="member-stat-row"><span class="k">Last Working Day</span><span>${info.lastWorkingDay ? fmtDate(info.lastWorkingDay) : '— (auto-detected from last punch, if any — set it below via ✎ Edit Details)'}</span></div>` : ''}
 
           <div class="admin-detail-section-title">🔒 Financial &amp; ID <span class="admin-detail-section-note">visible only to Gokul</span></div>
           <div class="member-stat-row"><span class="k">PAN Number</span><span>${sensitive.pan || '—'}</span></div>
@@ -14996,13 +14997,32 @@
     }
 
     function removeMember(name) {
-      if (!confirm(`Move "${name}" to past employees? They'll be removed from active workflows.`)) return;
+      // Asking for their last working day right here — rather than leaving
+      // it to be set later via ✎ Edit Details — is what actually gets it
+      // into the record: attendance-sheet-sync.js falls back to
+      // auto-detecting it from their last real punch when this is blank,
+      // but that fails entirely for anyone with little/no punch history,
+      // which is exactly how Arya/Navya/Diya ended up still showing in
+      // months after they'd actually left. Defaults to today; clear the
+      // field to skip and rely on auto-detection instead.
+      const today = new Date().toISOString().slice(0, 10);
+      const lastDayRaw = prompt(`Move "${name}" to past employees? They'll be removed from active workflows.\n\nLast working day (YYYY-MM-DD) — clear this to skip and auto-detect from their last punch instead:`, today);
+      if (lastDayRaw === null) return; // cancelled
+      const lastDay = lastDayRaw.trim();
+      if (lastDay && !/^\d{4}-\d{2}-\d{2}$/.test(lastDay)) { alert('Please enter the date as YYYY-MM-DD, or clear the field to skip it.'); return; }
       INACTIVE_MEMBERS.add(name);
       localStorage.setItem('loona_inactive_members', JSON.stringify([...INACTIVE_MEMBERS]));
       // Per-key write, not a whole-array .set() — so someone else toggling a
       // DIFFERENT member's active/inactive status at the same time can't clobber
       // this change (or vice versa).
-      if (_db) _db.ref('inactive_members/' + fbMemberKey(name)).set(name);
+      if (_db) {
+        _db.ref('inactive_members/' + fbMemberKey(name)).set(name);
+        // Always write (never skip when blank) — a re-removal (restored,
+        // then removed again) with the field cleared should actually clear
+        // a stale date from a previous cycle, not silently leave it in place.
+        _db.ref('members/' + fbMemberKey(name) + '/lastWorkingDay').set(lastDay || null);
+      }
+      MEMBER_INFO[name] = Object.assign({}, MEMBER_INFO[name], { lastWorkingDay: lastDay || null });
       // Update TASKS locally right away rather than waiting on the
       // Firebase round-trip back through the 'inactive_members' listener —
       // this is what actually pulls their tasks out of the overdue/
