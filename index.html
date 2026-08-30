@@ -7247,6 +7247,10 @@
             .map(([k, v]) => ({ ...v, _key: k }))
             .sort((a, b) => new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0));
           if (currentUser === 'Gokul' && typeof window.renderAttendanceOverview === 'function') window.renderAttendanceOverview();
+          // Now lives in its own Admin panel accordion item (see
+          // renderAdminLeaveRecords()) — refresh that too, or a new claim's
+          // "pending" badge/rows would go stale until the tab is reopened.
+          if (typeof renderAdminLeaveRecords === 'function') renderAdminLeaveRecords();
         });
 
         _db.ref('meetingNotes').on('value', snap => {
@@ -20866,6 +20870,10 @@ ${brandLines}`;
           var v=snap.val()||{};
           HOLIDAYS=Object.keys(v).map(function(k){return {key:k,date:v[k].date,name:v[k].name};});
           cacheHol(); if(window.renderAttendanceOverview) window.renderAttendanceOverview();
+          // Now lives in its own Admin panel accordion item (see
+          // renderAdminLeaveRecords()) — refresh that too, or an add/remove
+          // from another tab would go stale until the Admin tab is reopened.
+          if(typeof renderAdminLeaveRecords==="function") renderAdminLeaveRecords();
         });
       });
     }
@@ -20878,14 +20886,14 @@ ${brandLines}`;
       var d=document.getElementById("hol-date"), n=document.getElementById("hol-name");
       if(!d||!d.value) return;
       var rec={date:d.value,name:(n&&n.value)||"Holiday"};
-      if(_holRef){ _holRef.push(rec); } else { rec.key="l"+Date.now(); HOLIDAYS.push(rec); cacheHol(); window.renderAttendanceOverview(); }
+      if(_holRef){ _holRef.push(rec); } else { rec.key="l"+Date.now(); HOLIDAYS.push(rec); cacheHol(); window.renderAttendanceOverview(); if(typeof renderAdminLeaveRecords==="function") renderAdminLeaveRecords(); }
       if(n) n.value="";
     };
     window.attRemoveHoliday=function(idx){
       var h=HOLIDAYS[idx]; if(!h) return;
       if(!confirm('Remove "'+(h.name||"this holiday")+'" ('+h.date+')? This cannot be undone.')) return;
       if(_holRef && h.key && h.key.charAt(0)!=="l"){ _holRef.child(h.key).remove(); }
-      else { HOLIDAYS.splice(idx,1); cacheHol(); window.renderAttendanceOverview(); }
+      else { HOLIDAYS.splice(idx,1); cacheHol(); window.renderAttendanceOverview(); if(typeof renderAdminLeaveRecords==="function") renderAdminLeaveRecords(); }
     };
 
     function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
@@ -21159,7 +21167,10 @@ ${brandLines}`;
       '</div>';
     }
 
-    function holidayManager(){
+    // hideHeader=true skips the inner ".bh" title bar — used when this is
+    // nested inside its own Admin panel accordion item, whose header
+    // already carries the title (see renderAdminLeaveRecords()).
+    function holidayManager(hideHeader){
       var official = OFFICIAL_HOLIDAYS.slice().sort(function(a,b){return a.date<b.date?-1:1;}).map(function(h){
         return '<div class="hol-item"><span class="hd">'+fmtDate(h.date)+'</span><span class="hn">'+esc(h.name)+'</span>'+
           '<span class="sub">Official</span></div>';
@@ -21171,7 +21182,7 @@ ${brandLines}`;
       }).join("");
       if(!list) list='<div class="hol-empty">No extra holidays added yet.</div>';
       return '<div class="att-holidays">'+
-        '<div class="bh">&#127881; Holiday Manager <span class="tag">Founder only</span></div>'+
+        (hideHeader?'':'<div class="bh">&#127881; Holiday Manager <span class="tag">Founder only</span></div>')+
         '<div class="hol-form"><input type="date" id="hol-date"><input type="text" id="hol-name" placeholder="Holiday name (e.g. Diwali)">'+
           '<button onclick="window.attAddHoliday()">Add Holiday</button></div>'+
         '<details class="hol-details"><summary>View holidays ('+OFFICIAL_HOLIDAYS.length+' official'+(HOLIDAYS.length?(' + '+HOLIDAYS.length+' extra'):'')+')</summary>'+
@@ -21222,15 +21233,15 @@ ${brandLines}`;
         '<div class="att-stats">'+stats.map(function(s){return '<div class="att-stat"><div class="n '+s[2]+'">'+s[1]+'</div><div class="l">'+s[0]+'</div></div>';}).join("")+'</div>'+
         '<div class="att-daily-grid">'+dailyCards+'</div>'+
       '</div>'+
-      reimbursementBoardHTML()+
-      perfBoardHTML()+
-      holidayManager();
+      perfBoardHTML();
     }
-    // Moved off the Overview page onto the Admin panel (below the "Leaves
-    // Taken" accordion — see renderAdminLeaveRecords()), per Gokul's
-    // request. Self-contained (recomputes teamNames/mo itself) since it's
-    // no longer built alongside founderBoard()'s other pieces.
-    function monthlyOverviewBoardHTML(){
+    // Moved off the Overview page onto the Admin panel (its own accordion
+    // item, alongside "Leaves Taken" — see renderAdminLeaveRecords()), per
+    // Gokul's request. Self-contained (recomputes teamNames/mo itself)
+    // since it's no longer built alongside founderBoard()'s other pieces.
+    // hideHeader=true skips the inner ".bh" title bar, since the accordion
+    // header already carries the title.
+    function monthlyOverviewBoardHTML(hideHeader){
       var names=Object.keys(ATT).filter(function(n){
         return (typeof ALL_MEMBERS==="undefined" || ALL_MEMBERS.indexOf(n)>=0) &&
                (typeof INACTIVE_MEMBERS==="undefined" || !INACTIVE_MEMBERS.has(n));
@@ -21270,7 +21281,7 @@ ${brandLines}`;
         '</tr>';
       }).join("");
       return '<div class="att-board">'+
-        '<div class="bh">&#128202; Monthly Overview <span class="tag">Founder only</span></div>'+
+        (hideHeader?'':'<div class="bh">&#128202; Monthly Overview <span class="tag">Founder only</span></div>')+
         '<div class="att-sync"><span>Month <input type="month" id="founder-mo" value="'+mo+'" max="'+curMonth()+'" onchange="window.attSetFounderMonth(this.value)"></span></div>'+
         '<div class="scroll"><table class="att-tbl wide" id="founder-monthly-tbl"><thead><tr>'+
           '<th>Employee</th><th>Attendance (mo)</th><th>Absent (mo)</th><th>Late (mo)</th><th>Fines (mo)</th><th>Leave Taken</th><th>Total Leave Taken (Year)</th><th>Leave Left</th><th>Unpaid Leave</th>'+
@@ -21286,7 +21297,12 @@ ${brandLines}`;
       (r.foodBills||[]).forEach(function(f){ if(f.receipt) n++; });
       return n;
     }
-    function reimbursementBoardHTML(){
+    function pendingReimbursementCount(){ return (window.REIMBURSEMENTS||[]).filter(function(r){ return r.status==="Pending"; }).length; }
+    // hideHeader=true skips the inner ".bh" title bar and its "N pending"
+    // badge — used when this is nested inside its own Admin panel
+    // accordion item, whose header already carries both (see
+    // renderAdminLeaveRecords()).
+    function reimbursementBoardHTML(hideHeader){
       var list=(window.REIMBURSEMENTS||[]);
       var pending=list.filter(function(r){ return r.status==="Pending"; });
       var rows=list.slice(0,40).map(function(r){
@@ -21300,7 +21316,7 @@ ${brandLines}`;
         '</tr>';
       }).join("");
       return '<div class="att-board">'+
-        '<div class="bh">&#129534; Monthly Reimbursements <span class="tag">Founder only</span>'+(pending.length?(' <span class="tag" style="background:var(--yellow);color:#1a1204">'+pending.length+' pending</span>'):'')+'</div>'+
+        (hideHeader?'':('<div class="bh">&#129534; Monthly Reimbursements <span class="tag">Founder only</span>'+(pending.length?(' <span class="tag" style="background:var(--yellow);color:#1a1204">'+pending.length+' pending</span>'):'')+'</div>'))+
         (list.length?('<div class="scroll"><table class="att-tbl wide"><thead><tr><th>Employee</th><th>Period</th><th>Amount</th><th>Receipts</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table></div>'):'<div class="note">No reimbursement claims submitted yet.</div>')+
       '</div>';
     }
@@ -22923,8 +22939,25 @@ ${brandLines}`;
               '</div>'+
             '</div>'+
           '</div>'+
-        '</div>'+
-        monthlyOverviewBoardHTML();
+          '<div class="lc-acc-item">'+
+            '<button class="lc-acc-head" onclick="toggleLcAccordion(this)">'+
+              '<span class="lc-acc-ic">&#128202;</span><span class="lc-acc-title">Monthly Overview</span><span class="lc-acc-toggle">+</span>'+
+            '</button>'+
+            '<div class="lc-acc-body" style="padding-left:18px">'+monthlyOverviewBoardHTML(true)+'</div>'+
+          '</div>'+
+          '<div class="lc-acc-item">'+
+            '<button class="lc-acc-head" onclick="toggleLcAccordion(this)">'+
+              '<span class="lc-acc-ic">&#129534;</span><span class="lc-acc-title">Monthly Reimbursements'+(pendingReimbursementCount()?(' <span class="tag" style="background:var(--yellow);color:#1a1204">'+pendingReimbursementCount()+' pending</span>'):'')+'</span><span class="lc-acc-toggle">+</span>'+
+            '</button>'+
+            '<div class="lc-acc-body" style="padding-left:18px">'+reimbursementBoardHTML(true)+'</div>'+
+          '</div>'+
+          '<div class="lc-acc-item">'+
+            '<button class="lc-acc-head" onclick="toggleLcAccordion(this)">'+
+              '<span class="lc-acc-ic">&#127881;</span><span class="lc-acc-title">Holiday Manager</span><span class="lc-acc-toggle">+</span>'+
+            '</button>'+
+            '<div class="lc-acc-body" style="padding-left:18px">'+holidayManager(true)+'</div>'+
+          '</div>'+
+        '</div>';
     }
     window.renderAdminLeaveRecords=renderAdminLeaveRecords; // called from openAdminTab() in the earlier script block
     // Scoped to the immediate .lv-subacc-group so opening/closing one of
