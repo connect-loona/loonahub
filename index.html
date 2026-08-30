@@ -7498,7 +7498,7 @@
             attachAvatarListener(m.name);
             attachFavoritesListener(m.name);
             const existing = MEMBER_INFO[m.name] || {};
-            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || null, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null, mobile: m.mobile || existing.mobile || null, gender: m.gender || existing.gender || null, personalEmail: m.personalEmail || existing.personalEmail || null, address: m.address || existing.address || null, lastName: m.lastName || existing.lastName || null, emergencyContactName: m.emergencyContactName || existing.emergencyContactName || null, emergencyContactPhone: m.emergencyContactPhone || existing.emergencyContactPhone || null, bloodGroup: m.bloodGroup || existing.bloodGroup || null, workEmail: m.workEmail || existing.workEmail || null, email: m.email || existing.email || null, knownFor: m.knownFor || existing.knownFor || null, mbti: m.mbti || existing.mbti || null, style: m.style || existing.style || null, nowPlayingSong: m.nowPlayingSong || existing.nowPlayingSong || null, nowPlayingArtist: m.nowPlayingArtist || existing.nowPlayingArtist || null, funFacts: m.funFacts || existing.funFacts || null, favMovie: m.favMovie || existing.favMovie || null, favSnack: m.favSnack || existing.favSnack || null, favBook: m.favBook || existing.favBook || null, favDestination: m.favDestination || existing.favDestination || null, favMovieImg: existing.favMovieImg || null, favSnackImg: existing.favSnackImg || null, favBookImg: existing.favBookImg || null, favDestinationImg: existing.favDestinationImg || null, nowPlayingImg: existing.nowPlayingImg || null, profilePromptDismissed: m.profilePromptDismissed || existing.profilePromptDismissed || false, loonaPersonality: m.loonaPersonality || existing.loonaPersonality || null, probationStatus: m.probationStatus || existing.probationStatus || null, probationStartDate: m.probationStartDate || existing.probationStartDate || null };
+            MEMBER_INFO[m.name] = { color: m.color || existing.color || '#888', emoji: m.emoji || existing.emoji || '👤', role: m.role || existing.role || 'Team Member', avatar: existing.avatar || null, department: m.department || existing.department || null, joinDate: m.joinDate || existing.joinDate || null, employeeId: m.employeeId || existing.employeeId || null, birthdate: m.birthdate || existing.birthdate || null, mobile: m.mobile || existing.mobile || null, gender: m.gender || existing.gender || null, personalEmail: m.personalEmail || existing.personalEmail || null, address: m.address || existing.address || null, lastName: m.lastName || existing.lastName || null, emergencyContactName: m.emergencyContactName || existing.emergencyContactName || null, emergencyContactPhone: m.emergencyContactPhone || existing.emergencyContactPhone || null, bloodGroup: m.bloodGroup || existing.bloodGroup || null, workEmail: m.workEmail || existing.workEmail || null, email: m.email || existing.email || null, knownFor: m.knownFor || existing.knownFor || null, mbti: m.mbti || existing.mbti || null, style: m.style || existing.style || null, nowPlayingSong: m.nowPlayingSong || existing.nowPlayingSong || null, nowPlayingArtist: m.nowPlayingArtist || existing.nowPlayingArtist || null, funFacts: m.funFacts || existing.funFacts || null, favMovie: m.favMovie || existing.favMovie || null, favSnack: m.favSnack || existing.favSnack || null, favBook: m.favBook || existing.favBook || null, favDestination: m.favDestination || existing.favDestination || null, favMovieImg: existing.favMovieImg || null, favSnackImg: existing.favSnackImg || null, favBookImg: existing.favBookImg || null, favDestinationImg: existing.favDestinationImg || null, nowPlayingImg: existing.nowPlayingImg || null, profilePromptDismissed: m.profilePromptDismissed || existing.profilePromptDismissed || false, loonaPersonality: m.loonaPersonality || existing.loonaPersonality || null, probationStatus: m.probationStatus || existing.probationStatus || null, probationStartDate: m.probationStartDate || existing.probationStartDate || null, lastWorkingDay: m.lastWorkingDay || existing.lastWorkingDay || null };
             // Older records still carry the avatar inline on this same node — use it right away,
             // then migrate it out to member_avatars/ so this node stays small for everyone from now on.
             if (m.avatar && m.avatar !== MEMBER_INFO[m.name].avatar) {
@@ -13435,6 +13435,8 @@
       document.getElementById('eem-probation-status').value = info.probationStatus || 'confirmed';
       document.getElementById('eem-probation-start').value = info.probationStartDate || '';
       updateProbationEndHint();
+      document.getElementById('eem-lastworkingday-row').style.display = _eemContext === 'admin' ? 'grid' : 'none';
+      document.getElementById('eem-lastworkingday').value = info.lastWorkingDay || '';
       document.getElementById('eem-mobile').value = info.mobile || '';
       document.getElementById('eem-email').value = info.personalEmail || '';
       document.getElementById('eem-calendaremail').value = info.email || '';
@@ -13548,6 +13550,7 @@
       if (_eemContext === 'admin') {
         nonSensitive.probationStatus = document.getElementById('eem-probation-status').value || 'confirmed';
         nonSensitive.probationStartDate = document.getElementById('eem-probation-start').value || null;
+        nonSensitive.lastWorkingDay = document.getElementById('eem-lastworkingday').value || null;
       }
       MEMBER_INFO[name] = Object.assign({}, existing, nonSensitive);
       const sensitiveRecord = { pan: pan || null, aadhar: aadhar || null, bankAccountName: bankAccountName || null, bankName: bankName || null, bankBranch: bankBranch || null, bankAccount: bankAccount || null, bankIFSC: bankIFSC || null };
@@ -15054,13 +15057,19 @@
         // A person re-added at some point ends up with a SECOND /members
         // record under a different key — the canonical fbMemberKey(name)
         // remove() above only catches the standard one, so sweep for any
-        // other record that also carries this exact name.
+        // other record that also carries this name. Compared case/
+        // whitespace-insensitively (normName), not exact-match — a stray
+        // duplicate typed as "test" instead of "Test" is still obviously
+        // the same record to a human, and an exact-match sweep would just
+        // leave it behind forever, letting it keep resurrecting the name
+        // everywhere ALL_MEMBERS gets rebuilt from raw Firebase data.
+        var normed = normName(name);
         var membersSnap = await _db.ref('members').once('value');
         var membersVal = membersSnap.val() || {};
-        Object.keys(membersVal).forEach(function (k) { if (membersVal[k] && membersVal[k].name === name && k !== key) removals.push(_db.ref('members/' + k).remove()); });
+        Object.keys(membersVal).forEach(function (k) { if (membersVal[k] && normName(membersVal[k].name) === normed && k !== key) removals.push(_db.ref('members/' + k).remove()); });
         var leaveSnap = await _db.ref('leave_requests').once('value');
         var leaveVal = leaveSnap.val() || {};
-        Object.keys(leaveVal).forEach(function (k) { if (leaveVal[k] && leaveVal[k].member === name) removals.push(_db.ref('leave_requests/' + k).remove()); });
+        Object.keys(leaveVal).forEach(function (k) { if (leaveVal[k] && normName(leaveVal[k].member) === normed) removals.push(_db.ref('leave_requests/' + k).remove()); });
         await Promise.all(removals);
 
         // Local state, updated immediately rather than waiting on Firebase's
@@ -15097,46 +15106,74 @@
       if (currentUser !== 'Gokul' || !_db) return;
       var snap = await _db.ref('members').once('value');
       var data = snap.val() || {};
-      var byName = {};
+      // Grouped case/whitespace-insensitively (normName), not by exact
+      // name — "Test" and "test" are obviously the same person to a human,
+      // and an exact-match grouping would silently leave a variant like
+      // that behind forever, un-merge-able, resurrecting the name anywhere
+      // ALL_MEMBERS gets rebuilt from raw Firebase data.
+      var byNorm = {};
       Object.keys(data).forEach(function (k) {
         var m = data[k]; if (!m || !m.name) return;
-        (byName[m.name] = byName[m.name] || []).push({ key: k, m: m });
+        var norm = normName(m.name);
+        (byNorm[norm] = byNorm[norm] || []).push({ key: k, m: m });
       });
-      var dupGroups = Object.keys(byName).filter(function (n) { return byName[n].length > 1; })
-        .map(function (n) { return { name: n, entries: byName[n] }; });
+      var dupGroups = Object.keys(byNorm).filter(function (n) { return byNorm[n].length > 1; })
+        .map(function (n) { return { entries: byNorm[n] }; });
       if (!dupGroups.length) { alert('No duplicate member records found — nothing to clean up.'); return; }
 
-      var summary = dupGroups.map(function (g) { return '• ' + g.name + ' — ' + g.entries.length + ' records'; }).join('\n');
-      if (!confirm('Found ' + dupGroups.length + ' name(s) with duplicate records:\n\n' + summary +
+      var summary = dupGroups.map(function (g) {
+        var variants = g.entries.map(function (e) { return e.m.name; }).filter(function (n, i, arr) { return arr.indexOf(n) === i; });
+        return '• ' + variants.join(' / ') + ' — ' + g.entries.length + ' records';
+      }).join('\n');
+      if (!confirm('Found ' + dupGroups.length + ' name(s) with duplicate records (grouped regardless of capitalization/spacing):\n\n' + summary +
         '\n\nMerge each into a single record (combining whatever fields are filled in across the duplicates) and delete the extras?\n\n' +
         'PAN/Aadhar/bank details are NOT touched by this — worth a manual check per person if any of them have duplicates.\n\n' +
         'This cannot be undone.')) return;
 
       var writes = [];
-      var mergedByName = {};
+      var mergedFinal = {}; // resolved exact name -> merged record
+      var oldNamesRemoved = [];
       dupGroups.forEach(function (g) {
-        var canonicalKey = fbMemberKey(g.name);
         // Same precedence the live 'members' listener already uses to build
         // what shows on this person's own profile: walk every duplicate in
         // Firebase's own key order and let each non-empty field overwrite
         // the previous one, so whichever record was written to LAST wins
-        // per field. Keeps this merge in step with "the final info" that's
-        // already on screen, instead of an arbitrary first-found value.
+        // per field — including the 'name' field itself, so a group spread
+        // across a couple of casing variants resolves to whichever exact
+        // spelling was written most recently, matching "the final info"
+        // already on screen instead of an arbitrary first-found value.
         var merged = {};
         g.entries.forEach(function (e) {
           Object.keys(e.m).forEach(function (f) {
             if (e.m[f] != null && e.m[f] !== '') merged[f] = e.m[f];
           });
         });
-        mergedByName[g.name] = merged;
+        var finalName = merged.name;
+        var canonicalKey = fbMemberKey(finalName);
+        mergedFinal[finalName] = merged;
         writes.push(_db.ref('members/' + canonicalKey).set(merged));
-        g.entries.forEach(function (e) { if (e.key !== canonicalKey) writes.push(_db.ref('members/' + e.key).remove()); });
+        g.entries.forEach(function (e) {
+          if (e.key !== canonicalKey) writes.push(_db.ref('members/' + e.key).remove());
+          if (e.m.name !== finalName && oldNamesRemoved.indexOf(e.m.name) === -1) oldNamesRemoved.push(e.m.name);
+        });
       });
       await Promise.all(writes);
 
       // Update local state immediately rather than waiting on Firebase's own
       // listener to round-trip back — same pattern as deleteMemberPermanently.
-      Object.keys(mergedByName).forEach(function (n) { MEMBER_INFO[n] = Object.assign({}, MEMBER_INFO[n], mergedByName[n]); });
+      // Any exact-name variant that lost out to a different spelling needs
+      // pulling out of ALL_MEMBERS/MEMBER_INFO too, or it'd keep showing as
+      // a separate person under its old spelling.
+      oldNamesRemoved.forEach(function (n) {
+        if (mergedFinal.hasOwnProperty(n)) return;
+        var idx = ALL_MEMBERS.indexOf(n); if (idx >= 0) ALL_MEMBERS.splice(idx, 1);
+        delete MEMBER_INFO[n];
+        INACTIVE_MEMBERS.delete(n);
+      });
+      Object.keys(mergedFinal).forEach(function (n) {
+        MEMBER_INFO[n] = Object.assign({}, MEMBER_INFO[n], mergedFinal[n]);
+        if (ALL_MEMBERS.indexOf(n) === -1) ALL_MEMBERS.push(n);
+      });
       rebuildLoginPicker();
       renderTeam();
       renderAdminDirectory();
@@ -19192,6 +19229,20 @@ ${brandLines}`;
           <label>Probation Start Date</label>
           <input class="form-control" type="date" id="eem-probation-start" onchange="updateProbationEndHint()">
           <div id="eem-probation-end-hint" style="font-size:11px;color:#888;margin-top:4px"></div>
+        </div>
+      </div>
+      <!-- Gokul-only, same gating as the probation row above. Attendance
+           tracking (see attendance-sheet-sync.js) auto-detects when someone
+           inactive left from their own last real punch — but that fails
+           for anyone with no punch history at all (left before attendance
+           tracking existed for them, or a broken employee-code link), which
+           is exactly when this manual override is needed. Harmless to set
+           on someone still active; it's only ever read once they're marked
+           inactive. -->
+      <div class="form-row" id="eem-lastworkingday-row" style="display:none">
+        <div class="form-group">
+          <label>Last Working Day <span style="font-weight:400;color:var(--muted)">(only used once marked Inactive — leave blank to auto-detect from their last punch)</span></label>
+          <input class="form-control" type="date" id="eem-lastworkingday">
         </div>
       </div>
       <div class="form-row">
