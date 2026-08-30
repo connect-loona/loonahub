@@ -107,3 +107,15 @@ exports.handler = async (event) => {
     return { statusCode: 502, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ success: false, message: String(err && err.message || err) }) };
   }
 };
+
+// Exposed so attendance-sheet-sync.js can force a fresh pull of just the
+// last day or two right before it reads /loona_attendance — this daily
+// scheduled sync only refreshes Firebase once a day (8pm IST), so a punch
+// that Petpooja finalizes/corrects afterward (e.g. a late punch-out landing
+// after that run) sits stale in Firebase, understating hours worked and
+// misclassifying what should be a Late/Present day as Absent, until the
+// NEXT nightly run happens to touch it again. See the "Chinmay showing
+// Absent, no punch-out, on a day the dashboard has fully punched out and
+// Late" investigation this fixed.
+exports.runSync = runSync;
+exports.hasCredentials = () => !!(CLIENT_ID && CLIENT_SECRET);
