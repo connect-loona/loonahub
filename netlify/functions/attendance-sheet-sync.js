@@ -95,7 +95,7 @@ const OFFICIAL_HOLIDAYS = [
 // month) rather than showing up as an all-blank/all-absent row. A short,
 // hand-maintained list rather than a Firebase-backed flag for now — update
 // it here if who counts as exempt ever changes.
-const EXCLUDED_FROM_ATTENDANCE = ['Gokul', 'Ankita', 'Karnik', 'Hetal'];
+const EXCLUDED_FROM_ATTENDANCE = ['Gokul', 'Ankita', 'Karnik', 'Hetal', 'Archisha'];
 
 // ---- Dark-theme palette, ported 1:1 from Gokul's reference .xlsx ----
 const PALETTE = {
