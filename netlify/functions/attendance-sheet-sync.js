@@ -51,6 +51,26 @@
 // formal-leave-request-only count, deliberately NOT the per-month/
 // manual-inclusive s.leaveTaken used for the "Leave Taken" column.
 //
+// A holiday or weekoff sandwiched INSIDE a multi-day leave request (a
+// Fri+Mon leave bridging a weekend, say) is still charged a day of balance
+// for it — index.html's setPerfExcused() runs over every one of a
+// request's charge_dates, not just the real working days. Status keeps
+// showing the real Holiday name / "WO" for that date (it genuinely was
+// one), but its cell turns the same red as an ordinary Leave day (see
+// isBridgedLeave in computeMonth()) purely so it's obvious at a glance
+// that it's ALSO being counted into the leave — and the Leave/Leave
+// Type/Approved By rows and the Leave Taken count all pick it up too,
+// on top of (not instead of) being tallied as a Holiday/WO day.
+//
+// A forgiven Half Day or short-hours absence shows as Present on the
+// Status row (see displayStatus in computeMonth()), mirroring index.html's
+// own dayRecord() calendar conversion — but a forgiven LATE day never
+// converts (lateness stays a historical fact; forgiving only clears the
+// fee), same as the dashboard. Only the Status cell's text/color reflects
+// this — isHalf/isShortAbsent, the fine math, and the Monthly Summary's
+// Half Days/Absent tallies all still use the raw, unconverted status,
+// exactly like the dashboard's own monthStatusCounts().
+//
 // Full rewrite of every tab's data range each run (same reasoning as
 // employee-sheet-sync.js) — a forgiven late day retroactively clearing a
 // fine needs a full rewrite to actually disappear, not just an append.
@@ -70,6 +90,10 @@
 // ============================================================================
 
 const crypto = require('crypto');
+
+// Matches index.html's own normName() exactly — see the duplicate-merge
+// comment below for why.
+function normName(v) { return String(v || '').trim().toLowerCase(); }
 
 const FB = (process.env.FIREBASE_DB_URL || 'https://loona-hub-c85d7-default-rtdb.firebaseio.com').replace(/\/+$/, '');
 const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
@@ -124,8 +148,13 @@ const PALETTE = {
   // rows are meant to jump out as payroll-relevant flags at a glance,
   // unlike the subtler all-day status shading elsewhere.
   lateFlagBg: '#E8B93B', leaveFlagBg: '#B33A3A',
+  // No 'leave' entry here — every leave-related Status cell (an ordinary
+  // leave day, or a holiday/weekoff bridged into a leave request's own
+  // charge_dates) uses leaveFlagBg directly instead, per Gokul: all of it
+  // should read as the same red for identification (see detailCellFor()'s
+  // Status case).
   status: {
-    present: '#20352A', late: '#20352A', wfh: '#1E293B', leave: '#36251A', weekoff: '#1B1B1F',
+    present: '#20352A', late: '#20352A', wfh: '#1E293B', weekoff: '#1B1B1F',
     // Not directly demonstrated in the reference file (its sample data
     // happened not to include these) — extended consistently from the same
     // dark palette family. Worth a look once live and worth tweaking on
@@ -402,13 +431,22 @@ async function runSync() {
   // Same field-by-field duplicate merge as employee-sheet-sync.js — last
   // non-empty value in Firebase key order wins, matching index.html's own
   // 'members' listener precedence, so this sheet agrees with the profile.
+  // Grouped by normName (case/whitespace-insensitive, matching the live
+  // dashboard's own scanAndMergeDuplicateMembers() tool), not exact name —
+  // otherwise a duplicate that only differs by casing (the real "test"/
+  // "Test" case seen live) would still show as two people here even after
+  // that cleanup tool has been run.
   const allKeys = Object.keys(members).filter(k => members[k] && members[k].name);
-  const mergedByName = {};
+  const byNorm = {};
   allKeys.forEach(k => {
-    const m = members[k];
-    const merged = mergedByName[m.name] || {};
-    Object.keys(m).forEach(f => { if (m[f] !== null && m[f] !== undefined && m[f] !== '') merged[f] = m[f]; });
-    mergedByName[m.name] = merged;
+    const norm = normName(members[k].name);
+    (byNorm[norm] = byNorm[norm] || []).push(members[k]);
+  });
+  const mergedByName = {};
+  Object.keys(byNorm).forEach(norm => {
+    const merged = {};
+    byNorm[norm].forEach(m => { Object.keys(m).forEach(f => { if (m[f] !== null && m[f] !== undefined && m[f] !== '') merged[f] = m[f]; }); });
+    mergedByName[merged.name] = merged;
   });
   const names = Object.keys(mergedByName).filter(n => !EXCLUDED_FROM_ATTENDANCE.includes(n));
   names.sort((a, b) => {
@@ -584,7 +622,20 @@ async function runSync() {
         // display override above — someone who worked from home late is
         // still late for fine/forgiveness purposes, even though the
         // Status column shows "Work From Home" rather than "P".
-        days.push({ ds, rec, status, isLate: info.status === 'late', isHalf: info.status === 'half', isShortAbsent, formalType });
+        //
+        // A holiday or weekoff (Sunday) sandwiched INSIDE a multi-day leave
+        // request still gets charged against the balance — index.html's
+        // setPerfExcused() runs over every one of a request's charge_dates,
+        // not just the real working days, so a Fri+Mon leave spanning a
+        // weekend charges 4 days, not 2 (see chargeDatesFor()/
+        // leaveDateMath() there). computeDayStatus()'s holiday/weekoff
+        // priority means `status` itself stays 'holiday'/'weekoff' for that
+        // date (still true — it WAS a holiday), so this separate flag is
+        // how the Leave row / Leave Type / Approved By / the Status cell's
+        // own color, and the Leave Taken count, all learn it's ALSO a
+        // charged leave day rather than silently dropping it.
+        const isBridgedLeave = (info.status === 'holiday' || info.status === 'weekoff') && isExcused;
+        days.push({ ds, rec, status, isLate: info.status === 'late', isHalf: info.status === 'half', isShortAbsent, formalType, isBridgedLeave });
       });
       const forgiven = new Set(Object.keys((lateFgv[name] || {})).filter(d => lateFgv[name][d]));
       const fineByDate = attributeLateFines(empLateDates.filter(d => !forgiven.has(d)));
@@ -597,6 +648,25 @@ async function runSync() {
         d.halfFine = halfFineByDate[d.ds] || 0; d.halfForgiven = d.isHalf && halfForgiven.has(d.ds);
         d.shortFine = shortFineByDate[d.ds] || 0; d.shortForgiven = d.isShortAbsent && shortForgiven.has(d.ds);
         d.otherFine = d.halfFine + d.shortFine;
+        // Mirrors dayRecord()'s own forgiveness conversion in index.html: a
+        // forgiven Half Day or short-hours absence reads as Present on the
+        // calendar (a correction to an ambiguous status), unlike a
+        // forgiven LATE day, which stays Late — forgiving lateness only
+        // clears the fee, never the historical record (index.html's own
+        // comment on this: "forgiving only affects the fee/score, not the
+        // historical record of what happened that day"). Deliberately only
+        // affects the Status cell's text/color below — isHalf/isShortAbsent,
+        // the fine math, and the Monthly Summary's Half Days/Absent tallies
+        // all still use the raw, unconverted status, exactly like the
+        // dashboard's own monthStatusCounts() does; only the per-day
+        // calendar view (and now this Status cell) shows the converted one.
+        // Checked against d.status (not the raw isHalf/isShortAbsent flags)
+        // so a WFH day that happens to also be half-fine-forgiven keeps
+        // showing "Work From Home" rather than flipping to "Present" —
+        // isShortAbsent can never coincide with a 'wfh' display status
+        // (the WFH override never applies to a raw 'absent' day), but half
+        // can, since the override list above includes 'half'.
+        d.displayStatus = (d.status === 'half' && d.halfForgiven) ? 'present' : (d.status === 'absent' && d.shortForgiven) ? 'present' : d.status;
       });
 
       const s = { present: 0, half: 0, wfh: 0, standard: 0, sick: 0, other: 0, absent: 0, late: 0, forgivenLate: 0, lateFine: 0, otherFine: 0, workedMin: 0, leaveTaken: 0 };
@@ -607,6 +677,15 @@ async function runSync() {
         else if (d.status === 'half') s.half++;
         else if (d.status === 'absent') s.absent++;
         else if (d.status === 'leave') {
+          s.leaveTaken++;
+          const t = d.formalType || 'other';
+          if (t === 'standard') s.standard++; else if (t === 'sick') s.sick++; else s.other++;
+        }
+        // A holiday/weekoff sandwiched inside a leave request's charge_dates
+        // (see isBridgedLeave above) still spends a day of balance — tally
+        // it ON TOP of (not instead of) being counted as a Holiday/WO day
+        // above, or a 3-day leave bridging a Sunday would show as only 2.
+        if (d.isBridgedLeave) {
           s.leaveTaken++;
           const t = d.formalType || 'other';
           if (t === 'standard') s.standard++; else if (t === 'sick') s.sick++; else s.other++;
@@ -764,7 +843,22 @@ async function runSync() {
     if (d.outsideEmployment) return C('—', { bg: PALETTE.noDataBg, size: 8 });
     const status = d.status;
     if (rowLabel === 'Status') {
-      return C(STATUS_LABEL[status] || status, { bg: PALETTE.status[status] || PALETTE.group1Bg, bold: true, size: 8 });
+      // A forgiven Half Day/short-hours absence reads as Present here,
+      // mirroring dayRecord()'s own conversion in index.html (see
+      // displayStatus in computeMonth()) — a forgiven LATE day does NOT
+      // convert, same as the dashboard.
+      const dstatus = d.displayStatus || status;
+      // An ordinary leave day, AND a holiday/weekoff bridged into a leave
+      // request's own charge_dates, both get the same bright red as the
+      // Leave row's flag (leaveFlagBg) — per Gokul, every leave-related
+      // Status cell should read as the same red for identification, not
+      // just the muted brown status.leave used to be. A bridged day keeps
+      // its real label (Holiday name / "WO") even though it's colored red
+      // — it genuinely WAS a holiday/weekoff — so it's obvious at a glance
+      // that the cell is ALSO being counted into the leave span, not just
+      // an ordinary day off.
+      const bg = (dstatus === 'leave' || d.isBridgedLeave) ? PALETTE.leaveFlagBg : (PALETTE.status[dstatus] || PALETTE.group1Bg);
+      return C(STATUS_LABEL[dstatus] || dstatus, { bg, bold: true, size: 8 });
     }
     const isWorkDay = status !== 'weekoff' && status !== 'holiday';
     const hasPunch = !!(d.rec && d.rec.i != null);
@@ -772,9 +866,10 @@ async function runSync() {
     const blank = bg => C(null, { bg, size: 8 });
     // A day covered by an approved leave/WFH request — the trigger for
     // both the Leave flag row and Approved By, regardless of whether it's
-    // a formal absence (status 'leave') or a WFH day that still has real
-    // punches (status 'wfh').
-    const isApprovedDay = status === 'leave' || status === 'wfh';
+    // a formal absence (status 'leave'), a WFH day that still has real
+    // punches (status 'wfh'), or a holiday/weekoff bridged INTO a leave
+    // request's own charge_dates (see isBridgedLeave above).
+    const isApprovedDay = status === 'leave' || status === 'wfh' || d.isBridgedLeave;
 
     switch (rowLabel) {
       case 'Punch In': return hasPunch ? C(minToClock(d.rec.i), { bg: style.bg, size: 8 }) : na();
@@ -794,9 +889,12 @@ async function runSync() {
       // Red flag with the leave type written directly in the cell — covers
       // WFH too (WFH is approved through the same leave_requests flow).
       case 'Leave': return isApprovedDay ? C(LEAVE_TYPE_LABEL[d.formalType] || 'Other', { bg: PALETTE.leaveFlagBg, size: 8 }) : blank(PALETTE.noDataBg);
-      // Paid/Unpaid — only meaningful for an actual leave day (WFH never
-      // draws on the leave balance at all, so it's neither).
-      case 'Leave Type': return status === 'leave' ? C(unpaidDates.has(d.ds) ? 'Unpaid' : 'Paid', { bg: style.bg, size: 8 }) : na();
+      // Paid/Unpaid — meaningful for an actual leave day AND a bridged
+      // holiday/weekoff (both spend a day of balance — see isBridgedLeave
+      // above; unpaidDates already covers both, since it walks every
+      // excused date regardless of what day of the week it landed on).
+      // WFH never draws on the leave balance at all, so it's neither.
+      case 'Leave Type': return (status === 'leave' || d.isBridgedLeave) ? C(unpaidDates.has(d.ds) ? 'Unpaid' : 'Paid', { bg: style.bg, size: 8 }) : na();
       // Gokul is currently the sole approver — named directly rather than
       // a generic "Approved" label, matching how it actually works today.
       case 'Approved By': return isApprovedDay ? C('Gokul', { bg: style.bg, size: 8 }) : na();

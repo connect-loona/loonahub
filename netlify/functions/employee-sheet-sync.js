@@ -63,6 +63,16 @@ const SHEET_TAB = 'Master Employee Data';
 // update it here if who's excluded ever changes.
 const EXCLUDED_FROM_EMPLOYEE_SHEET = ['Archisha'];
 
+// Matches index.html's own normName() exactly — used the same way its
+// scanAndMergeDuplicateMembers() tool groups duplicate /members records:
+// case/whitespace-insensitively, since "Test" and "test" are obviously the
+// same person. Without this, a duplicate that only differs by casing (the
+// exact "test"/"Test" case seen live) shows up as two separate rows on
+// this sheet even after Gokul runs that cleanup tool on the LIVE app,
+// since exact-match grouping here would never treat them as the same
+// person to begin with.
+function normName(v) { return String(v || '').trim().toLowerCase(); }
+
 function base64url(buf) {
   return (Buffer.isBuffer(buf) ? buf : Buffer.from(buf)).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
@@ -199,18 +209,26 @@ async function runSync() {
   // 'members' listener uses to build what shows on a person's profile:
   // walk every duplicate in Firebase's own key order and let each
   // non-empty field overwrite the previous one, so whichever record was
-  // written to LAST wins per field. That guarantees this sheet always
-  // matches "the final info" on that person's own profile — not just
-  // whichever single duplicate happens to have the most fields filled in
-  // overall (a field updated on the OTHER duplicate after the "more
-  // complete" one was created would otherwise get silently dropped).
+  // written to LAST wins per field — including the 'name' field itself, so
+  // a group spread across a couple of casing variants resolves to
+  // whichever exact spelling was written most recently. That guarantees
+  // this sheet always matches "the final info" on that person's own
+  // profile — not just whichever single duplicate happens to have the
+  // most fields filled in overall (a field updated on the OTHER duplicate
+  // after the "more complete" one was created would otherwise get
+  // silently dropped). Grouped by normName (case/whitespace-insensitive),
+  // not exact name — see normName()'s own comment above for why.
   const allKeys = Object.keys(members).filter(k => members[k] && members[k].name);
-  const mergedByName = {};
+  const byNorm = {};
   allKeys.forEach(k => {
-    const m = members[k];
-    const merged = mergedByName[m.name] || {};
-    Object.keys(m).forEach(f => { if (m[f] !== null && m[f] !== undefined && m[f] !== '') merged[f] = m[f]; });
-    mergedByName[m.name] = merged;
+    const norm = normName(members[k].name);
+    (byNorm[norm] = byNorm[norm] || []).push(members[k]);
+  });
+  const mergedByName = {};
+  Object.keys(byNorm).forEach(norm => {
+    const merged = {};
+    byNorm[norm].forEach(m => { Object.keys(m).forEach(f => { if (m[f] !== null && m[f] !== undefined && m[f] !== '') merged[f] = m[f]; }); });
+    mergedByName[merged.name] = merged;
   });
   const uniqueNames = Object.keys(mergedByName);
   if (allKeys.length !== uniqueNames.length) {
