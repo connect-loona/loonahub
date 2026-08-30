@@ -315,6 +315,37 @@ function earnedLeaveAsOf(joinDate, dateStr) {
 const STATUS_LABEL = { holiday: 'Holiday', weekoff: 'WO', absent: 'Absent', late: 'P', half: 'Half', present: 'P', leave: 'Leave', wfh: 'Work From Home' };
 const PROBATION_LABEL = { on_probation: 'On Probation', confirmed: 'Confirmed' };
 
+// Best-effort: refresh the last couple of days directly from Petpooja
+// before reading Firebase at all. Firebase's own /loona_attendance only
+// gets refreshed once a day (petpooja-sync, 8pm IST) — a punch Petpooja
+// finalizes or corrects afterward (a late punch-out landing post-run,
+// say) sits stale there, understating hours worked and misclassifying
+// what should be a Late/Present day as Absent, right up until the NEXT
+// nightly run happens to touch that date again. The live dashboard never
+// has this problem — it calls Petpooja directly, in real time. This
+// closes the same gap for the sheet. (Confirmed root cause of Chinmay's
+// Aug 29 showing Absent/no punch-out on the sheet while the dashboard,
+// pulling live, had him fully punched out and Late.)
+//
+// Deliberately soft-fails and is bounded to 6s: missing credentials, a
+// slow/unreachable Petpooja, or a bad response just means this run falls
+// back to whatever's already in Firebase — exactly like every run before
+// this existed. It must never abort or meaningfully delay the sheet sync.
+async function refreshRecentPunchesBestEffort() {
+  let petpoojaSync;
+  try { petpoojaSync = require('./petpooja-sync'); } catch (e) { return; }
+  if (!petpoojaSync || typeof petpoojaSync.hasCredentials !== 'function' || !petpoojaSync.hasCredentials()) {
+    console.log('attendance-sheet-sync: skipping Petpooja refresh (no Petpooja credentials configured)');
+    return;
+  }
+  const work = petpoojaSync.runSync(2).then(r => ({ status: 'ok', r })).catch(e => ({ status: 'error', e }));
+  const timeout = new Promise(resolve => setTimeout(() => resolve({ status: 'timeout' }), 6000));
+  const result = await Promise.race([work, timeout]);
+  if (result.status === 'ok') console.log('attendance-sheet-sync: refreshed last 2 days from Petpooja:', JSON.stringify(result.r));
+  else if (result.status === 'timeout') console.log('attendance-sheet-sync: Petpooja refresh timed out after 6s, continuing with existing Firebase data');
+  else console.log('attendance-sheet-sync: Petpooja refresh failed (continuing with existing Firebase data):', result.e && result.e.message);
+}
+
 async function runSync() {
   const saRaw = process.env.GOOGLE_CALENDAR_SERVICE_ACCOUNT || process.env.GOOGLE_CALENDER_SERVICE_ACCOUNT;
   if (!saRaw) throw new Error('GOOGLE_CALENDAR_SERVICE_ACCOUNT not set');
@@ -325,6 +356,8 @@ async function runSync() {
   const sheetId = (process.env.GOOGLE_ATTENDANCE_SHEET_ID || '').trim();
   if (!sheetId) throw new Error('GOOGLE_ATTENDANCE_SHEET_ID not set');
   console.log('attendance-sheet-sync: using sheetId =', JSON.stringify(sheetId));
+
+  await refreshRecentPunchesBestEffort();
 
   const [membersRaw, inactiveRaw, attendanceRaw, excusedRaw, holidaysRaw, lateFgvRaw, halfFgvRaw, shortFgvRaw, leaveReqRaw] = await Promise.all([
     fbGet('members'), fbGet('inactive_members'), fbGet('loona_attendance'), fbGet('loona_excused'), fbGet('loona_holidays'), fbGet('loona_late_forgiven'), fbGet('loona_half_forgiven'), fbGet('loona_short_forgiven'), fbGet('leave_requests')
