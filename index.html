@@ -7553,7 +7553,16 @@
           if (!pickerNeedsRebuild) return; // nothing changed, skip all re-renders
           // Rebuild login picker to reflect new members
           rebuildLoginPicker();
-          if (currentUser && teamNeedsRender) { updateTopbarAvatar(); renderProfilePanel(); renderTeam(); renderOverview(); buildMemberTabs(currentUser); }
+          if (currentUser && teamNeedsRender) {
+            updateTopbarAvatar(); renderProfilePanel(); renderTeam(); renderOverview(); buildMemberTabs(currentUser);
+            // Admin → Employee Directory reads MEMBER_INFO/ALL_MEMBERS same as
+            // Team does — without this, a profile edited (or a member added/
+            // removed) from another tab/session sat stale here until the
+            // Admin tab was reopened. renderAdminDirectory() self-guards on
+            // its container existing, safe to call regardless of which page
+            // is actually visible right now (same as renderTeam() above).
+            if (typeof renderAdminDirectory === 'function') renderAdminDirectory();
+          }
           // Persist to localStorage so members appear instantly on next page load
           try {
             const cacheList = ALL_MEMBERS.map(n => { const i = MEMBER_INFO[n] || {}; return { name: n, color: i.color, emoji: i.emoji, role: i.role }; });
@@ -7620,7 +7629,16 @@
           // hidden, so TASKS needs re-deriving every time this fires, not
           // just the other UI bits below.
           if (typeof applyRosterFilterToTasks === 'function') applyRosterFilterToTasks();
-          if (currentUser) { renderTasks(); renderTeam(); buildMemberTabs(currentUser); renderOverview(); }
+          if (currentUser) {
+            renderTasks(); renderTeam(); buildMemberTabs(currentUser); renderOverview();
+            // Admin panel's Employee Directory / Past Employees split and the
+            // Leaves Taken/Monthly Overview accordion both filter on
+            // INACTIVE_MEMBERS — without this, someone removed or restored
+            // from another tab/session sat on the wrong side of that split
+            // until the Admin tab was reopened.
+            if (typeof renderAdminDirectory === 'function') renderAdminDirectory();
+            if (typeof renderAdminLeaveRecords === 'function') renderAdminLeaveRecords();
+          }
         });
 
         // ── Visibility-change sync: reattach listener when tab comes back into focus ──

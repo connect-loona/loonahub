@@ -62,6 +62,15 @@
 // Type/Approved By rows and the Leave Taken count all pick it up too,
 // on top of (not instead of) being tallied as a Holiday/WO day.
 //
+// A forgiven Half Day or short-hours absence shows as Present on the
+// Status row (see displayStatus in computeMonth()), mirroring index.html's
+// own dayRecord() calendar conversion — but a forgiven LATE day never
+// converts (lateness stays a historical fact; forgiving only clears the
+// fee), same as the dashboard. Only the Status cell's text/color reflects
+// this — isHalf/isShortAbsent, the fine math, and the Monthly Summary's
+// Half Days/Absent tallies all still use the raw, unconverted status,
+// exactly like the dashboard's own monthStatusCounts().
+//
 // Full rewrite of every tab's data range each run (same reasoning as
 // employee-sheet-sync.js) — a forgiven late day retroactively clearing a
 // fine needs a full rewrite to actually disappear, not just an append.
@@ -626,6 +635,25 @@ async function runSync() {
         d.halfFine = halfFineByDate[d.ds] || 0; d.halfForgiven = d.isHalf && halfForgiven.has(d.ds);
         d.shortFine = shortFineByDate[d.ds] || 0; d.shortForgiven = d.isShortAbsent && shortForgiven.has(d.ds);
         d.otherFine = d.halfFine + d.shortFine;
+        // Mirrors dayRecord()'s own forgiveness conversion in index.html: a
+        // forgiven Half Day or short-hours absence reads as Present on the
+        // calendar (a correction to an ambiguous status), unlike a
+        // forgiven LATE day, which stays Late — forgiving lateness only
+        // clears the fee, never the historical record (index.html's own
+        // comment on this: "forgiving only affects the fee/score, not the
+        // historical record of what happened that day"). Deliberately only
+        // affects the Status cell's text/color below — isHalf/isShortAbsent,
+        // the fine math, and the Monthly Summary's Half Days/Absent tallies
+        // all still use the raw, unconverted status, exactly like the
+        // dashboard's own monthStatusCounts() does; only the per-day
+        // calendar view (and now this Status cell) shows the converted one.
+        // Checked against d.status (not the raw isHalf/isShortAbsent flags)
+        // so a WFH day that happens to also be half-fine-forgiven keeps
+        // showing "Work From Home" rather than flipping to "Present" —
+        // isShortAbsent can never coincide with a 'wfh' display status
+        // (the WFH override never applies to a raw 'absent' day), but half
+        // can, since the override list above includes 'half'.
+        d.displayStatus = (d.status === 'half' && d.halfForgiven) ? 'present' : (d.status === 'absent' && d.shortForgiven) ? 'present' : d.status;
       });
 
       const s = { present: 0, half: 0, wfh: 0, standard: 0, sick: 0, other: 0, absent: 0, late: 0, forgivenLate: 0, lateFine: 0, otherFine: 0, workedMin: 0, leaveTaken: 0 };
@@ -802,6 +830,11 @@ async function runSync() {
     if (d.outsideEmployment) return C('—', { bg: PALETTE.noDataBg, size: 8 });
     const status = d.status;
     if (rowLabel === 'Status') {
+      // A forgiven Half Day/short-hours absence reads as Present here,
+      // mirroring dayRecord()'s own conversion in index.html (see
+      // displayStatus in computeMonth()) — a forgiven LATE day does NOT
+      // convert, same as the dashboard.
+      const dstatus = d.displayStatus || status;
       // An ordinary leave day, AND a holiday/weekoff bridged into a leave
       // request's own charge_dates, both get the same bright red as the
       // Leave row's flag (leaveFlagBg) — per Gokul, every leave-related
@@ -811,8 +844,8 @@ async function runSync() {
       // — it genuinely WAS a holiday/weekoff — so it's obvious at a glance
       // that the cell is ALSO being counted into the leave span, not just
       // an ordinary day off.
-      const bg = (status === 'leave' || d.isBridgedLeave) ? PALETTE.leaveFlagBg : (PALETTE.status[status] || PALETTE.group1Bg);
-      return C(STATUS_LABEL[status] || status, { bg, bold: true, size: 8 });
+      const bg = (dstatus === 'leave' || d.isBridgedLeave) ? PALETTE.leaveFlagBg : (PALETTE.status[dstatus] || PALETTE.group1Bg);
+      return C(STATUS_LABEL[dstatus] || dstatus, { bg, bold: true, size: 8 });
     }
     const isWorkDay = status !== 'weekoff' && status !== 'holiday';
     const hasPunch = !!(d.rec && d.rec.i != null);
