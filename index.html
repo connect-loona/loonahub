@@ -6884,6 +6884,19 @@
     function normName(v) {
       return String(v || '').trim().toLowerCase();
     }
+    // Gates a Firebase listener's Admin-panel re-render (renderAdminDirectory/
+    // renderAdminLeaveRecords/renderAdminPendingQueue) to only actually do
+    // that work while the Admin tab is the one on screen — those listeners
+    // otherwise fire on every single snapshot regardless of which page is
+    // visible, and rebuilding a whole Admin section's HTML on every one of
+    // those (several times a minute isn't unusual with normal team activity)
+    // is both wasted work and, going through a live element via innerHTML=,
+    // a real source of visible flicker if the timing lines up with whatever
+    // else is rendering at that moment.
+    function isAdminTabActive() {
+      const el = document.getElementById('page-admin');
+      return !!(el && el.classList.contains('active'));
+    }
 
     // ═══ DATA ═══
     let TASKS = [];
@@ -7248,9 +7261,11 @@
             .sort((a, b) => new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0));
           if (currentUser === 'Gokul' && typeof window.renderAttendanceOverview === 'function') window.renderAttendanceOverview();
           // Now lives in its own Admin panel accordion item (see
-          // renderAdminLeaveRecords()) — refresh that too, or a new claim's
-          // "pending" badge/rows would go stale until the tab is reopened.
-          if (typeof renderAdminLeaveRecords === 'function') renderAdminLeaveRecords();
+          // renderAdminLeaveRecords()) — refresh that too, but only while
+          // that's actually the page on screen (see isAdminTabActive()), or
+          // a new claim's "pending" badge/rows would go stale until the tab
+          // is reopened.
+          if (isAdminTabActive() && typeof renderAdminLeaveRecords === 'function') renderAdminLeaveRecords();
         });
 
         _db.ref('meetingNotes').on('value', snap => {
@@ -7558,10 +7573,9 @@
             // Admin → Employee Directory reads MEMBER_INFO/ALL_MEMBERS same as
             // Team does — without this, a profile edited (or a member added/
             // removed) from another tab/session sat stale here until the
-            // Admin tab was reopened. renderAdminDirectory() self-guards on
-            // its container existing, safe to call regardless of which page
-            // is actually visible right now (same as renderTeam() above).
-            if (typeof renderAdminDirectory === 'function') renderAdminDirectory();
+            // Admin tab was reopened — but only worth rebuilding while
+            // that's actually the page on screen (see isAdminTabActive()).
+            if (isAdminTabActive() && typeof renderAdminDirectory === 'function') renderAdminDirectory();
           }
           // Persist to localStorage so members appear instantly on next page load
           try {
@@ -7577,7 +7591,7 @@
         // "pending" message instead of silently getting bounced with no explanation.
         _db.ref('members_pending').on('value', snap => {
           window.MEMBERS_PENDING = snap.val() || {};
-          if (currentUser && normName(currentUser) === 'gokul' && document.getElementById('page-admin') && document.getElementById('page-admin').classList.contains('active') && typeof renderAdminPendingQueue === 'function') renderAdminPendingQueue();
+          if (currentUser && normName(currentUser) === 'gokul' && isAdminTabActive() && typeof renderAdminPendingQueue === 'function') renderAdminPendingQueue();
         });
 
         // Daily mood/status (Meet the Loonatics) — keyed by fbMemberKey, shown as a
@@ -7635,9 +7649,12 @@
             // Leaves Taken/Monthly Overview accordion both filter on
             // INACTIVE_MEMBERS — without this, someone removed or restored
             // from another tab/session sat on the wrong side of that split
-            // until the Admin tab was reopened.
-            if (typeof renderAdminDirectory === 'function') renderAdminDirectory();
-            if (typeof renderAdminLeaveRecords === 'function') renderAdminLeaveRecords();
+            // until the Admin tab was reopened — but only worth rebuilding
+            // while that's actually the page on screen (see isAdminTabActive()).
+            if (isAdminTabActive()) {
+              if (typeof renderAdminDirectory === 'function') renderAdminDirectory();
+              if (typeof renderAdminLeaveRecords === 'function') renderAdminLeaveRecords();
+            }
           }
         });
 
@@ -20978,9 +20995,11 @@ ${brandLines}`;
           HOLIDAYS=Object.keys(v).map(function(k){return {key:k,date:v[k].date,name:v[k].name};});
           cacheHol(); if(window.renderAttendanceOverview) window.renderAttendanceOverview();
           // Now lives in its own Admin panel accordion item (see
-          // renderAdminLeaveRecords()) — refresh that too, or an add/remove
-          // from another tab would go stale until the Admin tab is reopened.
-          if(typeof renderAdminLeaveRecords==="function") renderAdminLeaveRecords();
+          // renderAdminLeaveRecords()) — refresh that too, but only while
+          // that's actually the page on screen (see isAdminTabActive()), or
+          // an add/remove from another tab would go stale until the Admin
+          // tab is reopened.
+          if(typeof isAdminTabActive==="function" && isAdminTabActive() && typeof renderAdminLeaveRecords==="function") renderAdminLeaveRecords();
         });
       });
     }
