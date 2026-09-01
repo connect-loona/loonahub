@@ -13350,7 +13350,11 @@
       const mColor = m => (MEMBER_INFO[m] || {}).color || '#888';
       const mEmoji = m => (MEMBER_INFO[m] || {}).emoji || '👤';
       const mAvatar = m => { const info = MEMBER_INFO[m] || {}; return info.avatar ? `<img src="${info.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : mEmoji(m); };
-      const emCard = n => {
+      // isPast dims the card (same opacity:0.6 the Team page's own Past
+      // Employees section already uses — this list just never matched it)
+      // so it's visually obvious at a glance which cards are still active,
+      // without needing to read anyone's Employment Status badge to tell.
+      const emCard = (n, isPast) => {
         const info = memberDisplayInfo(n);
         // Anyone without an Employee ID linked won't show any real attendance —
         // PetPooja punches have nothing to match them against (see LIVE.empMap /
@@ -13359,7 +13363,7 @@
         // person isn't showing up" without explaining why.
         const missingEmpId = !info.employeeId;
         const es = employmentStatusInfo(n);
-        return `<div class="admin-emp-card" onclick="showAdminEmployeeDetail('${n}')">
+        return `<div class="admin-emp-card"${isPast ? ' style="opacity:0.6"' : ''} onclick="showAdminEmployeeDetail('${n}')">
           <div class="admin-emp-avatar" style="background:${mColor(n)}20;color:${mColor(n)};${info.avatar ? 'padding:0;' : ''}overflow:hidden">${mAvatar(n)}</div>
           <div class="admin-emp-name">${n}</div>
           <div class="admin-emp-role">${info.role || 'Team Member'}</div>
@@ -13369,7 +13373,7 @@
         </div>`;
       };
       const active = ALL_MEMBERS.filter(n => !INACTIVE_MEMBERS.has(n));
-      list.innerHTML = active.map(emCard).join('');
+      list.innerHTML = active.map(n => emCard(n, false)).join('');
 
       // Past employees never showed up here at all before — the only way to
       // view/edit one's actual profile fields (Employee ID, Department,
@@ -13382,7 +13386,7 @@
       const inactive = ALL_MEMBERS.filter(n => INACTIVE_MEMBERS.has(n));
       if (pastSection && pastList) {
         pastSection.style.display = inactive.length ? '' : 'none';
-        pastList.innerHTML = inactive.map(emCard).join('');
+        pastList.innerHTML = inactive.map(n => emCard(n, true)).join('');
       }
     }
 
