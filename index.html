@@ -13364,6 +13364,7 @@
         const missingEmpId = !info.employeeId;
         const es = employmentStatusInfo(n);
         return `<div class="admin-emp-card"${isPast ? ' style="opacity:0.6"' : ''} onclick="showAdminEmployeeDetail('${n}')">
+
           <div class="admin-emp-avatar" style="background:${mColor(n)}20;color:${mColor(n)};${info.avatar ? 'padding:0;' : ''}overflow:hidden">${mAvatar(n)}</div>
           <div class="admin-emp-name">${n}</div>
           <div class="admin-emp-role">${info.role || 'Team Member'}</div>
