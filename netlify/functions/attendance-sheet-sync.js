@@ -587,7 +587,22 @@ async function runSync() {
   function effectiveEndDateFor(name) {
     if (!inactiveNames.has(name)) return null;
     const m = mergedByName[name];
-    return m.lastWorkingDay || lastPunchDateByName[name] || null;
+    // If NEITHER a Last Working Day was ever set on their profile NOR any
+    // punch history can be found under their own employeeId, there's no
+    // real signal at all for when this person actually left — falling
+    // back to null here (as this used to) means "no end date", which
+    // every caller below reads as "still employed with no cutoff",
+    // resurfacing them as an all-Absent row in EVERY month forever,
+    // including ones long after they actually left (confirmed: Ananya,
+    // marked inactive with no Last Working Day set and no discoverable
+    // punch data, kept turning up in September's tab). A date before any
+    // real attendance data instead makes every date-range check below
+    // (empKeysForMonth, monthOverlapsEmployment, the day-by-day
+    // outsideEmployment walk) correctly treat them as having no tracked
+    // employment window at all, rather than fabricating attendance
+    // history that was never actually observed — matching this file's
+    // own "show '—' rather than a guess" policy elsewhere.
+    return m.lastWorkingDay || lastPunchDateByName[name] || '0000-01-01';
   }
   // Whether ANY day of month `mo` falls within name's employment window —
   // used by the Yearly Summary to tell "genuinely zero that month" apart
