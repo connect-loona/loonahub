@@ -22804,6 +22804,16 @@ ${brandLines}`;
       updateLeaveNotices();
     };
     window.onLeaveToChange=function(){ updateLeaveNotices(); };
+    // Best-effort, fire-and-forget email to Gokul (see
+    // netlify/functions/notify-leave-request.js) — the leave request itself
+    // has already been written to Firebase by the time this is called, so a
+    // failure here (network hiccup, the one-time Gmail-scope setup not done
+    // yet, etc.) must never surface to whoever just submitted the request.
+    function notifyLeaveRequestByEmail(req){
+      fetch("/.netlify/functions/notify-leave-request", {
+        method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(req)
+      }).catch(function(e){ console.warn("notify-leave-request: best-effort email failed (leave request itself is already saved)", e); });
+    }
     window.submitLeaveRequest=function(){
       var from=document.getElementById("leave-from").value, to=document.getElementById("leave-to").value;
       var reason=document.getElementById("leave-reason").value.trim();
@@ -22837,7 +22847,7 @@ ${brandLines}`;
       } else if(onProbation){
         req.requires_management_approval=true;
       }
-      if(_perfReady){ firebase.database().ref("leave_requests").push(req); }
+      if(_perfReady){ firebase.database().ref("leave_requests").push(req); notifyLeaveRequestByEmail(req); }
       else { req._key="local_"+Date.now(); LEAVE_REQUESTS.push(req); perfRerender(); }
       window.closeLeaveModal();
     };
