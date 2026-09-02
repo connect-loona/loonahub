@@ -137,16 +137,27 @@ const OFFICIAL_HOLIDAYS = [
 // it here if who counts as exempt ever changes.
 const EXCLUDED_FROM_ATTENDANCE = ['Gokul', 'Ankita', 'Karnik', 'Hetal', 'Archisha'];
 
-// ---- Dark-theme palette, ported 1:1 from Gokul's reference .xlsx ----
+// ---- Light-theme palette, per Gokul's Sep 2026 hand-formatting pass on
+// the live sheet (superseding the original dark reference .xlsx this
+// started from). Every plain data cell went white; only the STATUS flag
+// colors below (status.*, lateFlagBg, leaveFlagBg) stay as the original
+// dark, saturated colors he asked to keep untouched — those are meaningful
+// signals (payroll flags), not just decoration. Header/banner rows went
+// light grey. See contrastFg() below for how text color is picked. ----
 const PALETTE = {
-  pageBg: '#121214', titleFg: '#F7F7F7', subtitleFg: '#B7B7BA', orange: '#FF5A1F',
-  headerBg: '#211B18', monthGroupHeaderBg: '#252529',
-  identityBg: '#18181B', countsBg: '#1A1A1E', moneyBg: '#241B17', amberFg: '#D6A45E',
-  dateHeaderBg: '#16161A', noDataBg: '#16161A',
-  group1Bg: '#151518', group2Bg: '#181615', group3Bg: '#171719',
-  // Deliberately brighter than the rest of the dark palette — these two
-  // rows are meant to jump out as payroll-relevant flags at a glance,
-  // unlike the subtler all-day status shading elsewhere.
+  pageBg: '#FFFFFF', titleFg: '#161616', subtitleFg: '#5C5C5C', orange: '#FF5A1F',
+  headerBg: '#E6E6E6', monthGroupHeaderBg: '#DADADA', headlineBg: '#E6E6E6',
+  identityBg: '#FFFFFF', countsBg: '#FFFFFF', moneyBg: '#FFFFFF',
+  // Darkened from the original dark-theme gold (#D6A45E) so it still reads
+  // clearly as text against the new white background — the pale version
+  // washes out on white.
+  amberFg: '#9C6B12',
+  dateHeaderBg: '#E6E6E6', noDataBg: '#FFFFFF',
+  group1Bg: '#FFFFFF', group2Bg: '#FAFAFA', group3Bg: '#F5F5F5',
+  // Kept exactly as-is, per Gokul — these two rows (and the status.*
+  // colors below) are meant to jump out as payroll-relevant flags at a
+  // glance and must stay the original dark, saturated colors even though
+  // everything else around them went light.
   lateFlagBg: '#E8B93B', leaveFlagBg: '#B33A3A',
   // No 'leave' entry here — every leave-related Status cell (an ordinary
   // leave day, or a holiday/weekoff bridged into a leave request's own
@@ -167,14 +178,28 @@ function hexToRgb(hex) {
   const h = hex.replace('#', '');
   return { red: parseInt(h.slice(0, 2), 16) / 255, green: parseInt(h.slice(2, 4), 16) / 255, blue: parseInt(h.slice(4, 6), 16) / 255 };
 }
+// Picks readable text color for a given cell background — near-black on a
+// light background (the new white/grey data and header cells), near-white
+// on a dark one (the status flags, which stay dark on purpose — see
+// PALETTE above). Standard YIQ perceptual-brightness formula, threshold at
+// the usual 128 midpoint. This is what lets C() below get text color right
+// automatically for every cell without having to hand-set `fg` at each of
+// the hundreds of call sites across this file.
+function contrastFg(bgHex) {
+  const h = bgHex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+  return yiq >= 128 ? '#161616' : '#F7F7F7';
+}
 // Builds one Sheets API CellData object — value + full formatting together
 // (background, font, alignment, wrap, number format) — since that's the
 // only way to get real cell coloring via updateCells.
 function C(value, opts) {
   opts = opts || {};
+  const bg = opts.bg || PALETTE.pageBg;
   const format = {
-    backgroundColor: hexToRgb(opts.bg || PALETTE.pageBg),
-    textFormat: { foregroundColor: hexToRgb(opts.fg || PALETTE.titleFg), fontFamily: 'Carlito', fontSize: opts.size || 9, bold: !!opts.bold },
+    backgroundColor: hexToRgb(bg),
+    textFormat: { foregroundColor: hexToRgb(opts.fg || contrastFg(bg)), fontFamily: 'Carlito', fontSize: opts.size || 9, bold: !!opts.bold },
     horizontalAlignment: opts.align || 'CENTER',
     verticalAlignment: opts.valign || 'MIDDLE',
     wrapStrategy: opts.wrap ? 'WRAP' : 'OVERFLOW_CELL'
@@ -739,11 +764,11 @@ async function runSync() {
     const W = 2 + dates.length;
     const grid = [];
 
-    grid.push(bannerRow('LOONA · MONTHLY ATTENDANCE', PALETTE.pageBg, W, { fg: PALETTE.titleFg, size: 17, bold: true, valign: 'MIDDLE' }));
+    grid.push(bannerRow('LOONA · MONTHLY ATTENDANCE', PALETTE.headlineBg, W, { fg: PALETTE.titleFg, size: 17, bold: true, valign: 'MIDDLE' }));
     grid.push(bannerRow(moLabel(mo).toUpperCase() + ' · Auto-synced from Loona Hub · Standard Work Hours: '
-      + REQ_WD + 'h (Weekdays), ' + REQ_SAT + 'h (Saturdays)', PALETTE.pageBg, W, { fg: PALETTE.subtitleFg, size: 10 }));
+      + REQ_WD + 'h (Weekdays), ' + REQ_SAT + 'h (Saturdays)', PALETTE.headlineBg, W, { fg: PALETTE.subtitleFg, size: 10 }));
     grid.push(blankRow(W, PALETTE.pageBg));
-    grid.push(bannerRow('MONTHLY PAYROLL SUMMARY', PALETTE.orange, W, { fg: PALETTE.titleFg, size: 11, bold: true }));
+    grid.push(bannerRow('MONTHLY PAYROLL SUMMARY', PALETTE.headlineBg, W, { fg: PALETTE.titleFg, size: 11, bold: true }));
 
     const summaryHeaderRow = SUMMARY_HEADERS.map(h => C(h, { bg: PALETTE.headerBg, bold: true, size: 8, wrap: true }));
     grid.push(padRow(summaryHeaderRow, W));
@@ -798,7 +823,7 @@ async function runSync() {
 
     grid.push(blankRow(W, PALETTE.pageBg));
     grid.push(blankRow(W, PALETTE.pageBg));
-    grid.push(bannerRow('DETAILED MONTHLY ATTENDANCE', PALETTE.orange, W, { fg: PALETTE.titleFg, size: 11, bold: true }));
+    grid.push(bannerRow('DETAILED MONTHLY ATTENDANCE', PALETTE.headlineBg, W, { fg: PALETTE.titleFg, size: 11, bold: true }));
 
     const detailHeaderRow = [
       C('Employee', { bg: PALETTE.headerBg, bold: true, size: 8, wrap: true }),
@@ -924,8 +949,8 @@ async function runSync() {
 
   const yearlyW = 3 + 12 * 7 + 8;
   const yGrid = [];
-  yGrid.push(bannerRow('LOONA · YEARLY ATTENDANCE & PAYROLL SUMMARY', PALETTE.pageBg, yearlyW, { fg: PALETTE.titleFg, size: 17, bold: true }));
-  yGrid.push(bannerRow(fyLabel + ' · Auto-synced from Loona Hub', PALETTE.pageBg, yearlyW, { fg: PALETTE.subtitleFg, size: 10 }));
+  yGrid.push(bannerRow('LOONA · YEARLY ATTENDANCE & PAYROLL SUMMARY', PALETTE.headlineBg, yearlyW, { fg: PALETTE.titleFg, size: 17, bold: true }));
+  yGrid.push(bannerRow(fyLabel + ' · Auto-synced from Loona Hub', PALETTE.headlineBg, yearlyW, { fg: PALETTE.subtitleFg, size: 10 }));
   yGrid.push(blankRow(yearlyW, PALETTE.pageBg));
 
   const yHeader1 = [
@@ -1102,4 +1127,4 @@ exports.handler = async (event) => {
 };
 
 // Exported for tests only.
-exports._internal = { PALETTE, C, computeDayStatus, attributeLateFines, earnedLeaveAsOf, minToHM, minToClock };
+exports._internal = { PALETTE, C, contrastFg, computeDayStatus, attributeLateFines, earnedLeaveAsOf, minToHM, minToClock };
