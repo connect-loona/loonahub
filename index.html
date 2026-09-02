@@ -22027,6 +22027,7 @@ ${brandLines}`;
         '<div class="pf-absrow"><span>Department</span><span>'+esc(a.dept)+'</span></div>'+
         '<div class="pf-absrow"><span>Joined</span><span>'+fmtDate(a.joinDate)+' &middot; '+daysAt(a.joinDate)+'d</span></div>'+
         '<div class="pf-absrow"><span>First Punch</span><span>'+esc(rec.in)+'</span></div>'+
+        '<div class="pf-absrow"><span>Last Punch</span><span>'+esc(rec.out||"—")+'</span></div>'+
         '<div class="pf-absrow"><span>Working Hrs</span><span>'+esc(rec.hrs)+'</span></div>'+
         '<div class="pf-absrow"><span>Break Time</span><span>'+esc(rec.brk)+'</span></div>'+
         '<div class="pf-absrow"><span>Performance ('+curMonth()+')</span><span style="color:'+p.band.c+';font-weight:700">'+p.score+'% &middot; '+p.band.l+'</span></div>'+
