@@ -179,3 +179,6 @@ exports.handler = async (event) => {
     return { statusCode: 502, headers: cors, body: JSON.stringify({ success: false, message: String(err && err.message || err) }) };
   }
 };
+
+// Exported for tests only.
+exports._internal = { summarize, parseStamp };
