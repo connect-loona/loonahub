@@ -39,7 +39,7 @@ const SCOPE = 'https://www.googleapis.com/auth/gmail.send';
 // own address). Recipients are separate from the sender — the same service
 // account's delegation lets it send AS g@loona.in TO anyone, itself included.
 const SENDER = 'g@loona.in';
-const RECIPIENTS = ['g@loona.in', 'account@loona.in'];
+const RECIPIENTS = ['g@loona.in', 'accounts@loona.in'];
 
 const LEAVE_TYPE_LABEL = { standard: 'Standard Leave', sick: 'Sick Leave', wfh: 'Work From Home', other: 'Other' };
 
