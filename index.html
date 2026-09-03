@@ -17524,10 +17524,16 @@
       if (_gPlacesLoadPromise) return _gPlacesLoadPromise;
       _gPlacesLoadPromise = new Promise((resolve) => {
         if (window.google && window.google.maps && window.google.maps.places) return resolve(true);
+        // Use Google's documented callback= pattern rather than the script
+        // tag's own onload — with loading=async, Google's internal setup
+        // can still be finishing *after* onload fires, so checking
+        // readiness there is a race that silently loses most of the time.
+        // The named callback is only invoked once everything is truly ready.
+        const cbName = '_gPlacesReady_' + Date.now().toString(36);
+        window[cbName] = () => { resolve(!!(window.google && window.google.maps && window.google.maps.places)); delete window[cbName]; };
         const script = document.createElement('script');
-        script.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(GOOGLE_PLACES_API_KEY) + '&libraries=places&loading=async';
+        script.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(GOOGLE_PLACES_API_KEY) + '&libraries=places&loading=async&callback=' + cbName;
         script.async = true;
-        script.onload = () => resolve(!!(window.google && window.google.maps && window.google.maps.places));
         script.onerror = () => resolve(false);
         document.head.appendChild(script);
       });
