@@ -17510,8 +17510,10 @@
     // pick a real address (shoot studios, client offices) instead of
     // free-typing one from memory. This key is meant to be visible in the
     // page (Google's own security model for it is the domain restriction
-    // set in Cloud Console — flag.loona.in only — not secrecy), unlike a
-    // server-side credential.
+    // set in Cloud Console — loonahub.netlify.app, the Hub's real domain
+    // — not secrecy), unlike a server-side credential. NOT flag.loona.in —
+    // that's a separate Independence Day microsite (see netlify.toml),
+    // unrelated to the Hub itself.
     const GOOGLE_PLACES_API_KEY = 'AIzaSyA6ioaLTtwOun-LWyFnyIC3VqG0ZTvJQkkv';
     let _gPlacesLoadPromise = null, _nmLocationAutocompleteReady = false;
     // Loads the Maps JS script at most once (cached promise), however many
