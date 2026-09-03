@@ -5036,9 +5036,14 @@
             <input class="form-control" type="text" id="nm-brand-other" placeholder="New / prospective brand name">
           </div>
         </div>
+        <div class="form-group" id="nm-start-location-wrap">
+          <label>Starting point <span style="color:var(--muted);font-weight:400">(for the distance/travel-time estimate below — defaults to the Loona office, change it if whoever's going is starting from somewhere else)</span></label>
+          <input class="form-control" type="text" id="nm-start-location" onblur="nmOnStartLocationChange()">
+        </div>
         <div class="form-group" id="nm-location-wrap">
-          <label>Location <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+          <label id="nm-location-label">Location <span style="color:var(--muted);font-weight:400">(optional)</span></label>
           <input class="form-control" type="text" id="nm-location" placeholder="e.g. Client office, Bandra / Studio 4, Andheri" autocomplete="off">
+          <div id="nm-location-distance" style="display:none;margin-top:6px;font-size:12px;color:var(--text)"></div>
         </div>
         <div class="form-row">
           <div class="form-group">
@@ -17518,7 +17523,53 @@
     // that's a separate Independence Day microsite (see netlify.toml),
     // unrelated to the Hub itself.
     const GOOGLE_PLACES_API_KEY = 'AIzaSyCtt94-TLsAPm2PaVvqiOzpICQ5836fmNQ';
-    let _gPlacesLoadPromise = null, _nmLocationAutocompleteReady = false;
+    // Default "Starting point" — Distance Matrix API geocodes this as a
+    // plain address, no coordinates needed. The field resets to this every
+    // time the modal opens; it's a per-fill convenience for the distance
+    // estimate, not something saved with the event.
+    const LOONA_OFFICE_ADDRESS = '8th Floor, Royal Heritage, 805, Juhu Ln, near Juhu Circle, New D N Nagar, Andheri West, Mumbai, Maharashtra 400053';
+    let _gPlacesLoadPromise = null, _nmLocationAutocompleteReady = false, _nmDistanceService = null;
+    // Changing "Starting point" should re-run the distance estimate against
+    // whatever's currently in Location, if anything.
+    function nmOnStartLocationChange() {
+      nmComputeLocationDistance(document.getElementById('nm-location').value);
+    }
+    // Looks up real driving distance/time from "Starting point" to whatever's
+    // currently in Location, via Google's Distance Matrix API — a nice-to-
+    // have, so any failure (API not enabled/restricted yet, no network,
+    // an address Google can't geocode) just hides the note rather than
+    // showing an error; Location itself is never blocked by this.
+    function nmComputeLocationDistance(destination) {
+      const out = document.getElementById('nm-location-distance');
+      if (!out) return;
+      if (!destination || !destination.trim()) { out.style.display = 'none'; out.textContent = ''; return; }
+      if (!(window.google && google.maps && google.maps.DistanceMatrixService)) return;
+      try {
+        _nmDistanceService = _nmDistanceService || new google.maps.DistanceMatrixService();
+        const forThisDestination = destination;
+        const origin = (document.getElementById('nm-start-location').value || '').trim() || LOONA_OFFICE_ADDRESS;
+        _nmDistanceService.getDistanceMatrix({
+          origins: [origin],
+          destinations: [forThisDestination],
+          travelMode: 'DRIVING'
+        }, (response, status) => {
+          // The field may have changed (or the modal closed) by the time this
+          // resolves — don't stomp a newer result, and don't paint into a
+          // now-gone element.
+          if (document.getElementById('nm-location').value !== forThisDestination) return;
+          const stillOpen = document.getElementById('new-meeting-modal');
+          if (!stillOpen || stillOpen.classList.contains('hidden')) return;
+          const el = status === 'OK' && response.rows[0] && response.rows[0].elements[0];
+          if (!el || el.status !== 'OK') { out.style.display = 'none'; return; }
+          out.innerHTML = '🚗 ~' + el.distance.text + ' · ~' + el.duration.text + ' from your starting point ' +
+            '<span style="color:var(--muted)">(approximate — by-road estimate, actual travel time may vary with traffic)</span>';
+          out.style.display = 'block';
+        });
+      } catch (e) {
+        console.warn('Distance Matrix lookup failed — skipping the travel-time note.', e);
+        out.style.display = 'none';
+      }
+    }
     // Loads the Maps JS script at most once (cached promise), however many
     // times the modal gets opened. Soft-fails on purpose — a blocked
     // script (ad-blocker, offline, the API key not fully live yet) must
@@ -17563,6 +17614,7 @@
         const gmpEl = document.getElementById('nm-location-gmp');
         const input = document.getElementById('nm-location');
         if (gmpEl && input) { try { gmpEl.value = input.value; } catch (e) { /* ignore */ } }
+        nmComputeLocationDistance(input ? input.value : '');
         return;
       }
       const ok = await loadGooglePlacesScript().catch(() => false);
@@ -17611,6 +17663,7 @@
           } catch (e) {
             console.warn('Could not resolve the selected place — Location keeps whatever text was already there.', e);
           }
+          nmComputeLocationDistance(input.value);
         };
         gmpEl.addEventListener('gmp-select', syncFromPick);
         gmpEl.addEventListener('gmp-placeselect', syncFromPick);
@@ -17618,15 +17671,30 @@
         // keep the hidden input (the value submitNewMeeting() actually reads)
         // in sync with whatever's currently typed into the visible element.
         gmpEl.addEventListener('input', () => { if (typeof gmpEl.value === 'string') input.value = gmpEl.value; });
+        // Also cover someone who types a full address by hand without ever
+        // picking a suggestion — look it up once they're done (on blur)
+        // rather than on every keystroke.
+        gmpEl.addEventListener('blur', () => nmComputeLocationDistance(input.value));
+        if (input.value) nmComputeLocationDistance(input.value); // editing an existing event with a saved location
       } catch (e) {
         console.warn('Places Autocomplete failed to initialize — Location stays a plain text field.', e);
       }
+    }
+    // Shoots and physical meetings happen somewhere specific — that's the
+    // whole point of tracking them — so Location is required for those two.
+    // A plain video "Meeting" has no physical place, so it stays optional.
+    function nmLocationRequired() {
+      const kind = document.getElementById('nm-kind').value;
+      return kind === 'shoot' || kind === 'physical_meeting';
     }
     function nmOnKindChange() {
       const kind = document.getElementById('nm-kind').value;
       const editing = !!nmEditingEventKey;
       document.getElementById('nm-modal-title').innerHTML = (editing ? 'Edit ' : 'New ') + '<span>' + (NM_KIND_TITLE[kind] || 'Meeting') + '</span>';
       if (!editing) document.getElementById('nm-submit-btn').textContent = 'Create ' + (NM_KIND_TITLE[kind] || 'Meeting');
+      document.getElementById('nm-location-label').innerHTML = nmLocationRequired()
+        ? 'Location *'
+        : 'Location <span style="color:var(--muted);font-weight:400">(optional)</span>';
     }
     function openNewMeeting(kind) {
       nmEditingEventKey = null;
@@ -17636,6 +17704,8 @@
       document.getElementById('nm-start').value = '';
       document.getElementById('nm-end').value = '';
       document.getElementById('nm-location').value = '';
+      document.getElementById('nm-start-location').value = LOONA_OFFICE_ADDRESS;
+      document.getElementById('nm-location-distance').style.display = 'none';
       document.getElementById('nm-desc').value = '';
       document.getElementById('nm-error').style.display = 'none';
       nmSelectedAttendees = new Set();
@@ -17666,6 +17736,8 @@
       document.getElementById('nm-start').value = (ev.start || '').slice(11, 16);
       document.getElementById('nm-end').value = (ev.end || '').slice(11, 16);
       document.getElementById('nm-location').value = ev.location || '';
+      document.getElementById('nm-start-location').value = LOONA_OFFICE_ADDRESS;
+      document.getElementById('nm-location-distance').style.display = 'none';
       document.getElementById('nm-desc').value = '';
       document.getElementById('nm-error').style.display = 'none';
       nmOnKindChange();
@@ -17718,6 +17790,7 @@
       if (!title) return nmShowError('Give the ' + kindLabel.toLowerCase() + ' a title.');
       if (!date || !startTime || !endTime) return nmShowError('Date, start time, and end time are all required.');
       if (endTime <= startTime) return nmShowError('End time must be after start time.');
+      if (nmLocationRequired() && !location) return nmShowError('Location is required for a ' + kindLabel.toLowerCase() + '.');
 
       const btn = document.getElementById('nm-submit-btn');
       const original = btn.textContent;
