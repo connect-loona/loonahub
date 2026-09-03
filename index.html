@@ -19689,6 +19689,7 @@ ${brandLines}`;
         <button type="button" id="lt-standard" onclick="setLeaveType('standard')" style="flex:1;padding:8px 4px;border-radius:8px;font-size:11.5px;cursor:pointer;font-family:inherit;font-weight:600;background:var(--accent);color:#000;border:1px solid var(--accent)">Standard Leave</button>
         <button type="button" id="lt-sick" onclick="setLeaveType('sick')" style="flex:1;padding:8px 4px;border-radius:8px;font-size:11.5px;cursor:pointer;font-family:inherit;font-weight:600;background:transparent;color:#aaa;border:1px solid #444">Sick Leave</button>
         <button type="button" id="lt-wfh" onclick="setLeaveType('wfh')" style="flex:1;padding:8px 4px;border-radius:8px;font-size:11.5px;cursor:pointer;font-family:inherit;font-weight:600;background:transparent;color:#aaa;border:1px solid #444">WFH</button>
+        <button type="button" id="lt-flexible" onclick="openFlexModal()" style="flex:1;padding:8px 4px;border-radius:8px;font-size:11.5px;cursor:pointer;font-family:inherit;font-weight:600;background:transparent;color:#aaa;border:1px solid #444">&#9200; Flexible Timing</button>
       </div>
       <input type="hidden" id="leave-type" value="standard">
       <div id="leave-scenario-note" style="display:none;font-size:11.5px;background:rgba(120,180,255,.08);border:1px solid rgba(120,180,255,.2);color:#9fc0f0;border-radius:8px;padding:8px 10px;margin-bottom:10px;line-height:1.5"></div>
@@ -19700,6 +19701,38 @@ ${brandLines}`;
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
         <button onclick="closeLeaveModal()" style="background:transparent;border:1px solid #444;color:#888;padding:8px 18px;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit">Cancel</button>
         <button id="leave-submit-btn" onclick="submitLeaveRequest()" style="background:var(--accent);border:none;color:#000;padding:8px 22px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Send for Approval</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Flexible Timing Modal — for a known, one-off in-late/out-early
+       arrangement (an exam, an appointment, etc.), NOT a leave day: never
+       touches leave balance, never counts as unpaid — approving it just
+       waives whatever late/half-day fee that day would otherwise trigger.
+       See submitFlexTimingRequest()/decideLeaveRequest() (index.html). -->
+  <div id="flex-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;align-items:center;justify-content:center" onclick="if(event.target===this)closeFlexModal()">
+    <div style="background:#1a1a1a;border:1px solid #333;border-radius:14px;padding:26px;width:400px;max-width:92vw;box-shadow:0 24px 80px #000a">
+      <h3 style="color:#fff;margin:0 0 6px;font-size:18px">&#9200; Flexible Timing</h3>
+      <div style="font-size:11.5px;color:var(--muted);margin-bottom:16px;line-height:1.5">For a known reason you'll be in later or leaving earlier than usual — an exam, an appointment. This doesn't touch your leave balance; if approved, it just waives the late/short-hours fee for that day.</div>
+      <label style="display:block;font-size:12px;color:#888;margin-bottom:6px">Date</label>
+      <input type="date" id="flex-date" style="width:100%;background:#111;border:1px solid #444;border-radius:8px;color:#d0d0d0;padding:10px 12px;font-family:inherit;font-size:13px;box-sizing:border-box;margin-bottom:14px">
+      <div style="display:flex;gap:10px">
+        <div style="flex:1">
+          <label style="display:block;font-size:12px;color:#888;margin-bottom:6px">In by</label>
+          <input type="time" id="flex-in-by" style="width:100%;background:#111;border:1px solid #444;border-radius:8px;color:#d0d0d0;padding:10px 12px;font-family:inherit;font-size:13px;box-sizing:border-box;margin-bottom:14px">
+        </div>
+        <div style="flex:1">
+          <label style="display:block;font-size:12px;color:#888;margin-bottom:6px">Out by</label>
+          <input type="time" id="flex-out-by" style="width:100%;background:#111;border:1px solid #444;border-radius:8px;color:#d0d0d0;padding:10px 12px;font-family:inherit;font-size:13px;box-sizing:border-box;margin-bottom:14px">
+        </div>
+      </div>
+      <div style="font-size:11px;color:#666;margin:-8px 0 14px">Fill in whichever applies — just "In by" for a late morning, just "Out by" for an early leave, or both.</div>
+      <label style="display:block;font-size:12px;color:#888;margin-bottom:6px">Message *</label>
+      <textarea id="flex-reason" placeholder="What's the reason?" style="width:100%;min-height:60px;background:#111;border:1px solid #444;border-radius:8px;color:#d0d0d0;padding:10px 12px;font-family:inherit;font-size:13px;box-sizing:border-box;resize:vertical;margin-bottom:14px"></textarea>
+      <div id="flex-error" style="display:none;font-size:11.5px;color:#e05c5c;margin-top:2px;margin-bottom:8px"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+        <button onclick="closeFlexModal()" style="background:transparent;border:1px solid #444;color:#888;padding:8px 18px;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit">Cancel</button>
+        <button onclick="submitFlexTimingRequest()" style="background:var(--accent);border:none;color:#000;padding:8px 22px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Send for Approval</button>
       </div>
     </div>
   </div>
@@ -22451,7 +22484,11 @@ ${brandLines}`;
     function formalApprovedLeaveDates(name){
       var out={};
       LEAVE_REQUESTS.forEach(function(r){
-        if(r.member!==name || r.status!=="approved" || r.leave_type==="wfh") return;
+        // Flexible Timing, same as WFH, never draws on the balance — must
+        // stay out of every leave-count/"Leave Left" figure, or approving
+        // one would silently shrink someone's displayed balance despite
+        // never actually touching PERF_EXC (see decideLeaveRequest).
+        if(r.member!==name || r.status!=="approved" || r.leave_type==="wfh" || r.leave_type==="flexible") return;
         chargeDatesFor(r).forEach(function(ds){ out[ds]=true; });
       });
       return Object.keys(out);
@@ -22466,7 +22503,7 @@ ${brandLines}`;
     function formalApprovedLeaveDetails(name){
       var out=[], seen={};
       LEAVE_REQUESTS.forEach(function(r){
-        if(r.member!==name || r.status!=="approved" || r.leave_type==="wfh") return;
+        if(r.member!==name || r.status!=="approved" || r.leave_type==="wfh" || r.leave_type==="flexible") return;
         chargeDatesFor(r).forEach(function(ds){
           if(seen[ds]) return; seen[ds]=true;
           out.push({date:ds, type:r.leave_type||"standard", reason:r.reason||""});
@@ -22533,7 +22570,7 @@ ${brandLines}`;
     function probationLeaveDates(name){
       var out={};
       LEAVE_REQUESTS.forEach(function(r){
-        if(r.member!==name || r.status!=="approved" || r.leave_type==="wfh" || !r.probation) return;
+        if(r.member!==name || r.status!=="approved" || r.leave_type==="wfh" || r.leave_type==="flexible" || !r.probation) return;
         chargeDatesFor(r).forEach(function(ds){ out[ds]=true; });
       });
       return out;
@@ -22547,7 +22584,7 @@ ${brandLines}`;
     function noticeShortfallLeaveDates(name){
       var out={};
       LEAVE_REQUESTS.forEach(function(r){
-        if(r.member!==name || r.status!=="approved" || r.leave_type==="wfh" || !r.notice_shortfall) return;
+        if(r.member!==name || r.status!=="approved" || r.leave_type==="wfh" || r.leave_type==="flexible" || !r.notice_shortfall) return;
         chargeDatesFor(r).forEach(function(ds){ out[ds]=true; });
       });
       return out;
@@ -22624,7 +22661,11 @@ ${brandLines}`;
     // (not FY-scoped, matching that table), so pulled straight from
     // LEAVE_REQUESTS/PERF_EXC rather than the FY-aware helpers above.
     window.attShowLeaveBreakdown=function(name,kind){
-      var reqs=LEAVE_REQUESTS.filter(function(r){return r.member===name && r.status==="approved";});
+      // Flexible Timing excluded entirely — it isn't a leave day at all
+      // (never drew on the balance, never counted unpaid), so it has no
+      // home in a Standard/Sick/WFH/Other breakdown built entirely around
+      // balance-consuming leave.
+      var reqs=LEAVE_REQUESTS.filter(function(r){return r.member===name && r.status==="approved" && r.leave_type!=="flexible";});
       var covered={};
       reqs.forEach(function(r){ if(r.leave_type==="wfh") return; chargeDatesFor(r).forEach(function(ds){ covered[ds]=true; }); });
       var manual=Object.keys(PERF_EXC[name]||{}).filter(function(ds){return PERF_EXC[name][ds]&&!covered[ds];}).sort();
@@ -22798,6 +22839,47 @@ ${brandLines}`;
       document.getElementById("leave-modal").style.display="flex";
     };
     window.closeLeaveModal=function(){ document.getElementById("leave-modal").style.display="none"; };
+    // Flexible Timing — a separate, dedicated modal (not just another
+    // leave-type value on the main Apply for Leave form) since its fields
+    // are genuinely different: a single date + optional in-by/out-by
+    // times, no date range, no balance math at all. Opened FROM the leave
+    // modal's type row (see the "Flexible Timing" button) but replaces it
+    // rather than layering on top.
+    window.openFlexModal=function(){
+      window.closeLeaveModal();
+      var d=document.getElementById("flex-date");
+      d.value=TODAY; d.min=TODAY;
+      document.getElementById("flex-in-by").value="";
+      document.getElementById("flex-out-by").value="";
+      document.getElementById("flex-reason").value="";
+      document.getElementById("flex-error").style.display="none";
+      document.getElementById("flex-modal").style.display="flex";
+    };
+    window.closeFlexModal=function(){ document.getElementById("flex-modal").style.display="none"; };
+    // Never touches leave balance/PERF_EXC and never marks anything
+    // unpaid, per Gokul — see decideLeaveRequest()'s "flexible" branch,
+    // which waives that specific date's late/half/short-hours fee on
+    // approval instead of excusing the day. Goes through the same
+    // leave_requests/approval-queue/email pipeline as any other request.
+    window.submitFlexTimingRequest=function(){
+      var date=document.getElementById("flex-date").value;
+      var inBy=document.getElementById("flex-in-by").value;
+      var outBy=document.getElementById("flex-out-by").value;
+      var reason=document.getElementById("flex-reason").value.trim();
+      var err=document.getElementById("flex-error");
+      function fail(msg){ err.textContent=msg; err.style.display="block"; }
+      if(!date) return fail("Pick a date.");
+      if(!inBy && !outBy) return fail("Fill in “In by”, “Out by”, or both.");
+      if(!reason) return fail("Add a message.");
+      var req={
+        member:currentUser, from_date:date, to_date:date, reason:reason, leave_type:"flexible",
+        in_by:inBy||null, out_by:outBy||null, status:"pending", requested_at:new Date().toISOString(),
+        probation:isOnProbation(currentUser)
+      };
+      if(_perfReady){ firebase.database().ref("leave_requests").push(req); notifyLeaveRequestByEmail(req); }
+      else { req._key="local_"+Date.now(); LEAVE_REQUESTS.push(req); perfRerender(); }
+      window.closeFlexModal();
+    };
     window.onLeaveFromChange=function(){
       var f=document.getElementById("leave-from").value, t=document.getElementById("leave-to");
       t.min=f; if(t.value<f) t.value=f;
@@ -22895,14 +22977,57 @@ ${brandLines}`;
     // decided. Older requests from before this field existed fall back to
     // computing it fresh.
     function chargeDatesFor(r){ return (r.charge_dates && r.charge_dates.length) ? r.charge_dates : leaveDateMath(r.from_date,r.to_date).chargeDates; }
+    // Approving a Flexible Timing request waives that ONE date's late/half/
+    // short-hours fee outright (all three flags — whichever one actually
+    // ends up applying that day, if any, is what matters; setting the
+    // other two is harmless, they only ever get consulted if that day's
+    // raw status happens to match), same forgiveness flags/paths the
+    // manual attForgiveLate/Half/Short toggles already write to — this is
+    // just those, pre-set on approval instead of toggled by hand
+    // afterward. Deliberately never calls setPerfExcused: per Gokul, this
+    // never touches the leave balance and never counts as unpaid, unlike
+    // every other leave type.
+    function forgiveFlexibleTimingDay(name,date){
+      LATE_FGV[name]=LATE_FGV[name]||{}; LATE_FGV[name][date]=true;
+      HALF_FGV[name]=HALF_FGV[name]||{}; HALF_FGV[name][date]=true;
+      SHORT_FGV[name]=SHORT_FGV[name]||{}; SHORT_FGV[name][date]=true;
+      cachePerf();
+      if(_perfReady){
+        try{
+          firebase.database().ref("loona_late_forgiven/"+name+"/"+date).set(true);
+          firebase.database().ref("loona_half_forgiven/"+name+"/"+date).set(true);
+          firebase.database().ref("loona_short_forgiven/"+name+"/"+date).set(true);
+        }catch(e){}
+      }
+    }
+    // Exact inverse — used by cancelApprovedLeave() below if an already-
+    // approved Flexible Timing request gets cancelled. Only clears the
+    // flag; doesn't check who else might independently want that date
+    // forgiven, same as every other forgive toggle in this file.
+    function unforgiveFlexibleTimingDay(name,date){
+      if(LATE_FGV[name]) delete LATE_FGV[name][date];
+      if(HALF_FGV[name]) delete HALF_FGV[name][date];
+      if(SHORT_FGV[name]) delete SHORT_FGV[name][date];
+      cachePerf();
+      if(_perfReady){
+        try{
+          firebase.database().ref("loona_late_forgiven/"+name+"/"+date).remove();
+          firebase.database().ref("loona_half_forgiven/"+name+"/"+date).remove();
+          firebase.database().ref("loona_short_forgiven/"+name+"/"+date).remove();
+        }catch(e){}
+      }
+    }
     // Gokul-only (see renderLeaveApprovalQueue's own gate) — approving fans
     // out into a PERF_EXC write per charged day for Standard/Sick leave;
     // WFH never touches the balance at approval time (per spec, its actual
-    // impact is decided later by whether they actually punch in). Declining
-    // never changes PERF_EXC either way.
+    // impact is decided later by whether they actually punch in). Flexible
+    // Timing never touches PERF_EXC either — see forgiveFlexibleTimingDay
+    // above. Declining never changes PERF_EXC/forgiveness either way.
     window.decideLeaveRequest=function(key,decision){
       var req=LEAVE_REQUESTS.find(function(r){return r._key===key;}); if(!req) return;
-      if(decision==="approved" && req.leave_type!=="wfh"){
+      if(decision==="approved" && req.leave_type==="flexible"){
+        forgiveFlexibleTimingDay(req.member, req.from_date);
+      } else if(decision==="approved" && req.leave_type!=="wfh"){
         chargeDatesFor(req).forEach(function(ds){ setPerfExcused(req.member,ds,true); });
       }
       var updates={status:decision, decided_by:currentUser, decided_at:new Date().toISOString()};
@@ -22914,12 +23039,18 @@ ${brandLines}`;
     // already underway, so this doesn't check dates either way: every day
     // originally charged gets credited straight back (un-excused), exactly
     // undoing what decideLeaveRequest's approval branch did. A no-op for
-    // WFH, which was never excused in the first place.
+    // WFH, which was never excused in the first place. For Flexible
+    // Timing, "credited back" means un-forgiving that date's fee instead
+    // (it never drew on the balance in the first place).
     window.cancelApprovedLeave=function(key){
       if(currentUser!=="Gokul") return;
       var req=LEAVE_REQUESTS.find(function(r){return r._key===key;}); if(!req||req.status!=="approved") return;
-      if(!confirm("Cancel "+req.member+"'s approved leave and credit the days back to their balance?")) return;
-      if(req.leave_type!=="wfh"){ chargeDatesFor(req).forEach(function(ds){ setPerfExcused(req.member,ds,false); }); }
+      var confirmMsg = req.leave_type==="flexible"
+        ? "Cancel "+req.member+"'s approved Flexible Timing and reinstate any late/short-hours fee for that day?"
+        : "Cancel "+req.member+"'s approved leave and credit the days back to their balance?";
+      if(!confirm(confirmMsg)) return;
+      if(req.leave_type==="flexible"){ unforgiveFlexibleTimingDay(req.member, req.from_date); }
+      else if(req.leave_type!=="wfh"){ chargeDatesFor(req).forEach(function(ds){ setPerfExcused(req.member,ds,false); }); }
       var updates={status:"cancelled", cancelled_by:currentUser, cancelled_at:new Date().toISOString()};
       if(_perfReady){ firebase.database().ref("leave_requests/"+key).update(updates); }
       else { Object.assign(req,updates); perfRerender(); }
@@ -23081,7 +23212,28 @@ ${brandLines}`;
       // else shows effective_days (the real charge count, sandwich
       // included); older pre-spec records fall back to computing it fresh.
       if(r.leave_type==="wfh") return allDatesInRange(r.from_date,r.to_date).length;
+      // Flexible Timing was never charged a single day of anything —
+      // "days" doesn't apply. Only caller left after attShowLeaveBreakdown/
+      // the byEmp tally exclude it upstream is the plain admin table cell,
+      // which just displays this directly, so a string is safe here.
+      if(r.leave_type==="flexible") return "—";
       return r.effective_days!=null ? r.effective_days : chargeDatesFor(r).length;
+    }
+    // "In by 12:30 pm", "Out by 4:00 pm", or both joined — appended to a
+    // Flexible Timing row's date range wherever it's displayed, since the
+    // times ARE the actual request (a bare date alone says nothing).
+    function flexTimingDisplay(r){
+      var bits=[];
+      if(r.in_by) bits.push("in by "+fmtTimeHHMM(r.in_by));
+      if(r.out_by) bits.push("out by "+fmtTimeHHMM(r.out_by));
+      return bits.join(", ");
+    }
+    // <input type="time"> gives "HH:MM" (24h) — reuse the app's own 12h
+    // clock formatting rather than inventing a second one.
+    function fmtTimeHHMM(hhmm){
+      var parts=String(hhmm||"").split(":"); if(parts.length<2) return hhmm||"";
+      var h=parseInt(parts[0],10), m=parseInt(parts[1],10); if(isNaN(h)||isNaN(m)) return hhmm;
+      return minToClock(h*60+m);
     }
     function renderAdminLeaveRecords(){
       var sec=document.getElementById("admin-leave-section");
@@ -23092,7 +23244,7 @@ ${brandLines}`;
       // filtered out of every leave listing below, same as they already are
       // everywhere else (Monthly Overview, org chart, login picker, etc.).
       var all=LEAVE_REQUESTS.filter(function(r){return !INACTIVE_MEMBERS.has(r.member);}).sort(function(a,b){return (b.requested_at||"").localeCompare(a.requested_at||"");});
-      var LT_LABEL={standard:"Standard Leave", sick:"Sick Leave", wfh:"Work From Home"};
+      var LT_LABEL={standard:"Standard Leave", sick:"Sick Leave", wfh:"Work From Home", flexible:"Flexible Timing"};
       var STATUS_LABEL={pending:'<span style="color:var(--yellow)">&#9203; Pending</span>', approved:'<span style="color:var(--green)">&#10003; Approved</span>', cancelled:'<span style="color:var(--red)">&#8416; Cancelled</span>', declined:'<span style="color:var(--red)">&#10007; Declined</span>'};
       // PERF_EXC has a second way to get set besides a formal leave
       // request: Gokul's own "Approve leave" toggle on a no-punch absence
@@ -23119,6 +23271,7 @@ ${brandLines}`;
       var allForDisplay=all.concat(manualRows).sort(function(a,b){return (b.requested_at||"").localeCompare(a.requested_at||"");});
       var rowsHtml = allForDisplay.length ? allForDisplay.map(function(r){
         var range = r.from_date===r.to_date ? fmtDate(r.from_date) : fmtDate(r.from_date)+" – "+fmtDate(r.to_date);
+        if(r.leave_type==="flexible" && flexTimingDisplay(r)) range += " ("+flexTimingDisplay(r)+")";
         var applied = r._manual ? "—" : (r.requested_at ? fmtDate(r.requested_at.slice(0,10)) : "—");
         return '<tr>'+
           '<td data-label="Employee"><strong>'+esc(r.member)+'</strong></td>'+
@@ -23141,7 +23294,10 @@ ${brandLines}`;
       // formalApprovedLeaveDates() below for why it currently doesn't).
       var byEmp={};
       all.forEach(function(r){
-        if(r.status!=="approved") return;
+        // Flexible Timing isn't leave — no balance drawn, nothing unpaid —
+        // so it has no bucket here (would otherwise silently inflate
+        // "Standard" via the else branch below).
+        if(r.status!=="approved" || r.leave_type==="flexible") return;
         byEmp[r.member]=byEmp[r.member]||{standard:0,sick:0,wfh:0,other:0};
         var days=leaveRequestDaysDisplay(r);
         if(r.leave_type==="sick") byEmp[r.member].sick+=days;
@@ -23244,7 +23400,7 @@ ${brandLines}`;
       // final picture for the same person.
       var covered={};
       mine.forEach(function(r){
-        if(r.status!=="approved"||r.leave_type==="wfh") return;
+        if(r.status!=="approved"||r.leave_type==="wfh"||r.leave_type==="flexible") return;
         chargeDatesFor(r).forEach(function(ds){ covered[ds]=true; });
       });
       var manualRows=Object.keys(PERF_EXC[name]||{}).filter(function(ds){ return PERF_EXC[name][ds]&&!covered[ds]; }).map(function(ds){
@@ -23262,6 +23418,7 @@ ${brandLines}`;
             : r.status==="cancelled" ? '<span style="color:var(--red)">&#8416; Cancelled</span>'
             : '<span style="color:var(--red)">&#10007; Declined</span>';
           var range = r.from_date===r.to_date ? fmtDate(r.from_date) : fmtDate(r.from_date)+" – "+fmtDate(r.to_date);
+          if(r.leave_type==="flexible" && flexTimingDisplay(r)) range += " ("+flexTimingDisplay(r)+")";
           var cancelBtn = (!r._manual && r.status==="pending") ? '<button onclick="cancelLeaveRequest(&quot;'+r._key+'&quot;)" style="background:none;border:none;color:#666;cursor:pointer;font-size:12px;font-family:inherit">Withdraw</button>' : '';
           var reasonText = r._manual ? '<span style="font-style:italic">Excused directly by Gokul — no formal request</span>' : esc(r.reason||"");
           return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);gap:10px">'+
@@ -23368,12 +23525,18 @@ ${brandLines}`;
       var approvedActive=LEAVE_REQUESTS.filter(function(r){return r.status==="approved" && r.to_date>=TODAY && !INACTIVE_MEMBERS.has(r.member);})
         .sort(function(a,b){return a.from_date.localeCompare(b.from_date);});
       if(!pending.length && !approvedActive.length) return "";
-      var LT_LABEL={standard:"", sick:"&#129658; Sick &middot; ", wfh:"&#127968; WFH &middot; "};
+      var LT_LABEL={standard:"", sick:"&#129658; Sick &middot; ", wfh:"&#127968; WFH &middot; ", flexible:"&#9200; Flexible Timing &middot; "};
       var rows=pending.map(function(r){
         var range = r.from_date===r.to_date ? fmtDate(r.from_date) : fmtDate(r.from_date)+" – "+fmtDate(r.to_date);
         var typeTag=LT_LABEL[r.leave_type]||"";
         var flag="";
-        if(r.leave_type!=="wfh"){
+        if(r.leave_type==="flexible"){
+          // Never touches balance/unpaid — no day-count math at all, just
+          // the times themselves and the usual probation callout.
+          var ftBits=flexTimingDisplay(r);
+          flag = ftBits ? ' ('+ftBits+')' : '';
+          if(r.probation) flag += ' <span style="color:#f0b03f">&middot; employee is on probation</span>';
+        } else if(r.leave_type!=="wfh"){
           var days=chargeDatesFor(r).length;
           // Older requests from before these fields existed fall back to
           // computing them fresh — nothing here could have changed since
@@ -23400,6 +23563,7 @@ ${brandLines}`;
       }).join("");
       var activeRows=approvedActive.map(function(r){
         var range = r.from_date===r.to_date ? fmtDate(r.from_date) : fmtDate(r.from_date)+" – "+fmtDate(r.to_date);
+        if(r.leave_type==="flexible" && flexTimingDisplay(r)) range += " ("+flexTimingDisplay(r)+")";
         var when = r.from_date>TODAY ? "upcoming" : "ongoing";
         return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);gap:10px">'+
           '<div><b>'+esc(r.member)+'</b> &middot; '+esc(range)+' ('+when+')<div style="font-size:11.5px;color:var(--muted);font-style:italic">“'+esc(r.reason||"")+'”</div></div>'+
