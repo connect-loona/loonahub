@@ -17619,6 +17619,11 @@
     // Once we know how long the trip takes, suggest when to actually leave
     // so whoever's going arrives by the meeting's start time — refreshed
     // whenever the distance recomputes or Start time changes.
+    // Extra cushion baked into "leave by" on top of the raw travel estimate —
+    // parking, walking in, traffic being a little worse than Google's
+    // estimate. Without it the suggestion cuts things exactly to the minute,
+    // which is optimistic in practice.
+    const NM_DEPARTURE_BUFFER_MINUTES = 15;
     function nmSuggestDepartureTime() {
       const note = document.getElementById('nm-departure-note');
       if (!note) return;
@@ -17627,14 +17632,14 @@
       const [h, m] = startVal.split(':').map(Number);
       const startMinutes = h * 60 + m;
       const travelMinutes = Math.round(_nmLastDurationSeconds / 60);
-      let departMinutes = startMinutes - travelMinutes;
+      let departMinutes = startMinutes - travelMinutes - NM_DEPARTURE_BUFFER_MINUTES;
       departMinutes = ((departMinutes % 1440) + 1440) % 1440; // wrap into a valid day if travel pushes it before midnight
       const dH = Math.floor(departMinutes / 60), dM = departMinutes % 60;
       const period = dH < 12 ? 'AM' : 'PM';
       const dH12 = ((dH % 12) || 12);
       const departLabel = dH12 + ':' + String(dM).padStart(2, '0') + ' ' + period;
       note.innerHTML = '🕐 Leave by <strong style="color:var(--accent)">~' + departLabel + '</strong> to arrive on time ' +
-        '<span style="color:var(--muted)">(based on the ~' + travelMinutes + ' min travel estimate)</span>';
+        '<span style="color:var(--muted)">(based on the ~' + travelMinutes + ' min travel estimate + ' + NM_DEPARTURE_BUFFER_MINUTES + ' min buffer)</span>';
       note.style.display = 'block';
     }
     // Loads the Maps JS script at most once (cached promise), however many
