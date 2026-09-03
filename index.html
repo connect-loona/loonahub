@@ -2316,8 +2316,11 @@
 
     /* Google Places Autocomplete's address dropdown (nm-location, inside
        new-meeting-modal) is appended to <body>, outside the modal — force
-       it above modal-overlay's z-index:500 so it isn't hidden behind it. */
-    .pac-container { z-index: 10000 !important; }
+       it above modal-overlay's z-index:500 so it isn't hidden behind it,
+       and force it fixed-position so the JS reposition logic (which pins
+       it to the input's on-screen rect, since our modal is itself
+       position:fixed) isn't fighting Google's own absolute positioning. */
+    .pac-container { z-index: 10000 !important; position: fixed !important; }
 
     .modal {
       background: var(--surface);
@@ -17554,6 +17557,33 @@
       try {
         const input = document.getElementById('nm-location');
         new google.maps.places.Autocomplete(input, { fields: ['formatted_address', 'name'] });
+        // Google positions .pac-container assuming its trigger input sits in
+        // normal scrolling document flow (input rect + page scroll offset).
+        // Our modal is `position:fixed` — if the page behind it is scrolled
+        // at all when the modal opens, that math drifts, and in the worst
+        // case the dropdown lands right on top of the field itself, eating
+        // every tap/keystroke meant for it. Pin the dropdown ourselves,
+        // fixed to the input's actual on-screen position, and re-pin it
+        // every time Google recalculates (it does, on every keystroke).
+        const reposition = () => {
+          const pac = document.querySelector('.pac-container');
+          if (!pac) return;
+          const rect = input.getBoundingClientRect();
+          pac.style.position = 'fixed';
+          pac.style.left = rect.left + 'px';
+          pac.style.top = rect.bottom + 'px';
+          pac.style.width = rect.width + 'px';
+        };
+        new MutationObserver(() => {
+          const pac = document.querySelector('.pac-container');
+          if (pac && !pac._nmPinned) {
+            pac._nmPinned = true;
+            new MutationObserver(reposition).observe(pac, { attributes: true, attributeFilter: ['style'] });
+            reposition();
+          }
+        }).observe(document.body, { childList: true });
+        window.addEventListener('resize', reposition);
+        window.addEventListener('scroll', reposition, true);
       } catch (e) {
         console.warn('Places Autocomplete failed to initialize — Location stays a plain text field.', e);
       }
