@@ -79,16 +79,26 @@ function fmtDate(ds) {
   return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+function row(label, value) {
+  return `<tr><td style="padding:4px 12px 4px 0;color:#666">${escapeHtml(label)}</td><td>${value}</td></tr>`;
+}
+
 // Pure — takes the same leave-request object shape submitLeaveRequest()
 // builds (member/from_date/to_date/reason/leave_type/effective_days/
-// probation/notice_shortfall/sandwich_days) and produces the email subject
-// + HTML body. Split out from the handler so it's directly unit-testable
+// probation/notice_shortfall/sandwich_days), PLUS the display-only balance
+// preview fields it adds for non-WFH requests (current_balance/
+// balance_after/paid_days_estimate/unpaid_days_estimate — see
+// estimateLeaveBalanceImpact() there) — and produces the email subject +
+// HTML body. Split out from the handler so it's directly unit-testable
 // without touching the network.
 function buildEmail(req) {
   const sameDay = req.from_date === req.to_date;
   const dateRange = fmtDate(req.from_date) + (sameDay ? '' : ' – ' + fmtDate(req.to_date));
   const typeLabel = LEAVE_TYPE_LABEL[req.leave_type] || req.leave_type || 'Leave';
   const days = req.effective_days;
+  const isWfh = req.leave_type === 'wfh';
+  const hasBalanceInfo = !isWfh && req.current_balance != null;
+
   const flags = [];
   if (req.probation) flags.push('on probation');
   if (req.notice_shortfall) flags.push('short notice');
@@ -96,14 +106,42 @@ function buildEmail(req) {
   const flagLine = flags.length
     ? `<p style="color:#b33a3a;font-weight:600;margin:14px 0 0">&#9888; ${escapeHtml(flags.join(' · '))} — requires your direct approval.</p>`
     : '';
+
+  // A second table, shown for anything that actually draws on the leave
+  // balance (i.e. not WFH) — current balance, this request's own sandwich
+  // days if any, how many of ITS days are estimated to land unpaid, and
+  // what the balance would come out to if approved as-is. Estimated using
+  // the exact same rule the real approval-time calc uses (see
+  // estimateLeaveBalanceImpact() in index.html) but in isolation — it
+  // doesn't account for any OTHER pending request that might get approved
+  // first, so it's labeled "estimated" rather than presented as final.
+  let balanceHTML = '';
+  if (isWfh) {
+    balanceHTML = '<p style="color:#666;margin:14px 0 0">Work From Home — does not draw on leave balance.</p>';
+  } else if (hasBalanceInfo) {
+    const unpaidRow = req.unpaid_days_estimate
+      ? row('Unpaid in this request (est.)', `<b style="color:#b33a3a">${req.unpaid_days_estimate} day${req.unpaid_days_estimate === 1 ? '' : 's'}</b>`)
+      : '';
+    const sandwichRow = req.sandwich_days
+      ? row('Sandwich days included', req.sandwich_days + ' day' + (req.sandwich_days === 1 ? '' : 's'))
+      : '';
+    balanceHTML = '<table style="border-collapse:collapse;margin-top:10px">'
+      + row('Current balance', req.current_balance + ' day' + (req.current_balance === 1 ? '' : 's'))
+      + sandwichRow
+      + unpaidRow
+      + row('Balance after (est., if approved as-is)', `<b>${req.balance_after} day${req.balance_after === 1 ? '' : 's'}</b>`)
+      + '</table>';
+  }
+
   const subject = `Leave request: ${req.member} · ${dateRange}`;
   const html = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#222">'
     + `<h2 style="margin:0 0 12px">New leave request — ${escapeHtml(req.member)}</h2>`
     + '<table style="border-collapse:collapse">'
-    + `<tr><td style="padding:4px 12px 4px 0;color:#666">Type</td><td>${escapeHtml(typeLabel)}</td></tr>`
-    + `<tr><td style="padding:4px 12px 4px 0;color:#666">Dates</td><td>${escapeHtml(dateRange)}${days != null ? ' (' + days + ' day' + (days === 1 ? '' : 's') + ')' : ''}</td></tr>`
-    + `<tr><td style="padding:4px 12px 4px 0;color:#666">Reason</td><td>${escapeHtml(req.reason || '—')}</td></tr>`
+    + row('Type', escapeHtml(typeLabel))
+    + row('Dates', escapeHtml(dateRange) + (days != null ? ' (' + days + ' day' + (days === 1 ? '' : 's') + ')' : ''))
+    + row('Reason', escapeHtml(req.reason || '—'))
     + '</table>'
+    + balanceHTML
     + flagLine
     + '<p style="margin-top:18px"><a href="https://flag.loona.in" style="background:#ff5a1f;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">Review on Loona Hub</a></p>'
     + '</div>';

@@ -22804,14 +22804,48 @@ ${brandLines}`;
       updateLeaveNotices();
     };
     window.onLeaveToChange=function(){ updateLeaveNotices(); };
+    // Estimates this specific request's impact on the submitter's leave
+    // balance, for the email only (see notifyLeaveRequestByEmail below) —
+    // never written to Firebase, never used to actually decide paid/unpaid
+    // (that stays decideLeaveRequest()/setPerfExcused()'s job at approval
+    // time, walking ALL of a person's excused dates for the FY in order,
+    // not just this one request in isolation). This is a same-formula
+    // preview so Gokul can see, right in the email, roughly what approving
+    // it as-is would do: currentBalance mirrors the Monthly Overview's own
+    // "Leave Left" (earned-to-date minus formal approved leave so far —
+    // see formalApprovedLeaves()/earnedLeaveAsOf()); whollyUnpaid mirrors
+    // probationLeaveDates()/noticeShortfallLeaveDates() — a probation or
+    // notice-shortfall request is unpaid in full regardless of balance;
+    // otherwise spends the balance one whole day at a time, same rule as
+    // unpaidLeaveDatesForFY().
+    function estimateLeaveBalanceImpact(name, chargeDates, whollyUnpaid){
+      var currentBalance=Math.round((earnedLeaveAsOf(name,TODAY)-formalApprovedLeaves(name))*100)/100;
+      if(whollyUnpaid) return {currentBalance:currentBalance, balanceAfter:currentBalance, paidDays:0, unpaidDays:chargeDates.length};
+      var avail=currentBalance, paid=0;
+      chargeDates.forEach(function(){ if(avail>=1){ avail-=1; paid++; } });
+      return {currentBalance:currentBalance, balanceAfter:Math.round((currentBalance-paid)*100)/100, paidDays:paid, unpaidDays:chargeDates.length-paid};
+    }
+    window.estimateLeaveBalanceImpact=estimateLeaveBalanceImpact; // exposed for tests only
     // Best-effort, fire-and-forget email to Gokul (see
     // netlify/functions/notify-leave-request.js) — the leave request itself
     // has already been written to Firebase by the time this is called, so a
     // failure here (network hiccup, the one-time Gmail-scope setup not done
     // yet, etc.) must never surface to whoever just submitted the request.
+    // notifyPayload carries a few extra display-only fields (see
+    // estimateLeaveBalanceImpact above) never written to Firebase itself —
+    // built fresh here rather than mutating req, so what's actually saved
+    // stays exactly the same shape it always was.
     function notifyLeaveRequestByEmail(req){
+      var notifyPayload=req;
+      if(req.leave_type!=="wfh" && req.charge_dates){
+        var impact=estimateLeaveBalanceImpact(req.member, req.charge_dates, req.probation||req.notice_shortfall);
+        notifyPayload=Object.assign({}, req, {
+          current_balance:impact.currentBalance, balance_after:impact.balanceAfter,
+          paid_days_estimate:impact.paidDays, unpaid_days_estimate:impact.unpaidDays
+        });
+      }
       fetch("/.netlify/functions/notify-leave-request", {
-        method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(req)
+        method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(notifyPayload)
       }).catch(function(e){ console.warn("notify-leave-request: best-effort email failed (leave request itself is already saved)", e); });
     }
     window.submitLeaveRequest=function(){
