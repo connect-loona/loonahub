@@ -2314,6 +2314,11 @@
       display: none;
     }
 
+    /* Google Places Autocomplete's address dropdown (nm-location, inside
+       new-meeting-modal) is appended to <body>, outside the modal — force
+       it above modal-overlay's z-index:500 so it isn't hidden behind it. */
+    .pac-container { z-index: 10000 !important; }
+
     .modal {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -17500,6 +17505,51 @@
     // conferenceData for anything but "meeting" and use this to prefix the
     // auto-created task/Loona Board post text differently.
     const NM_KIND_TITLE = { meeting: 'Meeting', physical_meeting: 'Physical Meeting', shoot: 'Shoot' };
+
+    // Google Places Autocomplete on the Location field — lets you type and
+    // pick a real address (shoot studios, client offices) instead of
+    // free-typing one from memory. This key is meant to be visible in the
+    // page (Google's own security model for it is the domain restriction
+    // set in Cloud Console — flag.loona.in only — not secrecy), unlike a
+    // server-side credential.
+    const GOOGLE_PLACES_API_KEY = 'AIzaSyA6ioaLTtwOun-LWyFnyIC3VqG0ZTvJQkkv';
+    let _gPlacesLoadPromise = null, _nmLocationAutocompleteReady = false;
+    // Loads the Maps JS script at most once (cached promise), however many
+    // times the modal gets opened. Soft-fails on purpose — a blocked
+    // script (ad-blocker, offline, the API key not fully live yet) must
+    // never break the modal; Location just stays a plain text field.
+    function loadGooglePlacesScript() {
+      if (_gPlacesLoadPromise) return _gPlacesLoadPromise;
+      _gPlacesLoadPromise = new Promise((resolve) => {
+        if (window.google && window.google.maps && window.google.maps.places) return resolve(true);
+        const script = document.createElement('script');
+        script.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(GOOGLE_PLACES_API_KEY) + '&libraries=places&loading=async';
+        script.async = true;
+        script.onload = () => resolve(!!(window.google && window.google.maps && window.google.maps.places));
+        script.onerror = () => resolve(false);
+        document.head.appendChild(script);
+      });
+      return _gPlacesLoadPromise;
+    }
+    // Attaches the autocomplete dropdown to #nm-location — only once ever,
+    // regardless of how many times the modal opens/closes (re-attaching to
+    // the same input would just stack duplicate dropdowns). Fire-and-forget
+    // from openNewMeeting()/openEditMeeting() — never awaited, since the
+    // modal must open instantly either way; the address dropdown just
+    // becomes live a moment later once (if) Google's script finishes
+    // loading.
+    async function nmEnsurePlacesAutocomplete() {
+      if (_nmLocationAutocompleteReady) return;
+      const ok = await loadGooglePlacesScript().catch(() => false);
+      if (!ok || _nmLocationAutocompleteReady) return; // guard again — two overlapping calls could both get here
+      _nmLocationAutocompleteReady = true;
+      try {
+        const input = document.getElementById('nm-location');
+        new google.maps.places.Autocomplete(input, { fields: ['formatted_address', 'name'] });
+      } catch (e) {
+        console.warn('Places Autocomplete failed to initialize — Location stays a plain text field.', e);
+      }
+    }
     function nmOnKindChange() {
       const kind = document.getElementById('nm-kind').value;
       const editing = !!nmEditingEventKey;
@@ -17527,6 +17577,7 @@
       nmOnKindChange();
       document.getElementById('new-meeting-modal').classList.remove('hidden');
       setTimeout(() => document.getElementById('nm-title').focus(), 100);
+      nmEnsurePlacesAutocomplete(); // fire-and-forget — modal opens instantly either way
     }
 
     // Reuses the New Meeting modal to reschedule/edit an existing synced meeting —
@@ -17567,6 +17618,7 @@
       nmRenderAttendees();
       nmRenderGuests();
       document.getElementById('new-meeting-modal').classList.remove('hidden');
+      nmEnsurePlacesAutocomplete(); // fire-and-forget — same as openNewMeeting()
     }
 
     function closeNewMeeting() {
