@@ -5037,7 +5037,7 @@
           </div>
         </div>
         <div class="form-group" id="nm-location-wrap">
-          <label>Location <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+          <label id="nm-location-label">Location <span style="color:var(--muted);font-weight:400">(optional)</span></label>
           <input class="form-control" type="text" id="nm-location" placeholder="e.g. Client office, Bandra / Studio 4, Andheri" autocomplete="off">
         </div>
         <div class="form-row">
@@ -17622,11 +17622,21 @@
         console.warn('Places Autocomplete failed to initialize — Location stays a plain text field.', e);
       }
     }
+    // Shoots and physical meetings happen somewhere specific — that's the
+    // whole point of tracking them — so Location is required for those two.
+    // A plain video "Meeting" has no physical place, so it stays optional.
+    function nmLocationRequired() {
+      const kind = document.getElementById('nm-kind').value;
+      return kind === 'shoot' || kind === 'physical_meeting';
+    }
     function nmOnKindChange() {
       const kind = document.getElementById('nm-kind').value;
       const editing = !!nmEditingEventKey;
       document.getElementById('nm-modal-title').innerHTML = (editing ? 'Edit ' : 'New ') + '<span>' + (NM_KIND_TITLE[kind] || 'Meeting') + '</span>';
       if (!editing) document.getElementById('nm-submit-btn').textContent = 'Create ' + (NM_KIND_TITLE[kind] || 'Meeting');
+      document.getElementById('nm-location-label').innerHTML = nmLocationRequired()
+        ? 'Location *'
+        : 'Location <span style="color:var(--muted);font-weight:400">(optional)</span>';
     }
     function openNewMeeting(kind) {
       nmEditingEventKey = null;
@@ -17718,6 +17728,7 @@
       if (!title) return nmShowError('Give the ' + kindLabel.toLowerCase() + ' a title.');
       if (!date || !startTime || !endTime) return nmShowError('Date, start time, and end time are all required.');
       if (endTime <= startTime) return nmShowError('End time must be after start time.');
+      if (nmLocationRequired() && !location) return nmShowError('Location is required for a ' + kindLabel.toLowerCase() + '.');
 
       const btn = document.getElementById('nm-submit-btn');
       const original = btn.textContent;
