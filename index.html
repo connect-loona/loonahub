@@ -5036,6 +5036,10 @@
             <input class="form-control" type="text" id="nm-brand-other" placeholder="New / prospective brand name">
           </div>
         </div>
+        <div class="form-group" id="nm-start-location-wrap">
+          <label>Starting point <span style="color:var(--muted);font-weight:400">(for the distance/travel-time estimate below — defaults to the Loona office, change it if whoever's going is starting from somewhere else)</span></label>
+          <input class="form-control" type="text" id="nm-start-location" onblur="nmOnStartLocationChange()">
+        </div>
         <div class="form-group" id="nm-location-wrap">
           <label id="nm-location-label">Location <span style="color:var(--muted);font-weight:400">(optional)</span></label>
           <input class="form-control" type="text" id="nm-location" placeholder="e.g. Client office, Bandra / Studio 4, Andheri" autocomplete="off">
@@ -17519,12 +17523,18 @@
     // that's a separate Independence Day microsite (see netlify.toml),
     // unrelated to the Hub itself.
     const GOOGLE_PLACES_API_KEY = 'AIzaSyCtt94-TLsAPm2PaVvqiOzpICQ5836fmNQ';
-    // Origin for the Location field's "distance/travel time from office" note
-    // below — Distance Matrix API geocodes this as a plain address, no
-    // coordinates needed.
+    // Default "Starting point" — Distance Matrix API geocodes this as a
+    // plain address, no coordinates needed. The field resets to this every
+    // time the modal opens; it's a per-fill convenience for the distance
+    // estimate, not something saved with the event.
     const LOONA_OFFICE_ADDRESS = '8th Floor, Royal Heritage, 805, Juhu Ln, near Juhu Circle, New D N Nagar, Andheri West, Mumbai, Maharashtra 400053';
     let _gPlacesLoadPromise = null, _nmLocationAutocompleteReady = false, _nmDistanceService = null;
-    // Looks up real driving distance/time from the office to whatever's
+    // Changing "Starting point" should re-run the distance estimate against
+    // whatever's currently in Location, if anything.
+    function nmOnStartLocationChange() {
+      nmComputeLocationDistance(document.getElementById('nm-location').value);
+    }
+    // Looks up real driving distance/time from "Starting point" to whatever's
     // currently in Location, via Google's Distance Matrix API — a nice-to-
     // have, so any failure (API not enabled/restricted yet, no network,
     // an address Google can't geocode) just hides the note rather than
@@ -17537,8 +17547,9 @@
       try {
         _nmDistanceService = _nmDistanceService || new google.maps.DistanceMatrixService();
         const forThisDestination = destination;
+        const origin = (document.getElementById('nm-start-location').value || '').trim() || LOONA_OFFICE_ADDRESS;
         _nmDistanceService.getDistanceMatrix({
-          origins: [LOONA_OFFICE_ADDRESS],
+          origins: [origin],
           destinations: [forThisDestination],
           travelMode: 'DRIVING'
         }, (response, status) => {
@@ -17550,7 +17561,7 @@
           if (!stillOpen || stillOpen.classList.contains('hidden')) return;
           const el = status === 'OK' && response.rows[0] && response.rows[0].elements[0];
           if (!el || el.status !== 'OK') { out.style.display = 'none'; return; }
-          out.innerHTML = '🚗 ~' + el.distance.text + ' · ~' + el.duration.text + ' from the Loona office ' +
+          out.innerHTML = '🚗 ~' + el.distance.text + ' · ~' + el.duration.text + ' from your starting point ' +
             '<span style="color:var(--muted)">(approximate — by-road estimate, actual travel time may vary with traffic)</span>';
           out.style.display = 'block';
         });
@@ -17693,6 +17704,7 @@
       document.getElementById('nm-start').value = '';
       document.getElementById('nm-end').value = '';
       document.getElementById('nm-location').value = '';
+      document.getElementById('nm-start-location').value = LOONA_OFFICE_ADDRESS;
       document.getElementById('nm-location-distance').style.display = 'none';
       document.getElementById('nm-desc').value = '';
       document.getElementById('nm-error').style.display = 'none';
@@ -17724,6 +17736,7 @@
       document.getElementById('nm-start').value = (ev.start || '').slice(11, 16);
       document.getElementById('nm-end').value = (ev.end || '').slice(11, 16);
       document.getElementById('nm-location').value = ev.location || '';
+      document.getElementById('nm-start-location').value = LOONA_OFFICE_ADDRESS;
       document.getElementById('nm-location-distance').style.display = 'none';
       document.getElementById('nm-desc').value = '';
       document.getElementById('nm-error').style.display = 'none';
