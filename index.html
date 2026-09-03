@@ -15020,6 +15020,7 @@
         <span class="bc-badge ${isInactive ? 'inactive' : 'active'}">${isInactive ? 'PAST' : 'ACTIVE'}</span>
       </div>
       ${[
+            b.onboarding_date ? ['Onboarded', `${fmtDate(b.onboarding_date)} · ${daysAt(b.onboarding_date)}d`] : null,
             ['Strategy', b.strategy || '—'],
             ['Design Lead', b.design_lead || '—'],
             ['Video Lead', b.video_lead || '—'],
@@ -15118,6 +15119,10 @@
       ['ab-name', 'ab-insta', 'ab-website', 'ab-handles'].forEach(id => document.getElementById(id).value = '');
       document.getElementById('ab-deliverables').value = '';
       document.getElementById('ab-retainer').value = 'retainer';
+      // Defaults to today — the common case is onboarding a brand right as
+      // it's added; backfilling an older client's actual start date is a
+      // one-field edit away.
+      document.getElementById('ab-onboard').value = new Date().toISOString().slice(0, 10);
       document.getElementById('ab-edit-mode').value = '';
       document.getElementById('ab-edit-name').value = '';
       const submitBtn = document.getElementById('ab-submit-btn');
@@ -15378,6 +15383,7 @@
       setSel('ab-video', b.video_lead);
       setSel('ab-ads', b.ads_lead);
       document.getElementById('ab-deliverables').value = b.deliverables || '';
+      document.getElementById('ab-onboard').value = b.onboarding_date || '';
       document.getElementById('ab-insta').value = b.insta || '';
       document.getElementById('ab-website').value = b.website || '';
       document.getElementById('ab-handles').value = b.handles || '';
@@ -15412,6 +15418,7 @@
         video_lead: document.getElementById('ab-video').value,
         ads_lead: document.getElementById('ab-ads').value,
         deliverables: document.getElementById('ab-deliverables').value,
+        onboarding_date: document.getElementById('ab-onboard').value || null,
         insta: document.getElementById('ab-insta').value,
         website: document.getElementById('ab-website').value,
         handles: document.getElementById('ab-handles').value,
@@ -19878,6 +19885,10 @@ ${brandLines}`;
         </div>
       </div>
       <div class="form-row">
+        <div class="form-group">
+          <label>Onboarding Date</label>
+          <input class="form-control" type="date" id="ab-onboard">
+        </div>
         <div class="form-group">
           <label>Instagram Handle</label>
           <input class="form-control" id="ab-insta" placeholder="@handle">
