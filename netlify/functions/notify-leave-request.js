@@ -165,7 +165,7 @@ function buildEmail(req) {
     + '</table>'
     + balanceHTML
     + flagLine
-    + '<p style="margin-top:18px"><a href="https://flag.loona.in" style="background:#ff5a1f;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">Review on Loona Hub</a></p>'
+    + '<p style="margin-top:18px"><a href="https://loonahub.netlify.app" style="background:#ff5a1f;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">Review on Loona Hub</a></p>'
     + '</div>';
   return { subject, html };
 }
