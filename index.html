@@ -17598,30 +17598,82 @@
       });
       return _gPlacesLoadPromise;
     }
-    // Attaches the autocomplete dropdown to #nm-location — only once ever,
-    // regardless of how many times the modal opens/closes (re-attaching to
-    // the same input would just stack duplicate dropdowns). Fire-and-forget
-    // from openNewMeeting()/openEditMeeting() — never awaited, since the
-    // modal must open instantly either way; the address dropdown just
-    // becomes live a moment later once (if) Google's script finishes
-    // loading.
+    // Swaps #<inputId> for a real google.maps.places.PlaceAutocompleteElement
+    // (the modern replacement for the retired Autocomplete widget — see the
+    // note in nmEnsurePlacesAutocomplete()), the same treatment for both
+    // Location and Starting point so typing/picking an address works
+    // identically on either field. The original <input> stays in the DOM
+    // (hidden) purely as the value the rest of the code already reads/writes;
+    // onResolved(text) fires whenever that value settles (a suggestion was
+    // picked, or the field was blurred after manual typing).
+    function nmAttachPlaceWidget(inputId, onResolved) {
+      const input = document.getElementById(inputId);
+      const gmpEl = new google.maps.places.PlaceAutocompleteElement();
+      gmpEl.id = inputId + '-gmp';
+      gmpEl.className = 'form-control';
+      gmpEl.style.width = '100%';
+      if (input.value) { try { gmpEl.value = input.value; } catch (e) { /* older builds may not support seeding a value */ } }
+      input.insertAdjacentElement('afterend', gmpEl);
+      input.style.display = 'none';
+      // Resolve whichever picked-place shape this build hands back — the
+      // component's event/field names moved during its beta period and
+      // this sandbox has no way to pin down exactly which version is live,
+      // so read defensively rather than assume one exact shape.
+      const syncFromPick = async (event) => {
+        try {
+          const pred = event.placePrediction || event.place || null;
+          let text = '';
+          if (pred && typeof pred.toPlace === 'function') {
+            const place = pred.toPlace();
+            await place.fetchFields({ fields: ['formattedAddress', 'displayName'] });
+            text = place.formattedAddress || place.displayName || '';
+          } else if (pred) {
+            text = pred.formattedAddress || pred.formatted_address || pred.displayName || pred.description || '';
+          }
+          if (text) input.value = text;
+        } catch (e) {
+          console.warn('Could not resolve the selected place for #' + inputId + ' — it keeps whatever text was already there.', e);
+        }
+        onResolved(input.value);
+      };
+      gmpEl.addEventListener('gmp-select', syncFromPick);
+      gmpEl.addEventListener('gmp-placeselect', syncFromPick);
+      // Free-typing without ever picking a suggestion should still count —
+      // keep the hidden input (the value submitNewMeeting() actually reads)
+      // in sync with whatever's currently typed into the visible element.
+      gmpEl.addEventListener('input', () => { if (typeof gmpEl.value === 'string') input.value = gmpEl.value; });
+      // Also cover someone who types a full address by hand without ever
+      // picking a suggestion — look it up once they're done (on blur)
+      // rather than on every keystroke.
+      gmpEl.addEventListener('blur', () => onResolved(input.value));
+      if (input.value) onResolved(input.value); // editing an existing event, or Starting point's office default
+    }
+    // Re-seeds an already-attached widget with whatever openNewMeeting()/
+    // openEditMeeting() just put in the (now hidden) plain input — e.g. a
+    // different event's location when switching from editing one to
+    // another, or Starting point resetting to the office default.
+    function nmReseedPlaceWidget(inputId) {
+      const gmpEl = document.getElementById(inputId + '-gmp');
+      const input = document.getElementById(inputId);
+      if (gmpEl && input) { try { gmpEl.value = input.value; } catch (e) { /* ignore */ } }
+    }
+    // Attaches the autocomplete widgets to #nm-location and #nm-start-location
+    // — only once ever, regardless of how many times the modal opens/closes
+    // (re-attaching would just stack duplicate widgets). Fire-and-forget from
+    // openNewMeeting()/openEditMeeting() — never awaited, since the modal
+    // must open instantly either way; the widgets become live a moment later
+    // once (if) Google's script finishes loading.
     async function nmEnsurePlacesAutocomplete() {
       if (_nmLocationAutocompleteReady) {
-        // Already set up from an earlier modal open — just re-seed the
-        // visible widget with whatever openNewMeeting()/openEditMeeting()
-        // just put in the (now hidden) plain input, e.g. a different
-        // event's location when switching from editing one to another.
-        const gmpEl = document.getElementById('nm-location-gmp');
-        const input = document.getElementById('nm-location');
-        if (gmpEl && input) { try { gmpEl.value = input.value; } catch (e) { /* ignore */ } }
-        nmComputeLocationDistance(input ? input.value : '');
+        nmReseedPlaceWidget('nm-location');
+        nmReseedPlaceWidget('nm-start-location');
+        nmComputeLocationDistance(document.getElementById('nm-location').value);
         return;
       }
       const ok = await loadGooglePlacesScript().catch(() => false);
       if (!ok || _nmLocationAutocompleteReady) return; // guard again — two overlapping calls could both get here
       _nmLocationAutocompleteReady = true;
       try {
-        const input = document.getElementById('nm-location');
         // google.maps.places.Autocomplete (the older widget) is retired for
         // any Places API enabled after March 1 2025 — "not available to new
         // customers," per Google's own console warning — which is exactly
@@ -17630,54 +17682,14 @@
         // input attributes were changed, because the widget itself was never
         // allowed to fetch predictions. PlaceAutocompleteElement is the
         // required replacement — it's a self-contained custom element, not
-        // something you attach to an existing <input>, so we swap it in
-        // visually in place of the plain input and keep that input around
-        // (hidden) purely as the value everything else here — submitNewMeeting(),
-        // openEditMeeting() — already reads and writes.
+        // something you attach to an existing <input>.
         if (!google.maps.places.PlaceAutocompleteElement) {
-          throw new Error('google.maps.places.PlaceAutocompleteElement is unavailable — staying on the plain text field');
+          throw new Error('google.maps.places.PlaceAutocompleteElement is unavailable — staying on plain text fields');
         }
-        const gmpEl = new google.maps.places.PlaceAutocompleteElement();
-        gmpEl.id = 'nm-location-gmp';
-        gmpEl.className = 'form-control';
-        gmpEl.style.width = '100%';
-        if (input.value) { try { gmpEl.value = input.value; } catch (e) { /* older builds may not support seeding a value */ } }
-        input.insertAdjacentElement('afterend', gmpEl);
-        input.style.display = 'none';
-        // Resolve whichever picked-place shape this build hands back — the
-        // component's event/field names moved during its beta period and
-        // this sandbox has no way to pin down exactly which version is live,
-        // so read defensively rather than assume one exact shape.
-        const syncFromPick = async (event) => {
-          try {
-            const pred = event.placePrediction || event.place || null;
-            let text = '';
-            if (pred && typeof pred.toPlace === 'function') {
-              const place = pred.toPlace();
-              await place.fetchFields({ fields: ['formattedAddress', 'displayName'] });
-              text = place.formattedAddress || place.displayName || '';
-            } else if (pred) {
-              text = pred.formattedAddress || pred.formatted_address || pred.displayName || pred.description || '';
-            }
-            if (text) input.value = text;
-          } catch (e) {
-            console.warn('Could not resolve the selected place — Location keeps whatever text was already there.', e);
-          }
-          nmComputeLocationDistance(input.value);
-        };
-        gmpEl.addEventListener('gmp-select', syncFromPick);
-        gmpEl.addEventListener('gmp-placeselect', syncFromPick);
-        // Free-typing without ever picking a suggestion should still count —
-        // keep the hidden input (the value submitNewMeeting() actually reads)
-        // in sync with whatever's currently typed into the visible element.
-        gmpEl.addEventListener('input', () => { if (typeof gmpEl.value === 'string') input.value = gmpEl.value; });
-        // Also cover someone who types a full address by hand without ever
-        // picking a suggestion — look it up once they're done (on blur)
-        // rather than on every keystroke.
-        gmpEl.addEventListener('blur', () => nmComputeLocationDistance(input.value));
-        if (input.value) nmComputeLocationDistance(input.value); // editing an existing event with a saved location
+        nmAttachPlaceWidget('nm-location', (text) => nmComputeLocationDistance(text));
+        nmAttachPlaceWidget('nm-start-location', () => nmComputeLocationDistance(document.getElementById('nm-location').value));
       } catch (e) {
-        console.warn('Places Autocomplete failed to initialize — Location stays a plain text field.', e);
+        console.warn('Places Autocomplete failed to initialize — Location and Starting point stay plain text fields.', e);
       }
     }
     // Shoots and physical meetings happen somewhere specific — that's the
