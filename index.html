@@ -2386,6 +2386,23 @@
       border-color: var(--accent);
     }
 
+    /* gmp-place-autocomplete (Location/Starting point) renders its own
+       internal input inside a shadow root with Google's own default sizing,
+       which comes out visibly taller than the rest of this form's plain
+       .form-control inputs. Host-level box sizing always applies regardless
+       of shadow DOM; ::part(input) additionally reaches the actual internal
+       field on builds that expose it, for a closer visual match. */
+    gmp-place-autocomplete.form-control {
+      display: block;
+      height: 38px;
+    }
+    gmp-place-autocomplete.form-control::part(input) {
+      height: 38px;
+      padding: 9px 12px;
+      font-size: 13px;
+      border-radius: 8px;
+    }
+
     .form-control::placeholder {
       color: #555;
     }
@@ -5041,7 +5058,7 @@
           <input class="form-control" type="text" id="nm-location" placeholder="e.g. Client office, Bandra / Studio 4, Andheri" autocomplete="off">
         </div>
         <div class="form-group" id="nm-start-location-wrap">
-          <label>Starting point <span style="color:var(--muted);font-weight:400">(for the distance/travel-time estimate below — defaults to the Loona office, change it if whoever's going is starting from somewhere else)</span></label>
+          <label>Starting point</label>
           <input class="form-control" type="text" id="nm-start-location" onblur="nmOnStartLocationChange()">
           <div id="nm-location-distance" style="display:none;margin-top:6px;font-size:12px;color:var(--text)"></div>
         </div>
@@ -5054,13 +5071,14 @@
         <div class="form-row">
           <div class="form-group">
             <label>Start time *</label>
-            <input class="form-control" type="time" id="nm-start">
+            <input class="form-control" type="time" id="nm-start" onchange="nmSuggestDepartureTime()">
           </div>
           <div class="form-group">
             <label>End time *</label>
             <input class="form-control" type="time" id="nm-end">
           </div>
         </div>
+        <div id="nm-departure-note" style="display:none;margin:-8px 0 16px;font-size:12px;color:var(--text)"></div>
         <div class="form-group">
           <label>Attendees</label>
           <div id="nm-attendees" class="nm-attendee-list"></div>
@@ -17528,7 +17546,30 @@
     // time the modal opens; it's a per-fill convenience for the distance
     // estimate, not something saved with the event.
     const LOONA_OFFICE_ADDRESS = '8th Floor, Royal Heritage, 805, Juhu Ln, near Juhu Circle, New D N Nagar, Andheri West, Mumbai, Maharashtra 400053';
-    let _gPlacesLoadPromise = null, _nmLocationAutocompleteReady = false, _nmDistanceService = null;
+    // Shown in the Starting point field instead of the full address above —
+    // still resolves to a real Google-known place (see the "Loona" business
+    // listing on Google Maps), but far less cluttered as a default. The
+    // full address is what's actually stored/geocoded (LOONA_OFFICE_ADDRESS,
+    // set on the hidden backing input); this is purely cosmetic, applied
+    // only when the field still holds that exact default.
+    const LOONA_OFFICE_SHORT_LABEL = 'Loona Office, Juhu';
+    let _gPlacesLoadPromise = null, _nmLocationAutocompleteReady = false, _nmDistanceService = null, _nmLastDurationSeconds = null;
+    // What Starting point should actually *show* for a given real value —
+    // the office default displays as the short label; everything else
+    // (a picked/typed address) shows exactly as-is.
+    function nmDisplayValueFor(inputId, value) {
+      return (inputId === 'nm-start-location' && value === LOONA_OFFICE_ADDRESS) ? LOONA_OFFICE_SHORT_LABEL : value;
+    }
+    // Sets a Places widget's displayed text programmatically (seeding on
+    // open/reopen) without letting that bounce back into the hidden real
+    // input via the 'input' listener below — seeding Starting point with
+    // the short label must never overwrite its real value (the full
+    // office address) with that label.
+    function nmSetWidgetDisplayValue(gmpEl, text) {
+      gmpEl._nmSeeding = true;
+      try { gmpEl.value = text; } catch (e) { /* ignore */ }
+      gmpEl._nmSeeding = false;
+    }
     // Changing "Starting point" should re-run the distance estimate against
     // whatever's currently in Location, if anything.
     function nmOnStartLocationChange() {
@@ -17542,7 +17583,7 @@
     function nmComputeLocationDistance(destination) {
       const out = document.getElementById('nm-location-distance');
       if (!out) return;
-      if (!destination || !destination.trim()) { out.style.display = 'none'; out.textContent = ''; return; }
+      if (!destination || !destination.trim()) { out.style.display = 'none'; out.textContent = ''; _nmLastDurationSeconds = null; nmSuggestDepartureTime(); return; }
       if (!(window.google && google.maps && google.maps.DistanceMatrixService)) return;
       try {
         _nmDistanceService = _nmDistanceService || new google.maps.DistanceMatrixService();
@@ -17560,15 +17601,40 @@
           const stillOpen = document.getElementById('new-meeting-modal');
           if (!stillOpen || stillOpen.classList.contains('hidden')) return;
           const el = status === 'OK' && response.rows[0] && response.rows[0].elements[0];
-          if (!el || el.status !== 'OK') { out.style.display = 'none'; return; }
-          out.innerHTML = '🚗 ~' + el.distance.text + ' · ~' + el.duration.text + ' from your starting point ' +
+          if (!el || el.status !== 'OK') { out.style.display = 'none'; _nmLastDurationSeconds = null; nmSuggestDepartureTime(); return; }
+          out.innerHTML = '🚗 <strong style="color:var(--accent)">~' + el.distance.text + ' · ~' + el.duration.text + '</strong> from your starting point ' +
             '<span style="color:var(--muted)">(approximate — by-road estimate, actual travel time may vary with traffic)</span>';
           out.style.display = 'block';
+          _nmLastDurationSeconds = (el.duration.value && el.duration.value > 0) ? el.duration.value : null;
+          nmSuggestDepartureTime();
         });
       } catch (e) {
         console.warn('Distance Matrix lookup failed — skipping the travel-time note.', e);
         out.style.display = 'none';
+        _nmLastDurationSeconds = null;
+        nmSuggestDepartureTime();
       }
+    }
+    // Once we know how long the trip takes, suggest when to actually leave
+    // so whoever's going arrives by the meeting's start time — refreshed
+    // whenever the distance recomputes or Start time changes.
+    function nmSuggestDepartureTime() {
+      const note = document.getElementById('nm-departure-note');
+      if (!note) return;
+      const startVal = document.getElementById('nm-start').value; // "HH:MM"
+      if (!startVal || !_nmLastDurationSeconds) { note.style.display = 'none'; note.textContent = ''; return; }
+      const [h, m] = startVal.split(':').map(Number);
+      const startMinutes = h * 60 + m;
+      const travelMinutes = Math.round(_nmLastDurationSeconds / 60);
+      let departMinutes = startMinutes - travelMinutes;
+      departMinutes = ((departMinutes % 1440) + 1440) % 1440; // wrap into a valid day if travel pushes it before midnight
+      const dH = Math.floor(departMinutes / 60), dM = departMinutes % 60;
+      const period = dH < 12 ? 'AM' : 'PM';
+      const dH12 = ((dH % 12) || 12);
+      const departLabel = dH12 + ':' + String(dM).padStart(2, '0') + ' ' + period;
+      note.innerHTML = '🕐 Leave by <strong style="color:var(--accent)">~' + departLabel + '</strong> to arrive on time ' +
+        '<span style="color:var(--muted)">(based on the ~' + travelMinutes + ' min travel estimate)</span>';
+      note.style.display = 'block';
     }
     // Loads the Maps JS script at most once (cached promise), however many
     // times the modal gets opened. Soft-fails on purpose — a blocked
@@ -17612,7 +17678,7 @@
       gmpEl.id = inputId + '-gmp';
       gmpEl.className = 'form-control';
       gmpEl.style.width = '100%';
-      if (input.value) { try { gmpEl.value = input.value; } catch (e) { /* older builds may not support seeding a value */ } }
+      if (input.value) nmSetWidgetDisplayValue(gmpEl, nmDisplayValueFor(inputId, input.value));
       input.insertAdjacentElement('afterend', gmpEl);
       input.style.display = 'none';
       // Resolve whichever picked-place shape this build hands back — the
@@ -17641,7 +17707,7 @@
       // Free-typing without ever picking a suggestion should still count —
       // keep the hidden input (the value submitNewMeeting() actually reads)
       // in sync with whatever's currently typed into the visible element.
-      gmpEl.addEventListener('input', () => { if (typeof gmpEl.value === 'string') input.value = gmpEl.value; });
+      gmpEl.addEventListener('input', () => { if (!gmpEl._nmSeeding && typeof gmpEl.value === 'string') input.value = gmpEl.value; });
       // Also cover someone who types a full address by hand without ever
       // picking a suggestion — look it up once they're done (on blur)
       // rather than on every keystroke.
@@ -17655,7 +17721,7 @@
     function nmReseedPlaceWidget(inputId) {
       const gmpEl = document.getElementById(inputId + '-gmp');
       const input = document.getElementById(inputId);
-      if (gmpEl && input) { try { gmpEl.value = input.value; } catch (e) { /* ignore */ } }
+      if (gmpEl && input) nmSetWidgetDisplayValue(gmpEl, nmDisplayValueFor(inputId, input.value));
     }
     // Attaches the autocomplete widgets to #nm-location and #nm-start-location
     // — only once ever, regardless of how many times the modal opens/closes
@@ -17718,6 +17784,8 @@
       document.getElementById('nm-location').value = '';
       document.getElementById('nm-start-location').value = LOONA_OFFICE_ADDRESS;
       document.getElementById('nm-location-distance').style.display = 'none';
+      document.getElementById('nm-departure-note').style.display = 'none';
+      _nmLastDurationSeconds = null;
       document.getElementById('nm-desc').value = '';
       document.getElementById('nm-error').style.display = 'none';
       nmSelectedAttendees = new Set();
@@ -17750,6 +17818,8 @@
       document.getElementById('nm-location').value = ev.location || '';
       document.getElementById('nm-start-location').value = LOONA_OFFICE_ADDRESS;
       document.getElementById('nm-location-distance').style.display = 'none';
+      document.getElementById('nm-departure-note').style.display = 'none';
+      _nmLastDurationSeconds = null;
       document.getElementById('nm-desc').value = '';
       document.getElementById('nm-error').style.display = 'none';
       nmOnKindChange();
