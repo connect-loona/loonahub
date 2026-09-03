@@ -119,3 +119,5 @@ exports.handler = async (event) => {
 // Late" investigation this fixed.
 exports.runSync = runSync;
 exports.hasCredentials = () => !!(CLIENT_ID && CLIENT_SECRET);
+// Exported for tests only.
+exports._internal = { summarize, parseStamp };
