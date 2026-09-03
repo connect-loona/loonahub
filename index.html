@@ -14005,6 +14005,7 @@
         return `
         <div class="approval-row">
           <div class="approval-task">
+            <div class="at-name"><span style="color:var(--accent);font-weight:700;font-size:11px;letter-spacing:.3px">📅 DATE CHANGE REQUEST</span></div>
             <div class="at-name">${lnEsc(t.member || '—')} — ${lnEsc(title)}</div>
             <div class="at-meta">📅 ${t.due_date ? fmtDate(t.due_date) : 'no date'} → ${t.pending_due_date ? fmtDate(t.pending_due_date) : 'no date'} · requested by ${lnEsc(t.pending_due_requested_by || '—')}</div>
             <div class="at-meta" style="font-style:italic">"${lnEsc(t.pending_due_reason || '')}"</div>
