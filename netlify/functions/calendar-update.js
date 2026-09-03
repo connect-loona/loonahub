@@ -25,6 +25,11 @@ const crypto = require('crypto');
 const FB = (process.env.FIREBASE_DB_URL || 'https://loona-hub-c85d7-default-rtdb.firebaseio.com').replace(/\/+$/, '');
 const WRITE_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
 
+// Same labels as calendar-create.js — kept in step by hand, same as every
+// other pair of constants shared between these two files.
+const KIND_LABEL = { meeting: 'Meeting', physical_meeting: 'Physical Meeting', shoot: 'Shoot' };
+const KIND_EMOJI = { meeting: '📅', physical_meeting: '🤝', shoot: '🎬' };
+
 function base64url(buf) {
   return (Buffer.isBuffer(buf) ? buf : Buffer.from(buf)).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
@@ -105,7 +110,7 @@ exports.handler = async (event) => {
     if (!sa.client_email || !sa.private_key) throw new Error('GOOGLE_CALENDAR_SERVICE_ACCOUNT is missing client_email/private_key');
 
     const body = JSON.parse(event.body || '{}');
-    const { eventKey, requesterName, title, date, startTime, endTime, attendees, guestEmails, brand, description } = body;
+    const { eventKey, requesterName, title, date, startTime, endTime, attendees, guestEmails, brand, description, location } = body;
     if (!eventKey || !requesterName || !title || !date || !startTime || !endTime) {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Missing required fields (eventKey, requesterName, title, date, startTime, endTime)' }) };
     }
@@ -117,6 +122,10 @@ exports.handler = async (event) => {
     if (!existing) throw new Error('This meeting is not in Loona Hub\'s calendar — try "Sync now" first, then edit again.');
     if (!existing.googleEventId) throw new Error('This meeting was synced before edit support existed — hit "Sync now" once to refresh it, then try editing again.');
     if (!existing.uid) throw new Error('This meeting is missing internal tracking data — hit "Sync now" once to refresh it, then try editing again.');
+    // The edit form always resends the current type/location — kept, not
+    // re-derived, so editing an old event (from before eventKind existed)
+    // still gets a sane default.
+    const eventKind = ['meeting', 'physical_meeting', 'shoot'].includes(body.eventKind) ? body.eventKind : (existing.eventKind || 'meeting');
 
     const membersData = await fbGet('members');
     const members = Object.values(membersData || {}).filter(m => m && m.name);
@@ -151,6 +160,7 @@ exports.handler = async (event) => {
     const patchBody = {
       summary: title,
       description: description || '',
+      location: location || '',
       start: { dateTime: `${date}T${startTime}:00`, timeZone: 'Asia/Kolkata' },
       end: { dateTime: `${date}T${endTime}:00`, timeZone: 'Asia/Kolkata' },
       attendees: [...attendeeEmails, ...validGuestEmails].map(email => ({ email }))
@@ -175,6 +185,8 @@ exports.handler = async (event) => {
     const updatedEntry = {
       ...existing,
       title,
+      eventKind,
+      location: location || '',
       start: `${date}T${startTime}:00+05:30`,
       end: `${date}T${endTime}:00+05:30`,
       attendeeCount: knownAttendees.length + guestNames.length,
@@ -192,7 +204,7 @@ exports.handler = async (event) => {
     const startTimeLabel = fmtIST(updatedEntry.start);
     const endTimeLabel = fmtIST(updatedEntry.end);
     const timeRange = startTimeLabel ? (endTimeLabel && endTimeLabel !== startTimeLabel ? `${startTimeLabel} – ${endTimeLabel} IST` : `${startTimeLabel} IST`) : '';
-    const newTaskText = `Meeting: ${title}${timeRange ? ` (${timeRange})` : ''}`;
+    const newTaskText = `${KIND_LABEL[eventKind]}: ${title}${location ? ` @ ${location}` : ''}${timeRange ? ` (${timeRange})` : ''}`;
 
     const existingTasksData = await fbGet('tasks');
     const existingTasks = existingTasksData ? Object.entries(existingTasksData) : [];
@@ -217,7 +229,7 @@ exports.handler = async (event) => {
       await fbPatch('announcements', {
         [annKey]: {
           ...ann,
-          text: `📅 ${title}${timeRange ? ` — ${timeRange}` : ''}${brand ? ` · ${brand}` : ''} · ${allNames.join(', ')} (rescheduled)`,
+          text: `${KIND_EMOJI[eventKind]} ${title}${timeRange ? ` — ${timeRange}` : ''}${brand ? ` · ${brand}` : ''}${location ? ` · ${location}` : ''} · ${allNames.join(', ')} (rescheduled)`,
           timestamp: new Date().toISOString(),
           visibleTo: knownAttendees
         }

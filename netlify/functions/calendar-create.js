@@ -33,6 +33,12 @@ const crypto = require('crypto');
 const FB = (process.env.FIREBASE_DB_URL || 'https://loona-hub-c85d7-default-rtdb.firebaseio.com').replace(/\/+$/, '');
 const WRITE_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
 
+// Only affects TEXT/labels below (the auto-created task, the Loona Board
+// post, error messages) — the one place eventKind changes actual API
+// behavior is the conferenceData block further down.
+const KIND_LABEL = { meeting: 'Meeting', physical_meeting: 'Physical Meeting', shoot: 'Shoot' };
+const KIND_EMOJI = { meeting: '📅', physical_meeting: '🤝', shoot: '🎬' };
+
 function base64url(buf) {
   return (Buffer.isBuffer(buf) ? buf : Buffer.from(buf)).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
@@ -129,7 +135,13 @@ exports.handler = async (event) => {
     if (!sa.client_email || !sa.private_key) throw new Error('GOOGLE_CALENDAR_SERVICE_ACCOUNT is missing client_email/private_key');
 
     const body = JSON.parse(event.body || '{}');
-    const { creatorName, title, date, startTime, endTime, attendees, guestEmails, brand, description } = body;
+    const { creatorName, title, date, startTime, endTime, attendees, guestEmails, brand, description, location } = body;
+    // "meeting" (default, unchanged behavior — video call, Meet link
+    // auto-created), "physical_meeting" (outside the office), "shoot" — the
+    // latter two skip conferenceData entirely (no Meet link makes sense for
+    // something physical) and use the location field instead. See
+    // KIND_TASK_PREFIX/KIND_EMOJI below for how this reflects downstream.
+    const eventKind = ['meeting', 'physical_meeting', 'shoot'].includes(body.eventKind) ? body.eventKind : 'meeting';
     if (!creatorName || !title || !date || !startTime || !endTime) {
       return { statusCode: 400, headers, body: JSON.stringify({ success: false, message: 'Missing required fields (creatorName, title, date, startTime, endTime)' }) };
     }
@@ -160,14 +172,21 @@ exports.handler = async (event) => {
       description: description || '',
       start: { dateTime: `${date}T${startTime}:00`, timeZone: 'Asia/Kolkata' },
       end: { dateTime: `${date}T${endTime}:00`, timeZone: 'Asia/Kolkata' },
-      attendees: [...attendeeEmails, ...validGuestEmails].map(email => ({ email })),
-      conferenceData: {
+      attendees: [...attendeeEmails, ...validGuestEmails].map(email => ({ email }))
+    };
+    if (location) eventBody.location = location;
+    // A Meet link only makes sense for an actual video call — a shoot or an
+    // off-site physical meeting has nowhere to "join" virtually, so this is
+    // the one thing that actually branches on eventKind at the Calendar-API
+    // level (everything else below just changes text/labels).
+    if (eventKind === 'meeting') {
+      eventBody.conferenceData = {
         createRequest: {
           requestId: 'loonahub_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2),
           conferenceSolutionKey: { type: 'hangoutsMeet' }
         }
-      }
-    };
+      };
+    }
 
     const resp = await fetch(
       'https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1&sendUpdates=all',
@@ -211,6 +230,8 @@ exports.handler = async (event) => {
       // (and keep inviting) guests when this meeting is later edited/rescheduled.
       guestEmails: validGuestEmails,
       brand: brand || '',
+      eventKind,
+      location: location || '',
       organizer: creatorName,
       organizerEmail: creatorEmail,
       googleEventId: data.id || '',
@@ -220,13 +241,14 @@ exports.handler = async (event) => {
     };
     const warnings = [];
     const calEventsResp = await fbPatch('calendarEvents', { [fbSafeKey(uid)]: calendarEventEntry });
-    if (!calEventsResp.ok) warnings.push('Meeting created on Google Calendar, but saving it into Loona Hub failed — it may not show up on the Calendar tab.');
+    if (!calEventsResp.ok) warnings.push(`${KIND_LABEL[eventKind]} created on Google Calendar, but saving it into Loona Hub failed — it may not show up on the Calendar tab.`);
 
     // Per-attendee task — same is_auto/auto_calendar_event_id shape calendar-sync.js
     // uses, and logged in the same ledger so the periodic sync doesn't duplicate it.
     const startTimeLabel = fmtIST(calendarEventEntry.start);
     const endTimeLabel = fmtIST(calendarEventEntry.end);
     const timeRange = startTimeLabel ? (endTimeLabel && endTimeLabel !== startTimeLabel ? `${startTimeLabel} – ${endTimeLabel} IST` : `${startTimeLabel} IST`) : '';
+    const taskText = `${KIND_LABEL[eventKind]}: ${calendarEventEntry.title}${location ? ` @ ${location}` : ''}${timeRange ? ` (${timeRange})` : ''}`;
 
     const taskLog = await fbGet('calendarSyncLog/tasks') || {};
     const newTasks = {};
@@ -239,7 +261,7 @@ exports.handler = async (event) => {
       newTasks[key] = {
         member: name,
         brand: brand || '',
-        task: `Meeting: ${calendarEventEntry.title}${timeRange ? ` (${timeRange})` : ''}`,
+        task: taskText,
         priority: 'Medium',
         status: 'Not Started',
         due_date: date,
@@ -263,7 +285,7 @@ exports.handler = async (event) => {
       const annResp = await fbPatch('announcements', {
         [annKey]: {
           id: Date.now(),
-          text: `📅 ${calendarEventEntry.title}${timeRange ? ` — ${timeRange}` : ''}${brand ? ` · ${brand}` : ''} · ${allNames.join(', ')}`,
+          text: `${KIND_EMOJI[eventKind]} ${calendarEventEntry.title}${timeRange ? ` — ${timeRange}` : ''}${brand ? ` · ${brand}` : ''}${location ? ` · ${location}` : ''} · ${allNames.join(', ')}`,
           links: (callLink || calendarEventEntry.htmlLink) ? [callLink || calendarEventEntry.htmlLink] : [],
           author: creatorName,
           emoji: '📅',

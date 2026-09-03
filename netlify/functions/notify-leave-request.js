@@ -41,7 +41,17 @@ const SCOPE = 'https://www.googleapis.com/auth/gmail.send';
 const SENDER = 'g@loona.in';
 const RECIPIENTS = ['g@loona.in', 'accounts@loona.in'];
 
-const LEAVE_TYPE_LABEL = { standard: 'Standard Leave', sick: 'Sick Leave', wfh: 'Work From Home', other: 'Other' };
+const LEAVE_TYPE_LABEL = { standard: 'Standard Leave', sick: 'Sick Leave', wfh: 'Work From Home', flexible: 'Flexible Timing', other: 'Other' };
+
+// "12:30" (24h, straight from an <input type="time">) -> "12:30 PM".
+function fmtTimeHHMM(hhmm) {
+  const parts = String(hhmm || '').split(':');
+  if (parts.length < 2) return hhmm || '';
+  const h = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+  if (isNaN(h) || isNaN(m)) return hhmm;
+  const ap = h >= 12 ? 'PM' : 'AM', h12 = ((h + 11) % 12) + 1;
+  return h12 + ':' + String(m).padStart(2, '0') + ' ' + ap;
+}
 
 function base64url(buf) {
   return (Buffer.isBuffer(buf) ? buf : Buffer.from(buf)).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -97,7 +107,16 @@ function buildEmail(req) {
   const typeLabel = LEAVE_TYPE_LABEL[req.leave_type] || req.leave_type || 'Leave';
   const days = req.effective_days;
   const isWfh = req.leave_type === 'wfh';
-  const hasBalanceInfo = !isWfh && req.current_balance != null;
+  const isFlexible = req.leave_type === 'flexible';
+  const hasBalanceInfo = !isWfh && !isFlexible && req.current_balance != null;
+
+  // Flexible Timing's actual request IS the times — a bare date says
+  // nothing on its own — so they're appended right onto the Dates row
+  // rather than living in a separate table.
+  const flexBits = [];
+  if (req.in_by) flexBits.push('in by ' + fmtTimeHHMM(req.in_by));
+  if (req.out_by) flexBits.push('out by ' + fmtTimeHHMM(req.out_by));
+  const flexTimesSuffix = isFlexible && flexBits.length ? ' (' + escapeHtml(flexBits.join(', ')) + ')' : '';
 
   const flags = [];
   if (req.probation) flags.push('on probation');
@@ -108,16 +127,19 @@ function buildEmail(req) {
     : '';
 
   // A second table, shown for anything that actually draws on the leave
-  // balance (i.e. not WFH) — current balance, this request's own sandwich
-  // days if any, how many of ITS days are estimated to land unpaid, and
-  // what the balance would come out to if approved as-is. Estimated using
-  // the exact same rule the real approval-time calc uses (see
-  // estimateLeaveBalanceImpact() in index.html) but in isolation — it
-  // doesn't account for any OTHER pending request that might get approved
-  // first, so it's labeled "estimated" rather than presented as final.
+  // balance (i.e. not WFH, not Flexible Timing) — current balance, this
+  // request's own sandwich days if any, how many of ITS days are
+  // estimated to land unpaid, and what the balance would come out to if
+  // approved as-is. Estimated using the exact same rule the real
+  // approval-time calc uses (see estimateLeaveBalanceImpact() in
+  // index.html) but in isolation — it doesn't account for any OTHER
+  // pending request that might get approved first, so it's labeled
+  // "estimated" rather than presented as final.
   let balanceHTML = '';
   if (isWfh) {
     balanceHTML = '<p style="color:#666;margin:14px 0 0">Work From Home — does not draw on leave balance.</p>';
+  } else if (isFlexible) {
+    balanceHTML = '<p style="color:#666;margin:14px 0 0">Flexible Timing — does not draw on leave balance or count as unpaid. Approving it waives the late/short-hours fee for this one day.</p>';
   } else if (hasBalanceInfo) {
     const unpaidRow = req.unpaid_days_estimate
       ? row('Unpaid in this request (est.)', `<b style="color:#b33a3a">${req.unpaid_days_estimate} day${req.unpaid_days_estimate === 1 ? '' : 's'}</b>`)
@@ -138,7 +160,7 @@ function buildEmail(req) {
     + `<h2 style="margin:0 0 12px">New leave request — ${escapeHtml(req.member)}</h2>`
     + '<table style="border-collapse:collapse">'
     + row('Type', escapeHtml(typeLabel))
-    + row('Dates', escapeHtml(dateRange) + (days != null ? ' (' + days + ' day' + (days === 1 ? '' : 's') + ')' : ''))
+    + row('Dates', escapeHtml(dateRange) + (days != null ? ' (' + days + ' day' + (days === 1 ? '' : 's') + ')' : '') + flexTimesSuffix)
     + row('Reason', escapeHtml(req.reason || '—'))
     + '</table>'
     + balanceHTML
