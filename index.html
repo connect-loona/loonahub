@@ -14005,6 +14005,7 @@
         return `
         <div class="approval-row">
           <div class="approval-task">
+            <div class="at-name"><span style="color:var(--accent);font-weight:700;font-size:11px;letter-spacing:.3px">📅 DATE CHANGE REQUEST</span></div>
             <div class="at-name">${lnEsc(t.member || '—')} — ${lnEsc(title)}</div>
             <div class="at-meta">📅 ${t.due_date ? fmtDate(t.due_date) : 'no date'} → ${t.pending_due_date ? fmtDate(t.pending_due_date) : 'no date'} · requested by ${lnEsc(t.pending_due_requested_by || '—')}</div>
             <div class="at-meta" style="font-style:italic">"${lnEsc(t.pending_due_reason || '')}"</div>
@@ -15019,6 +15020,7 @@
         <span class="bc-badge ${isInactive ? 'inactive' : 'active'}">${isInactive ? 'PAST' : 'ACTIVE'}</span>
       </div>
       ${[
+            b.onboarding_date ? ['Onboarded', `${fmtDate(b.onboarding_date)} · ${daysAt(b.onboarding_date)}d`] : null,
             ['Strategy', b.strategy || '—'],
             ['Design Lead', b.design_lead || '—'],
             ['Video Lead', b.video_lead || '—'],
@@ -15117,6 +15119,10 @@
       ['ab-name', 'ab-insta', 'ab-website', 'ab-handles'].forEach(id => document.getElementById(id).value = '');
       document.getElementById('ab-deliverables').value = '';
       document.getElementById('ab-retainer').value = 'retainer';
+      // Defaults to today — the common case is onboarding a brand right as
+      // it's added; backfilling an older client's actual start date is a
+      // one-field edit away.
+      document.getElementById('ab-onboard').value = new Date().toISOString().slice(0, 10);
       document.getElementById('ab-edit-mode').value = '';
       document.getElementById('ab-edit-name').value = '';
       const submitBtn = document.getElementById('ab-submit-btn');
@@ -15377,6 +15383,7 @@
       setSel('ab-video', b.video_lead);
       setSel('ab-ads', b.ads_lead);
       document.getElementById('ab-deliverables').value = b.deliverables || '';
+      document.getElementById('ab-onboard').value = b.onboarding_date || '';
       document.getElementById('ab-insta').value = b.insta || '';
       document.getElementById('ab-website').value = b.website || '';
       document.getElementById('ab-handles').value = b.handles || '';
@@ -15411,6 +15418,7 @@
         video_lead: document.getElementById('ab-video').value,
         ads_lead: document.getElementById('ab-ads').value,
         deliverables: document.getElementById('ab-deliverables').value,
+        onboarding_date: document.getElementById('ab-onboard').value || null,
         insta: document.getElementById('ab-insta').value,
         website: document.getElementById('ab-website').value,
         handles: document.getElementById('ab-handles').value,
@@ -17618,6 +17626,11 @@
     // Once we know how long the trip takes, suggest when to actually leave
     // so whoever's going arrives by the meeting's start time — refreshed
     // whenever the distance recomputes or Start time changes.
+    // Extra cushion baked into "leave by" on top of the raw travel estimate —
+    // parking, walking in, traffic being a little worse than Google's
+    // estimate. Without it the suggestion cuts things exactly to the minute,
+    // which is optimistic in practice.
+    const NM_DEPARTURE_BUFFER_MINUTES = 15;
     function nmSuggestDepartureTime() {
       const note = document.getElementById('nm-departure-note');
       if (!note) return;
@@ -17626,14 +17639,14 @@
       const [h, m] = startVal.split(':').map(Number);
       const startMinutes = h * 60 + m;
       const travelMinutes = Math.round(_nmLastDurationSeconds / 60);
-      let departMinutes = startMinutes - travelMinutes;
+      let departMinutes = startMinutes - travelMinutes - NM_DEPARTURE_BUFFER_MINUTES;
       departMinutes = ((departMinutes % 1440) + 1440) % 1440; // wrap into a valid day if travel pushes it before midnight
       const dH = Math.floor(departMinutes / 60), dM = departMinutes % 60;
       const period = dH < 12 ? 'AM' : 'PM';
       const dH12 = ((dH % 12) || 12);
       const departLabel = dH12 + ':' + String(dM).padStart(2, '0') + ' ' + period;
       note.innerHTML = '🕐 Leave by <strong style="color:var(--accent)">~' + departLabel + '</strong> to arrive on time ' +
-        '<span style="color:var(--muted)">(based on the ~' + travelMinutes + ' min travel estimate)</span>';
+        '<span style="color:var(--muted)">(based on the ~' + travelMinutes + ' min travel estimate + ' + NM_DEPARTURE_BUFFER_MINUTES + ' min buffer)</span>';
       note.style.display = 'block';
     }
     // Loads the Maps JS script at most once (cached promise), however many
@@ -19872,6 +19885,10 @@ ${brandLines}`;
         </div>
       </div>
       <div class="form-row">
+        <div class="form-group">
+          <label>Onboarding Date</label>
+          <input class="form-control" type="date" id="ab-onboard">
+        </div>
         <div class="form-group">
           <label>Instagram Handle</label>
           <input class="form-control" id="ab-insta" placeholder="@handle">
@@ -23552,10 +23569,32 @@ ${brandLines}`;
       var h=parseInt(parts[0],10), m=parseInt(parts[1],10); if(isNaN(h)||isNaN(m)) return hhmm;
       return minToClock(h*60+m);
     }
+    // "All Leaves Taken" filter state — module-level so it survives a
+    // re-render (a new Firebase update, or another filter changing)
+    // instead of snapping back to "All" every time.
+    var _altFilterType="", _altFilterName="", _altFilterMonth="";
+    window.altSetFilterType=function(v){ _altFilterType=v; renderAdminLeaveRecords(); };
+    window.altSetFilterName=function(v){ _altFilterName=v; renderAdminLeaveRecords(); };
+    window.altSetFilterMonth=function(v){ _altFilterMonth=v; renderAdminLeaveRecords(); };
+    window.altClearFilters=function(){ _altFilterType=""; _altFilterName=""; _altFilterMonth=""; renderAdminLeaveRecords(); };
     function renderAdminLeaveRecords(){
       var sec=document.getElementById("admin-leave-section");
       if(!sec) return;
       if(currentUser!=="Gokul"){ sec.innerHTML=""; return; }
+      // This whole section (Leaves Taken / Monthly Overview / Monthly
+      // Reimbursements / Holiday Manager — several outer accordion items)
+      // gets fully rebuilt below, on any Firebase update touching
+      // LEAVE_REQUESTS as well as a filter changing — that would otherwise
+      // snap every accordion in it shut each time. Capture which outer item
+      // (at most one, page-wide) and which of the two "Leaves Taken" sub-
+      // items were open first, and re-open the same ones once the new HTML
+      // is in, by position rather than by toggleLcAccordion (which would
+      // also perform its global close-everything-else sweep).
+      var outerItemsBefore = sec.querySelectorAll(".lc-accordion > .lc-acc-item");
+      var openOuterIndex = -1;
+      for (var oi=0; oi<outerItemsBefore.length; oi++){ if(outerItemsBefore[oi].classList.contains("open")){ openOuterIndex=oi; break; } }
+      var wasAllLeavesOpen = !!sec.querySelector(".lv-subacc-group > .lc-acc-item:nth-child(1).open");
+      var wasByEmpOpen = !!sec.querySelector(".lv-subacc-group > .lc-acc-item:nth-child(2).open");
       // Past employees (INACTIVE_MEMBERS) keep their historical leave_requests/
       // PERF_EXC records for good — nothing here deletes them — but they're
       // filtered out of every leave listing below, same as they already are
@@ -23586,10 +23625,43 @@ ${brandLines}`;
         });
       });
       var allForDisplay=all.concat(manualRows).sort(function(a,b){return (b.requested_at||"").localeCompare(a.requested_at||"");});
-      var rowsHtml = allForDisplay.length ? allForDisplay.map(function(r){
+      // Type/Name/Month filters atop "All Leaves Taken" — state persists
+      // across re-renders (a new Firebase update shouldn't reset whatever
+      // you were filtering on) via these module-level vars, set by the
+      // controls' onchange below.
+      var ALT_TYPE_LABEL={"":"All types", standard:"Standard Leave", sick:"Sick Leave", wfh:"Work From Home", flexible:"Flexible Timing", manual:"Manually Approved"};
+      var altNames=Array.from(new Set(allForDisplay.map(function(r){return r.member;}))).sort();
+      var filtered=allForDisplay.filter(function(r){
+        var t=r._manual?"manual":r.leave_type;
+        if(_altFilterType && t!==_altFilterType) return false;
+        if(_altFilterName && r.member!==_altFilterName) return false;
+        if(_altFilterMonth && (r.from_date||"").slice(0,7)!==_altFilterMonth) return false;
+        return true;
+      });
+      var filterBarHtml='<div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px">'+
+        '<select onchange="altSetFilterType(this.value)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:12px;font-family:inherit">'+
+          Object.keys(ALT_TYPE_LABEL).map(function(k){return '<option value="'+k+'"'+(k===_altFilterType?' selected':'')+'>'+ALT_TYPE_LABEL[k]+'</option>';}).join("")+
+        '</select>'+
+        '<select onchange="altSetFilterName(this.value)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:12px;font-family:inherit">'+
+          '<option value=""'+(!_altFilterName?' selected':'')+'>All people</option>'+
+          altNames.map(function(n){return '<option value="'+esc(n)+'"'+(n===_altFilterName?' selected':'')+'>'+esc(n)+'</option>';}).join("")+
+        '</select>'+
+        '<input type="month" value="'+esc(_altFilterMonth)+'" onchange="altSetFilterMonth(this.value)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:12px;font-family:inherit">'+
+        (_altFilterType||_altFilterName||_altFilterMonth ? '<button onclick="altClearFilters()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit">Clear filters</button>' : "")+
+      '</div>';
+      var emptyMsg=allForDisplay.length ? "No leave requests match this filter." : "No leave requests yet.";
+      var rowsHtml = filtered.length ? filtered.map(function(r){
         var range = r.from_date===r.to_date ? fmtDate(r.from_date) : fmtDate(r.from_date)+" – "+fmtDate(r.to_date);
         if(r.leave_type==="flexible" && flexTimingDisplay(r)) range += " ("+flexTimingDisplay(r)+")";
         var applied = r._manual ? "—" : (r.requested_at ? fmtDate(r.requested_at.slice(0,10)) : "—");
+        // Approved leave that hasn't fully passed yet can still be walked
+        // back in an emergency — this used to live as its own "cancel if
+        // needed" list on the Overview board; it now lives here instead,
+        // right alongside the historical record it affects.
+        var statusCell=STATUS_LABEL[r.status]||esc(r.status||"");
+        if(!r._manual && r.status==="approved" && r.to_date>=TODAY){
+          statusCell += ' <button onclick="cancelApprovedLeave(&quot;'+r._key+'&quot;)" style="margin-left:6px;background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);color:#e05c5c;padding:2px 8px;border-radius:5px;font-size:10.5px;cursor:pointer;font-weight:600;font-family:inherit">Cancel</button>';
+        }
         return '<tr>'+
           '<td data-label="Employee"><strong>'+esc(r.member)+'</strong></td>'+
           '<td data-label="Date Applied">'+applied+'</td>'+
@@ -23597,9 +23669,9 @@ ${brandLines}`;
           '<td data-label="No. of Days">'+(r._manual?1:leaveRequestDaysDisplay(r))+'</td>'+
           '<td data-label="Reason" style="max-width:220px;white-space:normal">'+(r._manual?'<span style="color:var(--muted);font-style:italic">Excused directly by Gokul, no formal request</span>':esc(r.reason||""))+'</td>'+
           '<td data-label="Type">'+(r._manual?"Manually Approved":(LT_LABEL[r.leave_type]||"Standard Leave"))+'</td>'+
-          '<td data-label="Status">'+(STATUS_LABEL[r.status]||esc(r.status||""))+'</td>'+
+          '<td data-label="Status">'+statusCell+'</td>'+
         '</tr>';
-      }).join("") : '<tr><td colspan="7" style="text-align:center;color:var(--muted)">No leave requests yet.</td></tr>';
+      }).join("") : '<tr><td colspan="7" style="text-align:center;color:var(--muted)">'+emptyMsg+'</td></tr>';
       // "By Employee" breakup — approved leave only (matches how every
       // other balance figure in the app treats "taken": pending hasn't
       // happened yet, declined/cancelled never did). WFH is broken out
@@ -23647,9 +23719,10 @@ ${brandLines}`;
               '<div class="lv-subacc-group">'+
                 '<div class="lc-acc-item">'+
                   '<button class="lc-acc-head" onclick="toggleLeaveSubAccordion(this)">'+
-                    '<span class="lc-acc-ic">&#128203;</span><span class="lc-acc-title">All Leaves Taken <span class="tag">'+allForDisplay.length+'</span></span><span class="lc-acc-toggle">+</span>'+
+                    '<span class="lc-acc-ic">&#128203;</span><span class="lc-acc-title">All Leaves Taken <span class="tag">'+filtered.length+'</span></span><span class="lc-acc-toggle">+</span>'+
                   '</button>'+
                   '<div class="lc-acc-body" style="padding-left:18px">'+
+                    filterBarHtml+
                     '<div class="scroll"><table class="att-tbl wide"><thead><tr>'+
                       '<th>Employee</th><th>Date Applied</th><th>Leave Date(s)</th><th>No. of Days</th><th>Reason</th><th>Type</th><th>Status</th>'+
                     '</tr></thead><tbody>'+rowsHtml+'</tbody></table></div>'+
@@ -23688,6 +23761,26 @@ ${brandLines}`;
             '<div class="lc-acc-body" style="padding-left:18px">'+holidayManager(true)+'</div>'+
           '</div>'+
         '</div>';
+      // Restore whatever was open before this rebuild — see the capture
+      // above for why this can't just be left to toggleLcAccordion.
+      if (openOuterIndex >= 0) {
+        var outerItemsAfter = sec.querySelectorAll(".lc-accordion > .lc-acc-item");
+        var restoredOuter = outerItemsAfter[openOuterIndex];
+        if (restoredOuter) {
+          restoredOuter.classList.add("open");
+          var ot = restoredOuter.querySelector(".lc-acc-head .lc-acc-toggle");
+          if (ot) ot.textContent = "–";
+        }
+      }
+      if (wasAllLeavesOpen || wasByEmpOpen) {
+        var subItemsAfter = sec.querySelectorAll(".lv-subacc-group > .lc-acc-item");
+        var restoredSub = subItemsAfter[wasAllLeavesOpen ? 0 : 1];
+        if (restoredSub) {
+          restoredSub.classList.add("open");
+          var st = restoredSub.querySelector(".lc-acc-head .lc-acc-toggle");
+          if (st) st.textContent = "−";
+        }
+      }
     }
     window.renderAdminLeaveRecords=renderAdminLeaveRecords; // called from openAdminTab() in the earlier script block
     // Scoped to the immediate .lv-subacc-group so opening/closing one of
@@ -23829,19 +23922,17 @@ ${brandLines}`;
     }
     // Gokul-only — every pending leave request across the whole team, shown
     // on the founder board (see founderBoard()) same as the Daily/Monthly
-    // Overview boards there.
+    // Overview boards there. Approved requests don't linger here — the
+    // moment a decision is made they belong in the historical record (All
+    // Leaves Taken, in the admin section), which is also where the
+    // emergency-cancel action on an already-approved leave now lives (see
+    // renderAdminLeaveRecords()) — this board is pending decisions only.
     function renderLeaveApprovalQueue(){
       if(currentUser!=="Gokul") return "";
       // A past employee (INACTIVE_MEMBERS) shouldn't still be showing up
-      // asking for a decision, or sitting in the "cancel if needed" list —
-      // same exclusion as everywhere else leave gets listed.
+      // asking for a decision.
       var pending=LEAVE_REQUESTS.filter(function(r){return r.status==="pending" && !INACTIVE_MEMBERS.has(r.member);});
-      // Only approved leave that hasn't fully passed yet — upcoming or
-      // still ongoing — is worth surfacing here for a possible emergency
-      // cancellation; nothing to do about an already-completed one.
-      var approvedActive=LEAVE_REQUESTS.filter(function(r){return r.status==="approved" && r.to_date>=TODAY && !INACTIVE_MEMBERS.has(r.member);})
-        .sort(function(a,b){return a.from_date.localeCompare(b.from_date);});
-      if(!pending.length && !approvedActive.length) return "";
+      if(!pending.length) return "";
       var LT_LABEL={standard:"", sick:"&#129658; Sick &middot; ", wfh:"&#127968; WFH &middot; ", flexible:"&#9200; Flexible Timing &middot; "};
       var rows=pending.map(function(r){
         var range = r.from_date===r.to_date ? fmtDate(r.from_date) : fmtDate(r.from_date)+" – "+fmtDate(r.to_date);
@@ -23878,18 +23969,9 @@ ${brandLines}`;
             '<button onclick="decideLeaveRequest(&quot;'+r._key+'&quot;,&quot;declined&quot;)" style="background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);color:#e05c5c;padding:5px 12px;border-radius:6px;font-size:11.5px;cursor:pointer;font-weight:600;font-family:inherit">&#10007; Decline</button>'+
           '</div></div>';
       }).join("");
-      var activeRows=approvedActive.map(function(r){
-        var range = r.from_date===r.to_date ? fmtDate(r.from_date) : fmtDate(r.from_date)+" – "+fmtDate(r.to_date);
-        if(r.leave_type==="flexible" && flexTimingDisplay(r)) range += " ("+flexTimingDisplay(r)+")";
-        var when = r.from_date>TODAY ? "upcoming" : "ongoing";
-        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);gap:10px">'+
-          '<div><b>'+esc(r.member)+'</b> &middot; '+esc(range)+' ('+when+')<div style="font-size:11.5px;color:var(--muted);font-style:italic">“'+esc(r.reason||"")+'”</div></div>'+
-          '<button onclick="cancelApprovedLeave(&quot;'+r._key+'&quot;)" style="background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);color:#e05c5c;padding:5px 12px;border-radius:6px;font-size:11.5px;cursor:pointer;font-weight:600;font-family:inherit;flex-shrink:0">Cancel</button></div>';
-      }).join("");
       return '<div class="att-board">'+
         '<div class="bh">&#127796; Leave Requests <span class="tag">'+pending.length+' pending</span></div>'+
         rows+
-        (approvedActive.length ? '<div style="margin:14px 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)">Approved &middot; cancel if an emergency comes up</div>'+activeRows : "")+
       '</div>';
     }
     window.attForgiveLate=function(name,date,mo){
