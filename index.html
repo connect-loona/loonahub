@@ -23044,6 +23044,38 @@ ${brandLines}`;
       if(_perfReady){ try{ firebase.database().ref("loona_excused/"+name+"/"+date).set(PERF_EXC[name][date]); }catch(e){} }
       perfRerender(); if(document.getElementById("info-pop")) window.attShowAbsent(name,mo);
     };
+    // Approving a no-punch absence with an actual leave type (not just the
+    // generic "Other" excuse above) — creates a real, already-approved
+    // leave_requests record for that single day, same shape/side-effects as
+    // importLeaveHistory2026()'s backfill rows: Standard/Sick charge the day
+    // against balance (sandwich days included, though a lone workday rarely
+    // has any); WFH is recorded for history/visibility only, never touching
+    // balance — matching the live WFH policy. "Other" stays on the plain
+    // perfExcuse() toggle above (per Gokul: no balance math for that one).
+    window.attApproveAbsenceAs=function(name,date,mo,type){
+      if(currentUser!=="Gokul") return;
+      if(type==="other"){ window.perfExcuse(name,date,mo); return; }
+      var req={member:name, from_date:date, to_date:date, reason:"Approved via Absence Review (no punch)", leave_type:type, status:"approved",
+        requested_at:new Date().toISOString(), decided_by:currentUser, decided_at:new Date().toISOString()};
+      if(type!=="wfh"){
+        var math=leaveDateMath(date,date);
+        Object.assign(req,{charge_dates:math.chargeDates, span_days:math.span, sandwich_days:math.sandwich, effective_days:math.effective,
+          notice_shortfall:false, requires_management_approval:false});
+        math.chargeDates.forEach(function(ds){ setPerfExcused(name,ds,true); });
+      } else {
+        // decideLeaveRequest()'s own WFH branch deliberately skips
+        // setPerfExcused — a live WFH request is for a day that hasn't
+        // happened yet, so there's no "no punch" absence to resolve. Here
+        // the day already happened with no punch and this whole popup
+        // exists to resolve exactly that, so WFH still has to excuse it —
+        // otherwise it would sit right back in Unapproved Absences.
+        setPerfExcused(name,date,true);
+      }
+      if(_perfReady){ firebase.database().ref("leave_requests").push(req); }
+      else { req._key="local_"+Date.now()+"_"+Math.random().toString(36).slice(2); LEAVE_REQUESTS.push(req); }
+      perfRerender();
+      if(document.getElementById("info-pop")) window.attShowAbsent(name,mo);
+    };
 
     // ═══ APPLY FOR LEAVE ═══
     // Same PERF_EXC ledger the founder's retroactive "approve this absence
@@ -24001,10 +24033,29 @@ ${brandLines}`;
       mo=mo||curMonth();
       var d=LIVEDAYS[name]||{};
       var rows=Object.keys(d).filter(function(ds){return ds.slice(0,7)===mo && d[ds].status==="absent";}).sort();
-      var html=rows.length? ('<div style="font-size:11px;color:#8a8178;margin-bottom:10px;line-height:1.5">A day <b style="color:#9fc0f0">with no punch</b> can be approved as Official Leave — deducted from the leave balance. A day <b style="color:#68e6a6">with a punch</b> (very short hours) is fined instead (first '+LATE_FREE_DAYS+' free, &#8377;'+LATE_FEE+' each after) — Forgive it for a genuine reason.</div>'+rows.map(function(ds){ var noPunch=d[ds].im==null;
+      var ABS_TYPE_LABEL={standard:"Standard",sick:"Sick",wfh:"WFH"};
+      var html=rows.length? ('<div style="font-size:11px;color:#8a8178;margin-bottom:10px;line-height:1.5">A day <b style="color:#9fc0f0">with no punch</b> can be approved as Standard/Sick leave (deducted from balance), WFH (recorded, no balance impact), or Other (excused, no formal leave record). A day <b style="color:#68e6a6">with a punch</b> (very short hours) is fined instead (first '+LATE_FREE_DAYS+' free, &#8377;'+LATE_FEE+' each after) — Forgive it for a genuine reason.</div>'+rows.map(function(ds){ var noPunch=d[ds].im==null;
         if(noPunch){ var ex=(PERF_EXC[name]||{})[ds];
+          if(ex){
+            // Find whichever approved formal request (if any) actually
+            // covers this date, to label it correctly instead of just a
+            // generic "Official leave" — a plain perfExcuse() toggle with
+            // no formal request behind it (the "Other" path) falls back to
+            // that generic label.
+            var formalReq=LEAVE_REQUESTS.find(function(r){
+              if(normName(r.member)!==normName(name) || r.status!=="approved" || r.leave_type==="flexible") return false;
+              return chargeDatesFor(r).indexOf(ds)!==-1;
+            });
+            var label=formalReq ? (ABS_TYPE_LABEL[formalReq.leave_type]||"Leave") : "Other";
+            return '<div class="pf-absrow"><span>&bull; '+fmtDate(ds)+' · no punch</span><span class="pf-exc on" style="cursor:default">'+esc(label)+' approved ✓</span></div>';
+          }
           return '<div class="pf-absrow"><span>&bull; '+fmtDate(ds)+' · no punch</span>'+
-            '<button class="pf-exc'+(ex?" on":"")+'" onclick="window.perfExcuse(&quot;'+name+'&quot;,&quot;'+ds+'&quot;,&quot;'+mo+'&quot;)">'+(ex?"Official leave ✓":"Approve leave")+'</button></div>';
+            '<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">'+
+              '<button class="pf-exc" onclick="window.attApproveAbsenceAs(&quot;'+name+'&quot;,&quot;'+ds+'&quot;,&quot;'+mo+'&quot;,&quot;standard&quot;)">Standard</button>'+
+              '<button class="pf-exc" onclick="window.attApproveAbsenceAs(&quot;'+name+'&quot;,&quot;'+ds+'&quot;,&quot;'+mo+'&quot;,&quot;sick&quot;)">Sick</button>'+
+              '<button class="pf-exc" onclick="window.attApproveAbsenceAs(&quot;'+name+'&quot;,&quot;'+ds+'&quot;,&quot;'+mo+'&quot;,&quot;wfh&quot;)">WFH</button>'+
+              '<button class="pf-exc" onclick="window.attApproveAbsenceAs(&quot;'+name+'&quot;,&quot;'+ds+'&quot;,&quot;'+mo+'&quot;,&quot;other&quot;)">Other</button>'+
+            '</div></div>';
         }
         var fg=(SHORT_FGV[name]||{})[ds];
         return '<div class="pf-absrow"><span>&bull; '+fmtDate(ds)+' · in '+minToClock(d[ds].im)+', '+esc(d[ds].hrs)+' worked</span>'+
