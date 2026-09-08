@@ -24049,13 +24049,29 @@ ${brandLines}`;
             var label=formalReq ? (ABS_TYPE_LABEL[formalReq.leave_type]||"Leave") : "Other";
             return '<div class="pf-absrow"><span>&bull; '+fmtDate(ds)+' · no punch</span><span class="pf-exc on" style="cursor:default">'+esc(label)+' approved ✓</span></div>';
           }
-          return '<div class="pf-absrow"><span>&bull; '+fmtDate(ds)+' · no punch</span>'+
-            '<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">'+
-              '<button class="pf-exc" onclick="window.attApproveAbsenceAs(&quot;'+name+'&quot;,&quot;'+ds+'&quot;,&quot;'+mo+'&quot;,&quot;standard&quot;)">Standard</button>'+
-              '<button class="pf-exc" onclick="window.attApproveAbsenceAs(&quot;'+name+'&quot;,&quot;'+ds+'&quot;,&quot;'+mo+'&quot;,&quot;sick&quot;)">Sick</button>'+
-              '<button class="pf-exc" onclick="window.attApproveAbsenceAs(&quot;'+name+'&quot;,&quot;'+ds+'&quot;,&quot;'+mo+'&quot;,&quot;wfh&quot;)">WFH</button>'+
-              '<button class="pf-exc" onclick="window.attApproveAbsenceAs(&quot;'+name+'&quot;,&quot;'+ds+'&quot;,&quot;'+mo+'&quot;,&quot;other&quot;)">Other</button>'+
-            '</div></div>';
+          // A Shoot/Physical Meeting scheduled for this person on this exact
+          // date is a very plausible reason for a no-punch day — they were
+          // out on-location, not skipping work. Surface it as a suggestion
+          // (nudging WFH, the closest fit) rather than deciding for Gokul —
+          // he still picks the actual type.
+          var evMatch=(window.CALENDAR_EVENTS||[]).find(function(e){
+            return e && (e.eventKind==="shoot"||e.eventKind==="physical_meeting") &&
+              (e.start||"").slice(0,10)===ds && (e.knownAttendees||[]).some(function(a){return normName(a)===normName(name);});
+          });
+          var suggestNote=evMatch ? ('<div style="font-size:10.5px;color:var(--yellow);margin-top:4px">'+(evMatch.eventKind==="shoot"?"&#127916;":"&#129309;")+' Scheduled for a '+(evMatch.eventKind==="shoot"?"Shoot":"Physical Meeting")+' that day — &ldquo;'+esc(evMatch.title||"")+'&rdquo;'+(evMatch.location?(' @ '+esc(evMatch.location)):"")+'. Consider approving as WFH.</div>') : "";
+          var wfhSuggestedStyle=evMatch ? ' style="border-color:var(--yellow);color:var(--yellow)"' : "";
+          return '<div class="pf-absrow"'+(evMatch?' style="flex-direction:column;align-items:stretch"':"")+'>'+
+            '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px">'+
+              '<span>&bull; '+fmtDate(ds)+' · no punch</span>'+
+              '<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">'+
+                '<button class="pf-exc" onclick="window.attApproveAbsenceAs(&quot;'+name+'&quot;,&quot;'+ds+'&quot;,&quot;'+mo+'&quot;,&quot;standard&quot;)">Standard</button>'+
+                '<button class="pf-exc" onclick="window.attApproveAbsenceAs(&quot;'+name+'&quot;,&quot;'+ds+'&quot;,&quot;'+mo+'&quot;,&quot;sick&quot;)">Sick</button>'+
+                '<button class="pf-exc"'+wfhSuggestedStyle+' onclick="window.attApproveAbsenceAs(&quot;'+name+'&quot;,&quot;'+ds+'&quot;,&quot;'+mo+'&quot;,&quot;wfh&quot;)">WFH</button>'+
+                '<button class="pf-exc" onclick="window.attApproveAbsenceAs(&quot;'+name+'&quot;,&quot;'+ds+'&quot;,&quot;'+mo+'&quot;,&quot;other&quot;)">Other</button>'+
+              '</div>'+
+            '</div>'+
+            suggestNote+
+          '</div>';
         }
         var fg=(SHORT_FGV[name]||{})[ds];
         return '<div class="pf-absrow"><span>&bull; '+fmtDate(ds)+' · in '+minToClock(d[ds].im)+', '+esc(d[ds].hrs)+' worked</span>'+
