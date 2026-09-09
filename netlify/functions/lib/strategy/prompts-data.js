@@ -111,6 +111,15 @@ Every surviving asset must pass all four tests honestly:
 
 If a candidate fails, cut it. Do not rescue it with execution language.
 
+## Citing research
+
+Every asset's \`researchIds\` must contain only \`id\` values you can actually see in this
+input's \`liveQuestions\`, \`arguments\`, \`unspokenBehaviours\`, \`exhaustedTerritory\`, \`calendar\`
+or \`whitespace\` arrays — copy them character-for-character. Never invent an id, abbreviate
+one, or reuse a \`sources[].id\` (a source citation, not an insight one) in this field. If no
+entry in those six arrays actually supports a concept, the concept isn't grounded in
+research yet — sharpen it or cut it, rather than inventing a citation to fill the field.
+
 ## Hooks
 
 Write the exact opening words. “Frying oil education” is not a hook. “Two of these are still good — most people would throw out the wrong one” is a hook.
@@ -309,6 +318,54 @@ This stage does not write anything new. Every field that says "copied exactly" m
 \`approvalFlags\` is where anything genuinely unresolved surfaces — a copy asset with \`claimAudit.status !== "ready"\`, a direction reference whose rights aren't cleared, anything that still needs a human decision before this page can actually go into production. An empty array means nothing outstanding, not that you didn't look.
 `;
 
+const CONCEPT_REFINE_PROMPT = `# Agent 6 — Concept refinement
+
+You are revising exactly ONE concept within an already-developed monthly strategy asset
+plan — a single slot, not the whole plan. A refinement is not exempt from the same rigor
+the original Strategy agent applied: the concept gate below still has to pass honestly.
+
+You will receive the full current asset plan (context only — use it to avoid a duplicate
+hook, an overloaded pillar, or a portfolio imbalance), the one \`targetAsset\` you are
+replacing, the research and learnings that grounded the original plan, and a \`request\`
+describing what's being asked:
+
+- \`request.type: "refine"\` — a human reviewer sent this concept back with notes in
+  \`request.notes\`. Address the notes directly, in the concept and hook themselves, not in
+  a rationale field.
+- \`request.type: "similar"\` — generate an alternative concept in the same spirit (similar
+  pillar, tension or audience insight) as \`targetAsset\`, distinct enough to be a genuinely
+  different execution — not a reworded paraphrase of the same hook.
+- \`request.type: "discard"\` — \`targetAsset\` is dead; \`request.notes\` explains why. Do not
+  preserve any part of it — the concept, hook and tension must all be genuinely new.
+
+Keep \`assetId\`, \`sequence\`, \`format\`, \`portfolioId\` and \`skuIds\` exactly as given on
+\`targetAsset\` — you are not choosing a new slot, only new content for this one. Return
+exactly one asset object, in the same shape as every other entry in \`currentAssetPlan\`.
+
+## Non-negotiable concept gate
+
+Every replacement must pass all four tests honestly, same as the original plan:
+
+1. **Logo swap.** A competitor could not publish it unchanged after swapping the logo.
+2. **Kill list.** It does not repeat any exhausted territory or a concept already killed
+   in the learnings history.
+3. **Tension.** State the human tension in one sentence. "It teaches something useful" is
+   a failure.
+4. **Overheard.** Name the person or relationship that makes someone send it.
+
+## Hooks
+
+Write the exact opening words. Never reuse a hook that already appears anywhere in
+\`currentAssetPlan\` — check every other asset's hook before finalizing yours.
+
+## Citing research
+
+\`researchIds\` must contain only \`id\` values you can see in the research input's
+\`liveQuestions\`, \`arguments\`, \`unspokenBehaviours\`, \`exhaustedTerritory\`, \`calendar\` or
+\`whitespace\` arrays — copied character-for-character. Never invent one or reuse a
+\`sources[].id\`.
+`;
+
 const RRO_LEARNINGS_SEED = `# RRO learnings
 
 Append-only record of killed concepts, client rejections and month-close evidence. Past kills are permanent constraints unless a later signed-off learning explicitly supersedes them.
@@ -354,4 +411,4 @@ Append-only record of killed concepts, client rejections and month-close evidenc
   - Cut during the improved RRO concept-gate run.
 `;
 
-module.exports = { HOUSE_RULES, RESEARCH_PROMPT, STRATEGY_PROMPT, COPY_PROMPT, DIRECTION_PROMPT, DECK_BUILDER_PROMPT, RRO_LEARNINGS_SEED };
+module.exports = { HOUSE_RULES, RESEARCH_PROMPT, STRATEGY_PROMPT, COPY_PROMPT, DIRECTION_PROMPT, DECK_BUILDER_PROMPT, CONCEPT_REFINE_PROMPT, RRO_LEARNINGS_SEED };

@@ -22,6 +22,7 @@ const strategyPrompt = readMd('prompts/02-strategy.md');
 const copyPrompt = readMd('prompts/03-copy.md');
 const directionPrompt = readMd('prompts/04-creative-direction.md');
 const deckBuilderPrompt = readMd('prompts/05-deck-builder.md');
+const conceptRefinePrompt = readMd('prompts/06-concept-refine.md');
 const rroLearnings = readMd('seed/rro.learnings.md');
 
 const header = [
@@ -49,8 +50,9 @@ const body =
   'const COPY_PROMPT = `' + jsEscape(copyPrompt) + '`;\n\n' +
   'const DIRECTION_PROMPT = `' + jsEscape(directionPrompt) + '`;\n\n' +
   'const DECK_BUILDER_PROMPT = `' + jsEscape(deckBuilderPrompt) + '`;\n\n' +
+  'const CONCEPT_REFINE_PROMPT = `' + jsEscape(conceptRefinePrompt) + '`;\n\n' +
   'const RRO_LEARNINGS_SEED = `' + jsEscape(rroLearnings) + '`;\n\n' +
-  'module.exports = { HOUSE_RULES, RESEARCH_PROMPT, STRATEGY_PROMPT, COPY_PROMPT, DIRECTION_PROMPT, DECK_BUILDER_PROMPT, RRO_LEARNINGS_SEED };\n';
+  'module.exports = { HOUSE_RULES, RESEARCH_PROMPT, STRATEGY_PROMPT, COPY_PROMPT, DIRECTION_PROMPT, DECK_BUILDER_PROMPT, CONCEPT_REFINE_PROMPT, RRO_LEARNINGS_SEED };\n';
 
 fs.writeFileSync(path.join(BASE, 'prompts-data.js'), header + body);
 console.log('wrote prompts-data.js, ' + (header + body).length + ' bytes');

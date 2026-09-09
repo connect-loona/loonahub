@@ -1,0 +1,23 @@
+{
+  "assetId": "RRO-01",
+  "sequence": 1,
+  "format": "reel",
+  "pillarId": "recipes-serving",
+  "portfolioId": "rro-oil",
+  "skuIds": ["filtered-groundnut-oil"],
+  "conceptName": "The one swap nobody notices",
+  "concept": "People proudly announce every deliberate upgrade in a dish except the oil, which they swap silently and never mention, even though it's doing more work than most of the ingredients they do brag about. Filtered Groundnut Oil deserves to be the swap people actually mention.",
+  "hook": "You'll tell everyone you used fresh garlic. You won't mention the oil.",
+  "tension": "People credit the visible upgrades in a dish and stay silent about the invisible one doing the most work.",
+  "sendTo": "The friend who lists every ingredient in a dish except the oil when they're bragging about it",
+  "brandAnchors": ["RRO Oil", "Filtered Groundnut Oil"],
+  "researchIds": ["ARG-01", "UB-01"],
+  "strategicRole": "Turn recipes-serving into a brand-owned argument.",
+  "gate": {
+    "logoSwapPass": true,
+    "killListPass": true,
+    "tensionPass": true,
+    "overheardPass": true,
+    "rationale": "Uses exact RRO portfolio and SKU context, names human friction (credited upgrades vs a silent one) and has a specific recipient."
+  }
+}

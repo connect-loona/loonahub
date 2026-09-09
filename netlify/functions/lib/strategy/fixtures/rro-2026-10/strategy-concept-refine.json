@@ -1,0 +1,23 @@
+{
+  "assetId": "RRO-01",
+  "sequence": 1,
+  "format": "reel",
+  "pillarId": "recipes-serving",
+  "portfolioId": "rro-oil",
+  "skuIds": ["filtered-groundnut-oil"],
+  "conceptName": "The pan you keep, the oil you don't",
+  "concept": "People fiercely defend one pan for years but happily switch cooking oil on price alone every trip, even though the oil touches every dish that pan ever makes. Filtered Groundnut Oil earns the same loyalty the pan already gets.",
+  "hook": "You've had that pan for six years. Your oil changes every grocery run.",
+  "tension": "People protect the tool that touches the food but treat the ingredient that flavours it as interchangeable.",
+  "sendTo": "The friend who just bought a new pan and is still buying whatever oil is on sale",
+  "brandAnchors": ["RRO Oil", "Filtered Groundnut Oil"],
+  "researchIds": ["ARG-01", "UB-01"],
+  "strategicRole": "Turn recipes-serving into a brand-owned argument.",
+  "gate": {
+    "logoSwapPass": true,
+    "killListPass": true,
+    "tensionPass": true,
+    "overheardPass": true,
+    "rationale": "Uses exact RRO portfolio and SKU context, names human friction (pan loyalty vs oil indifference) and has a specific recipient."
+  }
+}

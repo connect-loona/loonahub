@@ -9,12 +9,12 @@
 "use strict";
 const { fbGet, fbSet, fbUpdate } = require("./firebase");
 const { loadBrandConfig, loadMonthInput, loadLearnings, loadPrompt } = require("./store");
-const { ResearchSchema, StrategySchema, CopySchema, CreativeDirectionSchema, DeckSpecSchema } = require("./contracts");
+const { ResearchSchema, StrategySchema, StrategyAssetSchema, CopySchema, CreativeDirectionSchema, DeckSpecSchema } = require("./contracts");
 const { validateResearch, validateStrategy, validateCopy, validateDirection, validateDeck } = require("./validation");
 const { OpenAIAgentsRuntime } = require("./runtime-openai");
 const { FixtureRuntime } = require("./runtime-fixture");
 const { StageValidationError } = require("./errors");
-const { saveStageVersion, saveStageMetrics } = require("./observability");
+const { saveStageVersion, saveStageMetrics, saveFeedbackEvent } = require("./observability");
 
 const MAX_REPAIRS = 2;
 
@@ -316,5 +316,155 @@ async function runDeckStage(runId) {
   return result;
 }
 
-module.exports = { runResearchStage, runStrategyStage, runCopyStage, runDirectionStage, runDeckStage, logActivity, buildStrategyResearchBrief };
+// ---------- Per-concept refine / suggest-similar / discard ----------
+// Regenerates ONE asset within an already-produced (not yet approved) strategy plan,
+// instead of the whole stage — brief section 9's "Kill + add to learnings, replacing just
+// that one asset while keeping the rest", which strategy-stage-approve.js's header
+// comment has flagged as a gap since the original vertical slice. Reuses the exact same
+// full-array validateStrategy() on a plan with just that one slot swapped, rather than a
+// separate partial validator — one source of truth for what a valid asset plan looks like,
+// zero risk of the two checks drifting apart.
+//
+// Candidates are staged under stages/strategy/candidates/<assetId> rather than written
+// straight into the checkpoint — "refine"/"similar" want a human to see the replacement
+// before it's committed (see acceptConceptCandidate), while "discard" auto-accepts it
+// immediately (see discardConcept) since there's nothing left to review: the old concept
+// is already gone.
+async function proposeConceptCandidate(runId, assetId, requestType, notes) {
+  const run = await fbGet(`strategy_runs/${runId}`);
+  if (!run) throw new Error(`Run ${runId} not found.`);
+  const strategyStage = run.stages && run.stages.strategy;
+  const strategy = strategyStage && strategyStage.checkpoint;
+  if (!strategy) throw new Error(`Run ${runId} has no strategy checkpoint yet.`);
+  if (!["needs_review", "changes_requested"].includes(strategyStage.status)) {
+    throw new Error(`Strategy is ${strategyStage.status}; concepts can only be refined while it's awaiting review.`);
+  }
+  const targetIndex = strategy.assets.findIndex((asset) => asset.assetId === assetId);
+  if (targetIndex === -1) throw new Error(`Asset ${assetId} not found in this run's strategy.`);
+  const targetAsset = strategy.assets[targetIndex];
+
+  const research = run.stages.research && run.stages.research.checkpoint;
+  const [config, monthInput, learnings] = await Promise.all([
+    loadBrandConfig(run.brandId),
+    loadMonthInput(run.brandId, run.month),
+    loadLearnings(run.brandId),
+  ]);
+  const runtime = createRuntime(run);
+  const instructions = loadPrompt("06-concept-refine.md");
+  const input = {
+    brandConfig: config,
+    monthInput,
+    learnings,
+    research,
+    currentAssetPlan: strategy.assets,
+    targetAsset,
+    request: { type: requestType, notes: notes || null },
+  };
+
+  const candidatePath = `strategy_runs/${runId}/stages/strategy/candidates/${assetId}`;
+  await fbSet(candidatePath, { status: "running", requestType, notes: notes || null, updatedAt: new Date().toISOString() });
+
+  let repairIssues = [];
+  let lastError = null;
+  for (let attempt = 0; attempt <= MAX_REPAIRS; attempt += 1) {
+    try {
+      const raw = await runtime.runStage({
+        // Suffixed with the request type — the fixture runtime maps `stage` straight to a
+        // `<stage>.json` file (see runtime-fixture.js), so refine/similar/discard each get
+        // their own offline fixture instead of colliding on one shared one; the real
+        // runtime just sees this as the task label sent to the model, equally reasonable.
+        stage: `strategy-concept-${requestType}`,
+        agentName: "Loona Strategy — concept refinement",
+        instructions,
+        input,
+        outputSchema: StrategyAssetSchema,
+        toolProfile: "none",
+        repairIssues,
+      });
+      const parsed = StrategyAssetSchema.parse(raw);
+      // The model isn't choosing a new slot, only new content for this one — force the
+      // structural fields back to the original regardless of what it returned, the same
+      // way deck-builder's enrich() never trusts the model with fields it can't know.
+      const candidate = Object.assign({}, parsed, {
+        assetId: targetAsset.assetId,
+        sequence: targetAsset.sequence,
+        format: targetAsset.format,
+        portfolioId: targetAsset.portfolioId,
+        skuIds: targetAsset.skuIds,
+      });
+      const swappedAssets = strategy.assets.map((asset, i) => (i === targetIndex ? candidate : asset));
+      const issues = validateStrategy(Object.assign({}, strategy, { assets: swappedAssets }), config, research, learnings, run.month);
+      if (issues.length === 0) {
+        await fbSet(candidatePath, { status: "ready", requestType, notes: notes || null, candidate, updatedAt: new Date().toISOString() });
+        return candidate;
+      }
+      repairIssues = issues;
+      lastError = new StageValidationError(`strategy-concept-${requestType}`, issues);
+    } catch (error) {
+      lastError = error;
+      repairIssues = [`Schema or runtime failure: ${error && error.message ? error.message : String(error)}`];
+    }
+  }
+  const message = lastError && lastError.message ? lastError.message : String(lastError);
+  await fbSet(candidatePath, { status: "failed", requestType, notes: notes || null, detail: message, updatedAt: new Date().toISOString() });
+  throw lastError;
+}
+
+// Commits a "ready" candidate into the actual strategy checkpoint. Re-validates the WHOLE
+// resulting plan (not just the one asset) as a safety net in case anything about the plan
+// changed between proposing and accepting, records a stage-version snapshot before and
+// after the swap (matching strategy-stage-approve.js's own versioning), and folds the
+// supersession into the brand's learnings so future months don't repeat the killed concept.
+async function acceptConceptCandidate(runId, assetId, actor) {
+  const run = await fbGet(`strategy_runs/${runId}`);
+  if (!run) throw new Error(`Run ${runId} not found.`);
+  const strategy = run.stages && run.stages.strategy && run.stages.strategy.checkpoint;
+  if (!strategy) throw new Error(`Run ${runId} has no strategy checkpoint yet.`);
+  const candidatePath = `strategy_runs/${runId}/stages/strategy/candidates/${assetId}`;
+  const candidateDoc = await fbGet(candidatePath);
+  if (!candidateDoc || candidateDoc.status !== "ready" || !candidateDoc.candidate) {
+    throw new Error(`No ready candidate for ${assetId}.`);
+  }
+  const targetIndex = strategy.assets.findIndex((asset) => asset.assetId === assetId);
+  if (targetIndex === -1) throw new Error(`Asset ${assetId} not found in this run's strategy.`);
+  const oldAsset = strategy.assets[targetIndex];
+  const newAssets = strategy.assets.map((asset, i) => (i === targetIndex ? candidateDoc.candidate : asset));
+  const newStrategy = Object.assign({}, strategy, { assets: newAssets });
+
+  const research = run.stages.research && run.stages.research.checkpoint;
+  const [config, learnings] = await Promise.all([loadBrandConfig(run.brandId), loadLearnings(run.brandId)]);
+  const issues = validateStrategy(newStrategy, config, research, learnings, run.month);
+  if (issues.length) throw new StageValidationError(`strategy-concept-${candidateDoc.requestType}`, issues);
+
+  await saveStageVersion(runId, "strategy", strategy, `concept_${candidateDoc.requestType}_before`, actor || "system");
+  await fbSet(`strategy_runs/${runId}/stages/strategy/checkpoint`, newStrategy);
+  await saveStageVersion(runId, "strategy", newStrategy, `concept_${candidateDoc.requestType}`, actor || "system");
+  await fbSet(candidatePath, null);
+  await saveFeedbackEvent(
+    run,
+    "strategy",
+    `concept_${candidateDoc.requestType}`,
+    `Replaced "${oldAsset.conceptName}" (${oldAsset.hook}) with "${candidateDoc.candidate.conceptName}" (${candidateDoc.candidate.hook}).` +
+      (candidateDoc.notes ? ` Notes: ${candidateDoc.notes}` : ""),
+    actor || "system",
+  );
+  await logActivity(runId, actor || "system", `strategy.concept_${candidateDoc.requestType}`, oldAsset.assetId);
+  return newStrategy;
+}
+
+// "Discard" has no review step — the old concept is already gone, so propose + accept
+// happen together as one action. If generation fails after every repair attempt, the
+// original concept is left in place (never silently removed) and the candidate sits in
+// "failed" with the real error, same as any other stage's failed+Retry state — re-running
+// this same function is the retry.
+async function discardConcept(runId, assetId, notes, actor) {
+  await proposeConceptCandidate(runId, assetId, "discard", notes);
+  return acceptConceptCandidate(runId, assetId, actor);
+}
+
+module.exports = {
+  runResearchStage, runStrategyStage, runCopyStage, runDirectionStage, runDeckStage,
+  proposeConceptCandidate, acceptConceptCandidate, discardConcept,
+  logActivity, buildStrategyResearchBrief,
+};
 
