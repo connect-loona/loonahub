@@ -10,8 +10,12 @@ const http = require("http");
 const crypto = require("crypto");
 
 const HUB = path.join(__dirname, "..", "..");
-const RTDB_URL = process.env.FIREBASE_DB_URL || "http://localhost:9030";
-const DEV_LITE_URL = process.env.DEV_LITE_URL || "http://localhost:9020";
+// 127.0.0.1, not "localhost" — GitHub Actions runners don't support IPv6, and a browser
+// resolving "localhost" can still try ::1 first and stall on it before falling back. Every
+// e2e test fetches these URLs from inside a real Chromium page, so an ambiguous hostname
+// here is enough to make every one of them hang until Playwright's own action timeout.
+const RTDB_URL = process.env.FIREBASE_DB_URL || "http://127.0.0.1:9030";
+const DEV_LITE_URL = process.env.DEV_LITE_URL || "http://127.0.0.1:9020";
 
 // Matches netlify-dev-lite.js's own default BASIC_AUTH_CREDENTIALS — every test
 // authenticates as this same fake team login.

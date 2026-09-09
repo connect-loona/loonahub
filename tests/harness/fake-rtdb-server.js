@@ -72,6 +72,9 @@ const server = http.createServer((req, res) => {
 });
 
 const PORT = process.env.FAKE_RTDB_PORT || 9030;
-server.listen(PORT, () => {
+// Bind explicitly to 127.0.0.1 rather than the OS default (which prefers the IPv6 wildcard
+// when available) — GitHub Actions runners don't support IPv6, and tests fetch this URL
+// from inside a real Chromium page, so an ambiguous bind is enough to hang every UI test.
+server.listen(PORT, "127.0.0.1", () => {
   console.log(`fake RTDB listening on ${PORT}`);
 });

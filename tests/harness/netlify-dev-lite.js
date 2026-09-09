@@ -4,13 +4,17 @@
 // can load index.html, app.js, strategy-ui.js exactly as production does). No network
 // access, no external dependencies — plain Node http.
 "use strict";
-process.env.FIREBASE_DB_URL = process.env.FIREBASE_DB_URL || "http://localhost:9030";
+// 127.0.0.1, not "localhost" — GitHub Actions runners don't support IPv6, and a browser
+// resolving "localhost" can still try ::1 first and stall before falling back. Every e2e
+// test fetches these URLs from inside a real Chromium page, so an ambiguous hostname here
+// is enough to hang every one of them.
+process.env.FIREBASE_DB_URL = process.env.FIREBASE_DB_URL || "http://127.0.0.1:9030";
 // Since the fail-closed auth fix, Strategy OS's endpoints reject any request with no
 // matching loona_auth cookie — tests driving this server need to actually set that cookie
 // in the browser context (see the addCookies() call in each Playwright test), matching this
 // same credentials value's SHA-256 hash.
 process.env.BASIC_AUTH_CREDENTIALS = process.env.BASIC_AUTH_CREDENTIALS || "gokul:supersecret";
-process.env.URL = process.env.URL || "http://localhost:9020";
+process.env.URL = process.env.URL || "http://127.0.0.1:9020";
 
 const http = require("http");
 const fs = require("fs");
@@ -87,4 +91,6 @@ const server = http.createServer((req, res) => {
 });
 
 const PORT = process.env.DEV_LITE_PORT || 9020;
-server.listen(PORT, () => console.log(`netlify-dev-lite listening on ${PORT}`));
+// Bind explicitly to 127.0.0.1 (see the FIREBASE_DB_URL comment above) rather than the OS
+// default, which prefers the IPv6 wildcard when available.
+server.listen(PORT, "127.0.0.1", () => console.log(`netlify-dev-lite listening on ${PORT}`));

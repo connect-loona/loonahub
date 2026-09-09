@@ -82,13 +82,13 @@ function listTestFiles(dir, suffix) {
   const rtdb = spawnServer(path.join(HUB, "tests/harness/fake-rtdb-server.js"), { FAKE_RTDB_PORT: RTDB_PORT });
   const devLite = spawnServer(path.join(HUB, "tests/harness/netlify-dev-lite.js"), {
     DEV_LITE_PORT,
-    FIREBASE_DB_URL: `http://localhost:${RTDB_PORT}`,
+    FIREBASE_DB_URL: `http://127.0.0.1:${RTDB_PORT}`,
   });
 
   let results = [];
   try {
-    await waitForHttp(`http://localhost:${RTDB_PORT}/.json`);
-    await waitForHttp(`http://localhost:${DEV_LITE_PORT}/index.html`);
+    await waitForHttp(`http://127.0.0.1:${RTDB_PORT}/.json`);
+    await waitForHttp(`http://127.0.0.1:${DEV_LITE_PORT}/index.html`);
     console.log("Harness servers are up.\n");
 
     // Optional filter: `node tests/run-all.js strategy` or `node tests/run-all.js e2e`
@@ -98,7 +98,7 @@ function listTestFiles(dir, suffix) {
     const e2eTests = only === "strategy" ? [] : listTestFiles(path.join(HUB, "tests/e2e"), ".spec.js");
     const allTests = strategyTests.concat(e2eTests);
 
-    const rtdbUrl = `http://localhost:${RTDB_PORT}`;
+    const rtdbUrl = `http://127.0.0.1:${RTDB_PORT}`;
     for (const file of allTests) {
       const label = path.relative(HUB, file);
       await wipeAll(rtdbUrl);
