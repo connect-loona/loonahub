@@ -56,3 +56,23 @@ const body =
 
 fs.writeFileSync(path.join(BASE, 'prompts-data.js'), header + body);
 console.log('wrote prompts-data.js, ' + (header + body).length + ' bytes');
+
+
+const soulFiles = {
+  LOONA_SOUL: 'loona.md',
+  BB_LOONA_SOUL: 'bb-loona.md',
+  RESEARCH_SOUL: 'research.md',
+  STRATEGY_SOUL: 'strategy.md',
+  COPY_SOUL: 'copy.md',
+  CREATIVE_DIRECTION_SOUL: 'creative-direction.md',
+  DECK_BUILDER_SOUL: 'deck-builder.md',
+  CONCEPT_REFINEMENT_SOUL: 'concept-refinement.md',
+};
+const soulsHeader = '// Generated from ./souls/*.md by scripts/gen-strategy-prompts-data.js. Do not hand-edit.\n"use strict";\n\n';
+let soulsBody = '';
+for (const [constant, file] of Object.entries(soulFiles)) {
+  soulsBody += 'const ' + constant + ' = \`' + jsEscape(readMd('souls/' + file)) + '\`;\n\n';
+}
+soulsBody += 'module.exports = { ' + Object.keys(soulFiles).join(', ') + ' };\n';
+fs.writeFileSync(path.join(BASE, 'souls-data.js'), soulsHeader + soulsBody);
+console.log('wrote souls-data.js, ' + (soulsHeader + soulsBody).length + ' bytes');

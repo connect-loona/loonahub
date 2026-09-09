@@ -23,6 +23,7 @@
 const { BrandConfigSchema, MonthInputSchema } = require("./contracts");
 const { fbGet, fbSet, fbSafeKey } = require("./firebase");
 const { loadBrandLibrary: loadDriveBrandLibrary } = require("./google-drive");
+const { composeAgentInstructions } = require("./bb-loona");
 const { HOUSE_RULES, RESEARCH_PROMPT, STRATEGY_PROMPT, COPY_PROMPT, DIRECTION_PROMPT, DECK_BUILDER_PROMPT, CONCEPT_REFINE_PROMPT, RRO_LEARNINGS_SEED } = require("./prompts-data");
 
 // Add one line per new brand here (and to SEED_MONTH_INPUTS/SEED_LEARNINGS below) when
@@ -113,7 +114,7 @@ async function loadLearnings(brandId) {
 function loadPrompt(name) {
   const stage = PROMPT_BY_FILE[name];
   if (!stage) throw new Error(`Unknown prompt file: ${name}`);
-  return `${HOUSE_RULES}\n\n---\n\n${stage}`;
+  return composeAgentInstructions(name, HOUSE_RULES, stage);
 }
 
 async function loadBrandLibrary(config, options) {
