@@ -22,6 +22,7 @@ const DIST = path.join(ROOT, "dist");
 const LEGACY_FILES = [
   "index.html",
   "app.js",
+  "strategy-app.js",
   "strategy-ui.js",
   "sw.js",
   "manifest.json",
