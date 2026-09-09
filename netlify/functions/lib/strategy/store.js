@@ -24,7 +24,7 @@ const { BrandConfigSchema, MonthInputSchema } = require("./contracts");
 const { fbGet, fbSet, fbSafeKey } = require("./firebase");
 const { loadBrandLibrary: loadDriveBrandLibrary } = require("./google-drive");
 const { composeAgentInstructions } = require("./bb-loona");
-const { HOUSE_RULES, RESEARCH_PROMPT, STRATEGY_PROMPT, COPY_PROMPT, DIRECTION_PROMPT, DECK_BUILDER_PROMPT, CONCEPT_REFINE_PROMPT, RRO_LEARNINGS_SEED } = require("./prompts-data");
+const { HOUSE_RULES, RESEARCH_PROMPT, STRATEGY_PROMPT, COPY_PROMPT, DIRECTION_PROMPT, DECK_BUILDER_PROMPT, CONCEPT_REFINE_PROMPT, COPY_REFINE_PROMPT, RRO_LEARNINGS_SEED } = require("./prompts-data");
 
 // Add one line per new brand here (and to SEED_MONTH_INPUTS/SEED_LEARNINGS below) when
 // brands/<id>.config.json grows beyond RRO — see brief section "Adding a brand".
@@ -44,6 +44,7 @@ const PROMPT_BY_FILE = {
   "04-creative-direction.md": DIRECTION_PROMPT,
   "05-deck-builder.md": DECK_BUILDER_PROMPT,
   "06-concept-refine.md": CONCEPT_REFINE_PROMPT,
+  "07-copy-refine.md": COPY_REFINE_PROMPT,
 };
 
 // Validates whatever is cached in Firebase instead of trusting it blindly, and re-seeds

@@ -1,7 +1,9 @@
-// POST { runId, assetId, notes?, actor } — kills a concept and immediately generates its
-// replacement (no separate accept step — the old concept is already gone, there's nothing
-// to review before committing). Same foreground-validate / background-generate split as
-// strategy-concept-propose.js, since this also makes a real model call.
+// POST { runId, stage, assetId, notes?, actor } — kills an asset's current content and
+// immediately generates its replacement (no separate accept step — the old content is
+// already gone, there's nothing to review before committing). This is each stage's
+// "auto-accept" request type: strategy's "discard", copy's "replace". Same
+// foreground-validate / background-generate split as strategy-concept-propose.js, since
+// this also makes a real model call.
 "use strict";
 const { fbGet, fbSet } = require("./lib/strategy/firebase");
 const { checkAuthorization } = require("./lib/strategy/auth");
@@ -31,6 +33,7 @@ exports.handler = async (event) => {
   let body;
   try { body = JSON.parse(event.body || "{}"); } catch { return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "Invalid JSON" }) }; }
   const { runId, assetId } = body;
+  const stage = body.stage || "strategy";
   const notes = String(body.notes || "").trim();
   const actor = String(body.actor || "Unknown").trim();
   if (!runId || !assetId) return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "runId and assetId are required." }) };
@@ -38,13 +41,13 @@ exports.handler = async (event) => {
   try {
     const run = await fbGet(`strategy_runs/${runId}`);
     if (!run) return { statusCode: 404, headers: cors(), body: JSON.stringify({ error: "Run not found." }) };
-    const strategyStage = run.stages && run.stages.strategy;
-    if (!strategyStage || !["needs_review", "changes_requested"].includes(strategyStage.status)) {
-      return { statusCode: 409, headers: cors(), body: JSON.stringify({ error: `Strategy is ${strategyStage ? strategyStage.status : "unknown"}; concepts can only be discarded while it's awaiting review.` }) };
+    const targetStage = run.stages && run.stages[stage];
+    if (!targetStage || !["needs_review", "changes_requested"].includes(targetStage.status)) {
+      return { statusCode: 409, headers: cors(), body: JSON.stringify({ error: `${stage} is ${targetStage ? targetStage.status : "unknown"}; assets can only be replaced while it's awaiting review.` }) };
     }
-    const existing = strategyStage.checkpoint && strategyStage.checkpoint.assets.find((asset) => asset.assetId === assetId);
-    if (!existing) return { statusCode: 404, headers: cors(), body: JSON.stringify({ error: `Asset ${assetId} not found in this run's strategy.` }) };
-    const existingCandidate = await fbGet(`strategy_runs/${runId}/stages/strategy/candidates/${assetId}`);
+    const existing = targetStage.checkpoint && targetStage.checkpoint.assets.find((asset) => asset.assetId === assetId);
+    if (!existing) return { statusCode: 404, headers: cors(), body: JSON.stringify({ error: `Asset ${assetId} not found in this run's ${stage}.` }) };
+    const existingCandidate = await fbGet(`strategy_runs/${runId}/stages/${stage}/candidates/${assetId}`);
     if (existingCandidate && existingCandidate.status === "running") {
       return { statusCode: 409, headers: cors(), body: JSON.stringify({ error: `A replacement for ${assetId} is already being generated.` }) };
     }
@@ -54,11 +57,11 @@ exports.handler = async (event) => {
       await fetch(`${base}/.netlify/functions/strategy-concept-discard-background`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ runId, assetId, notes, actor }),
+        body: JSON.stringify({ runId, stage, assetId, notes, actor }),
       });
     } catch (e) {
       console.error("Failed to trigger strategy-concept-discard-background:", e);
-      await fbSet(`strategy_runs/${runId}/stages/strategy/candidates/${assetId}`, { status: "failed", requestType: "discard", notes: notes || null, detail: `Could not start: ${e.message || e}` });
+      await fbSet(`strategy_runs/${runId}/stages/${stage}/candidates/${assetId}`, { status: "failed", requestType: stage === "copy" ? "replace" : "discard", notes: notes || null, detail: `Could not start: ${e.message || e}` });
       return { statusCode: 502, headers: cors(), body: JSON.stringify({ error: `Could not start: ${e.message || e}` }) };
     }
 
