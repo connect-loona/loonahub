@@ -73,7 +73,7 @@ async function executeStage(runId, run, def) {
   let previousOutput = null;
   let lastError = null;
 
-  await fbUpdate(`strategy_runs/${runId}`, { status: def.runningStatus, updatedAt: new Date().toISOString() });
+  await fbUpdate(`strategy_runs/${runId}`, { status: def.runningStatus, coordinator: { name: "BB Loona", currentStage: def.stage, specialist: def.agentName, status: "working" }, updatedAt: new Date().toISOString() });
 
   for (let attempt = 0; attempt <= MAX_REPAIRS; attempt += 1) {
     await setStageStatus(runId, def.stage, {
@@ -107,7 +107,7 @@ async function executeStage(runId, run, def) {
           outcome: "needs_review",
         });
         await setStageStatus(runId, def.stage, { status: "needs_review", detail: "Validated. Awaiting review.", checkpoint: finalOutput, error: null });
-        await fbUpdate(`strategy_runs/${runId}`, { status: def.reviewStatus, updatedAt: new Date().toISOString() });
+        await fbUpdate(`strategy_runs/${runId}`, { status: def.reviewStatus, coordinator: { name: "BB Loona", currentStage: def.stage, specialist: def.agentName, status: "awaiting_human_review" }, updatedAt: new Date().toISOString() });
         await logActivity(runId, "system", `${def.stage}.completed`, `Passed on attempt ${attempt + 1}.`);
         return finalOutput;
       }
@@ -129,7 +129,7 @@ async function executeStage(runId, run, def) {
     outcome: "failed",
   });
   await setStageStatus(runId, def.stage, { status: "failed", detail: message });
-  await fbUpdate(`strategy_runs/${runId}`, { status: "failed", updatedAt: new Date().toISOString() });
+  await fbUpdate(`strategy_runs/${runId}`, { status: "failed", coordinator: { name: "BB Loona", currentStage: def.stage, specialist: def.agentName, status: "blocked" }, updatedAt: new Date().toISOString() });
   await logActivity(runId, "system", `${def.stage}.failed`, message);
   throw lastError;
 }
