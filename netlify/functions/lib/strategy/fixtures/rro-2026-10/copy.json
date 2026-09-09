@@ -1,0 +1,950 @@
+{
+  "brandId": "rro",
+  "month": "2026-10",
+  "assets": [
+    {
+      "assetId": "RRO-01",
+      "format": "reel",
+      "portfolioId": "rro-oil",
+      "portfolioName": "RRO Oil",
+      "skuIds": [
+        "filtered-groundnut-oil"
+      ],
+      "skuNames": [
+        "Filtered Groundnut Oil"
+      ],
+      "hook": "The recipe is right. The oil is why it still tastes wrong.",
+      "onCreative": {
+        "cover": "The recipe is right. The oil is why it still tastes wrong.",
+        "frames": [],
+        "endFrame": "Filtered Groundnut Oil — the pack you already reach for."
+      },
+      "script": {
+        "durationSeconds": 22,
+        "scenes": [
+          {
+            "timing": "0-2s",
+            "visual": "Close on the pack, honest kitchen light.",
+            "voiceover": "The recipe is right. The oil is why it still tastes wrong.",
+            "onScreenText": "The recipe is right. The oil is why it still tastes wrong."
+          },
+          {
+            "timing": "2-14s",
+            "visual": "The dish coming together with the product in use.",
+            "voiceover": "The plain version of why this one, not the other one.",
+            "onScreenText": "Filtered Groundnut Oil"
+          },
+          {
+            "timing": "14-22s",
+            "visual": "Final plated shot, pack visible.",
+            "voiceover": "Same kitchen, same shelf.",
+            "onScreenText": "RRO"
+          }
+        ]
+      },
+      "captions": [
+        {
+          "version": "A",
+          "angle": "Direct",
+          "copy": "The recipe is right. The oil is why it still tastes wrong. Here's the honest version of what's on the pack, said plainly.",
+          "hashtags": [
+            "#RRO"
+          ]
+        },
+        {
+          "version": "B",
+          "angle": "Kitchen-first",
+          "copy": "Same story, told through what's actually in your kitchen this week.",
+          "hashtags": [
+            "#RRO",
+            "#HomeCooking"
+          ]
+        },
+        {
+          "version": "C",
+          "angle": "Short",
+          "copy": "A shorter cut of the same idea, for the people who just want the answer.",
+          "hashtags": [
+            "#RRO"
+          ]
+        }
+      ],
+      "claimAudit": {
+        "rulesChecked": [
+          "exact-sku-nutrition",
+          "oil-process-and-heat",
+          "availability-geography",
+          "medical-disease-claims",
+          "pack-and-label-accuracy"
+        ],
+        "rewrittenClaims": [],
+        "verificationFlags": [],
+        "status": "ready"
+      }
+    },
+    {
+      "assetId": "RRO-02",
+      "format": "reel",
+      "portfolioId": "rro-oil",
+      "portfolioName": "RRO Oil",
+      "skuIds": [
+        "primio-refined-groundnut-oil"
+      ],
+      "skuNames": [
+        "Primio Refined Groundnut Oil"
+      ],
+      "hook": "One pan is still usable. Most people would discard the wrong one.",
+      "onCreative": {
+        "cover": "One pan is still usable. Most people would discard the wrong one.",
+        "frames": [],
+        "endFrame": "Primio Refined Groundnut Oil — the pack you already reach for."
+      },
+      "script": {
+        "durationSeconds": 22,
+        "scenes": [
+          {
+            "timing": "0-2s",
+            "visual": "Close on the pack, honest kitchen light.",
+            "voiceover": "One pan is still usable. Most people would discard the wrong one.",
+            "onScreenText": "One pan is still usable. Most people would discard the wrong one."
+          },
+          {
+            "timing": "2-14s",
+            "visual": "The dish coming together with the product in use.",
+            "voiceover": "The plain version of why this one, not the other one.",
+            "onScreenText": "Primio Refined Groundnut Oil"
+          },
+          {
+            "timing": "14-22s",
+            "visual": "Final plated shot, pack visible.",
+            "voiceover": "Same kitchen, same shelf.",
+            "onScreenText": "RRO"
+          }
+        ]
+      },
+      "captions": [
+        {
+          "version": "A",
+          "angle": "Direct",
+          "copy": "One pan is still usable. Most people would discard the wrong one. Here's the honest version of what's on the pack, said plainly.",
+          "hashtags": [
+            "#RRO"
+          ]
+        },
+        {
+          "version": "B",
+          "angle": "Kitchen-first",
+          "copy": "Same story, told through what's actually in your kitchen this week.",
+          "hashtags": [
+            "#RRO",
+            "#HomeCooking"
+          ]
+        },
+        {
+          "version": "C",
+          "angle": "Short",
+          "copy": "A shorter cut of the same idea, for the people who just want the answer.",
+          "hashtags": [
+            "#RRO"
+          ]
+        }
+      ],
+      "claimAudit": {
+        "rulesChecked": [
+          "exact-sku-nutrition",
+          "oil-process-and-heat",
+          "availability-geography",
+          "medical-disease-claims",
+          "pack-and-label-accuracy"
+        ],
+        "rewrittenClaims": [],
+        "verificationFlags": [],
+        "status": "ready"
+      }
+    },
+    {
+      "assetId": "RRO-03",
+      "format": "reel",
+      "portfolioId": "rro-oil",
+      "portfolioName": "RRO Oil",
+      "skuIds": [
+        "mastdil-premium-mustard-oil",
+        "filtered-groundnut-oil",
+        "tildil-premium-til-oil"
+      ],
+      "skuNames": [
+        "Filtered Groundnut Oil",
+        "Mastdil Premium Mustard Oil",
+        "TilDil Premium Til Oil"
+      ],
+      "hook": "Your family oil says where the recipe learned to speak.",
+      "onCreative": {
+        "cover": "Your family oil says where the recipe learned to speak.",
+        "frames": [],
+        "endFrame": "Filtered Groundnut Oil — the pack you already reach for."
+      },
+      "script": {
+        "durationSeconds": 22,
+        "scenes": [
+          {
+            "timing": "0-2s",
+            "visual": "Close on the pack, honest kitchen light.",
+            "voiceover": "Your family oil says where the recipe learned to speak.",
+            "onScreenText": "Your family oil says where the recipe learned to speak."
+          },
+          {
+            "timing": "2-14s",
+            "visual": "The dish coming together with the product in use.",
+            "voiceover": "The plain version of why this one, not the other one.",
+            "onScreenText": "Filtered Groundnut Oil"
+          },
+          {
+            "timing": "14-22s",
+            "visual": "Final plated shot, pack visible.",
+            "voiceover": "Same kitchen, same shelf.",
+            "onScreenText": "RRO"
+          }
+        ]
+      },
+      "captions": [
+        {
+          "version": "A",
+          "angle": "Direct",
+          "copy": "Your family oil says where the recipe learned to speak. Here's the honest version of what's on the pack, said plainly.",
+          "hashtags": [
+            "#RRO"
+          ]
+        },
+        {
+          "version": "B",
+          "angle": "Kitchen-first",
+          "copy": "Same story, told through what's actually in your kitchen this week.",
+          "hashtags": [
+            "#RRO",
+            "#HomeCooking"
+          ]
+        },
+        {
+          "version": "C",
+          "angle": "Short",
+          "copy": "A shorter cut of the same idea, for the people who just want the answer.",
+          "hashtags": [
+            "#RRO"
+          ]
+        }
+      ],
+      "claimAudit": {
+        "rulesChecked": [
+          "exact-sku-nutrition",
+          "oil-process-and-heat",
+          "availability-geography",
+          "medical-disease-claims",
+          "pack-and-label-accuracy"
+        ],
+        "rewrittenClaims": [],
+        "verificationFlags": [],
+        "status": "ready"
+      }
+    },
+    {
+      "assetId": "RRO-04",
+      "format": "reel",
+      "portfolioId": "rro-dairy",
+      "portfolioName": "RRO Dairy",
+      "skuIds": [
+        "mozzarella-cheese-for-pizza"
+      ],
+      "skuNames": [
+        "Mozzarella Cheese for Pizza"
+      ],
+      "hook": "A longer cheese pull can still make a worse pizza.",
+      "onCreative": {
+        "cover": "A longer cheese pull can still make a worse pizza.",
+        "frames": [],
+        "endFrame": "Mozzarella Cheese for Pizza — the pack you already reach for."
+      },
+      "script": {
+        "durationSeconds": 22,
+        "scenes": [
+          {
+            "timing": "0-2s",
+            "visual": "Close on the pack, honest kitchen light.",
+            "voiceover": "A longer cheese pull can still make a worse pizza.",
+            "onScreenText": "A longer cheese pull can still make a worse pizza."
+          },
+          {
+            "timing": "2-14s",
+            "visual": "The dish coming together with the product in use.",
+            "voiceover": "The plain version of why this one, not the other one.",
+            "onScreenText": "Mozzarella Cheese for Pizza"
+          },
+          {
+            "timing": "14-22s",
+            "visual": "Final plated shot, pack visible.",
+            "voiceover": "Same kitchen, same shelf.",
+            "onScreenText": "RRO"
+          }
+        ]
+      },
+      "captions": [
+        {
+          "version": "A",
+          "angle": "Direct",
+          "copy": "A longer cheese pull can still make a worse pizza. Here's the honest version of what's on the pack, said plainly.",
+          "hashtags": [
+            "#RRO"
+          ]
+        },
+        {
+          "version": "B",
+          "angle": "Kitchen-first",
+          "copy": "Same story, told through what's actually in your kitchen this week.",
+          "hashtags": [
+            "#RRO",
+            "#HomeCooking"
+          ]
+        },
+        {
+          "version": "C",
+          "angle": "Short",
+          "copy": "A shorter cut of the same idea, for the people who just want the answer.",
+          "hashtags": [
+            "#RRO"
+          ]
+        }
+      ],
+      "claimAudit": {
+        "rulesChecked": [
+          "exact-sku-nutrition",
+          "availability-geography",
+          "medical-disease-claims",
+          "pack-and-label-accuracy"
+        ],
+        "rewrittenClaims": [],
+        "verificationFlags": [],
+        "status": "ready"
+      }
+    },
+    {
+      "assetId": "RRO-05",
+      "format": "reel",
+      "portfolioId": "rro-dairy",
+      "portfolioName": "RRO Dairy",
+      "skuIds": [
+        "burrata-cheese"
+      ],
+      "skuNames": [
+        "Burrata Cheese"
+      ],
+      "hook": "Saving burrata for later is how the special meal loses its best part.",
+      "onCreative": {
+        "cover": "Saving burrata for later is how the special meal loses its best part.",
+        "frames": [],
+        "endFrame": "Burrata Cheese — the pack you already reach for."
+      },
+      "script": {
+        "durationSeconds": 22,
+        "scenes": [
+          {
+            "timing": "0-2s",
+            "visual": "Close on the pack, honest kitchen light.",
+            "voiceover": "Saving burrata for later is how the special meal loses its best part.",
+            "onScreenText": "Saving burrata for later is how the special meal loses its best part."
+          },
+          {
+            "timing": "2-14s",
+            "visual": "The dish coming together with the product in use.",
+            "voiceover": "The plain version of why this one, not the other one.",
+            "onScreenText": "Burrata Cheese"
+          },
+          {
+            "timing": "14-22s",
+            "visual": "Final plated shot, pack visible.",
+            "voiceover": "Same kitchen, same shelf.",
+            "onScreenText": "RRO"
+          }
+        ]
+      },
+      "captions": [
+        {
+          "version": "A",
+          "angle": "Direct",
+          "copy": "Saving burrata for later is how the special meal loses its best part. Here's the honest version of what's on the pack, said plainly.",
+          "hashtags": [
+            "#RRO"
+          ]
+        },
+        {
+          "version": "B",
+          "angle": "Kitchen-first",
+          "copy": "Same story, told through what's actually in your kitchen this week.",
+          "hashtags": [
+            "#RRO",
+            "#HomeCooking"
+          ]
+        },
+        {
+          "version": "C",
+          "angle": "Short",
+          "copy": "A shorter cut of the same idea, for the people who just want the answer.",
+          "hashtags": [
+            "#RRO"
+          ]
+        }
+      ],
+      "claimAudit": {
+        "rulesChecked": [
+          "exact-sku-nutrition",
+          "availability-geography",
+          "medical-disease-claims",
+          "pack-and-label-accuracy"
+        ],
+        "rewrittenClaims": [],
+        "verificationFlags": [],
+        "status": "ready"
+      }
+    },
+    {
+      "assetId": "RRO-06",
+      "format": "reel",
+      "portfolioId": "expressfoods-cereal",
+      "portfolioName": "ExpressFoods Cereal",
+      "skuIds": [
+        "peanut-butter-granola-cereal"
+      ],
+      "skuNames": [
+        "Peanut Butter Granola Cereal"
+      ],
+      "hook": "The breakfast you skip at home usually appears at your desk as something worse.",
+      "onCreative": {
+        "cover": "The breakfast you skip at home usually appears at your desk as something worse.",
+        "frames": [],
+        "endFrame": "Peanut Butter Granola Cereal — the pack you already reach for."
+      },
+      "script": {
+        "durationSeconds": 22,
+        "scenes": [
+          {
+            "timing": "0-2s",
+            "visual": "Close on the pack, honest kitchen light.",
+            "voiceover": "The breakfast you skip at home usually appears at your desk as something worse.",
+            "onScreenText": "The breakfast you skip at home usually appears at your desk as something worse."
+          },
+          {
+            "timing": "2-14s",
+            "visual": "The dish coming together with the product in use.",
+            "voiceover": "The plain version of why this one, not the other one.",
+            "onScreenText": "Peanut Butter Granola Cereal"
+          },
+          {
+            "timing": "14-22s",
+            "visual": "Final plated shot, pack visible.",
+            "voiceover": "Same kitchen, same shelf.",
+            "onScreenText": "RRO"
+          }
+        ]
+      },
+      "captions": [
+        {
+          "version": "A",
+          "angle": "Direct",
+          "copy": "The breakfast you skip at home usually appears at your desk as something worse. Here's the honest version of what's on the pack, said plainly.",
+          "hashtags": [
+            "#RRO"
+          ]
+        },
+        {
+          "version": "B",
+          "angle": "Kitchen-first",
+          "copy": "Same story, told through what's actually in your kitchen this week.",
+          "hashtags": [
+            "#RRO",
+            "#HomeCooking"
+          ]
+        },
+        {
+          "version": "C",
+          "angle": "Short",
+          "copy": "A shorter cut of the same idea, for the people who just want the answer.",
+          "hashtags": [
+            "#RRO"
+          ]
+        }
+      ],
+      "claimAudit": {
+        "rulesChecked": [
+          "exact-sku-nutrition",
+          "availability-geography",
+          "medical-disease-claims",
+          "pack-and-label-accuracy"
+        ],
+        "rewrittenClaims": [],
+        "verificationFlags": [],
+        "status": "ready"
+      }
+    },
+    {
+      "assetId": "RRO-07",
+      "format": "carousel",
+      "portfolioId": "rro-oil",
+      "portfolioName": "RRO Oil",
+      "skuIds": [
+        "primio-refined-groundnut-oil",
+        "filtered-groundnut-oil"
+      ],
+      "skuNames": [
+        "Primio Refined Groundnut Oil",
+        "Filtered Groundnut Oil"
+      ],
+      "hook": "The healthiest-oil debate starts with the wrong question.",
+      "onCreative": {
+        "cover": "The healthiest-oil debate starts with the wrong question.",
+        "frames": [
+          {
+            "label": "Frame 2",
+            "text": "What's actually different about Primio Refined Groundnut Oil."
+          },
+          {
+            "label": "Frame 3",
+            "text": "Where it fits in a dish you already make."
+          }
+        ],
+        "endFrame": "Primio Refined Groundnut Oil — the pack you already reach for."
+      },
+      "script": {
+        "durationSeconds": 0,
+        "scenes": []
+      },
+      "captions": [
+        {
+          "version": "A",
+          "angle": "Direct",
+          "copy": "The healthiest-oil debate starts with the wrong question. Here's the honest version of what's on the pack, said plainly.",
+          "hashtags": [
+            "#RRO"
+          ]
+        },
+        {
+          "version": "B",
+          "angle": "Kitchen-first",
+          "copy": "Same story, told through what's actually in your kitchen this week.",
+          "hashtags": [
+            "#RRO",
+            "#HomeCooking"
+          ]
+        },
+        {
+          "version": "C",
+          "angle": "Short",
+          "copy": "A shorter cut of the same idea, for the people who just want the answer.",
+          "hashtags": [
+            "#RRO"
+          ]
+        }
+      ],
+      "claimAudit": {
+        "rulesChecked": [
+          "exact-sku-nutrition",
+          "oil-process-and-heat",
+          "availability-geography",
+          "medical-disease-claims",
+          "pack-and-label-accuracy"
+        ],
+        "rewrittenClaims": [],
+        "verificationFlags": [],
+        "status": "ready"
+      }
+    },
+    {
+      "assetId": "RRO-08",
+      "format": "carousel",
+      "portfolioId": "rro-dairy",
+      "portfolioName": "RRO Dairy",
+      "skuIds": [
+        "sharp-cheddar-cheese",
+        "gouda-cheese"
+      ],
+      "skuNames": [
+        "Sharp Cheddar Cheese",
+        "Gouda Cheese"
+      ],
+      "hook": "The stronger cheese does not automatically make the better sandwich.",
+      "onCreative": {
+        "cover": "The stronger cheese does not automatically make the better sandwich.",
+        "frames": [
+          {
+            "label": "Frame 2",
+            "text": "What's actually different about Sharp Cheddar Cheese."
+          },
+          {
+            "label": "Frame 3",
+            "text": "Where it fits in a dish you already make."
+          }
+        ],
+        "endFrame": "Sharp Cheddar Cheese — the pack you already reach for."
+      },
+      "script": {
+        "durationSeconds": 0,
+        "scenes": []
+      },
+      "captions": [
+        {
+          "version": "A",
+          "angle": "Direct",
+          "copy": "The stronger cheese does not automatically make the better sandwich. Here's the honest version of what's on the pack, said plainly.",
+          "hashtags": [
+            "#RRO"
+          ]
+        },
+        {
+          "version": "B",
+          "angle": "Kitchen-first",
+          "copy": "Same story, told through what's actually in your kitchen this week.",
+          "hashtags": [
+            "#RRO",
+            "#HomeCooking"
+          ]
+        },
+        {
+          "version": "C",
+          "angle": "Short",
+          "copy": "A shorter cut of the same idea, for the people who just want the answer.",
+          "hashtags": [
+            "#RRO"
+          ]
+        }
+      ],
+      "claimAudit": {
+        "rulesChecked": [
+          "exact-sku-nutrition",
+          "availability-geography",
+          "medical-disease-claims",
+          "pack-and-label-accuracy"
+        ],
+        "rewrittenClaims": [],
+        "verificationFlags": [],
+        "status": "ready"
+      }
+    },
+    {
+      "assetId": "RRO-09",
+      "format": "carousel",
+      "portfolioId": "expressfoods-cereal",
+      "portfolioName": "ExpressFoods Cereal",
+      "skuIds": [
+        "raisin-and-almond-granola"
+      ],
+      "skuNames": [
+        "Raisin and Almond Granola"
+      ],
+      "hook": "Your breakfast bowl grows before the first bite.",
+      "onCreative": {
+        "cover": "Your breakfast bowl grows before the first bite.",
+        "frames": [
+          {
+            "label": "Frame 2",
+            "text": "What's actually different about Raisin and Almond Granola."
+          },
+          {
+            "label": "Frame 3",
+            "text": "Where it fits in a dish you already make."
+          }
+        ],
+        "endFrame": "Raisin and Almond Granola — the pack you already reach for."
+      },
+      "script": {
+        "durationSeconds": 0,
+        "scenes": []
+      },
+      "captions": [
+        {
+          "version": "A",
+          "angle": "Direct",
+          "copy": "Your breakfast bowl grows before the first bite. Here's the honest version of what's on the pack, said plainly.",
+          "hashtags": [
+            "#RRO"
+          ]
+        },
+        {
+          "version": "B",
+          "angle": "Kitchen-first",
+          "copy": "Same story, told through what's actually in your kitchen this week.",
+          "hashtags": [
+            "#RRO",
+            "#HomeCooking"
+          ]
+        },
+        {
+          "version": "C",
+          "angle": "Short",
+          "copy": "A shorter cut of the same idea, for the people who just want the answer.",
+          "hashtags": [
+            "#RRO"
+          ]
+        }
+      ],
+      "claimAudit": {
+        "rulesChecked": [
+          "exact-sku-nutrition",
+          "availability-geography",
+          "medical-disease-claims",
+          "pack-and-label-accuracy"
+        ],
+        "rewrittenClaims": [],
+        "verificationFlags": [],
+        "status": "ready"
+      }
+    },
+    {
+      "assetId": "RRO-10",
+      "format": "carousel",
+      "portfolioId": "expressfoods-cereal",
+      "portfolioName": "ExpressFoods Cereal",
+      "skuIds": [
+        "protein-power-granola"
+      ],
+      "skuNames": [
+        "Protein Power Granola"
+      ],
+      "hook": "A protein-led pack still deserves the same label read.",
+      "onCreative": {
+        "cover": "A protein-led pack still deserves the same label read.",
+        "frames": [
+          {
+            "label": "Frame 2",
+            "text": "What's actually different about Protein Power Granola."
+          },
+          {
+            "label": "Frame 3",
+            "text": "Where it fits in a dish you already make."
+          }
+        ],
+        "endFrame": "Protein Power Granola — the pack you already reach for."
+      },
+      "script": {
+        "durationSeconds": 0,
+        "scenes": []
+      },
+      "captions": [
+        {
+          "version": "A",
+          "angle": "Direct",
+          "copy": "A protein-led pack still deserves the same label read. Here's the honest version of what's on the pack, said plainly.",
+          "hashtags": [
+            "#RRO"
+          ]
+        },
+        {
+          "version": "B",
+          "angle": "Kitchen-first",
+          "copy": "Same story, told through what's actually in your kitchen this week.",
+          "hashtags": [
+            "#RRO",
+            "#HomeCooking"
+          ]
+        },
+        {
+          "version": "C",
+          "angle": "Short",
+          "copy": "A shorter cut of the same idea, for the people who just want the answer.",
+          "hashtags": [
+            "#RRO"
+          ]
+        }
+      ],
+      "claimAudit": {
+        "rulesChecked": [
+          "exact-sku-nutrition",
+          "availability-geography",
+          "medical-disease-claims",
+          "pack-and-label-accuracy"
+        ],
+        "rewrittenClaims": [],
+        "verificationFlags": [],
+        "status": "ready"
+      }
+    },
+    {
+      "assetId": "RRO-11",
+      "format": "static",
+      "portfolioId": "rro-oil",
+      "portfolioName": "RRO Oil",
+      "skuIds": [
+        "mastdil-premium-mustard-oil"
+      ],
+      "skuNames": [
+        "Mastdil Premium Mustard Oil"
+      ],
+      "hook": "Diwali is not in October this year. Your content calendar should know that.",
+      "onCreative": {
+        "cover": "Diwali is not in October this year. Your content calendar should know that.",
+        "frames": [],
+        "endFrame": "Mastdil Premium Mustard Oil — the pack you already reach for."
+      },
+      "script": {
+        "durationSeconds": 0,
+        "scenes": []
+      },
+      "captions": [
+        {
+          "version": "A",
+          "angle": "Direct",
+          "copy": "Diwali is not in October this year. Your content calendar should know that. Here's the honest version of what's on the pack, said plainly.",
+          "hashtags": [
+            "#RRO"
+          ]
+        },
+        {
+          "version": "B",
+          "angle": "Kitchen-first",
+          "copy": "Same story, told through what's actually in your kitchen this week.",
+          "hashtags": [
+            "#RRO",
+            "#HomeCooking"
+          ]
+        },
+        {
+          "version": "C",
+          "angle": "Short",
+          "copy": "A shorter cut of the same idea, for the people who just want the answer.",
+          "hashtags": [
+            "#RRO"
+          ]
+        }
+      ],
+      "claimAudit": {
+        "rulesChecked": [
+          "exact-sku-nutrition",
+          "oil-process-and-heat",
+          "availability-geography",
+          "medical-disease-claims",
+          "pack-and-label-accuracy"
+        ],
+        "rewrittenClaims": [],
+        "verificationFlags": [],
+        "status": "ready"
+      }
+    },
+    {
+      "assetId": "RRO-12",
+      "format": "static",
+      "portfolioId": "rro-dairy",
+      "portfolioName": "RRO Dairy",
+      "skuIds": [
+        "cream-cheese"
+      ],
+      "skuNames": [
+        "Cream Cheese"
+      ],
+      "hook": "If the product disappears, the recipe could belong to anyone.",
+      "onCreative": {
+        "cover": "If the product disappears, the recipe could belong to anyone.",
+        "frames": [],
+        "endFrame": "Cream Cheese — the pack you already reach for."
+      },
+      "script": {
+        "durationSeconds": 0,
+        "scenes": []
+      },
+      "captions": [
+        {
+          "version": "A",
+          "angle": "Direct",
+          "copy": "If the product disappears, the recipe could belong to anyone. Here's the honest version of what's on the pack, said plainly.",
+          "hashtags": [
+            "#RRO"
+          ]
+        },
+        {
+          "version": "B",
+          "angle": "Kitchen-first",
+          "copy": "Same story, told through what's actually in your kitchen this week.",
+          "hashtags": [
+            "#RRO",
+            "#HomeCooking"
+          ]
+        },
+        {
+          "version": "C",
+          "angle": "Short",
+          "copy": "A shorter cut of the same idea, for the people who just want the answer.",
+          "hashtags": [
+            "#RRO"
+          ]
+        }
+      ],
+      "claimAudit": {
+        "rulesChecked": [
+          "exact-sku-nutrition",
+          "availability-geography",
+          "medical-disease-claims",
+          "pack-and-label-accuracy"
+        ],
+        "rewrittenClaims": [],
+        "verificationFlags": [],
+        "status": "ready"
+      }
+    },
+    {
+      "assetId": "RRO-13",
+      "format": "static",
+      "portfolioId": "expressfoods-cereal",
+      "portfolioName": "ExpressFoods Cereal",
+      "skuIds": [
+        "harvest-crunch-cereal-no-added-sugar"
+      ],
+      "skuNames": [
+        "Harvest Crunch Cereal (No Added Sugar)"
+      ],
+      "hook": "No added sugar is one fact, not the whole breakfast decision.",
+      "onCreative": {
+        "cover": "No added sugar is one fact, not the whole breakfast decision.",
+        "frames": [],
+        "endFrame": "Harvest Crunch Cereal (No Added Sugar) — the pack you already reach for."
+      },
+      "script": {
+        "durationSeconds": 0,
+        "scenes": []
+      },
+      "captions": [
+        {
+          "version": "A",
+          "angle": "Direct",
+          "copy": "No added sugar is one fact, not the whole breakfast decision. Here's the honest version of what's on the pack, said plainly.",
+          "hashtags": [
+            "#RRO"
+          ]
+        },
+        {
+          "version": "B",
+          "angle": "Kitchen-first",
+          "copy": "Same story, told through what's actually in your kitchen this week.",
+          "hashtags": [
+            "#RRO",
+            "#HomeCooking"
+          ]
+        },
+        {
+          "version": "C",
+          "angle": "Short",
+          "copy": "A shorter cut of the same idea, for the people who just want the answer.",
+          "hashtags": [
+            "#RRO"
+          ]
+        }
+      ],
+      "claimAudit": {
+        "rulesChecked": [
+          "exact-sku-nutrition",
+          "availability-geography",
+          "medical-disease-claims",
+          "pack-and-label-accuracy"
+        ],
+        "rewrittenClaims": [],
+        "verificationFlags": [],
+        "status": "ready"
+      }
+    }
+  ],
+  "globalVerificationFlags": []
+}

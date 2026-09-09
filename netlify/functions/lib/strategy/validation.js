@@ -1,7 +1,4 @@
-// Ported verbatim (logic unchanged) from loona-strategy-agents/src/core/validation.ts,
-// trimmed to validateResearch + validateStrategy for the RRO vertical slice. Port the
-// remaining validators (validateCopy/validateDirection/validateDeck) the same way when
-// those stages are built.
+// Ported verbatim (logic unchanged) from loona-strategy-agents/src/core/validation.ts.
 "use strict";
 
 const DESCRIPTIVE_HOOK_PATTERNS = [
@@ -190,4 +187,188 @@ function validateStrategy(output, config, research, learnings, month) {
   return [...new Set(issues)];
 }
 
-module.exports = { validateResearch, validateStrategy };
+function sameStringSet(a, b) {
+  return a.length === b.length && [...a].sort().every((value, index) => value === [...b].sort()[index]);
+}
+
+function selectedProducts(config, portfolioId, skuIds) {
+  const portfolio = config.portfolios.find((candidate) => candidate.id === portfolioId);
+  if (!portfolio) return [];
+  return portfolio.products.filter((product) => skuIds.includes(product.id));
+}
+
+function allCopyText(asset) {
+  return [
+    asset.hook,
+    asset.onCreative.cover,
+    ...asset.onCreative.frames.map((frame) => `${frame.label} ${frame.text}`),
+    asset.onCreative.endFrame,
+    ...asset.script.scenes.flatMap((scene) => [scene.voiceover, scene.onScreenText]),
+    ...asset.captions.map((caption) => `${caption.copy} ${caption.hashtags.join(" ")}`),
+  ].join("\n");
+}
+
+function validateCopy(output, config, strategy, month) {
+  const issues = [];
+  if (output.brandId !== config.id) issues.push(`brandId must be ${config.id}.`);
+  if (output.month !== month) issues.push(`month must be ${month}.`);
+  if (output.assets.length !== strategy.assets.length) issues.push("Copy must contain exactly one entry per strategy asset.");
+
+  const strategyById = new Map(strategy.assets.map((asset) => [asset.assetId, asset]));
+  const duplicateIds = duplicateValues(output.assets.map((asset) => asset.assetId));
+  if (duplicateIds.length) issues.push(`Duplicate copy asset IDs: ${duplicateIds.join(", ")}.`);
+
+  for (const asset of output.assets) {
+    const strategyAsset = strategyById.get(asset.assetId);
+    if (!strategyAsset) {
+      issues.push(`Copy contains unknown asset ${asset.assetId}.`);
+      continue;
+    }
+    if (asset.format !== strategyAsset.format) issues.push(`${asset.assetId} changed format.`);
+    if (asset.portfolioId !== strategyAsset.portfolioId) issues.push(`${asset.assetId} changed portfolio.`);
+    if (!sameStringSet(asset.skuIds, strategyAsset.skuIds)) issues.push(`${asset.assetId} changed its SKU set.`);
+
+    const products = selectedProducts(config, asset.portfolioId, asset.skuIds);
+    const expectedNames = products.map((product) => product.name);
+    if (!sameStringSet(asset.skuNames, expectedNames)) issues.push(`${asset.assetId} must carry exact configured SKU names.`);
+    const portfolio = config.portfolios.find((candidate) => candidate.id === asset.portfolioId);
+    if ((portfolio?.name ?? null) !== asset.portfolioName) issues.push(`${asset.assetId} must carry the exact portfolio name.`);
+
+    const captionVersions = asset.captions.map((caption) => caption.version).join("");
+    if (captionVersions !== "ABC") issues.push(`${asset.assetId} captions must be ordered A, B, C.`);
+    if (new Set(asset.captions.map((caption) => normalise(caption.copy))).size !== 3) {
+      issues.push(`${asset.assetId} needs three genuinely distinct caption bodies.`);
+    }
+    if (asset.format === "reel" && (asset.script.durationSeconds <= 0 || asset.script.scenes.length < 2)) {
+      issues.push(`${asset.assetId} reel needs a timed multi-scene script.`);
+    }
+    if (asset.format !== "reel" && (asset.script.durationSeconds !== 0 || asset.script.scenes.length !== 0)) {
+      issues.push(`${asset.assetId} is not a reel; its script must be empty with durationSeconds 0.`);
+    }
+
+    const copyText = allCopyText(asset);
+    for (const bannedWord of config.voice.bannedWords) {
+      const pattern = new RegExp(`\\b${bannedWord.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+      if (pattern.test(copyText)) issues.push(`${asset.assetId} uses banned word "${bannedWord}".`);
+    }
+
+    const applicableRules = config.claimRules.filter(
+      (rule) => rule.portfolioIds.length === 0 || (asset.portfolioId && rule.portfolioIds.includes(asset.portfolioId)),
+    );
+    for (const rule of applicableRules) {
+      if (!asset.claimAudit.rulesChecked.includes(rule.id)) {
+        issues.push(`${asset.assetId} did not record claim rule ${rule.id} as checked.`);
+      }
+      for (const trigger of rule.triggerPatterns) {
+        const triggerPattern = new RegExp(trigger, "i");
+        if (!triggerPattern.test(copyText)) continue;
+        const approved = products.some((product) =>
+          [product.name, ...product.approvedClaims, ...product.approvedFacts].some((claim) => triggerPattern.test(claim)),
+        );
+        const flagged = asset.claimAudit.verificationFlags.some((flag) => flag.ruleId === rule.id);
+        if (!approved && !flagged) {
+          issues.push(`${asset.assetId} uses language matching claim rule ${rule.id} without configured approval or a flag.`);
+        }
+        if (rule.action === "block" && asset.claimAudit.status !== "blocked") {
+          issues.push(`${asset.assetId} triggered blocking claim rule ${rule.id} but is not marked blocked.`);
+        }
+      }
+    }
+    if (asset.claimAudit.verificationFlags.length > 0 && asset.claimAudit.status === "ready") {
+      issues.push(`${asset.assetId} has verification flags but is marked ready.`);
+    }
+    if (asset.claimAudit.status === "blocked" && asset.claimAudit.verificationFlags.length === 0) {
+      issues.push(`${asset.assetId} is blocked without a visible verification flag.`);
+    }
+  }
+
+  for (const strategyAsset of strategy.assets) {
+    if (!output.assets.some((asset) => asset.assetId === strategyAsset.assetId)) {
+      issues.push(`Copy is missing ${strategyAsset.assetId}.`);
+    }
+  }
+  return [...new Set(issues)];
+}
+
+function validateDirection(output, config, strategy, month) {
+  const issues = [];
+  if (output.brandId !== config.id) issues.push(`brandId must be ${config.id}.`);
+  if (output.month !== month) issues.push(`month must be ${month}.`);
+  if (output.assets.length !== strategy.assets.length) issues.push("Direction must contain exactly one entry per strategy asset.");
+
+  const strategyById = new Map(strategy.assets.map((asset) => [asset.assetId, asset]));
+  const duplicateIds = duplicateValues(output.assets.map((asset) => asset.assetId));
+  if (duplicateIds.length) issues.push(`Duplicate direction asset IDs: ${duplicateIds.join(", ")}.`);
+
+  for (const asset of output.assets) {
+    const strategyAsset = strategyById.get(asset.assetId);
+    if (!strategyAsset) {
+      issues.push(`Direction contains unknown asset ${asset.assetId}.`);
+      continue;
+    }
+    if (asset.format !== strategyAsset.format) issues.push(`${asset.assetId} changed format in direction.`);
+    if (asset.portfolioId !== strategyAsset.portfolioId) issues.push(`${asset.assetId} changed portfolio in direction.`);
+    if (!sameStringSet(asset.skuIds, strategyAsset.skuIds)) issues.push(`${asset.assetId} changed SKU set in direction.`);
+    if (asset.format === "reel" && asset.shotList.length < 3) issues.push(`${asset.assetId} reel needs at least 3 shots.`);
+    for (const reference of asset.references) {
+      try {
+        const url = new URL(reference.url);
+        if (!/^https?:$/.test(url.protocol)) throw new Error("unsupported protocol");
+      } catch {
+        issues.push(`${asset.assetId} contains an invalid reference URL.`);
+      }
+    }
+  }
+  return [...new Set(issues)];
+}
+
+function includesNormalised(haystack, needle) {
+  return normalise(haystack).includes(normalise(needle));
+}
+
+function validateDeck(output, config, strategy, copy, direction, month) {
+  const issues = [];
+  if (output.brandId !== config.id) issues.push(`brandId must be ${config.id}.`);
+  if (output.month !== month) issues.push(`month must be ${month}.`);
+  if (output.pages.length !== strategy.assets.length) issues.push("Deck must contain exactly one page per asset.");
+
+  const copyById = new Map(copy.assets.map((asset) => [asset.assetId, asset]));
+  const directionById = new Map(direction.assets.map((asset) => [asset.assetId, asset]));
+  const duplicateIds = duplicateValues(output.pages.map((page) => page.assetId));
+  if (duplicateIds.length) issues.push(`Duplicate deck pages: ${duplicateIds.join(", ")}.`);
+
+  output.pages.forEach((page, index) => {
+    const strategyAsset = strategy.assets[index];
+    if (!strategyAsset) return;
+    if (page.pageNumber !== index + 1) issues.push(`${page.assetId} has incorrect pageNumber.`);
+    if (page.assetId !== strategyAsset.assetId) issues.push(`Page ${index + 1} must be ${strategyAsset.assetId}.`);
+    if (page.format !== strategyAsset.format) issues.push(`${page.assetId} changed format in deck.`);
+    if (page.idea !== strategyAsset.concept) issues.push(`${page.assetId} idea must be copied exactly from strategy.`);
+
+    const copyAsset = copyById.get(page.assetId);
+    const directionAsset = directionById.get(page.assetId);
+    if (!copyAsset || !directionAsset) return;
+    if (page.hook !== copyAsset.hook) issues.push(`${page.assetId} hook must be copied exactly from copy.`);
+    if (page.captionOne !== copyAsset.captions[0]?.copy) issues.push(`${page.assetId} caption A changed in deck.`);
+    if (page.captionTwo !== copyAsset.captions[1]?.copy) issues.push(`${page.assetId} caption B changed in deck.`);
+    if (page.captionThree !== copyAsset.captions[2]?.copy) issues.push(`${page.assetId} caption C changed in deck.`);
+    if (!includesNormalised(page.creativeCopy, copyAsset.onCreative.cover)) {
+      issues.push(`${page.assetId} creativeCopy is missing the exact cover line.`);
+    }
+    for (const frame of copyAsset.onCreative.frames) {
+      if (!includesNormalised(page.creativeCopy, frame.text)) {
+        issues.push(`${page.assetId} creativeCopy omitted frame "${frame.label}".`);
+      }
+    }
+    if (!includesNormalised(page.direction, directionAsset.visualConcept)) {
+      issues.push(`${page.assetId} direction omitted the visual concept.`);
+    }
+    if (page.referenceImageUrl !== directionAsset.references[0]?.url) {
+      issues.push(`${page.assetId} must use its first approved reference URL as the primary reference.`);
+    }
+  });
+
+  return [...new Set(issues)];
+}
+
+module.exports = { validateResearch, validateStrategy, validateCopy, validateDirection, validateDeck };

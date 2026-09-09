@@ -9,9 +9,17 @@
 // kick off billed AI runs and touch a client's live strategy), so this function checks the
 // same site cookie itself — see ./lib/strategy/auth.js.
 "use strict";
-const { fbSet } = require("./lib/strategy/firebase");
+const { fbGet, fbSet } = require("./lib/strategy/firebase");
 const { loadBrandConfig, loadMonthInput } = require("./lib/strategy/store");
 const { checkAuthorization } = require("./lib/strategy/auth");
+
+// A run only stops being "active" once its very last stage (deck-builder) has been
+// approved — everything before that, including "failed", is still active: a failed run
+// is meant to be retried via strategy-stage-retry.js, not silently duplicated by starting
+// a second run for the same brand + month underneath it.
+function isActiveRunStatus(status) {
+  return status !== "deck-builder_approved";
+}
 
 function cors() {
   return {
@@ -60,6 +68,26 @@ exports.handler = async (event) => {
     await loadBrandConfig(brandId);
     await loadMonthInput(brandId, month);
 
+    // Prevent duplicate active runs for the same brand + month (brief: "Prevent duplicate
+    // active runs for the same brand and month"). There's no indexed query support in the
+    // plain-REST firebase.js helper, so this reads the whole strategy_runs node and filters
+    // in memory — fine at Loona's actual run volume, and matches the same "read the whole
+    // node" pattern the Hub UI's own listeners already use for this data.
+    const allRuns = (await fbGet("strategy_runs")) || {};
+    const existing = Object.values(allRuns).find(
+      (r) => r && r.brandId === brandId && r.month === month && isActiveRunStatus(r.status)
+    );
+    if (existing) {
+      return {
+        statusCode: 409,
+        headers: cors(),
+        body: JSON.stringify({
+          error: `There's already an active run for this brand and month (status: ${existing.status}). Open it instead of starting a new one.`,
+          existingRunId: existing.runId,
+        }),
+      };
+    }
+
     const id = runId(brandId, month);
     const runtimeName = body.runtime === "fixture" ? "fixture" : "openai";
     const now = new Date().toISOString();
@@ -74,7 +102,13 @@ exports.handler = async (event) => {
       createdAt: now,
       updatedAt: now,
       status: "draft",
-      stages: { research: { status: "queued" }, strategy: { status: "locked" } },
+      stages: {
+        research: { status: "queued" },
+        strategy: { status: "locked" },
+        copy: { status: "locked" },
+        "creative-direction": { status: "locked" },
+        "deck-builder": { status: "locked" },
+      },
       approvals: {},
     });
 

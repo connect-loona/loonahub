@@ -24217,16 +24217,44 @@ ${brandLines}`;
       return b ? b.name : id;
     }
 
-    var STAGE_LABELS = { research: "Research", strategy: "Strategy" };
+    var STAGE_ORDER = ["research", "strategy", "copy", "creative-direction", "deck-builder"];
+    var STAGE_LABELS = {
+      research: "Research", strategy: "Strategy", copy: "Copy",
+      "creative-direction": "Creative direction", "deck-builder": "Deck",
+    };
     var STATUS_LABELS = {
       draft: "Draft", queued: "Queued", locked: "Locked",
-      research_running: "Research running", research_needs_review: "Needs review",
-      research_changes_requested: "Changes requested", research_approved: "Research approved",
-      strategy_running: "Strategy running", strategy_needs_review: "Needs review",
-      strategy_changes_requested: "Changes requested", strategy_approved: "Strategy approved",
       running: "Running", repairing: "Repairing", needs_review: "Needs review",
       approved: "Approved", failed: "Failed", changes_requested: "Changes requested",
     };
+    // Run-level status strings are always `${stageKey}_${state}` (pipeline.js's
+    // runningStatus/reviewStatus, strategy-stage-approve.js's `${stage}_approved` /
+    // `${stage}_changes_requested`) — build the display map from STAGE_ORDER once instead
+    // of hand-listing every combination, so a new stage only needs adding to STAGE_ORDER.
+    STAGE_ORDER.forEach(function(s){
+      STATUS_LABELS[s + "_running"] = STAGE_LABELS[s] + " running";
+      STATUS_LABELS[s + "_needs_review"] = "Needs review";
+      STATUS_LABELS[s + "_changes_requested"] = "Changes requested";
+      STATUS_LABELS[s + "_approved"] = STAGE_LABELS[s] + " approved";
+    });
+
+    // Plain-language phrase for the "Your next action" card (brief: "Use plain statuses
+    // such as 'Researching,' 'Ready for review,' 'Creating copy,' and 'Building deck.'").
+    // Keyed by stage, then by that stage's own status.
+    var PLAIN_RUNNING_LABELS = {
+      research: "Researching", strategy: "Writing strategy", copy: "Creating copy",
+      "creative-direction": "Directing the shoot", "deck-builder": "Building deck",
+    };
+    function plainActionPhrase(stage, status){
+      if(status === "running") return PLAIN_RUNNING_LABELS[stage] || "Working";
+      if(status === "repairing") return (PLAIN_RUNNING_LABELS[stage] || "Working") + " — fixing an issue";
+      if(status === "needs_review") return "Ready for review";
+      if(status === "changes_requested") return "Changes requested";
+      if(status === "failed") return "Something went wrong";
+      if(status === "locked") return "Waiting";
+      if(status === "approved") return "Approved";
+      return STATUS_LABELS[status] || status || "—";
+    }
     function statusLabel(s){ return STATUS_LABELS[s] || s || "—"; }
 
     var _soRunsListener = null;   // strategy_runs (list view)
@@ -24354,10 +24382,17 @@ ${brandLines}`;
         '</div>';
     }
 
+    // The "front" of the pipeline — the first stage in STAGE_ORDER that isn't approved yet.
+    // Once every stage is approved, this returns the last stage (deck-builder) so the UI
+    // still has something concrete to point at.
     function currentStageOf(run){
-      if(!run || !run.stages) return null;
-      if(run.stages.strategy && run.stages.strategy.status !== "locked") return "strategy";
-      return "research";
+      if(!run || !run.stages) return STAGE_ORDER[0];
+      for(var i=0;i<STAGE_ORDER.length;i++){
+        var s = STAGE_ORDER[i];
+        var st = run.stages[s];
+        if(!st || st.status !== "approved") return s;
+      }
+      return STAGE_ORDER[STAGE_ORDER.length-1];
     }
 
     function soOpenNewRunModal(){
@@ -24431,8 +24466,8 @@ ${brandLines}`;
     }
 
     function stageStripHtml(run){
-      var stages = ["research","strategy"];
-      return '<div style="display:flex;gap:8px;margin:14px 0 20px">'+
+      var stages = STAGE_ORDER;
+      return '<div style="display:flex;gap:8px;margin:14px 0 20px;flex-wrap:wrap">'+
         stages.map(function(s){
           var st = (run.stages && run.stages[s]) || {status:"locked"};
           var isCurrent = currentStageOf(run) === s;
@@ -24445,6 +24480,29 @@ ${brandLines}`;
       '</div>';
     }
 
+    // Dispatch table from stage key to that stage's review-screen renderer — the detailed
+    // boards below the "next action" card. Each renderer takes (run, stage) where stage is
+    // run.stages[<key>], same shape as the original two.
+    var STAGE_REVIEW_RENDERERS = {
+      research: researchReviewHtml,
+      strategy: strategyReviewHtml,
+      copy: copyReviewHtml,
+      "creative-direction": directionReviewHtml,
+      "deck-builder": deckReviewHtml,
+    };
+
+    // The most-advanced stage that actually has a checkpoint to show — walked from the end
+    // of STAGE_ORDER backwards so approving further stages naturally moves the detailed
+    // review screen forward without needing separate state.
+    function latestReviewableStage(run){
+      for(var i=STAGE_ORDER.length-1;i>=0;i--){
+        var s = STAGE_ORDER[i];
+        var st = run.stages && run.stages[s];
+        if(st && st.checkpoint && (st.status==="needs_review"||st.status==="approved"||st.status==="changes_requested")) return s;
+      }
+      return null;
+    }
+
     function soRenderRunDetail(){
       var root = soRoot(); if(!root) return;
       var run = window._soCurrentRun;
@@ -24453,36 +24511,146 @@ ${brandLines}`;
         return;
       }
       var brandName = soBrandName(run.brandId);
-      var research = run.stages && run.stages.research;
-      var strategy = run.stages && run.stages.strategy;
-
-      var body = "";
-      if(strategy && (strategy.status === "needs_review" || strategy.status === "approved") && strategy.checkpoint){
-        body = strategyReviewHtml(run, strategy);
-      } else if(research && (research.status === "needs_review" || research.status === "approved" || research.status === "changes_requested") && research.checkpoint){
-        body = researchReviewHtml(run, research);
-      } else {
-        body = pendingStageHtml(run);
-      }
+      var reviewStage = latestReviewableStage(run);
+      var body = reviewStage
+        ? STAGE_REVIEW_RENDERERS[reviewStage](run, run.stages[reviewStage])
+        : pendingStageHtml(run);
 
       root.innerHTML =
         '<div class="section-header" style="margin-top:0">'+
           '<div><button class="btn btn-ghost" style="padding:4px 10px;font-size:11px;margin-bottom:8px" onclick="window.soBackToList()">&larr; All runs</button>'+
           '<div class="section-title">'+esc(brandName)+' &middot; '+esc(monthLabel(run.month))+'</div></div>'+
         '</div>'+
+        nextActionCardHtml(run)+
         stageStripHtml(run)+
         body;
     }
 
-    function pendingStageHtml(run){
+    // The single "Your next action" card the brief asks for — one place that always says,
+    // in plain language, what's happening and what (if anything) there is to do about it
+    // right now. This sits above the detailed stage strip/review boards; those stay in
+    // place underneath for anyone who wants the full detail, but this card alone should be
+    // enough for the common case of "what do I do next".
+    function nextActionCardHtml(run){
       var stage = currentStageOf(run);
-      var st = (run.stages && run.stages[stage]) || {};
-      if(st.status === "failed"){
-        return '<div class="att-board"><div class="bh" style="color:var(--red)">'+esc(STAGE_LABELS[stage])+' failed</div>'+
-          '<div class="note">'+esc(st.detail||"No details recorded.")+'</div></div>';
+      var st = (run.stages && run.stages[stage]) || {status:"locked"};
+      var phrase = plainActionPhrase(stage, st.status);
+      var accent = st.status === "failed" ? "var(--red)" : st.status === "needs_review" ? "var(--accent)" : st.status === "approved" ? "var(--green)" : "var(--text)";
+
+      var actionHtml = "";
+      if(st.status === "needs_review"){
+        actionHtml =
+          '<textarea class="form-control" id="so-decision-notes" placeholder="Notes (optional)" style="margin:10px 0;min-height:56px"></textarea>'+
+          '<div id="so-decision-error" style="color:var(--red);font-size:12px;margin-bottom:8px;display:none"></div>'+
+          '<div style="display:flex;gap:8px">'+
+            '<button class="btn btn-ghost" style="flex:1" onclick="window.soDecide(\''+esc(run.runId)+'\',\''+esc(stage)+'\',\'changes_requested\')">Send back with notes</button>'+
+            '<button class="btn btn-primary" style="flex:1" onclick="window.soDecide(\''+esc(run.runId)+'\',\''+esc(stage)+'\',\'approved\')">Approve</button>'+
+          '</div>';
+      } else if(st.status === "failed"){
+        actionHtml =
+          '<div class="note" style="color:var(--red);margin:8px 0">'+esc(st.detail || "No details recorded.")+'</div>'+
+          '<div id="so-retry-error" style="color:var(--red);font-size:12px;margin-bottom:8px;display:none"></div>'+
+          '<button class="btn btn-primary" id="so-retry-btn" onclick="window.soRetryStage(\''+esc(run.runId)+'\',\''+esc(stage)+'\')">Retry</button>';
+      } else if(st.status === "changes_requested"){
+        actionHtml = '<div class="note" style="margin:8px 0">Sent back for changes — this needs a person to update the run and retry '+esc(STAGE_LABELS[stage])+' by hand for now.</div>';
+      } else if(st.status === "running" || st.status === "repairing"){
+        actionHtml = '<div class="note" style="margin:8px 0">'+esc(st.detail || "Working…")+' This updates live — no need to refresh.</div>';
+      } else if(stage === "deck-builder" && st.status === "approved"){
+        actionHtml = deckCompleteActionsHtml(run);
       }
-      return '<div class="att-board"><div class="bh">'+esc(STAGE_LABELS[stage])+' in progress</div>'+
-        '<div class="note">'+esc(st.detail || "Working…")+' This updates live — no need to refresh.</div></div>';
+
+      return '<div class="att-board" style="border-color:'+accent+'">'+
+        '<div class="bh">Your next action</div>'+
+        '<div style="font-size:20px;font-weight:700;color:'+accent+'">'+esc(phrase)+'</div>'+
+        '<div style="font-size:12px;color:var(--muted);margin-top:2px">'+esc(STAGE_LABELS[stage])+' stage</div>'+
+        actionHtml+
+      '</div>';
+    }
+
+    // Shown once the deck stage is approved — the run's actual "done" state. Canva's own
+    // status can still be not_configured/failed even here (deck content itself doesn't
+    // depend on Canva succeeding), so this reflects that rather than assuming success.
+    function deckCompleteActionsHtml(run){
+      var deckStage = run.stages && run.stages["deck-builder"];
+      var canva = deckStage && deckStage.canva;
+      var tasksCreated = !!run.teamTasksCreatedAt;
+      var canvaBtn = "";
+      if(canva && canva.status === "published" && canva.url){
+        canvaBtn = '<a class="btn btn-primary" style="flex:1;text-align:center;text-decoration:none" href="'+esc(canva.url)+'" target="_blank">Open Canva deck</a>';
+      } else if(canva && canva.status === "failed"){
+        canvaBtn = '<div class="note" style="color:var(--red);flex:1">Canva publish failed: '+esc(canva.detail||"Unknown error")+'</div>';
+      } else {
+        canvaBtn = '<div class="note" style="flex:1">'+esc((canva && canva.detail) || "Canva isn't connected for this brand yet — the deck content is ready above.")+'</div>';
+      }
+      return '<div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap">'+
+        canvaBtn+
+        '<button class="btn '+(tasksCreated?'btn-ghost':'btn-primary')+'" style="flex:1" id="so-team-tasks-btn" onclick="window.soCreateTeamTasks(\''+esc(run.runId)+'\')" '+(tasksCreated?'disabled':'')+'>'+
+          (tasksCreated ? "Team tasks created ✓" : "Create team tasks")+
+        '</button>'+
+      '</div>';
+    }
+
+    function pendingStageHtml(run){
+      // The "next action" card above already covers running/failed/changes_requested — this
+      // is only reached for a stage still "locked" (waiting on an earlier approval) or
+      // "queued" with no checkpoint rendered yet, where there's genuinely nothing more to
+      // show than the stage strip already does.
+      return '<div class="att-board"><div class="bh">Nothing to review yet</div>'+
+        '<div class="note">This run hasn\'t produced anything to review yet — check "Your next action" above.</div></div>';
+    }
+
+    async function soRetryStage(runId, stage){
+      var errEl = document.getElementById("so-retry-error");
+      var btn = document.getElementById("so-retry-btn");
+      if(errEl){ errEl.style.display="none"; }
+      if(btn){ btn.disabled=true; btn.textContent="Retrying…"; }
+      try {
+        var res = await fetch("/.netlify/functions/strategy-stage-retry", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ runId: runId, stage: stage, actor: currentUser || "Unknown" }),
+        });
+        var data = await res.json().catch(function(){ return {}; });
+        if(!res.ok) throw new Error((data.error||"Could not retry this stage.")+(data.reason?" — "+data.reason:""));
+        // The live Firebase listener re-renders once the retry's writes land.
+      } catch(e) {
+        if(errEl){ errEl.textContent = e.message || String(e); errEl.style.display="block"; }
+      } finally {
+        if(btn){ btn.disabled=false; btn.textContent="Retry"; }
+      }
+    }
+
+    // Pushes one Hub task per deck page into the same `tasks` collection the rest of Hub's
+    // Task Board already reads (see fbAddTask()) — deliberately NOT calling fbAddTask()
+    // itself, since that function's dedup/auto-task machinery (is_auto/AUTO_TASK_KEYS) is
+    // built for the recurring brand-of-day tasks, not a one-off fan-out like this. Every
+    // page is assigned to the run's owner (Strategy OS doesn't have its own member picker),
+    // so whoever ran this can immediately reassign from the Task Board if needed.
+    async function soCreateTeamTasks(runId){
+      var run = window._soCurrentRun;
+      if(!run || run.runId !== runId) return;
+      var deckStage = run.stages && run.stages["deck-builder"];
+      var pages = deckStage && deckStage.checkpoint && deckStage.checkpoint.pages;
+      if(!pages || !pages.length || !_db) return;
+      var btn = document.getElementById("so-team-tasks-btn");
+      if(btn){ btn.disabled=true; btn.textContent="Creating…"; }
+      try {
+        var owner = run.owner || currentUser || "Gokul";
+        var brandName = soBrandName(run.brandId);
+        pages.forEach(function(p){
+          _db.ref("tasks").push({
+            member: owner, brand: run.brandId, brands: [run.brandId],
+            task: "Produce "+p.format+" — "+p.idea+" ("+brandName+", "+monthLabel(run.month)+")",
+            is_personal: false, priority: "Medium", status: "Not Started",
+            due_date: "", assigned_by: currentUser || owner, overseers: [],
+            created_at: new Date().toISOString(), assigned_on: fmtStamp(new Date()),
+            strategy_run_id: run.runId, strategy_asset_id: p.assetId,
+          });
+        });
+        await _db.ref("strategy_runs/"+runId).update({ teamTasksCreatedAt: new Date().toISOString() });
+      } finally {
+        if(btn){ btn.disabled=false; }
+      }
     }
 
     function researchReviewHtml(run, stage){
@@ -24564,8 +24732,139 @@ ${brandLines}`;
           s.discarded.map(function(d){ return '<div style="border-bottom:1px solid var(--border);padding:8px 0"><b>'+esc(d.conceptName)+'</b> — failed '+esc(d.failedGate)+': '+esc(d.reason)+'</div>'; }).join("")+
         '</div>' : '')+
         (readOnly
-          ? '<div class="note">Strategy approved '+esc(fmtDateTime((run.approvals&&run.approvals.strategy&&run.approvals.strategy.decidedAt)))+' by '+esc(run.approvals&&run.approvals.strategy&&run.approvals.strategy.decidedBy)+'. Copy is not built yet — this is where the RRO vertical slice currently ends.</div>'
+          ? '<div class="note">Strategy approved '+esc(fmtDateTime((run.approvals&&run.approvals.strategy&&run.approvals.strategy.decidedAt)))+' by '+esc(run.approvals&&run.approvals.strategy&&run.approvals.strategy.decidedBy)+'.</div>'
           : decisionBarHtml(run.runId, "strategy"));
+    }
+
+    function claimStatusChip(status){
+      var color = status === "ready" ? "var(--green)" : status === "flagged" ? "#e0a53a" : "var(--red)";
+      var bg = status === "ready" ? "#12291d" : status === "flagged" ? "#3a2c12" : "#2c1414";
+      return '<span style="display:inline-block;padding:2px 9px;border-radius:6px;font-size:10.5px;font-weight:700;background:'+bg+';color:'+color+'">'+esc(status||'—')+'</span>';
+    }
+
+    function copyReviewHtml(run, stage){
+      var c = stage.checkpoint;
+      var readOnly = stage.status === "approved";
+      var assetRows = (c.assets||[]).map(function(a){
+        var frames = (a.onCreative && a.onCreative.frames || []).map(function(f){ return '<div style="font-size:12px;color:var(--muted)">'+esc(f.label)+': '+esc(f.text)+'</div>'; }).join("");
+        var script = (a.script && a.script.scenes && a.script.scenes.length)
+          ? '<div style="margin-top:8px"><b style="font-size:12px">Script ('+a.script.durationSeconds+'s)</b>'+
+            a.script.scenes.map(function(sc){ return '<div style="font-size:12px;color:var(--muted);margin-top:4px">'+esc(sc.timing)+' — '+esc(sc.visual)+' &middot; VO: "'+esc(sc.voiceover)+'"</div>'; }).join("")+
+            '</div>'
+          : "";
+        var captions = (a.captions||[]).map(function(cap){
+          return '<div style="border-top:1px solid var(--border);padding-top:6px;margin-top:6px">'+
+            '<div style="font-size:11px;color:var(--muted);text-transform:uppercase">Version '+esc(cap.version)+' &middot; '+esc(cap.angle)+'</div>'+
+            '<div style="font-size:13px;white-space:pre-wrap">'+esc(cap.copy)+'</div>'+
+            '<div style="font-size:11px;color:var(--accent)">'+(cap.hashtags||[]).map(function(h){return esc(h);}).join(' ')+'</div>'+
+          '</div>';
+        }).join("");
+        var audit = a.claimAudit || {};
+        return '<div style="border-bottom:1px solid var(--border);padding:12px 0">'+
+          '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">'+
+            '<div style="font-weight:700">'+esc(a.assetId)+' &middot; '+esc(a.format)+' &middot; '+esc(a.skuNames&&a.skuNames.join(', ')||a.portfolioName||'—')+'</div>'+
+            claimStatusChip(audit.status)+
+          '</div>'+
+          '<div style="margin:6px 0;font-style:italic">&ldquo;'+esc(a.hook)+'&rdquo;</div>'+
+          '<div style="font-size:12px;color:var(--muted)"><b>Cover:</b> '+esc(a.onCreative&&a.onCreative.cover)+'</div>'+
+          frames+
+          (a.onCreative && a.onCreative.endFrame ? '<div style="font-size:12px;color:var(--muted)"><b>End frame:</b> '+esc(a.onCreative.endFrame)+'</div>' : '')+
+          script+
+          (audit.rewrittenClaims && audit.rewrittenClaims.length ? '<div style="font-size:12px;color:#e0a53a;margin-top:6px"><b>Rewritten claims:</b> '+audit.rewrittenClaims.map(function(x){return esc(x);}).join('; ')+'</div>' : '')+
+          (audit.verificationFlags && audit.verificationFlags.length ? '<div style="font-size:12px;color:var(--red);margin-top:4px"><b>Needs verification:</b> '+audit.verificationFlags.map(function(x){return esc(x);}).join('; ')+'</div>' : '')+
+          captions+
+        '</div>';
+      }).join("");
+
+      return '<div class="att-board"><div class="bh">Copy <span class="tag">'+(c.assets||[]).length+' assets</span></div>'+assetRows+'</div>'+
+        (c.globalVerificationFlags && c.globalVerificationFlags.length ? '<div class="att-board"><div class="bh" style="color:var(--red)">Flags across the whole batch</div>'+
+          c.globalVerificationFlags.map(function(f){ return '<div style="padding:6px 0">'+esc(f)+'</div>'; }).join("")+'</div>' : '')+
+        (readOnly
+          ? '<div class="note">Copy approved '+esc(fmtDateTime((run.approvals&&run.approvals.copy&&run.approvals.copy.decidedAt)))+' by '+esc(run.approvals&&run.approvals.copy&&run.approvals.copy.decidedBy)+'.</div>'
+          : decisionBarHtml(run.runId, "copy"));
+    }
+
+    function directionReviewHtml(run, stage){
+      var d = stage.checkpoint;
+      var readOnly = stage.status === "approved";
+      var assetRows = (d.assets||[]).map(function(a){
+        var shots = (a.shotList||[]).map(function(s){
+          return '<div style="font-size:12px;color:var(--muted);border-top:1px solid var(--border);padding-top:6px;margin-top:6px">'+
+            '<b>'+esc(s.shot)+':</b> '+esc(s.framing)+' — '+esc(s.action)+' &middot; '+esc(s.productVisibility)+
+          '</div>';
+        }).join("");
+        var refs = (a.references||[]).map(function(r){
+          return '<div style="font-size:12px;border-top:1px solid var(--border);padding-top:6px;margin-top:6px">'+
+            '<a href="'+esc(r.url)+'" target="_blank" style="color:var(--accent)">'+esc(r.title||r.url)+'</a>'+
+            ' &middot; <span style="color:var(--muted)">'+esc(r.source)+'</span>'+
+            '<div style="color:var(--muted)">Use for: '+esc(r.useFor)+'</div>'+
+            '<div style="color:#e0a53a">'+esc(r.rightsNote)+'</div>'+
+          '</div>';
+        }).join("");
+        return '<div style="border-bottom:1px solid var(--border);padding:12px 0">'+
+          '<div style="font-weight:700">'+esc(a.assetId)+' &middot; '+esc(a.format)+' &middot; '+esc(a.productionMode)+'</div>'+
+          '<div style="margin:6px 0">'+esc(a.visualConcept)+'</div>'+
+          '<div style="font-size:12px;color:var(--muted)"><b>Art direction:</b> '+esc(a.artDirection)+'</div>'+
+          '<div style="font-size:12px;color:var(--muted)"><b>Palette:</b> '+(a.palette||[]).map(function(p){return esc(p);}).join(', ')+'</div>'+
+          '<div style="font-size:12px;color:var(--muted)"><b>Typography:</b> '+esc(a.typography)+'</div>'+
+          '<div style="font-size:12px;color:var(--muted)"><b>Composition:</b> '+esc(a.composition)+'</div>'+
+          shots+refs+
+          (a.designNotes && a.designNotes.length ? '<div style="font-size:12px;margin-top:6px"><b>Design notes:</b> '+a.designNotes.map(function(x){return esc(x);}).join('; ')+'</div>' : '')+
+          (a.avoid && a.avoid.length ? '<div style="font-size:12px;color:var(--red)"><b>Avoid:</b> '+a.avoid.map(function(x){return esc(x);}).join('; ')+'</div>' : '')+
+        '</div>';
+      }).join("");
+
+      return '<div class="att-board"><div class="bh">Creative direction <span class="tag">'+(d.assets||[]).length+' assets</span></div>'+assetRows+'</div>'+
+        (d.productionNotes && d.productionNotes.length ? '<div class="att-board"><div class="bh">Production notes</div>'+
+          d.productionNotes.map(function(n){ return '<div style="padding:6px 0">'+esc(n)+'</div>'; }).join("")+'</div>' : '')+
+        (readOnly
+          ? '<div class="note">Creative direction approved '+esc(fmtDateTime((run.approvals&&run.approvals["creative-direction"]&&run.approvals["creative-direction"].decidedAt)))+' by '+esc(run.approvals&&run.approvals["creative-direction"]&&run.approvals["creative-direction"].decidedBy)+'.</div>'
+          : decisionBarHtml(run.runId, "creative-direction"));
+    }
+
+    var PRODUCTION_STATUSES = ["not_started","in_progress","ready_for_review","complete"];
+    var PRODUCTION_STATUS_LABELS = { not_started: "Not started", in_progress: "In progress", ready_for_review: "Ready for review", complete: "Complete" };
+
+    function deckReviewHtml(run, stage){
+      var d = stage.checkpoint;
+      var readOnly = stage.status === "approved";
+      var pageRows = (d.pages||[]).map(function(p, idx){
+        return '<div style="border-bottom:1px solid var(--border);padding:12px 0">'+
+          '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">'+
+            '<div style="font-weight:700">Page '+p.pageNumber+' &middot; '+esc(p.assetId)+' &middot; '+esc(p.format)+'</div>'+
+            '<div style="font-size:11px;color:var(--muted)">'+esc(p.portfolioAndSku)+'</div>'+
+          '</div>'+
+          '<div style="margin:6px 0;font-style:italic">&ldquo;'+esc(p.idea)+'&rdquo;</div>'+
+          '<div style="font-size:12px;color:var(--muted)"><b>Hook:</b> '+esc(p.hook)+'</div>'+
+          '<div style="font-size:12px;color:var(--muted)"><b>Creative copy:</b> '+esc(p.creativeCopy)+'</div>'+
+          '<div style="font-size:12px;color:var(--muted)"><b>Direction:</b> '+esc(p.direction)+'</div>'+
+          '<div style="font-size:12px;color:var(--muted)"><b>Shot list:</b> '+esc(p.shotList)+'</div>'+
+          '<div style="font-size:12px;color:var(--muted)"><b>Captions:</b> '+esc(p.captionOne)+' / '+esc(p.captionTwo)+' / '+esc(p.captionThree)+'</div>'+
+          (p.referenceImageUrl ? '<div style="font-size:12px"><a href="'+esc(p.referenceImageUrl)+'" target="_blank" style="color:var(--accent)">Reference image</a> &middot; '+esc(p.referenceCredit||'')+'</div>' : '')+
+          '<div style="display:flex;gap:8px;margin-top:8px;align-items:center">'+
+            '<input class="form-control" style="flex:1;font-size:12px" placeholder="Owner" value="'+esc(p.owner||'')+'" onchange="window.soUpdateDeckPage(\''+esc(run.runId)+'\','+idx+',\'owner\',this.value)">'+
+            '<select class="form-control" style="width:170px;font-size:12px" onchange="window.soUpdateDeckPage(\''+esc(run.runId)+'\','+idx+',\'productionStatus\',this.value)">'+
+              PRODUCTION_STATUSES.map(function(s){ return '<option value="'+s+'"'+(p.productionStatus===s?' selected':'')+'>'+esc(PRODUCTION_STATUS_LABELS[s])+'</option>'; }).join("")+
+            '</select>'+
+          '</div>'+
+        '</div>';
+      }).join("");
+
+      return '<div class="att-board"><div class="bh">'+esc(d.title||'Deck')+' <span class="tag">'+(d.pages||[]).length+' pages</span></div>'+
+          (d.subtitle ? '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">'+esc(d.subtitle)+'</div>' : '')+
+        '</div>'+
+        '<div class="att-board"><div class="bh">Pages</div>'+pageRows+'</div>'+
+        (readOnly
+          // The Open Canva deck / Create team tasks actions live in the "Your next action"
+          // card once the deck is approved (nextActionCardHtml) — not duplicated here.
+          ? '<div class="note">Deck approved '+esc(fmtDateTime((run.approvals&&run.approvals["deck-builder"]&&run.approvals["deck-builder"].decidedAt)))+' by '+esc(run.approvals&&run.approvals["deck-builder"]&&run.approvals["deck-builder"].decidedBy)+'.</div>'
+          : decisionBarHtml(run.runId, "deck-builder"));
+    }
+
+    async function soUpdateDeckPage(runId, pageIndex, field, value){
+      if(!_db) return;
+      var patch = {}; patch[field] = value;
+      await _db.ref("strategy_runs/"+runId+"/stages/deck-builder/checkpoint/pages/"+pageIndex).update(patch);
     }
 
     function decisionBarHtml(runId, stage){
@@ -24909,6 +25208,9 @@ ${brandLines}`;
     window.soOpenRun = soOpenRun;
     window.soBackToList = soBackToList;
     window.soDecide = soDecide;
+    window.soRetryStage = soRetryStage;
+    window.soCreateTeamTasks = soCreateTeamTasks;
+    window.soUpdateDeckPage = soUpdateDeckPage;
     window.soOpenBrandList = soOpenBrandList;
     window.soBackToRunsFromBrands = soBackToRunsFromBrands;
     window.soOpenBrandForm = soOpenBrandForm;

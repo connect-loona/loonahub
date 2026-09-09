@@ -1,12 +1,12 @@
-// Ported from loona-strategy-agents/src/contracts.ts, trimmed to what the RRO vertical
-// slice needs: brand config, month input, and the Research + Strategy stage outputs.
-// Copy/CreativeDirection/DeckSpec schemas are deliberately NOT ported yet — those stages
-// aren't part of this slice (see the Strategy OS integration report). Port them the same
-// way, verbatim from the same source file, when Phase 3/4 is built.
+// Ported from loona-strategy-agents/src/contracts.ts. Originally trimmed to just Research +
+// Strategy for the first vertical slice; Copy, CreativeDirection and DeckSpec are now
+// ported the same way (field names and validation rules kept byte-for-byte identical to
+// the original so validation.js needs no changes beyond the same porting pattern).
 //
-// Field names and validation rules are kept byte-for-byte identical to the original so
-// validation.js (also ported) needs no changes, and so the RRO fixtures under
-// netlify/functions/lib/strategy/seed/ parse without modification.
+// Deliverable counts (reel/carousel/static) are per-brand numbers from BrandConfigSchema
+// below, not a fixed constant anywhere — Strategy/Copy/CreativeDirection/Deck all size
+// themselves off strategy.assets.length, whatever that turned out to be for this brand.
+// There is no "12" or "13" hardcoded in this file or anywhere downstream of it.
 "use strict";
 const { z } = require("zod");
 
@@ -343,9 +343,190 @@ const StrategySchema = z
   })
   .strict();
 
+const CaptionSchema = z
+  .object({
+    version: z.enum(["A", "B", "C"]),
+    angle: NonEmpty,
+    copy: NonEmpty,
+    hashtags: z.array(NonEmpty),
+  })
+  .strict();
+
+const CopyAssetSchema = z
+  .object({
+    assetId: NonEmpty,
+    format: AssetFormatSchema,
+    portfolioId: NullableText,
+    portfolioName: NullableText,
+    skuIds: z.array(NonEmpty),
+    skuNames: z.array(NonEmpty),
+    hook: NonEmpty,
+    onCreative: z
+      .object({
+        cover: NonEmpty,
+        frames: z.array(
+          z
+            .object({
+              label: NonEmpty,
+              text: NonEmpty,
+            })
+            .strict(),
+        ),
+        endFrame: NonEmpty,
+      })
+      .strict(),
+    script: z
+      .object({
+        durationSeconds: z.number().min(0),
+        scenes: z.array(
+          z
+            .object({
+              timing: NonEmpty,
+              visual: NonEmpty,
+              voiceover: NonEmpty,
+              onScreenText: NonEmpty,
+            })
+            .strict(),
+        ),
+      })
+      .strict(),
+    captions: z.array(CaptionSchema).length(3),
+    claimAudit: z
+      .object({
+        rulesChecked: z.array(NonEmpty),
+        rewrittenClaims: z.array(
+          z
+            .object({
+              riskyVersion: NonEmpty,
+              safeVersionUsed: NonEmpty,
+              ruleId: NonEmpty,
+            })
+            .strict(),
+        ),
+        verificationFlags: z.array(
+          z
+            .object({
+              claim: NonEmpty,
+              evidenceNeeded: NonEmpty,
+              ruleId: NonEmpty,
+            })
+            .strict(),
+        ),
+        status: z.enum(["ready", "needs_verification", "blocked"]),
+      })
+      .strict(),
+  })
+  .strict();
+
+const CopySchema = z
+  .object({
+    brandId: NonEmpty,
+    month: NonEmpty,
+    assets: z.array(CopyAssetSchema).min(1),
+    globalVerificationFlags: z.array(NonEmpty),
+  })
+  .strict();
+
+const DirectionAssetSchema = z
+  .object({
+    assetId: NonEmpty,
+    format: AssetFormatSchema,
+    portfolioId: NullableText,
+    skuIds: z.array(NonEmpty),
+    visualConcept: NonEmpty,
+    artDirection: NonEmpty,
+    palette: z.array(NonEmpty).min(1),
+    typography: NonEmpty,
+    composition: NonEmpty,
+    productionMode: z.enum(["design", "product-shoot", "lifestyle-shoot", "mixed"]),
+    referenceQueries: z.array(NonEmpty).min(1),
+    references: z
+      .array(
+        z
+          .object({
+            url: NonEmpty,
+            title: NonEmpty,
+            source: NonEmpty,
+            useFor: NonEmpty,
+            rightsNote: NonEmpty,
+          })
+          .strict(),
+      )
+      .min(1),
+    shotList: z.array(
+      z
+        .object({
+          shot: NonEmpty,
+          framing: NonEmpty,
+          action: NonEmpty,
+          productVisibility: NonEmpty,
+          copyPlacement: NonEmpty,
+        })
+        .strict(),
+    ),
+    designNotes: z.array(NonEmpty).min(1),
+    avoid: z.array(NonEmpty).min(1),
+  })
+  .strict();
+
+const CreativeDirectionSchema = z
+  .object({
+    brandId: NonEmpty,
+    month: NonEmpty,
+    assets: z.array(DirectionAssetSchema).min(1),
+    productionNotes: z.array(NonEmpty),
+  })
+  .strict();
+
+// DeckPageSchema is the AI-facing contract — exactly what the model can actually know.
+// owner/productionStatus are deliberately NOT here: the model has no way to know who's
+// assigned or what stage production is at, and asking it to guess would just produce
+// plausible-sounding fabrication (the same failure mode house-rules.md warns against
+// everywhere else). The pipeline enriches each page with those two fields itself, right
+// after this validates, before checkpointing — see pipeline.js's runDeckStage(). The UI
+// reads them off the enriched checkpoint, not off this schema.
+const DeckPageSchema = z
+  .object({
+    pageNumber: z.number().int().min(1),
+    assetId: NonEmpty,
+    format: AssetFormatSchema,
+    portfolioAndSku: NonEmpty,
+    idea: NonEmpty,
+    hook: NonEmpty,
+    creativeCopy: NonEmpty,
+    direction: NonEmpty,
+    shotList: NonEmpty,
+    captionOne: NonEmpty,
+    captionTwo: NonEmpty,
+    captionThree: NonEmpty,
+    referenceImageUrl: NonEmpty,
+    referenceCredit: NonEmpty,
+    productionNotes: NonEmpty,
+  })
+  .strict();
+
+const DeckSpecSchema = z
+  .object({
+    brandId: NonEmpty,
+    month: NonEmpty,
+    title: NonEmpty,
+    subtitle: NonEmpty,
+    pages: z.array(DeckPageSchema).min(1),
+    approvalFlags: z.array(NonEmpty),
+  })
+  .strict();
+
+// Production status is set to "not_started" by the pipeline when the deck is built, and is
+// meant to be advanced by hand later (no UI for that yet — see the deck review screen's
+// "Create team tasks" action, which is the current substitute for per-page status tracking).
+const PRODUCTION_STATUSES = ["not_started", "in_progress", "ready_for_review", "complete"];
+
 const STAGE_SCHEMAS = {
   research: ResearchSchema,
   strategy: StrategySchema,
+  copy: CopySchema,
+  "creative-direction": CreativeDirectionSchema,
+  "deck-builder": DeckSpecSchema,
 };
 
 module.exports = {
@@ -355,5 +536,12 @@ module.exports = {
   ResearchSchema,
   StrategyAssetSchema,
   StrategySchema,
+  CopyAssetSchema,
+  CopySchema,
+  DirectionAssetSchema,
+  CreativeDirectionSchema,
+  DeckPageSchema,
+  DeckSpecSchema,
+  PRODUCTION_STATUSES,
   STAGE_SCHEMAS,
 };

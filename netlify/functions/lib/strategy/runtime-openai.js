@@ -21,6 +21,16 @@ class OpenAIAgentsRuntime {
     if (request.toolProfile === "research") {
       tools.push(webSearchTool({ searchContextSize: "high" }));
     }
+    if (request.toolProfile === "reference-search") {
+      // Creative Direction needs real, findable reference images — not just text search.
+      tools.push(
+        webSearchTool({
+          searchContextSize: "medium",
+          searchContentTypes: ["text", "image"],
+          imageSettings: { maxResults: 8, caption: true },
+        }),
+      );
+    }
 
     const repairBlock = request.repairIssues && request.repairIssues.length
       ? {

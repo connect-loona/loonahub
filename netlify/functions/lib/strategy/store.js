@@ -22,7 +22,7 @@
 "use strict";
 const { BrandConfigSchema, MonthInputSchema } = require("./contracts");
 const { fbGet, fbSet, fbSafeKey } = require("./firebase");
-const { HOUSE_RULES, RESEARCH_PROMPT, STRATEGY_PROMPT, RRO_LEARNINGS_SEED } = require("./prompts-data");
+const { HOUSE_RULES, RESEARCH_PROMPT, STRATEGY_PROMPT, COPY_PROMPT, DIRECTION_PROMPT, DECK_BUILDER_PROMPT, RRO_LEARNINGS_SEED } = require("./prompts-data");
 
 // Add one line per new brand here (and to SEED_MONTH_INPUTS/SEED_LEARNINGS below) when
 // brands/<id>.config.json grows beyond RRO — see brief section "Adding a brand".
@@ -38,6 +38,9 @@ const SEED_LEARNINGS = {
 const PROMPT_BY_FILE = {
   "01-research.md": RESEARCH_PROMPT,
   "02-strategy.md": STRATEGY_PROMPT,
+  "03-copy.md": COPY_PROMPT,
+  "04-creative-direction.md": DIRECTION_PROMPT,
+  "05-deck-builder.md": DECK_BUILDER_PROMPT,
 };
 
 // Validates whatever is cached in Firebase instead of trusting it blindly, and re-seeds
