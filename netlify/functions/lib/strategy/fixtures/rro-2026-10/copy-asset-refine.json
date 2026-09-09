@@ -1,0 +1,69 @@
+{
+  "assetId": "RRO-01",
+  "format": "reel",
+  "portfolioId": "rro-oil",
+  "portfolioName": "RRO Oil",
+  "skuIds": ["filtered-groundnut-oil"],
+  "skuNames": ["Filtered Groundnut Oil"],
+  "hook": "The recipe is right. The oil is why it still tastes wrong.",
+  "onCreative": {
+    "cover": "The recipe is right. The oil is why it still tastes wrong.",
+    "frames": [],
+    "endFrame": "Filtered Groundnut Oil — the pack that fixes the part you couldn't name."
+  },
+  "script": {
+    "durationSeconds": 24,
+    "scenes": [
+      {
+        "timing": "0-2s",
+        "visual": "Close on the pack, honest kitchen light.",
+        "voiceover": "The recipe is right. The oil is why it still tastes wrong.",
+        "onScreenText": "The recipe is right. The oil is why it still tastes wrong."
+      },
+      {
+        "timing": "2-16s",
+        "visual": "Side-by-side: the same dish made with two different oils, same everything else.",
+        "voiceover": "Same recipe, same hands, same pan. The only thing that changed is the oil.",
+        "onScreenText": "Filtered Groundnut Oil"
+      },
+      {
+        "timing": "16-24s",
+        "visual": "Final plated shot, pack visible beside the dish.",
+        "voiceover": "Now it tastes like the recipe actually promised.",
+        "onScreenText": "RRO"
+      }
+    ]
+  },
+  "captions": [
+    {
+      "version": "A",
+      "angle": "Direct",
+      "copy": "You followed the recipe exactly. The oil is the one variable it never mentioned. Fix that and the rest follows.",
+      "hashtags": ["#RRO"]
+    },
+    {
+      "version": "B",
+      "angle": "Kitchen-first",
+      "copy": "Same recipe, same pan, same hands — the only thing that changed between attempts was the oil in the bottle.",
+      "hashtags": ["#RRO", "#HomeCooking"]
+    },
+    {
+      "version": "C",
+      "angle": "Short",
+      "copy": "The recipe was never the problem.",
+      "hashtags": ["#RRO"]
+    }
+  ],
+  "claimAudit": {
+    "rulesChecked": [
+      "exact-sku-nutrition",
+      "oil-process-and-heat",
+      "availability-geography",
+      "medical-disease-claims",
+      "pack-and-label-accuracy"
+    ],
+    "rewrittenClaims": [],
+    "verificationFlags": [],
+    "status": "ready"
+  }
+}

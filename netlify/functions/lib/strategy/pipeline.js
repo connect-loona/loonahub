@@ -9,7 +9,7 @@
 "use strict";
 const { fbGet, fbSet, fbUpdate } = require("./firebase");
 const { loadBrandConfig, loadMonthInput, loadLearnings, loadBrandLibrary, loadPrompt } = require("./store");
-const { ResearchSchema, StrategySchema, StrategyAssetSchema, CopySchema, CreativeDirectionSchema, DeckSpecSchema } = require("./contracts");
+const { ResearchSchema, StrategySchema, StrategyAssetSchema, CopySchema, CopyAssetSchema, CreativeDirectionSchema, DeckSpecSchema } = require("./contracts");
 const { validateResearch, validateStrategy, validateCopy, validateDirection, validateDeck } = require("./validation");
 const { OpenAIAgentsRuntime } = require("./runtime-openai");
 const { FixtureRuntime } = require("./runtime-fixture");
@@ -354,50 +354,103 @@ async function runDeckStage(runId) {
 // separate partial validator — one source of truth for what a valid asset plan looks like,
 // zero risk of the two checks drifting apart.
 //
-// Candidates are staged under stages/strategy/candidates/<assetId> rather than written
+// Candidates are staged under stages/<stage>/candidates/<assetId> rather than written
 // straight into the checkpoint — "refine"/"similar" want a human to see the replacement
-// before it's committed (see acceptConceptCandidate), while "discard" auto-accepts it
-// immediately (see discardConcept) since there's nothing left to review: the old concept
-// is already gone.
-async function proposeConceptCandidate(runId, assetId, requestType, notes) {
+// before it's committed (see acceptAssetCandidate), while each stage's "auto-accept" type
+// (strategy's "discard", copy's "replace") skips straight to committing (see replaceAsset)
+// since there's nothing left to review: the old content is already gone.
+//
+// Strategy and Copy both refine "one asset out of the whole batch" the same way — propose
+// a replacement, validate the WHOLE array with it swapped in (same validator the full-stage
+// generation uses, so there's never a second, drifting definition of "valid"), let a human
+// review it (or auto-accept for the "kill it, no review" request types). Everything that
+// differs between the two stages lives in this one table instead of two parallel copies of
+// the function bodies below.
+const ASSET_STAGE_CONFIG = {
+  strategy: {
+    label: "Strategy",
+    schema: StrategyAssetSchema,
+    promptFile: "06-concept-refine.md",
+    autoAcceptType: "discard", // no review step — kill it and commit the replacement directly
+    // The model isn't choosing a new slot, only new content for this one — force the
+    // structural fields back to the original regardless of what it returned, the same way
+    // deck-builder's enrich() never trusts the model with fields it can't know.
+    lockedFields: (target) => ({
+      assetId: target.assetId, sequence: target.sequence, format: target.format,
+      portfolioId: target.portfolioId, skuIds: target.skuIds,
+    }),
+    loadContext: async (run) => ({ research: run.stages.research && run.stages.research.checkpoint }),
+    callValidate: (swapped, config, context, learnings, month) => validateStrategy(swapped, config, context.research, learnings, month),
+    describeChange: (oldAsset, newAsset) =>
+      `Replaced "${oldAsset.conceptName}" (${oldAsset.hook}) with "${newAsset.conceptName}" (${newAsset.hook}).`,
+  },
+  copy: {
+    label: "Copy",
+    schema: CopyAssetSchema,
+    promptFile: "07-copy-refine.md",
+    autoAcceptType: "replace", // mirrors strategy's "discard" — kill this asset's copy and commit fresh copy directly
+    // The hook is inherited from the approved strategy concept — a copy refine/replace
+    // rewrites the SUPPORTING copy (on-creative, script, captions, claims), never the hook
+    // or the asset's identity fields, so those get forced back too.
+    lockedFields: (target) => ({
+      assetId: target.assetId, format: target.format, portfolioId: target.portfolioId,
+      portfolioName: target.portfolioName, skuIds: target.skuIds, skuNames: target.skuNames,
+      hook: target.hook,
+    }),
+    loadContext: async (run) => ({ strategy: run.stages.strategy && run.stages.strategy.checkpoint }),
+    callValidate: (swapped, config, context, learnings, month) => validateCopy(swapped, config, context.strategy, month),
+    describeChange: (oldAsset, newAsset) =>
+      `Refreshed the copy for ${oldAsset.assetId} (hook: "${oldAsset.hook}").`,
+  },
+};
+
+async function proposeAssetCandidate(runId, stage, assetId, requestType, notes) {
+  const cfg = ASSET_STAGE_CONFIG[stage];
+  if (!cfg) throw new Error(`Asset refinement isn't supported for stage "${stage}".`);
   const run = await fbGet(`strategy_runs/${runId}`);
   if (!run) throw new Error(`Run ${runId} not found.`);
-  const strategyStage = run.stages && run.stages.strategy;
-  const strategy = strategyStage && strategyStage.checkpoint;
-  if (!strategy) throw new Error(`Run ${runId} has no strategy checkpoint yet.`);
-  if (!["needs_review", "changes_requested"].includes(strategyStage.status)) {
-    throw new Error(`Strategy is ${strategyStage.status}; concepts can only be refined while it's awaiting review.`);
+  const targetStage = run.stages && run.stages[stage];
+  const checkpoint = targetStage && targetStage.checkpoint;
+  if (!checkpoint) throw new Error(`Run ${runId} has no ${stage} checkpoint yet.`);
+  if (!["needs_review", "changes_requested"].includes(targetStage.status)) {
+    throw new Error(`${cfg.label} is ${targetStage.status}; assets can only be refined while it's awaiting review.`);
   }
-  const targetIndex = strategy.assets.findIndex((asset) => asset.assetId === assetId);
-  if (targetIndex === -1) throw new Error(`Asset ${assetId} not found in this run's strategy.`);
-  const targetAsset = strategy.assets[targetIndex];
+  const targetIndex = checkpoint.assets.findIndex((asset) => asset.assetId === assetId);
+  if (targetIndex === -1) throw new Error(`Asset ${assetId} not found in this run's ${stage}.`);
+  const targetAsset = checkpoint.assets[targetIndex];
 
-  const research = run.stages.research && run.stages.research.checkpoint;
   const config = await loadBrandConfig(run.brandId);
-  const [monthInput, learnings, brandLibrary] = await Promise.all([
+  const [monthInput, learnings, brandLibrary, context] = await Promise.all([
     loadMonthInput(run.brandId, run.month),
     loadLearnings(run.brandId),
     loadBrandLibrary(config),
+    cfg.loadContext(run),
   ]);
   const runtime = createRuntime(run);
-  const instructions = loadPrompt("06-concept-refine.md");
-  const input = {
+  const instructions = loadPrompt(cfg.promptFile);
+  const input = Object.assign({
     brandConfig: config,
     monthInput,
     learnings,
     brandLibrary,
-    research,
-    currentAssetPlan: strategy.assets,
+    currentAssetPlan: checkpoint.assets,
     targetAsset,
     request: { type: requestType, notes: notes || null },
-  };
+  }, context);
 
-  const candidatePath = `strategy_runs/${runId}/stages/strategy/candidates/${assetId}`;
-  const agent = stageAgent("strategy");
-  await fbSet(candidatePath, {
-    status: "running", requestType, notes: notes || null, updatedAt: new Date().toISOString(),
-    detail: `${agent.emoji} ${agent.name} is sketching a replacement.`,
-  });
+  // Clicking Refine/Replace on an already-locked asset means it's back in play — clear the
+  // lock now (at the moment the request is actually sent) rather than waiting for the
+  // candidate to be accepted, so the "N locked" count in the UI reflects reality the
+  // instant a person starts changing something, not a few seconds later.
+  const candidatePath = `strategy_runs/${runId}/stages/${stage}/candidates/${assetId}`;
+  const agent = stageAgent(stage);
+  await Promise.all([
+    fbSet(`strategy_runs/${runId}/stages/${stage}/locks/${assetId}`, null),
+    fbSet(candidatePath, {
+      status: "running", requestType, notes: notes || null, updatedAt: new Date().toISOString(),
+      detail: `${agent.emoji} ${agent.name} is sketching a replacement.`,
+    }),
+  ]);
 
   let repairIssues = [];
   let lastError = null;
@@ -405,36 +458,28 @@ async function proposeConceptCandidate(runId, assetId, requestType, notes) {
     try {
       const raw = await runtime.runStage({
         // Suffixed with the request type — the fixture runtime maps `stage` straight to a
-        // `<stage>.json` file (see runtime-fixture.js), so refine/similar/discard each get
-        // their own offline fixture instead of colliding on one shared one; the real
-        // runtime just sees this as the task label sent to the model, equally reasonable.
-        stage: `strategy-concept-${requestType}`,
-        agentName: "🧕🏻 Dora — Concept Refinement",
+        // `<stage>.json` file (see runtime-fixture.js), so refine/similar/discard/replace
+        // each get their own offline fixture instead of colliding on one shared one; the
+        // real runtime just sees this as the task label sent to the model, equally
+        // reasonable.
+        stage: `${stage}-asset-${requestType}`,
+        agentName: `${agent.emoji} ${agent.name} — ${cfg.label} Refinement`,
         instructions,
         input,
-        outputSchema: StrategyAssetSchema,
+        outputSchema: cfg.schema,
         toolProfile: "none",
         repairIssues,
       });
-      const parsed = StrategyAssetSchema.parse(raw);
-      // The model isn't choosing a new slot, only new content for this one — force the
-      // structural fields back to the original regardless of what it returned, the same
-      // way deck-builder's enrich() never trusts the model with fields it can't know.
-      const candidate = Object.assign({}, parsed, {
-        assetId: targetAsset.assetId,
-        sequence: targetAsset.sequence,
-        format: targetAsset.format,
-        portfolioId: targetAsset.portfolioId,
-        skuIds: targetAsset.skuIds,
-      });
-      const swappedAssets = strategy.assets.map((asset, i) => (i === targetIndex ? candidate : asset));
-      const issues = validateStrategy(Object.assign({}, strategy, { assets: swappedAssets }), config, research, learnings, run.month);
+      const parsed = cfg.schema.parse(raw);
+      const candidate = Object.assign({}, parsed, cfg.lockedFields(targetAsset));
+      const swappedAssets = checkpoint.assets.map((asset, i) => (i === targetIndex ? candidate : asset));
+      const issues = cfg.callValidate(Object.assign({}, checkpoint, { assets: swappedAssets }), config, context, learnings, run.month);
       if (issues.length === 0) {
         await fbSet(candidatePath, { status: "ready", requestType, notes: notes || null, candidate, updatedAt: new Date().toISOString() });
         return candidate;
       }
       repairIssues = issues;
-      lastError = new StageValidationError(`strategy-concept-${requestType}`, issues);
+      lastError = new StageValidationError(`${stage}-asset-${requestType}`, issues);
     } catch (error) {
       lastError = error;
       repairIssues = [`Schema or runtime failure: ${error && error.message ? error.message : String(error)}`];
@@ -445,61 +490,64 @@ async function proposeConceptCandidate(runId, assetId, requestType, notes) {
   throw lastError;
 }
 
-// Commits a "ready" candidate into the actual strategy checkpoint. Re-validates the WHOLE
-// resulting plan (not just the one asset) as a safety net in case anything about the plan
-// changed between proposing and accepting, records a stage-version snapshot before and
-// after the swap (matching strategy-stage-approve.js's own versioning), and folds the
-// supersession into the brand's learnings so future months don't repeat the killed concept.
-async function acceptConceptCandidate(runId, assetId, actor) {
+// Commits a "ready" candidate into the actual checkpoint. Re-validates the WHOLE resulting
+// batch (not just the one asset) as a safety net in case anything changed between proposing
+// and accepting, records a stage-version snapshot before and after the swap (matching
+// strategy-stage-approve.js's own versioning), and folds the supersession into the brand's
+// learnings so future months don't repeat the killed concept/copy.
+async function acceptAssetCandidate(runId, stage, assetId, actor) {
+  const cfg = ASSET_STAGE_CONFIG[stage];
+  if (!cfg) throw new Error(`Asset refinement isn't supported for stage "${stage}".`);
   const run = await fbGet(`strategy_runs/${runId}`);
   if (!run) throw new Error(`Run ${runId} not found.`);
-  const strategy = run.stages && run.stages.strategy && run.stages.strategy.checkpoint;
-  if (!strategy) throw new Error(`Run ${runId} has no strategy checkpoint yet.`);
-  const candidatePath = `strategy_runs/${runId}/stages/strategy/candidates/${assetId}`;
+  const checkpoint = run.stages && run.stages[stage] && run.stages[stage].checkpoint;
+  if (!checkpoint) throw new Error(`Run ${runId} has no ${stage} checkpoint yet.`);
+  const candidatePath = `strategy_runs/${runId}/stages/${stage}/candidates/${assetId}`;
   const candidateDoc = await fbGet(candidatePath);
   if (!candidateDoc || candidateDoc.status !== "ready" || !candidateDoc.candidate) {
     throw new Error(`No ready candidate for ${assetId}.`);
   }
-  const targetIndex = strategy.assets.findIndex((asset) => asset.assetId === assetId);
-  if (targetIndex === -1) throw new Error(`Asset ${assetId} not found in this run's strategy.`);
-  const oldAsset = strategy.assets[targetIndex];
-  const newAssets = strategy.assets.map((asset, i) => (i === targetIndex ? candidateDoc.candidate : asset));
-  const newStrategy = Object.assign({}, strategy, { assets: newAssets });
+  const targetIndex = checkpoint.assets.findIndex((asset) => asset.assetId === assetId);
+  if (targetIndex === -1) throw new Error(`Asset ${assetId} not found in this run's ${stage}.`);
+  const oldAsset = checkpoint.assets[targetIndex];
+  const newAssets = checkpoint.assets.map((asset, i) => (i === targetIndex ? candidateDoc.candidate : asset));
+  const newCheckpoint = Object.assign({}, checkpoint, { assets: newAssets });
 
-  const research = run.stages.research && run.stages.research.checkpoint;
-  const [config, learnings] = await Promise.all([loadBrandConfig(run.brandId), loadLearnings(run.brandId)]);
-  const issues = validateStrategy(newStrategy, config, research, learnings, run.month);
-  if (issues.length) throw new StageValidationError(`strategy-concept-${candidateDoc.requestType}`, issues);
+  const [config, learnings, context] = await Promise.all([loadBrandConfig(run.brandId), loadLearnings(run.brandId), cfg.loadContext(run)]);
+  const issues = cfg.callValidate(newCheckpoint, config, context, learnings, run.month);
+  if (issues.length) throw new StageValidationError(`${stage}-asset-${candidateDoc.requestType}`, issues);
 
-  await saveStageVersion(runId, "strategy", strategy, `concept_${candidateDoc.requestType}_before`, actor || "system");
-  await fbSet(`strategy_runs/${runId}/stages/strategy/checkpoint`, newStrategy);
-  await saveStageVersion(runId, "strategy", newStrategy, `concept_${candidateDoc.requestType}`, actor || "system");
+  await saveStageVersion(runId, stage, checkpoint, `asset_${candidateDoc.requestType}_before`, actor || "system");
+  await fbSet(`strategy_runs/${runId}/stages/${stage}/checkpoint`, newCheckpoint);
+  await saveStageVersion(runId, stage, newCheckpoint, `asset_${candidateDoc.requestType}`, actor || "system");
   await fbSet(candidatePath, null);
   await saveFeedbackEvent(
     run,
-    "strategy",
-    `concept_${candidateDoc.requestType}`,
-    `Replaced "${oldAsset.conceptName}" (${oldAsset.hook}) with "${candidateDoc.candidate.conceptName}" (${candidateDoc.candidate.hook}).` +
-      (candidateDoc.notes ? ` Notes: ${candidateDoc.notes}` : ""),
+    stage,
+    `asset_${candidateDoc.requestType}`,
+    cfg.describeChange(oldAsset, candidateDoc.candidate) + (candidateDoc.notes ? ` Notes: ${candidateDoc.notes}` : ""),
     actor || "system",
   );
-  await logActivity(runId, actor || "system", `strategy.concept_${candidateDoc.requestType}`, oldAsset.assetId);
-  return newStrategy;
+  await logActivity(runId, actor || "system", `${stage}.asset_${candidateDoc.requestType}`, oldAsset.assetId);
+  return newCheckpoint;
 }
 
-// "Discard" has no review step — the old concept is already gone, so propose + accept
-// happen together as one action. If generation fails after every repair attempt, the
-// original concept is left in place (never silently removed) and the candidate sits in
-// "failed" with the real error, same as any other stage's failed+Retry state — re-running
-// this same function is the retry.
-async function discardConcept(runId, assetId, notes, actor) {
-  await proposeConceptCandidate(runId, assetId, "discard", notes);
-  return acceptConceptCandidate(runId, assetId, actor);
+// The stage's "auto-accept" request type (strategy's "discard", copy's "replace") has no
+// review step — the old content is already being thrown out, so propose + accept happen
+// together as one action. If generation fails after every repair attempt, the original
+// asset is left in place (never silently removed) and the candidate sits in "failed" with
+// the real error, same as any other stage's failed+Retry state — re-running this same
+// function is the retry.
+async function replaceAsset(runId, stage, assetId, notes, actor) {
+  const cfg = ASSET_STAGE_CONFIG[stage];
+  if (!cfg) throw new Error(`Asset refinement isn't supported for stage "${stage}".`);
+  await proposeAssetCandidate(runId, stage, assetId, cfg.autoAcceptType, notes);
+  return acceptAssetCandidate(runId, stage, assetId, actor);
 }
 
 module.exports = {
   runResearchStage, runStrategyStage, runCopyStage, runDirectionStage, runDeckStage,
-  proposeConceptCandidate, acceptConceptCandidate, discardConcept,
+  proposeAssetCandidate, acceptAssetCandidate, replaceAsset,
   logActivity, buildStrategyResearchBrief,
 };
 

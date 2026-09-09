@@ -8,6 +8,7 @@ const {
   CREATIVE_DIRECTION_SOUL,
   DECK_BUILDER_SOUL,
   CONCEPT_REFINEMENT_SOUL,
+  COPY_REFINEMENT_SOUL,
 } = require("./souls-data");
 
 const ASSIGNMENTS = {
@@ -17,6 +18,7 @@ const ASSIGNMENTS = {
   "04-creative-direction.md": { agentName: "👩🏼‍🎤 Barbie — Creative Direction", role: "Creative Direction", soul: CREATIVE_DIRECTION_SOUL },
   "05-deck-builder.md": { agentName: "👷🏾 Bob — Deck Builder", role: "Deck Builder", soul: DECK_BUILDER_SOUL },
   "06-concept-refine.md": { agentName: "🧕🏻 Dora — Concept Refinement", role: "Concept Refinement", soul: CONCEPT_REFINEMENT_SOUL },
+  "07-copy-refine.md": { agentName: "👩‍🎨 Matilda — Copy Refinement", role: "Copy Refinement", soul: COPY_REFINEMENT_SOUL },
 };
 
 function assignmentFor(promptFile) {

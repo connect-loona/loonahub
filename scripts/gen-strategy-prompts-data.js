@@ -23,6 +23,7 @@ const copyPrompt = readMd('prompts/03-copy.md');
 const directionPrompt = readMd('prompts/04-creative-direction.md');
 const deckBuilderPrompt = readMd('prompts/05-deck-builder.md');
 const conceptRefinePrompt = readMd('prompts/06-concept-refine.md');
+const copyRefinePrompt = readMd('prompts/07-copy-refine.md');
 const rroLearnings = readMd('seed/rro.learnings.md');
 
 const header = [
@@ -51,8 +52,9 @@ const body =
   'const DIRECTION_PROMPT = `' + jsEscape(directionPrompt) + '`;\n\n' +
   'const DECK_BUILDER_PROMPT = `' + jsEscape(deckBuilderPrompt) + '`;\n\n' +
   'const CONCEPT_REFINE_PROMPT = `' + jsEscape(conceptRefinePrompt) + '`;\n\n' +
+  'const COPY_REFINE_PROMPT = `' + jsEscape(copyRefinePrompt) + '`;\n\n' +
   'const RRO_LEARNINGS_SEED = `' + jsEscape(rroLearnings) + '`;\n\n' +
-  'module.exports = { HOUSE_RULES, RESEARCH_PROMPT, STRATEGY_PROMPT, COPY_PROMPT, DIRECTION_PROMPT, DECK_BUILDER_PROMPT, CONCEPT_REFINE_PROMPT, RRO_LEARNINGS_SEED };\n';
+  'module.exports = { HOUSE_RULES, RESEARCH_PROMPT, STRATEGY_PROMPT, COPY_PROMPT, DIRECTION_PROMPT, DECK_BUILDER_PROMPT, CONCEPT_REFINE_PROMPT, COPY_REFINE_PROMPT, RRO_LEARNINGS_SEED };\n';
 
 fs.writeFileSync(path.join(BASE, 'prompts-data.js'), header + body);
 console.log('wrote prompts-data.js, ' + (header + body).length + ' bytes');
@@ -67,6 +69,7 @@ const soulFiles = {
   CREATIVE_DIRECTION_SOUL: 'creative-direction.md',
   DECK_BUILDER_SOUL: 'deck-builder.md',
   CONCEPT_REFINEMENT_SOUL: 'concept-refinement.md',
+  COPY_REFINEMENT_SOUL: 'copy-refinement.md',
 };
 const soulsHeader = '// Generated from ./souls/*.md by scripts/gen-strategy-prompts-data.js. Do not hand-edit.\n"use strict";\n\n';
 let soulsBody = '';

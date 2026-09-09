@@ -24749,25 +24749,33 @@ ${brandLines}`;
     // proposeConceptCandidate/acceptConceptCandidate). Discard candidates never render here
     // as "ready" — they auto-accept, so by the time the UI sees them they're either still
     // "running" or already gone (committed straight into the checkpoint).
-    function conceptCandidateHtml(runId, assetId, candidate){
+    // Preview shown for a "ready" candidate differs by stage — StrategyAssetSchema has
+    // conceptName/tension, CopyAssetSchema has captions/claimAudit instead — everything
+    // else about proposing/accepting/rejecting it is identical across stages.
+    function conceptCandidateHtml(runId, stage, assetId, candidate){
       if(!candidate) return "";
       if(candidate.status === "running"){
         return '<div class="note" style="margin-top:8px;display:flex;align-items:center;gap:8px">'+soWorkingDots()+'<span>'+esc(candidate.detail || "Working on a replacement…")+'</span></div>';
       }
       if(candidate.status === "failed"){
         return '<div class="note" style="margin-top:8px;color:var(--red)">Couldn\'t generate a replacement: '+esc(candidate.detail||"Unknown error")+'</div>'+
-          '<button class="btn btn-ghost" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="window.soRetryConceptCandidate(\''+esc(runId)+'\',\''+esc(assetId)+'\')">Try again</button>';
+          '<button class="btn btn-ghost" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="window.soRetryConceptCandidate(\''+esc(runId)+'\',\''+esc(stage)+'\',\''+esc(assetId)+'\')">Try again</button>';
       }
       if(candidate.status === "ready" && candidate.candidate){
         var c = candidate.candidate;
+        var preview = stage === "copy"
+          ? '<div style="margin:4px 0;font-style:italic">&ldquo;'+esc(c.hook)+'&rdquo;</div>'+
+            '<div style="font-size:12px;color:var(--muted)">'+esc((c.captions&&c.captions[0]&&c.captions[0].copy)||'')+'</div>'+
+            '<div style="margin-top:4px">'+claimStatusChip(c.claimAudit&&c.claimAudit.status)+'</div>'
+          : '<div style="font-weight:700">'+esc(c.conceptName)+'</div>'+
+            '<div style="margin:4px 0;font-style:italic">&ldquo;'+esc(c.hook)+'&rdquo;</div>'+
+            '<div style="font-size:12px;color:var(--muted)"><b>Tension:</b> '+esc(c.tension)+'</div>';
         return '<div style="margin-top:8px;border:1px solid var(--accent);border-radius:10px;padding:12px;background:var(--surface2)">'+
           '<div style="font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:.04em;font-weight:700;margin-bottom:6px">Proposed replacement</div>'+
-          '<div style="font-weight:700">'+esc(c.conceptName)+'</div>'+
-          '<div style="margin:4px 0;font-style:italic">&ldquo;'+esc(c.hook)+'&rdquo;</div>'+
-          '<div style="font-size:12px;color:var(--muted)"><b>Tension:</b> '+esc(c.tension)+'</div>'+
+          preview+
           '<div style="display:flex;gap:8px;margin-top:8px">'+
-            '<button class="btn btn-ghost" style="flex:1" onclick="window.soRejectConceptCandidate(\''+esc(runId)+'\',\''+esc(assetId)+'\')">Discard suggestion</button>'+
-            '<button class="btn btn-primary" style="flex:1" onclick="window.soAcceptConceptCandidate(\''+esc(runId)+'\',\''+esc(assetId)+'\')">Use this instead</button>'+
+            '<button class="btn btn-ghost" style="flex:1" onclick="window.soRejectConceptCandidate(\''+esc(runId)+'\',\''+esc(stage)+'\',\''+esc(assetId)+'\')">Discard suggestion</button>'+
+            '<button class="btn btn-primary" style="flex:1" onclick="window.soAcceptConceptCandidate(\''+esc(runId)+'\',\''+esc(stage)+'\',\''+esc(assetId)+'\')">Use this instead</button>'+
           '</div>'+
         '</div>';
       }
@@ -24775,26 +24783,30 @@ ${brandLines}`;
     }
 
     function strategyReviewHtml(run, stage){
+      var stageKey = "strategy";
       var s = stage.checkpoint;
       var readOnly = stage.status === "approved";
       var candidates = stage.candidates || {};
+      var locks = stage.locks || {};
       var byFormat = (s.assets||[]).reduce(function(acc,a){ acc[a.format]=(acc[a.format]||0)+1; return acc; }, {});
       var assetRows = (s.assets||[]).map(function(a){
         var candidate = candidates[a.assetId];
         var busy = candidate && candidate.status === "running";
+        var locked = !!locks[a.assetId];
         var actionsHtml = readOnly ? "" :
           '<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">'+
-            '<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" '+(busy?'disabled':'')+' onclick="window.soToggleRefineBox(\''+esc(a.assetId)+'\')">Refine</button>'+
+            '<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" '+(busy?'disabled':'')+' onclick="window.soToggleRefineBox(\''+esc(stageKey)+'\',\''+esc(a.assetId)+'\')">Refine</button>'+
             '<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" '+(busy?'disabled':'')+' onclick="window.soSuggestSimilar(\''+esc(run.runId)+'\',\''+esc(a.assetId)+'\')">Suggest similar</button>'+
             '<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;color:var(--red);border-color:var(--red)" '+(busy?'disabled':'')+' onclick="window.soDiscardConcept(\''+esc(run.runId)+'\',\''+esc(a.assetId)+'\')">Discard</button>'+
+            '<button class="btn '+(locked?'btn-primary':'btn-ghost')+'" style="font-size:11px;padding:4px 10px;margin-left:auto" onclick="window.soToggleAssetLock(\''+esc(run.runId)+'\',\''+esc(stageKey)+'\',\''+esc(a.assetId)+'\','+locked+')">'+(locked?'🔒 Locked':'Lock')+'</button>'+
           '</div>'+
-          '<div id="so-refine-box-'+esc(a.assetId)+'" style="display:none;margin-top:8px">'+
-            '<textarea class="form-control" id="so-refine-notes-'+esc(a.assetId)+'" placeholder="What should change about this concept?" style="min-height:50px;font-size:12px;margin-bottom:6px"></textarea>'+
-            '<button class="btn btn-primary" style="font-size:11px;padding:4px 12px" onclick="window.soSendRefine(\''+esc(run.runId)+'\',\''+esc(a.assetId)+'\')">Send</button>'+
+          '<div id="so-refine-box-'+esc(stageKey)+'-'+esc(a.assetId)+'" style="display:none;margin-top:8px">'+
+            '<textarea class="form-control" id="so-refine-notes-'+esc(stageKey)+'-'+esc(a.assetId)+'" placeholder="What should change about this concept?" style="min-height:50px;font-size:12px;margin-bottom:6px"></textarea>'+
+            '<button class="btn btn-primary" style="font-size:11px;padding:4px 12px" onclick="window.soSendRefine(\''+esc(run.runId)+'\',\''+esc(stageKey)+'\',\''+esc(a.assetId)+'\')">Send</button>'+
           '</div>';
-        return '<div style="border-bottom:1px solid var(--border);padding:12px 0">'+
+        return '<div style="border-bottom:1px solid var(--border);padding:12px 0'+(locked?';opacity:.85':'')+'">'+
           '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">'+
-            '<div style="font-weight:700">'+esc(a.assetId)+' &middot; '+esc(a.format)+' &middot; '+esc(a.conceptName)+'</div>'+
+            '<div style="font-weight:700">'+esc(a.assetId)+' &middot; '+esc(a.format)+' &middot; '+esc(a.conceptName)+(locked?' <span style="color:var(--green);font-size:11px">🔒</span>':'')+'</div>'+
             '<div style="font-size:11px;color:var(--muted)">'+esc(a.portfolioId||'—')+'</div>'+
           '</div>'+
           '<div style="margin:6px 0;font-style:italic">&ldquo;'+esc(a.hook)+'&rdquo;</div>'+
@@ -24805,7 +24817,7 @@ ${brandLines}`;
             gateChip(a.gate.tensionPass,"Tension")+gateChip(a.gate.overheardPass,"Overheard")+
           '</div>'+
           actionsHtml+
-          conceptCandidateHtml(run.runId, a.assetId, candidate)+
+          conceptCandidateHtml(run.runId, stageKey, a.assetId, candidate)+
         '</div>';
       }).join("");
 
@@ -24816,7 +24828,7 @@ ${brandLines}`;
           '</div>'+
           '<div style="font-size:13px;margin-bottom:10px"><b>Month thesis:</b> '+esc(s.monthThesis)+'</div>'+
         '</div>'+
-        '<div class="att-board"><div class="bh">Concepts</div>'+assetRows+'</div>'+
+        '<div class="att-board"><div class="bh" style="display:flex;align-items:center;justify-content:space-between;gap:10px">Concepts'+(readOnly?'':assetLockSummaryHtml(locks, (s.assets||[]).length))+'</div>'+assetRows+'</div>'+
         (s.discarded && s.discarded.length ? '<div class="att-board"><div class="bh">Discarded candidates <span class="tag">'+s.discarded.length+'</span></div>'+
           s.discarded.map(function(d){ return '<div style="border-bottom:1px solid var(--border);padding:8px 0"><b>'+esc(d.conceptName)+'</b> — failed '+esc(d.failedGate)+': '+esc(d.reason)+'</div>'; }).join("")+
         '</div>' : '')+
@@ -24832,8 +24844,11 @@ ${brandLines}`;
     }
 
     function copyReviewHtml(run, stage){
+      var stageKey = "copy";
       var c = stage.checkpoint;
       var readOnly = stage.status === "approved";
+      var candidates = stage.candidates || {};
+      var locks = stage.locks || {};
       var assetRows = (c.assets||[]).map(function(a){
         var frames = (a.onCreative && a.onCreative.frames || []).map(function(f){ return '<div style="font-size:12px;color:var(--muted)">'+esc(f.label)+': '+esc(f.text)+'</div>'; }).join("");
         var script = (a.script && a.script.scenes && a.script.scenes.length)
@@ -24849,9 +24864,22 @@ ${brandLines}`;
           '</div>';
         }).join("");
         var audit = a.claimAudit || {};
-        return '<div style="border-bottom:1px solid var(--border);padding:12px 0">'+
+        var candidate = candidates[a.assetId];
+        var busy = candidate && candidate.status === "running";
+        var locked = !!locks[a.assetId];
+        var actionsHtml = readOnly ? "" :
+          '<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">'+
+            '<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" '+(busy?'disabled':'')+' onclick="window.soToggleRefineBox(\''+esc(stageKey)+'\',\''+esc(a.assetId)+'\')">Refine</button>'+
+            '<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;color:var(--red);border-color:var(--red)" '+(busy?'disabled':'')+' onclick="window.soReplaceCopyAsset(\''+esc(run.runId)+'\',\''+esc(a.assetId)+'\')">Replace</button>'+
+            '<button class="btn '+(locked?'btn-primary':'btn-ghost')+'" style="font-size:11px;padding:4px 10px;margin-left:auto" onclick="window.soToggleAssetLock(\''+esc(run.runId)+'\',\''+esc(stageKey)+'\',\''+esc(a.assetId)+'\','+locked+')">'+(locked?'🔒 Locked':'Lock')+'</button>'+
+          '</div>'+
+          '<div id="so-refine-box-'+esc(stageKey)+'-'+esc(a.assetId)+'" style="display:none;margin-top:8px">'+
+            '<textarea class="form-control" id="so-refine-notes-'+esc(stageKey)+'-'+esc(a.assetId)+'" placeholder="What should change about this copy?" style="min-height:50px;font-size:12px;margin-bottom:6px"></textarea>'+
+            '<button class="btn btn-primary" style="font-size:11px;padding:4px 12px" onclick="window.soSendRefine(\''+esc(run.runId)+'\',\''+esc(stageKey)+'\',\''+esc(a.assetId)+'\')">Send</button>'+
+          '</div>';
+        return '<div style="border-bottom:1px solid var(--border);padding:12px 0'+(locked?';opacity:.85':'')+'">'+
           '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">'+
-            '<div style="font-weight:700">'+esc(a.assetId)+' &middot; '+esc(a.format)+' &middot; '+esc(a.skuNames&&a.skuNames.join(', ')||a.portfolioName||'—')+'</div>'+
+            '<div style="font-weight:700">'+esc(a.assetId)+' &middot; '+esc(a.format)+' &middot; '+esc(a.skuNames&&a.skuNames.join(', ')||a.portfolioName||'—')+(locked?' <span style="color:var(--green);font-size:11px">🔒</span>':'')+'</div>'+
             claimStatusChip(audit.status)+
           '</div>'+
           '<div style="margin:6px 0;font-style:italic">&ldquo;'+esc(a.hook)+'&rdquo;</div>'+
@@ -24862,10 +24890,12 @@ ${brandLines}`;
           (audit.rewrittenClaims && audit.rewrittenClaims.length ? '<div style="font-size:12px;color:#e0a53a;margin-top:6px"><b>Rewritten claims:</b> '+audit.rewrittenClaims.map(function(x){return esc(x);}).join('; ')+'</div>' : '')+
           (audit.verificationFlags && audit.verificationFlags.length ? '<div style="font-size:12px;color:var(--red);margin-top:4px"><b>Needs verification:</b> '+audit.verificationFlags.map(function(x){return esc(x);}).join('; ')+'</div>' : '')+
           captions+
+          actionsHtml+
+          conceptCandidateHtml(run.runId, stageKey, a.assetId, candidate)+
         '</div>';
       }).join("");
 
-      return '<div class="att-board"><div class="bh">Copy <span class="tag">'+(c.assets||[]).length+' assets</span></div>'+assetRows+'</div>'+
+      return '<div class="att-board"><div class="bh" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span>Copy <span class="tag">'+(c.assets||[]).length+' assets</span></span>'+(readOnly?'':assetLockSummaryHtml(locks, (c.assets||[]).length))+'</div>'+assetRows+'</div>'+
         (c.globalVerificationFlags && c.globalVerificationFlags.length ? '<div class="att-board"><div class="bh" style="color:var(--red)">Flags across the whole batch</div>'+
           c.globalVerificationFlags.map(function(f){ return '<div style="padding:6px 0">'+esc(f)+'</div>'; }).join("")+'</div>' : '')+
         (readOnly
@@ -24956,18 +24986,20 @@ ${brandLines}`;
       await _db.ref("strategy_runs/"+runId+"/stages/deck-builder/checkpoint/pages/"+pageIndex).update(patch);
     }
 
-    // ---------- Per-concept refine / suggest-similar / discard ----------
+    // ---------- Per-asset refine / suggest-similar / discard-or-replace ----------
     // See strategy-concept-propose.js / strategy-concept-accept.js / strategy-concept-
-    // discard.js. Refine/similar propose a candidate and wait for a person to accept it;
-    // discard has no review step (the old concept is already gone) so it auto-accepts —
-    // see pipeline.js's discardConcept().
+    // discard.js — all stage-aware now (pass `stage`). Refine/similar propose a candidate
+    // and wait for a person to accept it; each stage's own "kill it, no review" type
+    // (strategy's "discard", copy's "replace") auto-accepts — see pipeline.js's
+    // replaceAsset(). Strategy is the default `stage` throughout so nothing here needs to
+    // change shape for the one stage this shipped on first.
 
-    async function soProposeConcept(runId, assetId, action, notes){
+    async function soProposeConcept(runId, stage, assetId, action, notes){
       try {
         var res = await fetch("/.netlify/functions/strategy-concept-propose", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ runId: runId, assetId: assetId, action: action, notes: notes || "" }),
+          body: JSON.stringify({ runId: runId, stage: stage, assetId: assetId, action: action, notes: notes || "" }),
         });
         var data = await res.json().catch(function(){ return {}; });
         if(!res.ok) throw new Error((data.error||"Could not start.")+(data.reason?" — "+data.reason:""));
@@ -24978,47 +25010,53 @@ ${brandLines}`;
     }
 
     function soSuggestSimilar(runId, assetId){
-      return soProposeConcept(runId, assetId, "similar");
+      return soProposeConcept(runId, "strategy", assetId, "similar");
     }
 
-    function soToggleRefineBox(assetId){
-      var box = document.getElementById("so-refine-box-"+assetId);
+    function soToggleRefineBox(stage, assetId){
+      var box = document.getElementById("so-refine-box-"+stage+"-"+assetId);
       if(box) box.style.display = (box.style.display === "none" || !box.style.display) ? "block" : "none";
     }
 
-    function soSendRefine(runId, assetId){
-      var notesEl = document.getElementById("so-refine-notes-"+assetId);
+    function soSendRefine(runId, stage, assetId){
+      var notesEl = document.getElementById("so-refine-notes-"+stage+"-"+assetId);
       var notes = notesEl ? notesEl.value.trim() : "";
       if(!notes){ alert("Add a note on what should change first."); return; }
-      return soProposeConcept(runId, assetId, "refine", notes);
+      return soProposeConcept(runId, stage, assetId, "refine", notes);
     }
 
-    async function soDiscardConceptRequest(runId, assetId, notes){
+    async function soDiscardConceptRequest(runId, stage, assetId, notes){
       try {
         var res = await fetch("/.netlify/functions/strategy-concept-discard", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ runId: runId, assetId: assetId, notes: notes || "", actor: currentUser || "Unknown" }),
+          body: JSON.stringify({ runId: runId, stage: stage, assetId: assetId, notes: notes || "", actor: currentUser || "Unknown" }),
         });
         var data = await res.json().catch(function(){ return {}; });
-        if(!res.ok) throw new Error((data.error||"Could not discard this concept.")+(data.reason?" — "+data.reason:""));
+        if(!res.ok) throw new Error((data.error||"Could not replace this asset.")+(data.reason?" — "+data.reason:""));
       } catch(e) {
-        alert("Could not discard: "+(e.message||e));
+        alert("Could not replace: "+(e.message||e));
       }
     }
 
     async function soDiscardConcept(runId, assetId){
       if(!confirm("Discard this concept? A replacement will be generated automatically.")) return;
       var notes = prompt("Optional: why is this concept being discarded? Helps future strategy avoid the same idea.") || "";
-      return soDiscardConceptRequest(runId, assetId, notes);
+      return soDiscardConceptRequest(runId, "strategy", assetId, notes);
     }
 
-    async function soAcceptConceptCandidate(runId, assetId){
+    async function soReplaceCopyAsset(runId, assetId){
+      if(!confirm("Replace this asset's copy? A fresh version will be generated automatically.")) return;
+      var notes = prompt("Optional: what's wrong with the current copy? Helps the rewrite avoid the same issue.") || "";
+      return soDiscardConceptRequest(runId, "copy", assetId, notes);
+    }
+
+    async function soAcceptConceptCandidate(runId, stage, assetId){
       try {
         var res = await fetch("/.netlify/functions/strategy-concept-accept", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ runId: runId, assetId: assetId, actor: currentUser || "Unknown" }),
+          body: JSON.stringify({ runId: runId, stage: stage, assetId: assetId, actor: currentUser || "Unknown" }),
         });
         var data = await res.json().catch(function(){ return {}; });
         if(!res.ok) throw new Error((data.error||"Could not accept this candidate.")+(data.reason?" — "+data.reason:""));
@@ -25029,19 +25067,44 @@ ${brandLines}`;
 
     // "Discard suggestion" on a ready candidate — just clears it, same direct-write
     // pattern as soUpdateDeckPage. No endpoint needed: nothing's been committed yet.
-    async function soRejectConceptCandidate(runId, assetId){
+    async function soRejectConceptCandidate(runId, stage, assetId){
       if(!_db) return;
-      await _db.ref("strategy_runs/"+runId+"/stages/strategy/candidates/"+assetId).remove();
+      await _db.ref("strategy_runs/"+runId+"/stages/"+stage+"/candidates/"+assetId).remove();
     }
 
     // Re-runs whatever action produced a failed candidate, with the same notes — routed to
-    // the right endpoint since "discard" isn't a valid strategy-concept-propose action.
-    function soRetryConceptCandidate(runId, assetId){
+    // the right endpoint since a stage's auto-accept type ("discard"/"replace") isn't a
+    // valid strategy-concept-propose action.
+    function soRetryConceptCandidate(runId, stage, assetId){
       var run = window._soCurrentRun;
-      var candidate = run && run.stages && run.stages.strategy && run.stages.strategy.candidates && run.stages.strategy.candidates[assetId];
+      var candidate = run && run.stages && run.stages[stage] && run.stages[stage].candidates && run.stages[stage].candidates[assetId];
       if(!candidate) return;
-      if(candidate.requestType === "discard") return soDiscardConceptRequest(runId, assetId, candidate.notes);
-      return soProposeConcept(runId, assetId, candidate.requestType, candidate.notes);
+      if(candidate.requestType === "discard" || candidate.requestType === "replace") return soDiscardConceptRequest(runId, stage, assetId, candidate.notes);
+      return soProposeConcept(runId, stage, assetId, candidate.requestType, candidate.notes);
+    }
+
+    // ---------- Per-asset lock ----------
+    // A lock is purely a human checkpoint — "I've looked at this one, it's good" — with no
+    // effect on the stage's own Approve/Send back flow (that stays a separate, independent
+    // action either way). No endpoint needed: it's a plain boolean, same direct-write
+    // pattern as soRejectConceptCandidate. Using Refine/Replace/Suggest-similar on a locked
+    // asset clears its lock server-side the moment the request is sent (see pipeline.js's
+    // proposeAssetCandidate) — that's the one thing that silently unlocks it here.
+    async function soToggleAssetLock(runId, stage, assetId, currentlyLocked){
+      if(!_db) return;
+      var ref = _db.ref("strategy_runs/"+runId+"/stages/"+stage+"/locks/"+assetId);
+      if(currentlyLocked) await ref.remove();
+      else await ref.set({ lockedAt: new Date().toISOString(), lockedBy: currentUser || "Unknown" });
+    }
+
+    // "3 of 13 locked · 10 left" — shown at the top of a stage's asset list so reviewing
+    // one at a time has a visible finish line, even though locking doesn't gate anything.
+    function assetLockSummaryHtml(locks, total){
+      var lockedCount = Object.keys(locks || {}).length;
+      var left = Math.max(0, total - lockedCount);
+      return '<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--surface2);border:1px solid var(--border);color:'+(lockedCount===total&&total>0?'var(--green)':'var(--muted)')+'">'+
+        lockedCount+' of '+total+' locked'+(left>0?' &middot; '+left+' left':'')+
+      '</span>';
     }
 
     async function soDecide(runId, stage, decision){
@@ -25395,6 +25458,8 @@ ${brandLines}`;
     window.soAcceptConceptCandidate = soAcceptConceptCandidate;
     window.soRejectConceptCandidate = soRejectConceptCandidate;
     window.soRetryConceptCandidate = soRetryConceptCandidate;
+    window.soReplaceCopyAsset = soReplaceCopyAsset;
+    window.soToggleAssetLock = soToggleAssetLock;
     window.soOpenBrandList = soOpenBrandList;
     window.soBackToRunsFromBrands = soBackToRunsFromBrands;
     window.soOpenBrandForm = soOpenBrandForm;

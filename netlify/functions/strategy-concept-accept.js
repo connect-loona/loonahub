@@ -1,8 +1,8 @@
-// POST { runId, assetId, actor } — commits a "ready" candidate (see
-// strategy-concept-propose.js) into the strategy checkpoint. No model call here, so this
-// runs synchronously in the foreground rather than needing a -background counterpart.
+// POST { runId, stage, assetId, actor } — commits a "ready" candidate (see
+// strategy-concept-propose.js) into the given stage's checkpoint. No model call here, so
+// this runs synchronously in the foreground rather than needing a -background counterpart.
 "use strict";
-const { acceptConceptCandidate } = require("./lib/strategy/pipeline");
+const { acceptAssetCandidate } = require("./lib/strategy/pipeline");
 const { checkAuthorization } = require("./lib/strategy/auth");
 
 function cors() {
@@ -23,11 +23,12 @@ exports.handler = async (event) => {
   let body;
   try { body = JSON.parse(event.body || "{}"); } catch { return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "Invalid JSON" }) }; }
   const { runId, assetId } = body;
+  const stage = body.stage || "strategy";
   const actor = String(body.actor || "Unknown").trim();
   if (!runId || !assetId) return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "runId and assetId are required." }) };
 
   try {
-    await acceptConceptCandidate(runId, assetId, actor);
+    await acceptAssetCandidate(runId, stage, assetId, actor);
     return { statusCode: 200, headers: cors(), body: JSON.stringify({ ok: true }) };
   } catch (error) {
     return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: error.message }) };
