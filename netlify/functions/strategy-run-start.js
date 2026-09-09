@@ -12,6 +12,7 @@
 const { fbGet, fbSet } = require("./lib/strategy/firebase");
 const { loadBrandConfig, loadMonthInput } = require("./lib/strategy/store");
 const { checkAuthorization } = require("./lib/strategy/auth");
+const { siteBaseUrl } = require("./lib/site-base-url");
 
 // A run only stops being "active" once its very last stage (deck-builder) has been
 // approved — everything before that, including "failed", is still active: a failed run
@@ -35,19 +36,6 @@ function cors() {
 
 function runId(brandId, month) {
   return `${brandId}_${month}_${new Date().toISOString().replace(/[:.]/g, "-")}`;
-}
-
-// process.env.URL / DEPLOY_URL are documented as build-time environment variables — their
-// availability inside a Function's own runtime process.env isn't guaranteed, and appears
-// not to hold live (confirmed: a run stuck in "queued" forever with nothing logged past a
-// silently-caught fetch failure). The incoming request's own Host header is always
-// present, so build the base URL from that instead of trusting env vars that may or may
-// not exist at this point.
-function siteBaseUrl(event) {
-  const host = (event.headers && (event.headers.host || event.headers.Host || event.headers["x-forwarded-host"])) || "";
-  if (!host) return process.env.URL || process.env.DEPLOY_URL || "";
-  const proto = (event.headers && event.headers["x-forwarded-proto"]) || "https";
-  return `${proto}://${host}`;
 }
 
 exports.handler = async (event) => {

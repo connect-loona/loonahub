@@ -32,6 +32,7 @@
 // ============================================================================
 
 const crypto = require('crypto');
+const { siteBaseUrl } = require('./lib/site-base-url');
 
 const SCOPE = 'https://www.googleapis.com/auth/gmail.send';
 // Impersonated mailbox — must be a real, existing address in the Workspace
@@ -100,8 +101,11 @@ function row(label, value) {
 // balance_after/paid_days_estimate/unpaid_days_estimate — see
 // estimateLeaveBalanceImpact() there) — and produces the email subject +
 // HTML body. Split out from the handler so it's directly unit-testable
-// without touching the network.
-function buildEmail(req) {
+// without touching the network. baseUrl comes from the triggering request's own Host
+// header (see ./lib/site-base-url.js) — whatever domain Hub was actually opened from
+// (loonahub.netlify.app, hub.loona.in, a deploy preview) is the one the email links back
+// to, so this needs no code change if/when the dashboard's domain changes.
+function buildEmail(req, baseUrl) {
   const sameDay = req.from_date === req.to_date;
   const dateRange = fmtDate(req.from_date) + (sameDay ? '' : ' – ' + fmtDate(req.to_date));
   const typeLabel = LEAVE_TYPE_LABEL[req.leave_type] || req.leave_type || 'Leave';
@@ -165,7 +169,7 @@ function buildEmail(req) {
     + '</table>'
     + balanceHTML
     + flagLine
-    + '<p style="margin-top:18px"><a href="https://loonahub.netlify.app" style="background:#ff5a1f;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">Review on Loona Hub</a></p>'
+    + '<p style="margin-top:18px"><a href="' + escapeHtml(baseUrl || 'https://loonahub.netlify.app') + '" style="background:#ff5a1f;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">Review on Loona Hub</a></p>'
     + '</div>';
   return { subject, html };
 }
@@ -202,7 +206,7 @@ exports.handler = async (event) => {
     if (!req.member || !req.from_date) return { statusCode: 400, headers: cors, body: JSON.stringify({ success: false, message: 'Missing member/from_date' }) };
 
     const accessToken = await getAccessToken(sa, SENDER);
-    const { subject, html } = buildEmail(req);
+    const { subject, html } = buildEmail(req, siteBaseUrl(event));
     const raw = buildRawMessage({ from: SENDER, to: RECIPIENTS, subject, html });
 
     const resp = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
