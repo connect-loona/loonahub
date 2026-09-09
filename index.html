@@ -24582,7 +24582,13 @@ ${brandLines}`;
       } else {
         canvaBtn = '<div class="note" style="flex:1">'+esc((canva && canva.detail) || "Canva isn't connected for this brand yet — the deck content is ready above.")+'</div>';
       }
+      // The .pptx works for every brand regardless of Canva setup — no credentials, no
+      // OAuth, generated fresh from the deck's current content on every click. It's a
+      // plain link (not a fetch), so the browser's own same-origin cookie handles auth
+      // and the response's Content-Disposition just triggers a normal save dialog.
+      var downloadBtn = '<a class="btn btn-primary" style="flex:1;text-align:center;text-decoration:none" href="/.netlify/functions/strategy-deck-download?runId='+encodeURIComponent(run.runId)+'">Download deck (.pptx)</a>';
       return '<div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap">'+
+        downloadBtn+
         canvaBtn+
         '<button class="btn '+(tasksCreated?'btn-ghost':'btn-primary')+'" style="flex:1" id="so-team-tasks-btn" onclick="window.soCreateTeamTasks(\''+esc(run.runId)+'\')" '+(tasksCreated?'disabled':'')+'>'+
           (tasksCreated ? "Team tasks created ✓" : "Create team tasks")+
