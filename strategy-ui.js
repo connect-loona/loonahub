@@ -3,6 +3,24 @@
 
   var queued = false;
 
+  var nativeFetch = window.fetch;
+  window.fetch = function (input, options) {
+    var url = typeof input === "string" ? input : (input && input.url) || "";
+    if (url.indexOf("/.netlify/functions/strategy-brand-save") !== -1 && options && typeof options.body === "string") {
+      try {
+        var requestBody = JSON.parse(options.body);
+        var advanced = document.getElementById("so-bf-advanced");
+        if (requestBody.brand && advanced) {
+          var advancedValue = JSON.parse(advanced.value || "{}");
+          requestBody.brand.approvedWork = advancedValue.approvedWork || [];
+          options = Object.assign({}, options, { body: JSON.stringify(requestBody) });
+        }
+      } catch (_) {}
+    }
+    return nativeFetch.call(this, input, options);
+  };
+
+
   function getRuns() {
     var cache = window._soRunsCache || {};
     return Object.keys(cache).map(function (key) { return cache[key]; });
@@ -154,6 +172,23 @@
       var firstBoard = root.querySelector(".att-board");
       if (firstBoard) firstBoard.insertAdjacentElement("beforebegin", card);
       if (originalLabel && originalLabel.tagName === "LABEL") originalLabel.remove();
+    }
+
+    var advanced = document.getElementById("so-bf-advanced");
+    if (advanced && !advanced.dataset.approvedWorkReady) {
+      try {
+        var value = JSON.parse(advanced.value || "{}");
+        var brandId = window._soBrandView;
+        var brandConfig = brandId && window._soBrandsCache && window._soBrandsCache[brandId];
+        value.approvedWork = (brandConfig && brandConfig.approvedWork) || value.approvedWork || [];
+        advanced.value = JSON.stringify(value, null, 2);
+        advanced.dataset.approvedWorkReady = "1";
+      } catch (_) {}
+
+      var libraryHelp = document.createElement("div");
+      libraryHelp.style.cssText = "font-size:12px;color:var(--muted);margin:8px 0 12px;line-height:1.5";
+      libraryHelp.innerHTML = "Add final approved decks, designs and edited videos under <code>approvedWork</code>. Include month, type, title, link, a short note on the execution, and the outcome. These references become memory for Research and Strategy.";
+      advanced.parentNode.insertBefore(libraryHelp, advanced);
     }
 
     if (!driveInput && window._soCurrentRun && !root.querySelector(".so-run-folder-link")) {

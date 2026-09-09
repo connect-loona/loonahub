@@ -15,6 +15,18 @@ const NullableText = z.string().nullable();
 
 const AssetFormatSchema = z.enum(["reel", "carousel", "static"]);
 
+const ApprovedWorkSchema = z
+  .object({
+    id: NonEmpty,
+    month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+    type: z.enum(["deck", "design", "video", "campaign", "other"]),
+    title: NonEmpty,
+    url: NonEmpty,
+    notes: NonEmpty,
+    outcome: NullableText,
+  })
+  .strict();
+
 const ProductSchema = z
   .object({
     id: NonEmpty,
@@ -100,6 +112,7 @@ const BrandConfigSchema = z
     aspirationalMarkets: z.array(NonEmpty),
     website: NullableText,
     driveFolderUrl: NullableText,
+    approvedWork: z.array(ApprovedWorkSchema).optional().default([]),
     oneLineTruth: NonEmpty,
     deliverables: z
       .object({
@@ -350,6 +363,7 @@ const STAGE_SCHEMAS = {
 
 module.exports = {
   AssetFormatSchema,
+  ApprovedWorkSchema,
   BrandConfigSchema,
   MonthInputSchema,
   ResearchSchema,

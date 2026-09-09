@@ -22,6 +22,37 @@ function createRuntime(run) {
   return new OpenAIAgentsRuntime();
 }
 
+// Strategy needs the evidence and tensions that survived Research, not its full working
+// transcript. Keeping the handoff explicit makes the prompt smaller and prevents source
+// metadata/research notes from crowding out concept development.
+function buildStrategyResearchBrief(research) {
+  const usedSourceIds = new Set();
+  const groups = ["liveQuestions", "arguments", "unspokenBehaviours", "exhaustedTerritory", "calendar", "whitespace", "verifiedFacts"];
+  for (const group of groups) {
+    for (const item of research[group] || []) {
+      for (const id of item.sourceIds || []) usedSourceIds.add(id);
+    }
+  }
+  return {
+    brandId: research.brandId,
+    month: research.month,
+    categoryFrame: research.categoryFrame,
+    sources: (research.sources || []).filter((source) => usedSourceIds.has(source.id)).map((source) => ({
+      id: source.id,
+      title: source.title,
+      evidence: source.evidence,
+    })),
+    liveQuestions: research.liveQuestions,
+    arguments: research.arguments,
+    unspokenBehaviours: research.unspokenBehaviours,
+    exhaustedTerritory: research.exhaustedTerritory,
+    calendar: research.calendar,
+    whitespace: research.whitespace,
+    verifiedFacts: research.verifiedFacts,
+    unknowns: research.unknowns,
+  };
+}
+
 async function logActivity(runId, actor, action, detail) {
   const { fbPush } = require("./firebase");
   await fbPush(`strategy_activity/${runId}`, { actor, action, detail: detail || null, at: new Date().toISOString() });
@@ -135,11 +166,11 @@ async function runStrategyStage(runId) {
     promptFile: "02-strategy.md",
     schema: StrategySchema,
     toolProfile: "none",
-    input: Object.assign({}, common, { research }),
+    input: Object.assign({}, common, { research: buildStrategyResearchBrief(research) }),
     validate: (output) => validateStrategy(output, config, research, learnings, run.month),
     runningStatus: "strategy_running",
     reviewStatus: "strategy_needs_review",
   });
 }
 
-module.exports = { runResearchStage, runStrategyStage, logActivity };
+module.exports = { runResearchStage, runStrategyStage, logActivity, buildStrategyResearchBrief };
