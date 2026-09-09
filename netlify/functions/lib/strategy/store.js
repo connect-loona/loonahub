@@ -40,42 +40,54 @@ const PROMPT_BY_FILE = {
   "02-strategy.md": STRATEGY_PROMPT,
 };
 
+// Validates whatever is cached in Firebase instead of trusting it blindly, and re-seeds
+// (overwriting the bad copy) when it doesn't pass. This matters because a bad copy could
+// get stuck there permanently otherwise: seen live, a run got as far as an actual Zod
+// validation error deep in a product's fields (portfolios[1].products[N].approvedFacts
+// etc. "expected array, received undefined") even though the seed file in the repo
+// validates cleanly on its own — meaning Firebase already held something written before
+// one of this integration's earlier bugs was fixed, and every run since kept reading that
+// same broken copy back out, never re-checking or self-correcting it.
 async function loadBrandConfig(brandId) {
   const key = fbSafeKey(brandId);
-  let raw = await fbGet(`strategy_brands/${key}`);
-  if (!raw) {
-    raw = SEED_BRAND_CONFIGS[brandId] || null;
-    if (!raw) throw new Error(`No brand config found for "${brandId}" (not in Firebase, no seed).`);
-    await fbSet(`strategy_brands/${key}`, raw);
+  const raw = await fbGet(`strategy_brands/${key}`);
+  if (raw) {
+    const result = BrandConfigSchema.safeParse(raw);
+    if (result.success) return result.data;
+    console.error(`strategy_brands/${key} in Firebase failed validation — re-seeding from source. Issues:`, JSON.stringify(result.error.issues).slice(0, 500));
   }
-  return BrandConfigSchema.parse(raw);
+  const seed = SEED_BRAND_CONFIGS[brandId];
+  if (!seed) throw new Error(`No brand config found for "${brandId}" (Firebase copy missing or invalid, and no seed available).`);
+  const validated = BrandConfigSchema.parse(seed); // never write anything we haven't verified ourselves
+  await fbSet(`strategy_brands/${key}`, validated);
+  return validated;
 }
 
 async function loadMonthInput(brandId, month) {
   const key = fbSafeKey(brandId);
   const monthKey = fbSafeKey(month);
-  let raw = await fbGet(`strategy_months/${key}/${monthKey}`);
-  if (!raw) {
-    raw = SEED_MONTH_INPUTS[`${brandId}:${month}`] || null;
-    if (raw) await fbSet(`strategy_months/${key}/${monthKey}`, raw);
+  const raw = await fbGet(`strategy_months/${key}/${monthKey}`);
+  if (raw) {
+    const result = MonthInputSchema.safeParse(raw);
+    if (result.success && result.data.month === month) return result.data;
+    console.error(`strategy_months/${key}/${monthKey} in Firebase failed validation or has the wrong month — re-seeding from source.`);
   }
-  if (!raw) {
-    raw = { month, objectives: [], campaigns: [], momentsToConsider: [], exclusions: [], notes: [] };
-  }
-  const parsed = MonthInputSchema.parse(raw);
+  const seed = SEED_MONTH_INPUTS[`${brandId}:${month}`];
+  const fallback = seed || { month, objectives: [], campaigns: [], momentsToConsider: [], exclusions: [], notes: [] };
+  const parsed = MonthInputSchema.parse(fallback);
   if (parsed.month !== month) {
     throw new Error(`Month input for ${brandId}/${month} declares ${parsed.month}, expected ${month}.`);
   }
+  await fbSet(`strategy_months/${key}/${monthKey}`, parsed);
   return parsed;
 }
 
 async function loadLearnings(brandId) {
   const key = fbSafeKey(brandId);
-  let text = await fbGet(`strategy_learnings/${key}/text`);
-  if (!text) {
-    text = SEED_LEARNINGS[brandId] || "# Brand learnings\n\nNo learning events recorded yet.\n";
-    await fbSet(`strategy_learnings/${key}/text`, text);
-  }
+  const raw = await fbGet(`strategy_learnings/${key}/text`);
+  if (typeof raw === "string" && raw.length > 0) return raw;
+  const text = SEED_LEARNINGS[brandId] || "# Brand learnings\n\nNo learning events recorded yet.\n";
+  await fbSet(`strategy_learnings/${key}/text`, text);
   return text;
 }
 
