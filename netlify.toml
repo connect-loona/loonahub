@@ -21,7 +21,7 @@
 # keep resolving normally on this domain too, not get double-prefixed with
 # /independence/ on top of their already-absolute paths. The query string
 # (e.g. ?from=slug on a shared referral link) is forwarded automatically.
-# The login gate is also bypassed for this host — see basic-auth.ts.
+# The edge gate allows only microsite routes on this host — see basic-auth.ts.
 [[redirects]]
   from = "https://flag.loona.in/"
   to = "/independence/"
@@ -115,7 +115,7 @@
 #   PETPOOJA_BASE_URL
 #   FIREBASE_DB_URL   (optional; defaults to the loona-hub RTDB)
 #   BASIC_AUTH_CREDENTIALS   (site-wide password gate — see netlify/edge-functions/basic-auth.ts.
-#                             Format: username:password. Without this set, the site is NOT gated.)
+#                             Format: username:password. Missing/malformed values block private pages with 503.)
 #   INDEPENDENCE_ADMIN_PASSWORD   (gates /independence/admin/, the internal live-participants
 #                             list for the Independence Day microsite — see
 #                             netlify/functions/independence-admin.js. /independence/* is
