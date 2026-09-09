@@ -24733,11 +24733,54 @@ ${brandLines}`;
         (pass?'✓ ':'✗ ')+esc(label)+'</span>';
     }
 
+    // The proposed-replacement block shown under a concept once a refine/similar/discard
+    // request is in flight or done — reads stage.candidates[assetId] (see pipeline.js's
+    // proposeConceptCandidate/acceptConceptCandidate). Discard candidates never render here
+    // as "ready" — they auto-accept, so by the time the UI sees them they're either still
+    // "running" or already gone (committed straight into the checkpoint).
+    function conceptCandidateHtml(runId, assetId, candidate){
+      if(!candidate) return "";
+      if(candidate.status === "running"){
+        return '<div class="note" style="margin-top:8px;display:flex;align-items:center;gap:8px">'+soWorkingDots()+'<span>Working on a replacement…</span></div>';
+      }
+      if(candidate.status === "failed"){
+        return '<div class="note" style="margin-top:8px;color:var(--red)">Couldn\'t generate a replacement: '+esc(candidate.detail||"Unknown error")+'</div>'+
+          '<button class="btn btn-ghost" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="window.soRetryConceptCandidate(\''+esc(runId)+'\',\''+esc(assetId)+'\')">Try again</button>';
+      }
+      if(candidate.status === "ready" && candidate.candidate){
+        var c = candidate.candidate;
+        return '<div style="margin-top:8px;border:1px solid var(--accent);border-radius:10px;padding:12px;background:var(--surface2)">'+
+          '<div style="font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:.04em;font-weight:700;margin-bottom:6px">Proposed replacement</div>'+
+          '<div style="font-weight:700">'+esc(c.conceptName)+'</div>'+
+          '<div style="margin:4px 0;font-style:italic">&ldquo;'+esc(c.hook)+'&rdquo;</div>'+
+          '<div style="font-size:12px;color:var(--muted)"><b>Tension:</b> '+esc(c.tension)+'</div>'+
+          '<div style="display:flex;gap:8px;margin-top:8px">'+
+            '<button class="btn btn-ghost" style="flex:1" onclick="window.soRejectConceptCandidate(\''+esc(runId)+'\',\''+esc(assetId)+'\')">Discard suggestion</button>'+
+            '<button class="btn btn-primary" style="flex:1" onclick="window.soAcceptConceptCandidate(\''+esc(runId)+'\',\''+esc(assetId)+'\')">Use this instead</button>'+
+          '</div>'+
+        '</div>';
+      }
+      return "";
+    }
+
     function strategyReviewHtml(run, stage){
       var s = stage.checkpoint;
       var readOnly = stage.status === "approved";
+      var candidates = stage.candidates || {};
       var byFormat = (s.assets||[]).reduce(function(acc,a){ acc[a.format]=(acc[a.format]||0)+1; return acc; }, {});
       var assetRows = (s.assets||[]).map(function(a){
+        var candidate = candidates[a.assetId];
+        var busy = candidate && candidate.status === "running";
+        var actionsHtml = readOnly ? "" :
+          '<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">'+
+            '<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" '+(busy?'disabled':'')+' onclick="window.soToggleRefineBox(\''+esc(a.assetId)+'\')">Refine</button>'+
+            '<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" '+(busy?'disabled':'')+' onclick="window.soSuggestSimilar(\''+esc(run.runId)+'\',\''+esc(a.assetId)+'\')">Suggest similar</button>'+
+            '<button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;color:var(--red);border-color:var(--red)" '+(busy?'disabled':'')+' onclick="window.soDiscardConcept(\''+esc(run.runId)+'\',\''+esc(a.assetId)+'\')">Discard</button>'+
+          '</div>'+
+          '<div id="so-refine-box-'+esc(a.assetId)+'" style="display:none;margin-top:8px">'+
+            '<textarea class="form-control" id="so-refine-notes-'+esc(a.assetId)+'" placeholder="What should change about this concept?" style="min-height:50px;font-size:12px;margin-bottom:6px"></textarea>'+
+            '<button class="btn btn-primary" style="font-size:11px;padding:4px 12px" onclick="window.soSendRefine(\''+esc(run.runId)+'\',\''+esc(a.assetId)+'\')">Send</button>'+
+          '</div>';
         return '<div style="border-bottom:1px solid var(--border);padding:12px 0">'+
           '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">'+
             '<div style="font-weight:700">'+esc(a.assetId)+' &middot; '+esc(a.format)+' &middot; '+esc(a.conceptName)+'</div>'+
@@ -24750,6 +24793,8 @@ ${brandLines}`;
             gateChip(a.gate.logoSwapPass,"Logo-swap")+gateChip(a.gate.killListPass,"Kill list")+
             gateChip(a.gate.tensionPass,"Tension")+gateChip(a.gate.overheardPass,"Overheard")+
           '</div>'+
+          actionsHtml+
+          conceptCandidateHtml(run.runId, a.assetId, candidate)+
         '</div>';
       }).join("");
 
@@ -24898,6 +24943,94 @@ ${brandLines}`;
       if(!_db) return;
       var patch = {}; patch[field] = value;
       await _db.ref("strategy_runs/"+runId+"/stages/deck-builder/checkpoint/pages/"+pageIndex).update(patch);
+    }
+
+    // ---------- Per-concept refine / suggest-similar / discard ----------
+    // See strategy-concept-propose.js / strategy-concept-accept.js / strategy-concept-
+    // discard.js. Refine/similar propose a candidate and wait for a person to accept it;
+    // discard has no review step (the old concept is already gone) so it auto-accepts —
+    // see pipeline.js's discardConcept().
+
+    async function soProposeConcept(runId, assetId, action, notes){
+      try {
+        var res = await fetch("/.netlify/functions/strategy-concept-propose", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ runId: runId, assetId: assetId, action: action, notes: notes || "" }),
+        });
+        var data = await res.json().catch(function(){ return {}; });
+        if(!res.ok) throw new Error((data.error||"Could not start.")+(data.reason?" — "+data.reason:""));
+        // The live Firebase listener re-renders once the candidate's status updates.
+      } catch(e) {
+        alert("Could not generate a replacement: "+(e.message||e));
+      }
+    }
+
+    function soSuggestSimilar(runId, assetId){
+      return soProposeConcept(runId, assetId, "similar");
+    }
+
+    function soToggleRefineBox(assetId){
+      var box = document.getElementById("so-refine-box-"+assetId);
+      if(box) box.style.display = (box.style.display === "none" || !box.style.display) ? "block" : "none";
+    }
+
+    function soSendRefine(runId, assetId){
+      var notesEl = document.getElementById("so-refine-notes-"+assetId);
+      var notes = notesEl ? notesEl.value.trim() : "";
+      if(!notes){ alert("Add a note on what should change first."); return; }
+      return soProposeConcept(runId, assetId, "refine", notes);
+    }
+
+    async function soDiscardConceptRequest(runId, assetId, notes){
+      try {
+        var res = await fetch("/.netlify/functions/strategy-concept-discard", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ runId: runId, assetId: assetId, notes: notes || "", actor: currentUser || "Unknown" }),
+        });
+        var data = await res.json().catch(function(){ return {}; });
+        if(!res.ok) throw new Error((data.error||"Could not discard this concept.")+(data.reason?" — "+data.reason:""));
+      } catch(e) {
+        alert("Could not discard: "+(e.message||e));
+      }
+    }
+
+    async function soDiscardConcept(runId, assetId){
+      if(!confirm("Discard this concept? A replacement will be generated automatically.")) return;
+      var notes = prompt("Optional: why is this concept being discarded? Helps future strategy avoid the same idea.") || "";
+      return soDiscardConceptRequest(runId, assetId, notes);
+    }
+
+    async function soAcceptConceptCandidate(runId, assetId){
+      try {
+        var res = await fetch("/.netlify/functions/strategy-concept-accept", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ runId: runId, assetId: assetId, actor: currentUser || "Unknown" }),
+        });
+        var data = await res.json().catch(function(){ return {}; });
+        if(!res.ok) throw new Error((data.error||"Could not accept this candidate.")+(data.reason?" — "+data.reason:""));
+      } catch(e) {
+        alert("Could not accept: "+(e.message||e));
+      }
+    }
+
+    // "Discard suggestion" on a ready candidate — just clears it, same direct-write
+    // pattern as soUpdateDeckPage. No endpoint needed: nothing's been committed yet.
+    async function soRejectConceptCandidate(runId, assetId){
+      if(!_db) return;
+      await _db.ref("strategy_runs/"+runId+"/stages/strategy/candidates/"+assetId).remove();
+    }
+
+    // Re-runs whatever action produced a failed candidate, with the same notes — routed to
+    // the right endpoint since "discard" isn't a valid strategy-concept-propose action.
+    function soRetryConceptCandidate(runId, assetId){
+      var run = window._soCurrentRun;
+      var candidate = run && run.stages && run.stages.strategy && run.stages.strategy.candidates && run.stages.strategy.candidates[assetId];
+      if(!candidate) return;
+      if(candidate.requestType === "discard") return soDiscardConceptRequest(runId, assetId, candidate.notes);
+      return soProposeConcept(runId, assetId, candidate.requestType, candidate.notes);
     }
 
     async function soDecide(runId, stage, decision){
@@ -25244,6 +25377,13 @@ ${brandLines}`;
     window.soRetryStage = soRetryStage;
     window.soCreateTeamTasks = soCreateTeamTasks;
     window.soUpdateDeckPage = soUpdateDeckPage;
+    window.soSuggestSimilar = soSuggestSimilar;
+    window.soToggleRefineBox = soToggleRefineBox;
+    window.soSendRefine = soSendRefine;
+    window.soDiscardConcept = soDiscardConcept;
+    window.soAcceptConceptCandidate = soAcceptConceptCandidate;
+    window.soRejectConceptCandidate = soRejectConceptCandidate;
+    window.soRetryConceptCandidate = soRetryConceptCandidate;
     window.soOpenBrandList = soOpenBrandList;
     window.soBackToRunsFromBrands = soBackToRunsFromBrands;
     window.soOpenBrandForm = soOpenBrandForm;

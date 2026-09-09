@@ -1,0 +1,23 @@
+{
+  "assetId": "RRO-01",
+  "sequence": 1,
+  "format": "reel",
+  "pillarId": "recipes-serving",
+  "portfolioId": "rro-oil",
+  "skuIds": ["filtered-groundnut-oil"],
+  "conceptName": "The recipe card lies about the oil",
+  "concept": "A recipe card lists exact quantities for every ingredient except the oil, which just says \"oil\" as if any bottle does the same job. Filtered Groundnut Oil is the ingredient the recipe card should have named.",
+  "hook": "The recipe card measures the salt to the gram. It just says \"oil.\"",
+  "tension": "A recipe treats every ingredient as precise except the one that actually changes how the dish tastes.",
+  "sendTo": "The cousin who follows a recipe card exactly and still can't get it to taste right",
+  "brandAnchors": ["RRO Oil", "Filtered Groundnut Oil"],
+  "researchIds": ["ARG-01", "UB-01"],
+  "strategicRole": "Turn recipes-serving into a brand-owned argument.",
+  "gate": {
+    "logoSwapPass": true,
+    "killListPass": true,
+    "tensionPass": true,
+    "overheardPass": true,
+    "rationale": "Uses exact RRO portfolio and SKU context, names human friction (a precise recipe with one vague ingredient) and has a specific recipient."
+  }
+}
