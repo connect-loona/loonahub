@@ -6,9 +6,8 @@
 //   BASIC_AUTH_CREDENTIALS = username:password
 // (a single "user:pass" pair — no spaces around the colon)
 //
-// If that variable isn't set, this function lets every request through unauthenticated,
-// so a misconfigured env var fails safe-for-deploys but does NOT silently protect the site —
-// check Netlify's deploy log / the site directly after setting it to confirm the prompt appears.
+// Missing or malformed credentials return 503 for private pages (fail closed).
+// Public microsite routes stay available without dashboard credentials.
 //
 // This renders its own login page (styled to match the dashboard) instead of using the
 // browser's native Basic Auth dialog, since that dialog can't be styled at all and also
@@ -80,22 +79,47 @@ function loginPageHTML(opts: { error?: boolean; username?: string; redirectTo: s
 }
 
 export default async (request: Request, context: Context) => {
-  // flag.loona.in exists solely to serve the public Independence Day
-  // microsite (see the redirect in netlify.toml) — never gate it, on any
-  // path, regardless of how that redirect's rewrite interacts with this
-  // function's ordering. Every other domain (including the dashboard's
-  // own) keeps going through the normal excludedPath checks below.
-  if (new URL(request.url).hostname === "flag.loona.in") return context.next();
+  const url = new URL(request.url);
+  const path = url.pathname;
+
+  // Apply the public-host boundary BEFORE the dashboard's function/asset exceptions.
+  // The existing root rewrite in netlify.toml serves /independence/.
+  if (url.hostname === "flag.loona.in") {
+    const publicPage = ["/", "/independence", "/independence/", "/independence/index.html",
+      "/independence/admin", "/independence/admin/", "/independence/admin/index.html"].includes(path);
+    const publicAsset = path.startsWith("/assets/independence-day/");
+    const publicFunction = ["/.netlify/functions/independence-hoist",
+      "/.netlify/functions/independence-admin"].includes(path);
+    // The admin endpoint retains its own INDEPENDENCE_ADMIN_PASSWORD check.
+    if (publicFunction || ((request.method === "GET" || request.method === "HEAD") && (publicPage || publicAsset))) {
+      return context.next();
+    }
+    return new Response("Not found", {
+      status: 404,
+      headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+    });
+  }
+
+  // Preserve existing dashboard exceptions. Sensitive server functions still need
+  // their own caller authentication; that is a separate change.
+  if (path.startsWith("/.netlify/functions/") ||
+      ["/manifest.json", "/robots.txt", "/apple-touch-icon.png", "/apple-touch-icon-precomposed.png", "/independence"].includes(path) ||
+      path.startsWith("/icons/") || path.startsWith("/independence/") ||
+      path.startsWith("/assets/independence-day/")) return context.next();
 
   const credentials = Netlify.env.get("BASIC_AUTH_CREDENTIALS");
-  if (!credentials) return context.next();
+  const sepIndex = credentials?.indexOf(":") ?? -1;
+  if (!credentials || sepIndex <= 0 || sepIndex === credentials.length - 1) {
+    return new Response("Sign-in is temporarily unavailable.", {
+      status: 503,
+      headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+    });
+  }
 
-  const sepIndex = credentials.indexOf(":");
   const expectedUser = credentials.slice(0, sepIndex);
   const expectedPass = credentials.slice(sepIndex + 1);
   const expectedToken = await sha256Hex(credentials);
 
-  const url = new URL(request.url);
   const cookies = parseCookies(request.headers.get("cookie") || "");
 
   if (cookies[COOKIE_NAME] === expectedToken) {
@@ -130,37 +154,7 @@ export default async (request: Request, context: Context) => {
   });
 };
 
+// Do not use excludedPath here: it would bypass the hostname boundary above.
 export const config: Config = {
   path: "/*",
-  excludedPath: [
-    // The scheduled functions (petpooja-sync, brand-of-day) are invoked by Netlify's own
-    // cron trigger, not a browser, so they'd never present a session cookie and would
-    // silently stop running if gated here.
-    "/.netlify/functions/*",
-    // Public, non-sensitive static assets — none of these need to be behind the gate, and
-    // some (icons, manifest) actively need to be fetchable unauthenticated: iOS/Android
-    // fetch them directly (no cookies sent) to build the "Add to Home Screen" icon, and a
-    // gated response there is what was showing a generic letter icon instead of the logo.
-    "/manifest.json",
-    "/robots.txt",
-    "/icons/*",
-    "/apple-touch-icon.png",
-    "/apple-touch-icon-precomposed.png",
-    // The public Independence Day microsite (loona.in/independence) is
-    // deliberately outside the dashboard entirely — no login, so anyone who
-    // taps a shared link can actually hoist the flag themselves rather than
-    // hitting this site-wide gate first. See independence/index.html.
-    "/independence",
-    "/independence/*",
-    // The microsite's own jets SVG + anthem MP3 live under /assets, which
-    // otherwise stays behind the gate — without this, a visitor who never
-    // logged into the dashboard got the login page's HTML back in place of
-    // the actual image/audio file (silently, no auth prompt, since this is
-    // a cookie-based gate not a native WWW-Authenticate challenge), so the
-    // jets never rendered and the anthem never played for anyone but a
-    // logged-in teammate. This is the actual fix for that — no amount of
-    // cache-busting or SW changes in independence/index.html could ever
-    // have fixed it, since the asset request itself was being intercepted.
-    "/assets/independence-day/*",
-  ],
 };
