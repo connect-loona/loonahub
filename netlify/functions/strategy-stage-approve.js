@@ -14,8 +14,13 @@ const { fbGet, fbSet, fbUpdate } = require("./lib/strategy/firebase");
 const { logActivity } = require("./lib/strategy/pipeline");
 const { checkAuthorization } = require("./lib/strategy/auth");
 
-const NEXT_STAGE = { research: "strategy" };
-const STAGE_ORDER = ["research", "strategy"];
+const NEXT_STAGE = {
+  research: "strategy",
+  strategy: "copy",
+  copy: "creative-direction",
+  "creative-direction": "deck-builder",
+};
+const STAGE_ORDER = ["research", "strategy", "copy", "creative-direction", "deck-builder"];
 
 // See strategy-run-start.js's siteBaseUrl() — process.env.URL/DEPLOY_URL aren't reliably
 // present at Function runtime (confirmed live: a fetch using them failed silently and left

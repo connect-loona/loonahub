@@ -1,0 +1,695 @@
+{
+  "brandId": "rro",
+  "month": "2026-10",
+  "assets": [
+    {
+      "assetId": "RRO-01",
+      "format": "reel",
+      "portfolioId": "rro-oil",
+      "skuIds": [
+        "filtered-groundnut-oil"
+      ],
+      "visualConcept": "A clean, honest kitchen frame built around why it never tastes like your mother's, product pack fully legible.",
+      "artDirection": "Warm natural light, credible commercial food photography, no synthetic gloss.",
+      "palette": [
+        "deep blue",
+        "warm yellow",
+        "white"
+      ],
+      "typography": "Clean sans-serif on-creative text, high contrast against the plate.",
+      "composition": "Product held at eye level in the first third of frame; dish fills the rest.",
+      "productionMode": "lifestyle-shoot",
+      "referenceQueries": [
+        "Why it never tastes like your mother's kitchen photography reference"
+      ],
+      "references": [
+        {
+          "url": "https://example.com/reference/kitchen-light",
+          "title": "Warm kitchen light reference",
+          "source": "Synthetic fixture placeholder",
+          "useFor": "Lighting and palette reference only",
+          "rightsNote": "Reference only — not licensed for use in the final asset; clear rights before any reuse."
+        }
+      ],
+      "shotList": [
+        {
+          "shot": "Open",
+          "framing": "Close-up on pack",
+          "action": "Static hold, 2s",
+          "productVisibility": "Full label legible",
+          "copyPlacement": "Lower third"
+        },
+        {
+          "shot": "Middle",
+          "framing": "Medium, hands in frame",
+          "action": "Product used in the dish",
+          "productVisibility": "Pack visible in-hand",
+          "copyPlacement": "None — voiceover only"
+        },
+        {
+          "shot": "Close",
+          "framing": "Plated final shot",
+          "action": "Slow push-in",
+          "productVisibility": "Pack placed beside plate",
+          "copyPlacement": "Upper third, brand mark"
+        }
+      ],
+      "designNotes": [
+        "Keep why it never tastes like your mother's grounded in a real, specific dish — not a generic spread."
+      ],
+      "avoid": [
+        "Altering pack labels, colours or proportions.",
+        "Synthetic or over-glossy food styling."
+      ]
+    },
+    {
+      "assetId": "RRO-02",
+      "format": "reel",
+      "portfolioId": "rro-oil",
+      "skuIds": [
+        "primio-refined-groundnut-oil"
+      ],
+      "visualConcept": "A clean, honest kitchen frame built around the oil you throw out too early, product pack fully legible.",
+      "artDirection": "Warm natural light, credible commercial food photography, no synthetic gloss.",
+      "palette": [
+        "deep blue",
+        "warm yellow",
+        "white"
+      ],
+      "typography": "Clean sans-serif on-creative text, high contrast against the plate.",
+      "composition": "Product held at eye level in the first third of frame; dish fills the rest.",
+      "productionMode": "lifestyle-shoot",
+      "referenceQueries": [
+        "The oil you throw out too early kitchen photography reference"
+      ],
+      "references": [
+        {
+          "url": "https://example.com/reference/kitchen-light",
+          "title": "Warm kitchen light reference",
+          "source": "Synthetic fixture placeholder",
+          "useFor": "Lighting and palette reference only",
+          "rightsNote": "Reference only — not licensed for use in the final asset; clear rights before any reuse."
+        }
+      ],
+      "shotList": [
+        {
+          "shot": "Open",
+          "framing": "Close-up on pack",
+          "action": "Static hold, 2s",
+          "productVisibility": "Full label legible",
+          "copyPlacement": "Lower third"
+        },
+        {
+          "shot": "Middle",
+          "framing": "Medium, hands in frame",
+          "action": "Product used in the dish",
+          "productVisibility": "Pack visible in-hand",
+          "copyPlacement": "None — voiceover only"
+        },
+        {
+          "shot": "Close",
+          "framing": "Plated final shot",
+          "action": "Slow push-in",
+          "productVisibility": "Pack placed beside plate",
+          "copyPlacement": "Upper third, brand mark"
+        }
+      ],
+      "designNotes": [
+        "Keep the oil you throw out too early grounded in a real, specific dish — not a generic spread."
+      ],
+      "avoid": [
+        "Altering pack labels, colours or proportions.",
+        "Synthetic or over-glossy food styling."
+      ]
+    },
+    {
+      "assetId": "RRO-03",
+      "format": "reel",
+      "portfolioId": "rro-oil",
+      "skuIds": [
+        "mastdil-premium-mustard-oil",
+        "filtered-groundnut-oil",
+        "tildil-premium-til-oil"
+      ],
+      "visualConcept": "A clean, honest kitchen frame built around tell me your oil, i'll tell you your state, product pack fully legible.",
+      "artDirection": "Warm natural light, credible commercial food photography, no synthetic gloss.",
+      "palette": [
+        "deep blue",
+        "warm yellow",
+        "white"
+      ],
+      "typography": "Clean sans-serif on-creative text, high contrast against the plate.",
+      "composition": "Product held at eye level in the first third of frame; dish fills the rest.",
+      "productionMode": "lifestyle-shoot",
+      "referenceQueries": [
+        "Tell me your oil, I'll tell you your state kitchen photography reference"
+      ],
+      "references": [
+        {
+          "url": "https://example.com/reference/kitchen-light",
+          "title": "Warm kitchen light reference",
+          "source": "Synthetic fixture placeholder",
+          "useFor": "Lighting and palette reference only",
+          "rightsNote": "Reference only — not licensed for use in the final asset; clear rights before any reuse."
+        }
+      ],
+      "shotList": [
+        {
+          "shot": "Open",
+          "framing": "Close-up on pack",
+          "action": "Static hold, 2s",
+          "productVisibility": "Full label legible",
+          "copyPlacement": "Lower third"
+        },
+        {
+          "shot": "Middle",
+          "framing": "Medium, hands in frame",
+          "action": "Product used in the dish",
+          "productVisibility": "Pack visible in-hand",
+          "copyPlacement": "None — voiceover only"
+        },
+        {
+          "shot": "Close",
+          "framing": "Plated final shot",
+          "action": "Slow push-in",
+          "productVisibility": "Pack placed beside plate",
+          "copyPlacement": "Upper third, brand mark"
+        }
+      ],
+      "designNotes": [
+        "Keep tell me your oil, i'll tell you your state grounded in a real, specific dish — not a generic spread."
+      ],
+      "avoid": [
+        "Altering pack labels, colours or proportions.",
+        "Synthetic or over-glossy food styling."
+      ]
+    },
+    {
+      "assetId": "RRO-04",
+      "format": "reel",
+      "portfolioId": "rro-dairy",
+      "skuIds": [
+        "mozzarella-cheese-for-pizza"
+      ],
+      "visualConcept": "A clean, honest kitchen frame built around the cheese pull is not the proof, product pack fully legible.",
+      "artDirection": "Warm natural light, credible commercial food photography, no synthetic gloss.",
+      "palette": [
+        "deep blue",
+        "warm yellow",
+        "white"
+      ],
+      "typography": "Clean sans-serif on-creative text, high contrast against the plate.",
+      "composition": "Product held at eye level in the first third of frame; dish fills the rest.",
+      "productionMode": "lifestyle-shoot",
+      "referenceQueries": [
+        "The cheese pull is not the proof kitchen photography reference"
+      ],
+      "references": [
+        {
+          "url": "https://example.com/reference/kitchen-light",
+          "title": "Warm kitchen light reference",
+          "source": "Synthetic fixture placeholder",
+          "useFor": "Lighting and palette reference only",
+          "rightsNote": "Reference only — not licensed for use in the final asset; clear rights before any reuse."
+        }
+      ],
+      "shotList": [
+        {
+          "shot": "Open",
+          "framing": "Close-up on pack",
+          "action": "Static hold, 2s",
+          "productVisibility": "Full label legible",
+          "copyPlacement": "Lower third"
+        },
+        {
+          "shot": "Middle",
+          "framing": "Medium, hands in frame",
+          "action": "Product used in the dish",
+          "productVisibility": "Pack visible in-hand",
+          "copyPlacement": "None — voiceover only"
+        },
+        {
+          "shot": "Close",
+          "framing": "Plated final shot",
+          "action": "Slow push-in",
+          "productVisibility": "Pack placed beside plate",
+          "copyPlacement": "Upper third, brand mark"
+        }
+      ],
+      "designNotes": [
+        "Keep the cheese pull is not the proof grounded in a real, specific dish — not a generic spread."
+      ],
+      "avoid": [
+        "Altering pack labels, colours or proportions.",
+        "Synthetic or over-glossy food styling."
+      ]
+    },
+    {
+      "assetId": "RRO-05",
+      "format": "reel",
+      "portfolioId": "rro-dairy",
+      "skuIds": [
+        "burrata-cheese"
+      ],
+      "visualConcept": "A clean, honest kitchen frame built around the burrata you were saving, product pack fully legible.",
+      "artDirection": "Warm natural light, credible commercial food photography, no synthetic gloss.",
+      "palette": [
+        "deep blue",
+        "warm yellow",
+        "white"
+      ],
+      "typography": "Clean sans-serif on-creative text, high contrast against the plate.",
+      "composition": "Product held at eye level in the first third of frame; dish fills the rest.",
+      "productionMode": "lifestyle-shoot",
+      "referenceQueries": [
+        "The burrata you were saving kitchen photography reference"
+      ],
+      "references": [
+        {
+          "url": "https://example.com/reference/kitchen-light",
+          "title": "Warm kitchen light reference",
+          "source": "Synthetic fixture placeholder",
+          "useFor": "Lighting and palette reference only",
+          "rightsNote": "Reference only — not licensed for use in the final asset; clear rights before any reuse."
+        }
+      ],
+      "shotList": [
+        {
+          "shot": "Open",
+          "framing": "Close-up on pack",
+          "action": "Static hold, 2s",
+          "productVisibility": "Full label legible",
+          "copyPlacement": "Lower third"
+        },
+        {
+          "shot": "Middle",
+          "framing": "Medium, hands in frame",
+          "action": "Product used in the dish",
+          "productVisibility": "Pack visible in-hand",
+          "copyPlacement": "None — voiceover only"
+        },
+        {
+          "shot": "Close",
+          "framing": "Plated final shot",
+          "action": "Slow push-in",
+          "productVisibility": "Pack placed beside plate",
+          "copyPlacement": "Upper third, brand mark"
+        }
+      ],
+      "designNotes": [
+        "Keep the burrata you were saving grounded in a real, specific dish — not a generic spread."
+      ],
+      "avoid": [
+        "Altering pack labels, colours or proportions.",
+        "Synthetic or over-glossy food styling."
+      ]
+    },
+    {
+      "assetId": "RRO-06",
+      "format": "reel",
+      "portfolioId": "expressfoods-cereal",
+      "skuIds": [
+        "peanut-butter-granola-cereal"
+      ],
+      "visualConcept": "A clean, honest kitchen frame built around breakfast leaves the house, product pack fully legible.",
+      "artDirection": "Warm natural light, credible commercial food photography, no synthetic gloss.",
+      "palette": [
+        "deep blue",
+        "warm yellow",
+        "white"
+      ],
+      "typography": "Clean sans-serif on-creative text, high contrast against the plate.",
+      "composition": "Product held at eye level in the first third of frame; dish fills the rest.",
+      "productionMode": "lifestyle-shoot",
+      "referenceQueries": [
+        "Breakfast leaves the house kitchen photography reference"
+      ],
+      "references": [
+        {
+          "url": "https://example.com/reference/kitchen-light",
+          "title": "Warm kitchen light reference",
+          "source": "Synthetic fixture placeholder",
+          "useFor": "Lighting and palette reference only",
+          "rightsNote": "Reference only — not licensed for use in the final asset; clear rights before any reuse."
+        }
+      ],
+      "shotList": [
+        {
+          "shot": "Open",
+          "framing": "Close-up on pack",
+          "action": "Static hold, 2s",
+          "productVisibility": "Full label legible",
+          "copyPlacement": "Lower third"
+        },
+        {
+          "shot": "Middle",
+          "framing": "Medium, hands in frame",
+          "action": "Product used in the dish",
+          "productVisibility": "Pack visible in-hand",
+          "copyPlacement": "None — voiceover only"
+        },
+        {
+          "shot": "Close",
+          "framing": "Plated final shot",
+          "action": "Slow push-in",
+          "productVisibility": "Pack placed beside plate",
+          "copyPlacement": "Upper third, brand mark"
+        }
+      ],
+      "designNotes": [
+        "Keep breakfast leaves the house grounded in a real, specific dish — not a generic spread."
+      ],
+      "avoid": [
+        "Altering pack labels, colours or proportions.",
+        "Synthetic or over-glossy food styling."
+      ]
+    },
+    {
+      "assetId": "RRO-07",
+      "format": "carousel",
+      "portfolioId": "rro-oil",
+      "skuIds": [
+        "primio-refined-groundnut-oil",
+        "filtered-groundnut-oil"
+      ],
+      "visualConcept": "A clean, honest kitchen frame built around the wrong oil question, product pack fully legible.",
+      "artDirection": "Warm natural light, credible commercial food photography, no synthetic gloss.",
+      "palette": [
+        "deep blue",
+        "warm yellow",
+        "white"
+      ],
+      "typography": "Clean sans-serif on-creative text, high contrast against the plate.",
+      "composition": "Product held at eye level in the first third of frame; dish fills the rest.",
+      "productionMode": "product-shoot",
+      "referenceQueries": [
+        "The wrong oil question kitchen photography reference"
+      ],
+      "references": [
+        {
+          "url": "https://example.com/reference/kitchen-light",
+          "title": "Warm kitchen light reference",
+          "source": "Synthetic fixture placeholder",
+          "useFor": "Lighting and palette reference only",
+          "rightsNote": "Reference only — not licensed for use in the final asset; clear rights before any reuse."
+        }
+      ],
+      "shotList": [
+        {
+          "shot": "Hero",
+          "framing": "Top-down or 3/4 product shot",
+          "action": "Static",
+          "productVisibility": "Pack fully legible, hero position",
+          "copyPlacement": "Lower third"
+        }
+      ],
+      "designNotes": [
+        "Keep the wrong oil question grounded in a real, specific dish — not a generic spread."
+      ],
+      "avoid": [
+        "Altering pack labels, colours or proportions.",
+        "Synthetic or over-glossy food styling."
+      ]
+    },
+    {
+      "assetId": "RRO-08",
+      "format": "carousel",
+      "portfolioId": "rro-dairy",
+      "skuIds": [
+        "sharp-cheddar-cheese",
+        "gouda-cheese"
+      ],
+      "visualConcept": "A clean, honest kitchen frame built around the loudest cheese wins the wrong dish, product pack fully legible.",
+      "artDirection": "Warm natural light, credible commercial food photography, no synthetic gloss.",
+      "palette": [
+        "deep blue",
+        "warm yellow",
+        "white"
+      ],
+      "typography": "Clean sans-serif on-creative text, high contrast against the plate.",
+      "composition": "Product held at eye level in the first third of frame; dish fills the rest.",
+      "productionMode": "product-shoot",
+      "referenceQueries": [
+        "The loudest cheese wins the wrong dish kitchen photography reference"
+      ],
+      "references": [
+        {
+          "url": "https://example.com/reference/kitchen-light",
+          "title": "Warm kitchen light reference",
+          "source": "Synthetic fixture placeholder",
+          "useFor": "Lighting and palette reference only",
+          "rightsNote": "Reference only — not licensed for use in the final asset; clear rights before any reuse."
+        }
+      ],
+      "shotList": [
+        {
+          "shot": "Hero",
+          "framing": "Top-down or 3/4 product shot",
+          "action": "Static",
+          "productVisibility": "Pack fully legible, hero position",
+          "copyPlacement": "Lower third"
+        }
+      ],
+      "designNotes": [
+        "Keep the loudest cheese wins the wrong dish grounded in a real, specific dish — not a generic spread."
+      ],
+      "avoid": [
+        "Altering pack labels, colours or proportions.",
+        "Synthetic or over-glossy food styling."
+      ]
+    },
+    {
+      "assetId": "RRO-09",
+      "format": "carousel",
+      "portfolioId": "expressfoods-cereal",
+      "skuIds": [
+        "raisin-and-almond-granola"
+      ],
+      "visualConcept": "A clean, honest kitchen frame built around the bowl you pour versus the bowl you eat, product pack fully legible.",
+      "artDirection": "Warm natural light, credible commercial food photography, no synthetic gloss.",
+      "palette": [
+        "deep blue",
+        "warm yellow",
+        "white"
+      ],
+      "typography": "Clean sans-serif on-creative text, high contrast against the plate.",
+      "composition": "Product held at eye level in the first third of frame; dish fills the rest.",
+      "productionMode": "product-shoot",
+      "referenceQueries": [
+        "The bowl you pour versus the bowl you eat kitchen photography reference"
+      ],
+      "references": [
+        {
+          "url": "https://example.com/reference/kitchen-light",
+          "title": "Warm kitchen light reference",
+          "source": "Synthetic fixture placeholder",
+          "useFor": "Lighting and palette reference only",
+          "rightsNote": "Reference only — not licensed for use in the final asset; clear rights before any reuse."
+        }
+      ],
+      "shotList": [
+        {
+          "shot": "Hero",
+          "framing": "Top-down or 3/4 product shot",
+          "action": "Static",
+          "productVisibility": "Pack fully legible, hero position",
+          "copyPlacement": "Lower third"
+        }
+      ],
+      "designNotes": [
+        "Keep the bowl you pour versus the bowl you eat grounded in a real, specific dish — not a generic spread."
+      ],
+      "avoid": [
+        "Altering pack labels, colours or proportions.",
+        "Synthetic or over-glossy food styling."
+      ]
+    },
+    {
+      "assetId": "RRO-10",
+      "format": "carousel",
+      "portfolioId": "expressfoods-cereal",
+      "skuIds": [
+        "protein-power-granola"
+      ],
+      "visualConcept": "A clean, honest kitchen frame built around protein on the front, context on the back, product pack fully legible.",
+      "artDirection": "Warm natural light, credible commercial food photography, no synthetic gloss.",
+      "palette": [
+        "deep blue",
+        "warm yellow",
+        "white"
+      ],
+      "typography": "Clean sans-serif on-creative text, high contrast against the plate.",
+      "composition": "Product held at eye level in the first third of frame; dish fills the rest.",
+      "productionMode": "product-shoot",
+      "referenceQueries": [
+        "Protein on the front, context on the back kitchen photography reference"
+      ],
+      "references": [
+        {
+          "url": "https://example.com/reference/kitchen-light",
+          "title": "Warm kitchen light reference",
+          "source": "Synthetic fixture placeholder",
+          "useFor": "Lighting and palette reference only",
+          "rightsNote": "Reference only — not licensed for use in the final asset; clear rights before any reuse."
+        }
+      ],
+      "shotList": [
+        {
+          "shot": "Hero",
+          "framing": "Top-down or 3/4 product shot",
+          "action": "Static",
+          "productVisibility": "Pack fully legible, hero position",
+          "copyPlacement": "Lower third"
+        }
+      ],
+      "designNotes": [
+        "Keep protein on the front, context on the back grounded in a real, specific dish — not a generic spread."
+      ],
+      "avoid": [
+        "Altering pack labels, colours or proportions.",
+        "Synthetic or over-glossy food styling."
+      ]
+    },
+    {
+      "assetId": "RRO-11",
+      "format": "static",
+      "portfolioId": "rro-oil",
+      "skuIds": [
+        "mastdil-premium-mustard-oil"
+      ],
+      "visualConcept": "A clean, honest kitchen frame built around november festival, october feed, product pack fully legible.",
+      "artDirection": "Warm natural light, credible commercial food photography, no synthetic gloss.",
+      "palette": [
+        "deep blue",
+        "warm yellow",
+        "white"
+      ],
+      "typography": "Clean sans-serif on-creative text, high contrast against the plate.",
+      "composition": "Product held at eye level in the first third of frame; dish fills the rest.",
+      "productionMode": "product-shoot",
+      "referenceQueries": [
+        "November festival, October feed kitchen photography reference"
+      ],
+      "references": [
+        {
+          "url": "https://example.com/reference/kitchen-light",
+          "title": "Warm kitchen light reference",
+          "source": "Synthetic fixture placeholder",
+          "useFor": "Lighting and palette reference only",
+          "rightsNote": "Reference only — not licensed for use in the final asset; clear rights before any reuse."
+        }
+      ],
+      "shotList": [
+        {
+          "shot": "Hero",
+          "framing": "Top-down or 3/4 product shot",
+          "action": "Static",
+          "productVisibility": "Pack fully legible, hero position",
+          "copyPlacement": "Lower third"
+        }
+      ],
+      "designNotes": [
+        "Keep november festival, october feed grounded in a real, specific dish — not a generic spread."
+      ],
+      "avoid": [
+        "Altering pack labels, colours or proportions.",
+        "Synthetic or over-glossy food styling."
+      ]
+    },
+    {
+      "assetId": "RRO-12",
+      "format": "static",
+      "portfolioId": "rro-dairy",
+      "skuIds": [
+        "cream-cheese"
+      ],
+      "visualConcept": "A clean, honest kitchen frame built around the ingredient hidden by the garnish, product pack fully legible.",
+      "artDirection": "Warm natural light, credible commercial food photography, no synthetic gloss.",
+      "palette": [
+        "deep blue",
+        "warm yellow",
+        "white"
+      ],
+      "typography": "Clean sans-serif on-creative text, high contrast against the plate.",
+      "composition": "Product held at eye level in the first third of frame; dish fills the rest.",
+      "productionMode": "product-shoot",
+      "referenceQueries": [
+        "The ingredient hidden by the garnish kitchen photography reference"
+      ],
+      "references": [
+        {
+          "url": "https://example.com/reference/kitchen-light",
+          "title": "Warm kitchen light reference",
+          "source": "Synthetic fixture placeholder",
+          "useFor": "Lighting and palette reference only",
+          "rightsNote": "Reference only — not licensed for use in the final asset; clear rights before any reuse."
+        }
+      ],
+      "shotList": [
+        {
+          "shot": "Hero",
+          "framing": "Top-down or 3/4 product shot",
+          "action": "Static",
+          "productVisibility": "Pack fully legible, hero position",
+          "copyPlacement": "Lower third"
+        }
+      ],
+      "designNotes": [
+        "Keep the ingredient hidden by the garnish grounded in a real, specific dish — not a generic spread."
+      ],
+      "avoid": [
+        "Altering pack labels, colours or proportions.",
+        "Synthetic or over-glossy food styling."
+      ]
+    },
+    {
+      "assetId": "RRO-13",
+      "format": "static",
+      "portfolioId": "expressfoods-cereal",
+      "skuIds": [
+        "harvest-crunch-cereal-no-added-sugar"
+      ],
+      "visualConcept": "A clean, honest kitchen frame built around the front is a signal, not the whole label, product pack fully legible.",
+      "artDirection": "Warm natural light, credible commercial food photography, no synthetic gloss.",
+      "palette": [
+        "deep blue",
+        "warm yellow",
+        "white"
+      ],
+      "typography": "Clean sans-serif on-creative text, high contrast against the plate.",
+      "composition": "Product held at eye level in the first third of frame; dish fills the rest.",
+      "productionMode": "product-shoot",
+      "referenceQueries": [
+        "The front is a signal, not the whole label kitchen photography reference"
+      ],
+      "references": [
+        {
+          "url": "https://example.com/reference/kitchen-light",
+          "title": "Warm kitchen light reference",
+          "source": "Synthetic fixture placeholder",
+          "useFor": "Lighting and palette reference only",
+          "rightsNote": "Reference only — not licensed for use in the final asset; clear rights before any reuse."
+        }
+      ],
+      "shotList": [
+        {
+          "shot": "Hero",
+          "framing": "Top-down or 3/4 product shot",
+          "action": "Static",
+          "productVisibility": "Pack fully legible, hero position",
+          "copyPlacement": "Lower third"
+        }
+      ],
+      "designNotes": [
+        "Keep the front is a signal, not the whole label grounded in a real, specific dish — not a generic spread."
+      ],
+      "avoid": [
+        "Altering pack labels, colours or proportions.",
+        "Synthetic or over-glossy food styling."
+      ]
+    }
+  ],
+  "productionNotes": [
+    "Batch the oil-portfolio shoots on the same day — same kitchen set works for all three."
+  ]
+}

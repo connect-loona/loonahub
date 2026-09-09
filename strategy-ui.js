@@ -43,14 +43,38 @@
       .toLocaleDateString("en-IN", { month: "long", year: "numeric" });
   }
 
+  // Every stage's status follows `${stageKey}_${state}` (research/strategy/copy/
+  // creative-direction/deck-builder × running/needs_review/changes_requested/approved) —
+  // see pipeline.js and strategy-stage-approve.js. Kept as one table indexed by stage key
+  // instead of a run of near-identical if-statements, so a new stage is one line here.
+  var REVIEW_COPY = {
+    research: ["Review the research", "Review research"],
+    strategy: ["Review the monthly strategy", "Review strategy"],
+    copy: ["Review the copy", "Review copy"],
+    "creative-direction": ["Review the creative direction", "Review creative direction"],
+    "deck-builder": ["Review the finished deck", "Review deck"],
+  };
+  var RUNNING_COPY = {
+    research: "Research is underway",
+    strategy: "Creating the strategy",
+    copy: "Writing the copy",
+    "creative-direction": "Directing the shoot",
+    "deck-builder": "Building the deck",
+  };
+  var STAGE_KEYS = ["research", "strategy", "copy", "creative-direction", "deck-builder"];
+
   function actionFor(run) {
     var status = run && run.status;
-    if (status === "research_needs_review") return [0, "Your next action", "Review the research", "Review research"];
-    if (status === "strategy_needs_review") return [0, "Your next action", "Review the monthly strategy", "Review strategy"];
+    if (!status) return null;
     if (status === "failed") return [1, "Needs attention", "A strategy run needs help", "See what happened"];
-    if (status === "research_changes_requested" || status === "strategy_changes_requested") return [2, "Waiting for revision", "Changes have been sent back", "Open run"];
-    if (status === "research_running" || status === "strategy_running" || status === "queued") {
-      return [3, "Work in progress", status === "strategy_running" ? "Creating the strategy" : "Research is underway", "View progress"];
+    if (status === "deck-builder_approved") return null; // finished — nothing left to review
+    for (var i = 0; i < STAGE_KEYS.length; i++) {
+      var stage = STAGE_KEYS[i];
+      if (status === stage + "_needs_review") return [0, "Your next action", REVIEW_COPY[stage][0], REVIEW_COPY[stage][1]];
+      if (status === stage + "_changes_requested") return [2, "Waiting for revision", "Changes have been sent back", "Open run"];
+      if (status === stage + "_running" || (stage === "research" && status === "queued")) {
+        return [3, "Work in progress", RUNNING_COPY[stage], "View progress"];
+      }
     }
     return null;
   }
@@ -239,8 +263,16 @@
 
   function stageRail(run) {
     var stages = ["Research", "Strategy", "Copy", "Creative direction", "Canva deck"];
-    var current = run.status && run.status.indexOf("strategy") === 0 ? 1 : 0;
-    if (run.status && (run.status.indexOf("copy") === 0 || run.status === "strategy_approved")) current = 2;
+    // run.status is always `${stageKey}_${state}` for one of STAGE_KEYS (see actionFor's
+    // comment) — the rail's "current" index is just that stage's position, with the one
+    // exception that "<stage>_approved" means the run has moved ON to the next stage
+    // (or, for the last stage, is simply finished).
+    var current = 0;
+    for (var i = 0; i < STAGE_KEYS.length; i++) {
+      if (run.status && run.status.indexOf(STAGE_KEYS[i]) === 0) {
+        current = run.status === STAGE_KEYS[i] + "_approved" ? i + 1 : i;
+      }
+    }
     var rail = document.createElement("div");
     rail.className = "so-stage-rail";
     rail.innerHTML = stages.map(function (label, index) {
@@ -283,7 +315,11 @@
     Array.from(root.children).forEach(function (child) {
       if (child === header || child === oldStrip || child === rail || child === workspace) return;
       var heading = child.querySelector && child.querySelector(".bh");
-      if (heading && heading.textContent.trim() === "Review and decide") review.appendChild(child);
+      // "Your next action" is the single Approve/Send back/Retry card every stage now
+      // renders (index.html's nextActionCardHtml) — it replaced the old per-stage
+      // "Decision" board this sidebar used to look for, so route it here the same way.
+      var headingText = heading && heading.textContent.trim();
+      if (headingText === "Review and decide" || headingText === "Your next action") review.appendChild(child);
       else main.appendChild(child);
     });
     if (!review.children.length) review.innerHTML = '<div class="bh">Review status</div><div class="so-memory-value" style="color:var(--muted)">This stage is already approved or still running.</div>';

@@ -19,6 +19,9 @@ function readMd(p) { return fs.readFileSync(path.join(BASE, p), 'utf8'); }
 const houseRules = readMd('prompts/house-rules.md');
 const researchPrompt = readMd('prompts/01-research.md');
 const strategyPrompt = readMd('prompts/02-strategy.md');
+const copyPrompt = readMd('prompts/03-copy.md');
+const directionPrompt = readMd('prompts/04-creative-direction.md');
+const deckBuilderPrompt = readMd('prompts/05-deck-builder.md');
 const rroLearnings = readMd('seed/rro.learnings.md');
 
 const header = [
@@ -43,8 +46,11 @@ const body =
   'const HOUSE_RULES = `' + jsEscape(houseRules) + '`;\n\n' +
   'const RESEARCH_PROMPT = `' + jsEscape(researchPrompt) + '`;\n\n' +
   'const STRATEGY_PROMPT = `' + jsEscape(strategyPrompt) + '`;\n\n' +
+  'const COPY_PROMPT = `' + jsEscape(copyPrompt) + '`;\n\n' +
+  'const DIRECTION_PROMPT = `' + jsEscape(directionPrompt) + '`;\n\n' +
+  'const DECK_BUILDER_PROMPT = `' + jsEscape(deckBuilderPrompt) + '`;\n\n' +
   'const RRO_LEARNINGS_SEED = `' + jsEscape(rroLearnings) + '`;\n\n' +
-  'module.exports = { HOUSE_RULES, RESEARCH_PROMPT, STRATEGY_PROMPT, RRO_LEARNINGS_SEED };\n';
+  'module.exports = { HOUSE_RULES, RESEARCH_PROMPT, STRATEGY_PROMPT, COPY_PROMPT, DIRECTION_PROMPT, DECK_BUILDER_PROMPT, RRO_LEARNINGS_SEED };\n';
 
 fs.writeFileSync(path.join(BASE, 'prompts-data.js'), header + body);
 console.log('wrote prompts-data.js, ' + (header + body).length + ' bytes');
