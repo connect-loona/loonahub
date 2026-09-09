@@ -1,0 +1,388 @@
+{
+  "brandId": "rro",
+  "month": "2026-10",
+  "researchedAt": "2026-09-08T00:00:00.000Z",
+  "categoryFrame": "Synthetic test fixture for a multi-portfolio Indian food brand.",
+  "sources": [
+    {
+      "id": "S1",
+      "type": "brand",
+      "title": "Synthetic fixture S1",
+      "url": "https://example.com/fixture/s1",
+      "publishedAt": null,
+      "accessedAt": "2026-09-08T00:00:00.000Z",
+      "evidence": "Synthetic contract-test evidence; never use in published work."
+    },
+    {
+      "id": "S2",
+      "type": "government",
+      "title": "Synthetic fixture S2",
+      "url": "https://example.com/fixture/s2",
+      "publishedAt": null,
+      "accessedAt": "2026-09-08T00:00:00.000Z",
+      "evidence": "Synthetic contract-test evidence; never use in published work."
+    },
+    {
+      "id": "S3",
+      "type": "publisher",
+      "title": "Synthetic fixture S3",
+      "url": "https://example.com/fixture/s3",
+      "publishedAt": null,
+      "accessedAt": "2026-09-08T00:00:00.000Z",
+      "evidence": "Synthetic contract-test evidence; never use in published work."
+    },
+    {
+      "id": "S4",
+      "type": "forum",
+      "title": "Synthetic fixture S4",
+      "url": "https://example.com/fixture/s4",
+      "publishedAt": null,
+      "accessedAt": "2026-09-08T00:00:00.000Z",
+      "evidence": "Synthetic contract-test evidence; never use in published work."
+    },
+    {
+      "id": "S5",
+      "type": "comment",
+      "title": "Synthetic fixture S5",
+      "url": "https://example.com/fixture/s5",
+      "publishedAt": null,
+      "accessedAt": "2026-09-08T00:00:00.000Z",
+      "evidence": "Synthetic contract-test evidence; never use in published work."
+    },
+    {
+      "id": "S6",
+      "type": "review",
+      "title": "Synthetic fixture S6",
+      "url": "https://example.com/fixture/s6",
+      "publishedAt": null,
+      "accessedAt": "2026-09-08T00:00:00.000Z",
+      "evidence": "Synthetic contract-test evidence; never use in published work."
+    },
+    {
+      "id": "S7",
+      "type": "search",
+      "title": "Synthetic fixture S7",
+      "url": "https://example.com/fixture/s7",
+      "publishedAt": null,
+      "accessedAt": "2026-09-08T00:00:00.000Z",
+      "evidence": "Synthetic contract-test evidence; never use in published work."
+    },
+    {
+      "id": "S8",
+      "type": "forum",
+      "title": "Synthetic fixture S8",
+      "url": "https://example.com/fixture/s8",
+      "publishedAt": null,
+      "accessedAt": "2026-09-08T00:00:00.000Z",
+      "evidence": "Synthetic contract-test evidence; never use in published work."
+    },
+    {
+      "id": "S9",
+      "type": "comment",
+      "title": "Synthetic fixture S9",
+      "url": "https://example.com/fixture/s9",
+      "publishedAt": null,
+      "accessedAt": "2026-09-08T00:00:00.000Z",
+      "evidence": "Synthetic contract-test evidence; never use in published work."
+    },
+    {
+      "id": "S10",
+      "type": "review",
+      "title": "Synthetic fixture S10",
+      "url": "https://example.com/fixture/s10",
+      "publishedAt": null,
+      "accessedAt": "2026-09-08T00:00:00.000Z",
+      "evidence": "Synthetic contract-test evidence; never use in published work."
+    }
+  ],
+  "liveQuestions": [
+    {
+      "id": "LQ-01",
+      "verbatim": "Why does my mother's recipe taste different?",
+      "underlyingNeed": "Recover inherited flavour",
+      "sourceIds": [
+        "S4"
+      ]
+    },
+    {
+      "id": "LQ-02",
+      "verbatim": "Can I use this frying oil again?",
+      "underlyingNeed": "Make a safe keep-or-discard decision",
+      "sourceIds": [
+        "S5"
+      ]
+    },
+    {
+      "id": "LQ-03",
+      "verbatim": "Which oil is actually best for daily cooking?",
+      "underlyingNeed": "Reduce a complex decision to one answer",
+      "sourceIds": [
+        "S7"
+      ]
+    },
+    {
+      "id": "LQ-04",
+      "verbatim": "Why does my pizza cheese turn rubbery?",
+      "underlyingNeed": "Improve melt and eating texture",
+      "sourceIds": [
+        "S6"
+      ]
+    },
+    {
+      "id": "LQ-05",
+      "verbatim": "How soon should I eat burrata after opening it?",
+      "underlyingNeed": "Protect a premium fresh-food experience",
+      "sourceIds": [
+        "S8"
+      ]
+    },
+    {
+      "id": "LQ-06",
+      "verbatim": "Is sharper cheddar always better?",
+      "underlyingNeed": "Choose intensity for the right use",
+      "sourceIds": [
+        "S9"
+      ]
+    },
+    {
+      "id": "LQ-07",
+      "verbatim": "What can I eat between back-to-back meetings?",
+      "underlyingNeed": "Solve rushed hunger",
+      "sourceIds": [
+        "S10"
+      ]
+    },
+    {
+      "id": "LQ-08",
+      "verbatim": "Why does the granola pack finish so fast?",
+      "underlyingNeed": "Understand unmeasured pouring behaviour",
+      "sourceIds": [
+        "S4"
+      ]
+    },
+    {
+      "id": "LQ-09",
+      "verbatim": "Does protein granola count as a protein breakfast?",
+      "underlyingNeed": "Interpret front-of-pack positioning",
+      "sourceIds": [
+        "S5"
+      ]
+    },
+    {
+      "id": "LQ-10",
+      "verbatim": "Do I need to show the packet in every recipe?",
+      "underlyingNeed": "Balance appetite and brand recall",
+      "sourceIds": [
+        "S9"
+      ]
+    }
+  ],
+  "arguments": [
+    {
+      "id": "ARG-01",
+      "disagreement": "One neutral oil versus region-specific flavour",
+      "sideA": "One neutral oil is enough",
+      "sideB": "The oil is part of the recipe's identity",
+      "credibleBrandPosition": "Choose the oil the dish needs",
+      "credibilityReason": "RRO has several distinct oil types",
+      "sourceIds": [
+        "S4",
+        "S1"
+      ]
+    },
+    {
+      "id": "ARG-02",
+      "disagreement": "Visual cheese pull versus balanced eating texture",
+      "sideA": "Longer pull means better cheese",
+      "sideB": "The correct melt depends on the dish",
+      "credibleBrandPosition": "Match the cheese format to the use",
+      "credibilityReason": "RRO Dairy spans fresh, melting and aged formats",
+      "sourceIds": [
+        "S6",
+        "S1"
+      ]
+    },
+    {
+      "id": "ARG-03",
+      "disagreement": "A single healthiest oil versus application-led choice",
+      "sideA": "One oil should win",
+      "sideB": "Dish, flavour and heat change the choice",
+      "credibleBrandPosition": "Start with the dish",
+      "credibilityReason": "RRO Oil has specialist products",
+      "sourceIds": [
+        "S7",
+        "S1"
+      ]
+    },
+    {
+      "id": "ARG-04",
+      "disagreement": "Front-of-pack claim versus full label context",
+      "sideA": "One claim settles the choice",
+      "sideB": "The full product still matters",
+      "credibleBrandPosition": "Use exact claims without turning them into a halo",
+      "credibilityReason": "ExpressFoods has claim-specific SKUs",
+      "sourceIds": [
+        "S5",
+        "S1"
+      ]
+    }
+  ],
+  "unspokenBehaviours": [
+    {
+      "id": "UB-01",
+      "behaviour": "People substitute the household oil and blame their technique",
+      "hiddenTension": "The recipe is exact but the inherited flavour carrier changed",
+      "sourceIds": [
+        "S4"
+      ]
+    },
+    {
+      "id": "UB-02",
+      "behaviour": "Households save frying oil without a shared decision rule",
+      "hiddenTension": "Waste avoidance and uncertainty pull in opposite directions",
+      "sourceIds": [
+        "S5"
+      ]
+    },
+    {
+      "id": "UB-03",
+      "behaviour": "People save fresh premium ingredients for a later occasion",
+      "hiddenTension": "Waiting can work against the special experience",
+      "sourceIds": [
+        "S8"
+      ]
+    },
+    {
+      "id": "UB-04",
+      "behaviour": "People skip breakfast at home then snack during work",
+      "hiddenTension": "The time saved is borrowed back later",
+      "sourceIds": [
+        "S10"
+      ]
+    },
+    {
+      "id": "UB-05",
+      "behaviour": "People pour granola by eye into oversized bowls",
+      "hiddenTension": "The pack seems to disappear faster than expected",
+      "sourceIds": [
+        "S4"
+      ]
+    }
+  ],
+  "exhaustedTerritory": [
+    {
+      "id": "EX-01",
+      "territory": "Generic recipe reel",
+      "reasonExhausted": "Logo-swappable",
+      "sourceIds": []
+    },
+    {
+      "id": "EX-02",
+      "territory": "Healthy breakfast list",
+      "reasonExhausted": "Unsupported and generic",
+      "sourceIds": []
+    },
+    {
+      "id": "EX-03",
+      "territory": "Oil storage tips",
+      "reasonExhausted": "Overused utility",
+      "sourceIds": []
+    },
+    {
+      "id": "EX-04",
+      "territory": "Granola versus muesli definition",
+      "reasonExhausted": "Dictionary content",
+      "sourceIds": []
+    },
+    {
+      "id": "EX-05",
+      "territory": "Festival greeting",
+      "reasonExhausted": "No brand tension",
+      "sourceIds": []
+    },
+    {
+      "id": "EX-06",
+      "territory": "Cheese pull montage",
+      "reasonExhausted": "Pure category spectacle",
+      "sourceIds": []
+    }
+  ],
+  "calendar": [
+    {
+      "id": "CAL-01",
+      "date": "2026-11-08",
+      "moment": "Diwali 2026",
+      "relevance": "Changes the October festive-content rhythm",
+      "confidence": "verified",
+      "sourceIds": [
+        "S2"
+      ]
+    }
+  ],
+  "whitespace": [
+    {
+      "id": "WS-01",
+      "opening": "Oil as inherited regional identity",
+      "brandRightToSpeak": "Nine oil SKUs",
+      "sourceIds": [
+        "S4",
+        "S1"
+      ]
+    },
+    {
+      "id": "WS-02",
+      "opening": "Product visibility as a memory decision",
+      "brandRightToSpeak": "Multi-SKU portfolio depends on exact packs",
+      "sourceIds": [
+        "S9",
+        "S1"
+      ]
+    },
+    {
+      "id": "WS-03",
+      "opening": "Fresh ingredients saved past their best moment",
+      "brandRightToSpeak": "Fresh-cheese portfolio",
+      "sourceIds": [
+        "S8",
+        "S1"
+      ]
+    },
+    {
+      "id": "WS-04",
+      "opening": "Calendar autopilot",
+      "brandRightToSpeak": "Seasonal food planning",
+      "sourceIds": [
+        "S2"
+      ]
+    }
+  ],
+  "verifiedFacts": [
+    {
+      "fact": "The configured scope is 6 reels, 4 carousels and 3 statics, pending contract confirmation.",
+      "sourceIds": [
+        "S1"
+      ],
+      "usableInCopy": false
+    },
+    {
+      "fact": "Diwali 2026 falls on 8 November in this synthetic fixture.",
+      "sourceIds": [
+        "S2"
+      ],
+      "usableInCopy": true
+    }
+  ],
+  "unknowns": [
+    "Google Drive brief and brand-guideline folder",
+    "Approved moodboards",
+    "Exact master-brand hex codes",
+    "Confirmation that 6 reels, 4 carousels and 3 statics remain the active scope",
+    "Client-approved competitor list",
+    "Definitive shipping geography by portfolio",
+    "Complete internal SKU catalogue, pack sizes, ingredients and approved claims",
+    "The twentieth dairy SKU reported by the live collection"
+  ],
+  "researchNotes": [
+    "All evidence URLs in this fixture are synthetic and must never be published."
+  ]
+}

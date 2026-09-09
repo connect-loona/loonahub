@@ -1,0 +1,354 @@
+{
+  "schemaVersion": "1.0",
+  "id": "rro",
+  "name": "RRO Foods",
+  "category": "Indian food company spanning edible oils, cheese and dairy products, and breakfast cereals",
+  "market": ["Maharashtra, India", "Mumbai, India"],
+  "aspirationalMarkets": ["India"],
+  "website": "https://rropl.com/",
+  "driveFolderUrl": null,
+  "oneLineTruth": "RRO wins when the product is not merely displayed, but made immediately useful: the right ingredient, in the right dish, for a kitchen people recognise.",
+  "deliverables": {
+    "reel": 6,
+    "carousel": 4,
+    "static": 3,
+    "confirmed": false
+  },
+  "voice": {
+    "descriptors": ["warm", "trustworthy", "practical", "appetising"],
+    "principles": [
+      "Make the product immediately useful.",
+      "Prefer ingredient and cooking accuracy over decorative language.",
+      "Build appetite, usefulness and trust before asking for action.",
+      "Keep feed copy English-led and clean."
+    ],
+    "bannedWords": ["elevate", "unlock", "game-changer", "indulge", "redefine", "revolutionary", "ultimate"],
+    "bannedMoves": [
+      "Vague wellness language or exaggerated nutrition promises",
+      "The secret to good health",
+      "Treating every oil as interchangeable",
+      "Calling sesame oil a universal everyday oil",
+      "Forced poetry unrelated to the visible food or product",
+      "Unsupported medical or disease-prevention claims"
+    ],
+    "emojiRule": "No emojis in established feed copy unless a named campaign explicitly requires them.",
+    "languageRule": "English only for established feed copy; no Hinglish."
+  },
+  "audiences": [
+    {
+      "id": "household-cook",
+      "description": "Household grocery decision-maker and everyday home cook",
+      "buyingSituation": "Choosing dependable ingredients that taste good, perform reliably and feel trustworthy enough to serve the family",
+      "trigger": "Seeing the exact product used convincingly in food they already want to make"
+    },
+    {
+      "id": "urban-food-maker",
+      "description": "Younger urban home cooks, bakers, hosts, food creators and professional kitchens",
+      "buyingSituation": "Recreating restaurant-style food or solving a specific cooking, baking, breakfast or hosting need",
+      "trigger": "A precise use case, credible texture and clear product-to-dish fit"
+    }
+  ],
+  "visual": {
+    "feel": ["warm", "appetising", "honest", "polished", "familiar"],
+    "palette": ["deep blue", "white", "red", "warm yellow", "gold", "SKU pack colours"],
+    "principles": [
+      "Use crisp commercial product photography and credible food texture.",
+      "Use warm natural light and golden-hour agricultural cues for oils.",
+      "Keep dairy and breakfast arrangements clean and useful.",
+      "Keep the product and exact pack visible as the hero."
+    ],
+    "avoid": [
+      "Altering or redrawing labels, logos, pack colours, names or bottle proportions",
+      "Synthetic, over-glossy or visibly AI-generated food",
+      "Excessive food, crumbs, seeds or irrelevant garnish",
+      "A dish that does not genuinely use the featured product",
+      "Styling that obscures the pack or product name",
+      "Random luxury treatments that make everyday food inaccessible",
+      "Ingredients or props that conflict with the recipe, season or product"
+    ]
+  },
+  "pillars": [
+    {
+      "id": "use-education",
+      "name": "Product and usage education",
+      "description": "Oil differences, correct applications, cheese handling, cereal distinctions and practical guidance",
+      "targetShare": 0.2
+    },
+    {
+      "id": "recipes-serving",
+      "name": "Recipes and serving inspiration",
+      "description": "Indian food, tadkas, stir-fries, marinades, snacks, breakfast combinations and cheese-led recipes",
+      "targetShare": 0.2
+    },
+    {
+      "id": "seasonal",
+      "name": "Seasonal food and wellness",
+      "description": "Produce-led content and changing-weather cooking without inflated health claims",
+      "targetShare": 0.15
+    },
+    {
+      "id": "culture",
+      "name": "Festivals and cultural occasions",
+      "description": "Culturally accurate occasions, dishes and product integration",
+      "targetShare": 0.15
+    },
+    {
+      "id": "trust",
+      "name": "Purity, quality and everyday trust",
+      "description": "Ingredient credibility, authentic flavour, product performance and RRO's place at the family table",
+      "targetShare": 0.15
+    },
+    {
+      "id": "kitchen-know-how",
+      "name": "Storage and kitchen know-how",
+      "description": "Ingredient handling, serving and waste-reduction guidance",
+      "targetShare": 0.15
+    }
+  ],
+  "competitors": [],
+  "portfolios": [
+    {
+      "id": "rro-oil",
+      "name": "RRO Oil",
+      "positioning": "Everyday, regional and specialist cooking oils",
+      "audience": ["Family cooks", "Traditional cooks", "People choosing oil by flavour and cooking application"],
+      "namingRules": [
+        "Use the exact product name printed on the approved pack.",
+        "Do not imply that every oil suits every dish or heat level.",
+        "Confirm whether an oil is refined, filtered or cold-pressed before describing it."
+      ],
+      "voiceRules": ["Ground education in a dish, technique or household behaviour."],
+      "visualRules": ["Never alter bottle proportions, labels or pack colours."],
+      "products": [
+        {
+          "id": "primio-refined-groundnut-oil",
+          "name": "Primio Refined Groundnut Oil",
+          "role": "Neutral-tasting oil for high-heat cooking, sauteing, deep-frying and versatile everyday use",
+          "approvedFacts": ["Neutral taste", "Suitable for high-heat cooking", "Suitable for sauteing", "Suitable for deep-frying"],
+          "approvedClaims": [],
+          "prohibitedClaims": ["Healthiest oil", "Prevents disease"],
+          "restrictions": ["Do not describe it as filtered or cold-pressed."]
+        },
+        {
+          "id": "filtered-groundnut-oil",
+          "name": "Filtered Groundnut Oil",
+          "role": "Flavour-forward oil retaining groundnut aroma and nutty sweetness for tadkas and traditional recipes",
+          "approvedFacts": ["Groundnut aroma", "Nutty sweetness", "Suitable for tadkas and traditional recipes"],
+          "approvedClaims": [],
+          "prohibitedClaims": ["Nutritionally superior to refined oil"],
+          "restrictions": ["Do not describe it as neutral-tasting."]
+        },
+        {
+          "id": "mastdil-premium-mustard-oil",
+          "name": "Mastdil Premium Mustard Oil",
+          "role": "Bold, pungent oil for pickles, marinades, tempering and North or East Indian dishes",
+          "approvedFacts": ["Bold and pungent flavour", "Suitable for pickles, marinades and tempering"],
+          "approvedClaims": [],
+          "prohibitedClaims": ["Universal oil for every cuisine"],
+          "restrictions": ["Match it to credible regional dishes."]
+        },
+        {
+          "id": "tildil-premium-til-oil",
+          "name": "TilDil Premium Til Oil",
+          "role": "White sesame oil with nutty richness for South Indian dishes, tadkas, stir-fries, marinades and finishing",
+          "approvedFacts": ["White sesame oil", "Nutty flavour", "Suitable for finishing and final tadkas"],
+          "approvedClaims": [],
+          "prohibitedClaims": ["Universal everyday oil"],
+          "restrictions": ["Never frame it as suitable for every dish."]
+        },
+        {
+          "id": "deepdil-til-oil",
+          "name": "Deepdil Til Oil",
+          "role": "Sesame oil for practical kitchen use; processing and distinction from TilDil remain unconfirmed",
+          "approvedFacts": ["Sesame oil"],
+          "approvedClaims": [],
+          "prohibitedClaims": ["Any processing, flavour or heat claim not confirmed from the current pack"],
+          "restrictions": ["Do not compare it with TilDil until the product distinction is confirmed."]
+        },
+        {
+          "id": "cold-pressed-groundnut-oil",
+          "name": "Cold-Pressed Groundnut Oil",
+          "role": "Nutty oil for medium-heat cooking, multi-cuisine recipes, drizzling and dressings",
+          "approvedFacts": ["Cold-pressed", "Nutty flavour", "Suitable for medium-heat cooking, drizzling and dressings"],
+          "approvedClaims": [],
+          "prohibitedClaims": ["Ideal for prolonged very high-heat frying"],
+          "restrictions": ["Do not position it as the clearest fit for sustained high heat."]
+        },
+        {
+          "id": "cold-pressed-mustard-oil",
+          "name": "Cold-Pressed Mustard Oil",
+          "role": "Pungent oil for tempering, pickles, marinades and North or East Indian recipes",
+          "approvedFacts": ["Cold-pressed", "Pungent flavour", "Suitable for tempering, pickles and marinades"],
+          "approvedClaims": [],
+          "prohibitedClaims": ["Ideal for prolonged very high-heat frying"],
+          "restrictions": ["Use with credible regional dishes."]
+        },
+        {
+          "id": "cold-pressed-sesame-oil",
+          "name": "Cold-Pressed Sesame Oil",
+          "role": "Rich, nutty oil for finishing, final tadkas, stir-fries and Asian-inspired dishes",
+          "approvedFacts": ["Cold-pressed", "Rich and nutty flavour", "Suitable for finishing"],
+          "approvedClaims": [],
+          "prohibitedClaims": ["Universal everyday oil", "Ideal for prolonged very high-heat frying"],
+          "restrictions": ["Do not frame it as universal."]
+        },
+        {
+          "id": "cold-pressed-coconut-oil",
+          "name": "Cold-Pressed Coconut Oil",
+          "role": "Coconut-flavoured oil for regional recipes, baking and dishes where coconut genuinely belongs",
+          "approvedFacts": ["Cold-pressed", "Suitable for selected regional recipes and baking"],
+          "approvedClaims": [],
+          "prohibitedClaims": ["Suitable for every dish", "Ideal for prolonged very high-heat frying"],
+          "restrictions": ["Use only where coconut flavour genuinely belongs."]
+        }
+      ]
+    },
+    {
+      "id": "rro-dairy",
+      "name": "RRO Dairy",
+      "positioning": "Fresh, aged, spreading and cooking cheeses, plus cream products",
+      "audience": ["Urban home cooks", "Bakers", "Hosts", "Cafe and restaurant kitchens"],
+      "namingRules": [
+        "Use the exact configured product name.",
+        "Do not apply fresh-cheese storage guidance to aged cheeses or the reverse.",
+        "Confirm current availability before a purchase CTA."
+      ],
+      "voiceRules": ["Keep serving ideas achievable and food-first."],
+      "visualRules": ["Show credible melt, texture and serving context; do not create synthetic cheese pulls."],
+      "products": [
+        {"id":"burrata-cheese","name":"Burrata Cheese","role":"Fresh cheese for salads, pasta, bruschetta and plated preparations","approvedFacts":["Fresh cheese"],"approvedClaims":[],"prohibitedClaims":[],"restrictions":["Verify storage and shelf life from the current pack."]},
+        {"id":"bocconcini-cheese","name":"Bocconcini Cheese","role":"Fresh cheese for caprese salads, appetisers, skewers and snacking","approvedFacts":["Fresh cheese"],"approvedClaims":[],"prohibitedClaims":[],"restrictions":["Verify storage and shelf life from the current pack."]},
+        {"id":"fresh-mozzarella-cheese","name":"Fresh Mozzarella Cheese","role":"Fresh cheese for salads, bruschetta, sandwiches and lighter cooking","approvedFacts":["Fresh cheese"],"approvedClaims":[],"prohibitedClaims":[],"restrictions":["Do not confuse it with Mozzarella Cheese for Pizza."]},
+        {"id":"ricotta-cheese","name":"Ricotta Cheese","role":"Fresh cheese for pasta fillings, lasagne, toast and sweet preparations","approvedFacts":[],"approvedClaims":[],"prohibitedClaims":[],"restrictions":["Verify storage and shelf life from the current pack."]},
+        {"id":"cow-milk-fetta","name":"Cow Milk Fetta","role":"Cheese for Mediterranean salads, bowls, wraps and savoury bakes","approvedFacts":["Made with cow milk"],"approvedClaims":[],"prohibitedClaims":[],"restrictions":["Preserve the pack spelling Fetta."]},
+        {"id":"mozzarella-cheese-for-pizza","name":"Mozzarella Cheese for Pizza","role":"Cooking cheese for pizza, baked pasta and recipes requiring stretch","approvedFacts":["Intended for pizza and melting applications"],"approvedClaims":[],"prohibitedClaims":[],"restrictions":["Do not confuse it with Fresh Mozzarella Cheese."]},
+        {"id":"mozzarella-block","name":"Mozzarella Block","role":"Cooking cheese for sandwiches, baking and batch cooking","approvedFacts":[],"approvedClaims":[],"prohibitedClaims":[],"restrictions":["Verify pack details before a performance claim."]},
+        {"id":"diced-cheese","name":"Diced Cheese","role":"Convenient cheese format for sandwiches, baked dishes and larger preparations","approvedFacts":["Diced format"],"approvedClaims":[],"prohibitedClaims":[],"restrictions":["Do not infer the cheese variety without pack confirmation."]},
+        {"id":"nacho-cheese","name":"Nacho Cheese","role":"Cheese for nachos, dips, loaded snacks and party food","approvedFacts":[],"approvedClaims":[],"prohibitedClaims":[],"restrictions":["Show a credible dip or loaded-snack use case."]},
+        {"id":"cream-cheese","name":"Cream Cheese","role":"Creamy product for bagels, toast, dips, cheesecake, frosting and sauces","approvedFacts":[],"approvedClaims":[],"prohibitedClaims":[],"restrictions":["Verify storage and shelf life from the current pack."]},
+        {"id":"sour-cream","name":"Sour Cream","role":"Creamy product for tacos, baked potatoes, dressings and dips","approvedFacts":[],"approvedClaims":[],"prohibitedClaims":[],"restrictions":["Verify storage and shelf life from the current pack."]},
+        {"id":"mascarpone","name":"Mascarpone","role":"Creamy product for tiramisu, desserts, fruit preparations and finishing sauces","approvedFacts":[],"approvedClaims":[],"prohibitedClaims":[],"restrictions":["Verify storage and shelf life from the current pack."]},
+        {"id":"dairy-whipping-cream","name":"Dairy Whipping Cream","role":"Dairy cream for desserts, fillings, toppings and baking","approvedFacts":["Dairy cream"],"approvedClaims":[],"prohibitedClaims":[],"restrictions":["Do not make whipping-performance claims without pack or product proof."]},
+        {"id":"parmesan-cheese","name":"Parmesan Cheese","role":"Aged cheese for pasta, risotto, salads and finishing","approvedFacts":["Aged cheese"],"approvedClaims":[],"prohibitedClaims":[],"restrictions":["Use aged-cheese storage guidance only."]},
+        {"id":"cheddar-cheese","name":"Cheddar Cheese","role":"Cheese for toasties, burgers, sandwiches, sauces and snacking","approvedFacts":[],"approvedClaims":[],"prohibitedClaims":[],"restrictions":["Do not call it sharp unless using Sharp Cheddar Cheese."]},
+        {"id":"sharp-cheddar-cheese","name":"Sharp Cheddar Cheese","role":"Mature cheddar for recipes requiring stronger flavour","approvedFacts":["Stronger, more mature flavour than standard cheddar"],"approvedClaims":[],"prohibitedClaims":[],"restrictions":["Do not make an unverified maturation-time claim."]},
+        {"id":"smoked-cheddar-cheese","name":"Smoked Cheddar Cheese","role":"Flavour-led cheese for boards, sandwiches and recipes","approvedFacts":["Smoked flavour"],"approvedClaims":[],"prohibitedClaims":[],"restrictions":["Do not infer smoking method."]},
+        {"id":"gouda-cheese","name":"Gouda Cheese","role":"Cheese for boards, snacking, sandwiches and melting","approvedFacts":[],"approvedClaims":[],"prohibitedClaims":[],"restrictions":["Use aged-cheese storage guidance only when confirmed for the current SKU."]},
+        {"id":"edam-cheese","name":"Edam Cheese","role":"Cheese for sandwiches, boards and everyday snacking","approvedFacts":[],"approvedClaims":[],"prohibitedClaims":[],"restrictions":["Verify pack details before origin or maturation claims."]}
+      ]
+    },
+    {
+      "id": "expressfoods-cereal",
+      "name": "ExpressFoods Cereal",
+      "positioning": "Breakfast cereals, granola and muesli for convenient breakfast and snacking",
+      "audience": ["Busy professionals", "Families", "Younger breakfast consumers", "Fitness-oriented buyers", "Convenient-snack seekers"],
+      "namingRules": [
+        "Preserve the ExpressFoods identity; never automatically rename the range RRO Granola.",
+        "Preserve the approved pack spelling Harvest Munch Museli.",
+        "Keep granola and muesli distinct."
+      ],
+      "voiceRules": ["Avoid generic healthy-breakfast language; use a real routine, choice or trade-off."],
+      "visualRules": ["Show credible clusters, inclusions and serving texture; keep the pack accurate."],
+      "products": [
+        {"id":"chocolate-granola-cereal","name":"Chocolate Granola Cereal","role":"Cocoa-led breakfast and snack option with family and child appeal","approvedFacts":["Cocoa-led flavour"],"approvedClaims":[],"prohibitedClaims":["Healthy for every child"],"restrictions":["Verify ingredients and nutrition from the current pack."]},
+        {"id":"cranberry-granola-cereal","name":"Cranberry Granola Cereal","role":"Fruit-led granola with cranberry flavour","approvedFacts":["Cranberry flavour"],"approvedClaims":[],"prohibitedClaims":[],"restrictions":["Do not quantify fruit content without pack evidence."]},
+        {"id":"oat-granola-cereal","name":"Oat Granola Cereal","role":"Oat-focused granola for breakfast and snacking","approvedFacts":["Oat-focused"],"approvedClaims":["No wheat", "No corn"],"prohibitedClaims":["Gluten-free unless the pack explicitly states it"],"restrictions":["Recheck no-wheat and no-corn claims on the current pack before publication."]},
+        {"id":"peanut-butter-granola-cereal","name":"Peanut Butter Granola Cereal","role":"Nutty breakfast and snack option","approvedFacts":["Peanut butter flavour"],"approvedClaims":[],"prohibitedClaims":[],"restrictions":["Allergen language must follow the current pack."]},
+        {"id":"protein-power-granola","name":"Protein Power Granola","role":"Fitness-oriented higher-protein breakfast and snack option","approvedFacts":["Fitness-oriented positioning"],"approvedClaims":["Higher-protein positioning"],"prohibitedClaims":["Specific grams of protein without current pack proof"],"restrictions":["Recheck the claim and nutrition panel before publication."]},
+        {"id":"raisin-and-almond-granola","name":"Raisin and Almond Granola","role":"Familiar fruit-and-nut breakfast profile","approvedFacts":["Raisin and almond flavour profile"],"approvedClaims":[],"prohibitedClaims":[],"restrictions":["Do not quantify ingredients without pack evidence."]},
+        {"id":"super-seeds-granola","name":"Super Seeds Granola","role":"Seed-led breakfast and snacking option","approvedFacts":["Seed-led product"],"approvedClaims":[],"prohibitedClaims":["Hormone-balancing", "Disease prevention"],"restrictions":["Do not infer seed types or quantities."]},
+        {"id":"harvest-crunch-cereal","name":"Harvest Crunch Cereal","role":"Whole-grain, low-fat crunchy breakfast cereal","approvedFacts":["Crunchy breakfast cereal"],"approvedClaims":["Whole-grain", "Low-fat"],"prohibitedClaims":[],"restrictions":["Recheck claims on the current pack before publication."]},
+        {"id":"harvest-crunch-cereal-no-added-sugar","name":"Harvest Crunch Cereal (No Added Sugar)","role":"Breakfast cereal for consumers monitoring added sugar","approvedFacts":[],"approvedClaims":["No added sugar"],"prohibitedClaims":["Sugar-free unless the pack explicitly states it"],"restrictions":["Do not imply the product contains no naturally occurring sugar."]},
+        {"id":"harvest-munch-museli","name":"Harvest Munch Museli","role":"Ready-to-eat option with almonds, raisins and honey","approvedFacts":["Contains almonds, raisins and honey", "Ready to eat"],"approvedClaims":[],"prohibitedClaims":[],"restrictions":["Preserve the pack spelling Museli."]}
+      ]
+    }
+  ],
+  "claimRules": [
+    {
+      "id": "exact-sku-nutrition",
+      "rule": "Nutrition and composition claims belong only to the exact SKU carrying them and must be rechecked against the current approved pack.",
+      "action": "rewrite_and_flag",
+      "portfolioIds": ["rro-oil", "rro-dairy", "expressfoods-cereal"],
+      "triggerPatterns": ["no added sugar", "higher[- ]protein", "no wheat", "no corn", "whole[- ]grain", "low[- ]fat", "gluten[- ]free", "sugar[- ]free"],
+      "safeAlternative": "Describe the exact flavour, format, dish or serving use without the nutrition claim.",
+      "verificationSource": "Current approved product pack"
+    },
+    {
+      "id": "oil-process-and-heat",
+      "rule": "Oil processing, flavour and heat suitability must match the exact oil; cold-pressed oils must not be presented as the clearest choice for prolonged very high-heat frying.",
+      "action": "rewrite_and_flag",
+      "portfolioIds": ["rro-oil"],
+      "triggerPatterns": ["smoke point", "high[- ]heat", "deep[- ]fry", "frying", "cold[- ]pressed", "filtered", "refined"],
+      "safeAlternative": "Name only the configured dish and cooking application for the selected SKU.",
+      "verificationSource": "Current approved product pack and technical specification"
+    },
+    {
+      "id": "availability-geography",
+      "rule": "Stock, delivery area and purchase calls must be verified for the portfolio and location before publication.",
+      "action": "rewrite_and_flag",
+      "portfolioIds": [],
+      "triggerPatterns": ["\\bshop\\b", "\\bbuy\\b", "\\border\\b", "\\bdelivery\\b", "\\bavailable\\b", "pan[- ]india", "\\bmaharashtra\\b", "\\bmumbai\\b"],
+      "safeAlternative": "Use an awareness-led close with no purchase or geography claim.",
+      "verificationSource": "Current ecommerce availability and client confirmation"
+    },
+    {
+      "id": "medical-disease-claims",
+      "rule": "Do not publish unsupported medical, therapeutic or disease-prevention claims.",
+      "action": "block",
+      "portfolioIds": [],
+      "triggerPatterns": ["(cure|prevent|treat|reverse).{0,30}(disease|diabetes|cholesterol|heart disease)"],
+      "safeAlternative": "Remove the medical claim and speak only to verified product use.",
+      "verificationSource": null
+    },
+    {
+      "id": "pack-and-label-accuracy",
+      "rule": "Product name, label, logo, colour and pack proportions must remain exact in text and visuals.",
+      "action": "rewrite_and_flag",
+      "portfolioIds": [],
+      "triggerPatterns": [],
+      "safeAlternative": "Use the configured exact name and request the current approved packshot.",
+      "verificationSource": "Current approved product pack and packshot"
+    }
+  ],
+  "copyStructure": {
+    "captionVariants": 3,
+    "order": ["Main caption paragraph", "Period line", "Period line", "Keyword block", "Hashtag line"],
+    "separatorLines": [".", "."],
+    "keywordStyle": "One square-bracketed keyword block containing RRO and relevant terms",
+    "hashtagRule": "One final hashtag line; keep it relevant and restrained",
+    "ctaRule": "Use a soft website or purchase CTA only where current availability is verified"
+  },
+  "knownUnknowns": [
+    "Google Drive brief and brand-guideline folder",
+    "Approved moodboards",
+    "Exact master-brand hex codes",
+    "Confirmation that 6 reels, 4 carousels and 3 statics remain the active scope",
+    "Client-approved competitor list",
+    "Definitive shipping geography by portfolio",
+    "Complete internal SKU catalogue, pack sizes, ingredients and approved claims",
+    "The twentieth dairy SKU reported by the live collection"
+  ],
+  "sourceVectorStoreIds": [],
+  "canva": {
+    "enabled": false,
+    "mode": "brand_template",
+    "templateIdEnv": "CANVA_BRAND_TEMPLATE_ID",
+    "sourceDesignIdEnv": "CANVA_SOURCE_DESIGN_ID",
+    "fieldPrefix": "ASSET",
+    "indexWidth": 2,
+    "fields": {
+      "format": "FORMAT",
+      "portfolio": "PORTFOLIO_SKU",
+      "idea": "IDEA",
+      "hook": "HOOK",
+      "creativeCopy": "CREATIVE_COPY",
+      "direction": "DIRECTION",
+      "shotList": "SHOT_LIST",
+      "captionOne": "CAPTION_A",
+      "captionTwo": "CAPTION_B",
+      "captionThree": "CAPTION_C",
+      "referenceImage": "REFERENCE_IMAGE",
+      "referenceCredit": "REFERENCE_CREDIT"
+    }
+  }
+}
