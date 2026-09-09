@@ -330,10 +330,10 @@
     window.requestAnimationFrame(decorate);
   }
 
-  window.addEventListener("DOMContentLoaded", function () {
+  function initialiseStrategyUi() {
     var originalSubmit = window.soSubmitNewRun;
-    if (typeof originalSubmit === "function") {
-      window.soSubmitNewRun = function () {
+    if (typeof originalSubmit === "function" && !originalSubmit._strategyUiWrapped) {
+      var wrappedSubmit = function () {
         var submit = document.getElementById("so-new-run-submit");
         if (submit && submit.dataset.existingRunId) {
           var runId = submit.dataset.existingRunId;
@@ -343,9 +343,17 @@
         }
         return originalSubmit.apply(this, arguments);
       };
+      wrappedSubmit._strategyUiWrapped = true;
+      window.soSubmitNewRun = wrappedSubmit;
     }
     new MutationObserver(queueDecorate).observe(document.body, { childList: true, subtree: true });
     queueDecorate();
-  });
+  }
+
+  if (document.readyState === "loading") {
+    window.addEventListener("DOMContentLoaded", initialiseStrategyUi, { once: true });
+  } else {
+    initialiseStrategyUi();
+  }
 })();
 
