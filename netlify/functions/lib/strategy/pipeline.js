@@ -8,7 +8,7 @@
 // the original runPipeline() has no such gate built in.
 "use strict";
 const { fbGet, fbSet, fbUpdate } = require("./firebase");
-const { loadBrandConfig, loadMonthInput, loadLearnings, loadPrompt } = require("./store");
+const { loadBrandConfig, loadMonthInput, loadLearnings, loadBrandLibrary, loadPrompt } = require("./store");
 const { ResearchSchema, StrategySchema, StrategyAssetSchema, CopySchema, CreativeDirectionSchema, DeckSpecSchema } = require("./contracts");
 const { validateResearch, validateStrategy, validateCopy, validateDirection, validateDeck } = require("./validation");
 const { OpenAIAgentsRuntime } = require("./runtime-openai");
@@ -137,15 +137,17 @@ async function executeStage(runId, run, def) {
 async function runResearchStage(runId) {
   const run = await fbGet(`strategy_runs/${runId}`);
   if (!run) throw new Error(`Run ${runId} not found.`);
-  const [config, monthInput, learnings] = await Promise.all([
-    loadBrandConfig(run.brandId),
+  const config = await loadBrandConfig(run.brandId);
+  const [monthInput, learnings, brandLibrary] = await Promise.all([
     loadMonthInput(run.brandId, run.month),
     loadLearnings(run.brandId),
+    loadBrandLibrary(config, { force: true }),
   ]);
   const common = {
     brandConfig: config,
     monthInput,
     learnings,
+    brandLibrary,
     sourceContext: run.sourceContext || [],
     currentDate: new Date().toISOString(),
   };
@@ -167,15 +169,17 @@ async function runStrategyStage(runId) {
   if (!run) throw new Error(`Run ${runId} not found.`);
   const research = run.stages && run.stages.research && run.stages.research.checkpoint;
   if (!research) throw new Error(`Run ${runId} has no approved research checkpoint yet.`);
-  const [config, monthInput, learnings] = await Promise.all([
-    loadBrandConfig(run.brandId),
+  const config = await loadBrandConfig(run.brandId);
+  const [monthInput, learnings, brandLibrary] = await Promise.all([
     loadMonthInput(run.brandId, run.month),
     loadLearnings(run.brandId),
+    loadBrandLibrary(config),
   ]);
   const common = {
     brandConfig: config,
     monthInput,
     learnings,
+    brandLibrary,
     sourceContext: run.sourceContext || [],
     currentDate: new Date().toISOString(),
   };
@@ -197,15 +201,17 @@ async function runCopyStage(runId) {
   if (!run) throw new Error(`Run ${runId} not found.`);
   const strategy = run.stages && run.stages.strategy && run.stages.strategy.checkpoint;
   if (!strategy) throw new Error(`Run ${runId} has no approved strategy checkpoint yet.`);
-  const [config, monthInput, learnings] = await Promise.all([
-    loadBrandConfig(run.brandId),
+  const config = await loadBrandConfig(run.brandId);
+  const [monthInput, learnings, brandLibrary] = await Promise.all([
     loadMonthInput(run.brandId, run.month),
     loadLearnings(run.brandId),
+    loadBrandLibrary(config),
   ]);
   const common = {
     brandConfig: config,
     monthInput,
     learnings,
+    brandLibrary,
     sourceContext: run.sourceContext || [],
     currentDate: new Date().toISOString(),
   };
@@ -228,15 +234,17 @@ async function runDirectionStage(runId) {
   const strategy = run.stages && run.stages.strategy && run.stages.strategy.checkpoint;
   const copy = run.stages && run.stages.copy && run.stages.copy.checkpoint;
   if (!strategy || !copy) throw new Error(`Run ${runId} has no approved strategy/copy checkpoint yet.`);
-  const [config, monthInput, learnings] = await Promise.all([
-    loadBrandConfig(run.brandId),
+  const config = await loadBrandConfig(run.brandId);
+  const [monthInput, learnings, brandLibrary] = await Promise.all([
     loadMonthInput(run.brandId, run.month),
     loadLearnings(run.brandId),
+    loadBrandLibrary(config),
   ]);
   const common = {
     brandConfig: config,
     monthInput,
     learnings,
+    brandLibrary,
     sourceContext: run.sourceContext || [],
     currentDate: new Date().toISOString(),
   };
@@ -264,15 +272,17 @@ async function runDeckStage(runId) {
   const copy = run.stages && run.stages.copy && run.stages.copy.checkpoint;
   const direction = run.stages && run.stages["creative-direction"] && run.stages["creative-direction"].checkpoint;
   if (!strategy || !copy || !direction) throw new Error(`Run ${runId} has no approved strategy/copy/direction checkpoint yet.`);
-  const [config, monthInput, learnings] = await Promise.all([
-    loadBrandConfig(run.brandId),
+  const config = await loadBrandConfig(run.brandId);
+  const [monthInput, learnings, brandLibrary] = await Promise.all([
     loadMonthInput(run.brandId, run.month),
     loadLearnings(run.brandId),
+    loadBrandLibrary(config),
   ]);
   const common = {
     brandConfig: config,
     monthInput,
     learnings,
+    brandLibrary,
     sourceContext: run.sourceContext || [],
     currentDate: new Date().toISOString(),
   };
@@ -344,10 +354,11 @@ async function proposeConceptCandidate(runId, assetId, requestType, notes) {
   const targetAsset = strategy.assets[targetIndex];
 
   const research = run.stages.research && run.stages.research.checkpoint;
-  const [config, monthInput, learnings] = await Promise.all([
-    loadBrandConfig(run.brandId),
+  const config = await loadBrandConfig(run.brandId);
+  const [monthInput, learnings, brandLibrary] = await Promise.all([
     loadMonthInput(run.brandId, run.month),
     loadLearnings(run.brandId),
+    loadBrandLibrary(config),
   ]);
   const runtime = createRuntime(run);
   const instructions = loadPrompt("06-concept-refine.md");
@@ -355,6 +366,7 @@ async function proposeConceptCandidate(runId, assetId, requestType, notes) {
     brandConfig: config,
     monthInput,
     learnings,
+    brandLibrary,
     research,
     currentAssetPlan: strategy.assets,
     targetAsset,
