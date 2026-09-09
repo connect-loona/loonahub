@@ -87,10 +87,24 @@ async function loadMonthInput(brandId, month) {
 
 async function loadLearnings(brandId) {
   const key = fbSafeKey(brandId);
-  const raw = await fbGet(`strategy_learnings/${key}/text`);
-  if (typeof raw === "string" && raw.length > 0) return raw;
-  const text = SEED_LEARNINGS[brandId] || "# Brand learnings\n\nNo learning events recorded yet.\n";
-  await fbSet(`strategy_learnings/${key}/text`, text);
+  const [raw, eventsRaw] = await Promise.all([
+    fbGet(`strategy_learnings/${key}/text`),
+    fbGet(`strategy_learning_events/${key}`),
+  ]);
+  let text = typeof raw === "string" && raw.length > 0
+    ? raw
+    : (SEED_LEARNINGS[brandId] || "# Brand learnings\n\nNo learning events recorded yet.\n");
+  if (!(typeof raw === "string" && raw.length > 0)) await fbSet(`strategy_learnings/${key}/text`, text);
+
+  const events = Object.values(eventsRaw || {})
+    .filter((event) => event && event.notes)
+    .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")))
+    .slice(-30);
+  if (events.length) {
+    text += "\n\n# Recent human review feedback\n" + events.map((event) =>
+      `- ${event.month || "unknown month"} · ${event.stage} · ${event.decision}: ${event.notes}`
+    ).join("\n");
+  }
   return text;
 }
 
@@ -101,3 +115,4 @@ function loadPrompt(name) {
 }
 
 module.exports = { loadBrandConfig, loadMonthInput, loadLearnings, loadPrompt };
+
