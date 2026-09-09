@@ -3,23 +3,11 @@
 
   var queued = false;
 
-  var nativeFetch = window.fetch;
-  window.fetch = function (input, options) {
-    var url = typeof input === "string" ? input : (input && input.url) || "";
-    if (url.indexOf("/.netlify/functions/strategy-brand-save") !== -1 && options && typeof options.body === "string") {
-      try {
-        var requestBody = JSON.parse(options.body);
-        var advanced = document.getElementById("so-bf-advanced");
-        if (requestBody.brand && advanced) {
-          var advancedValue = JSON.parse(advanced.value || "{}");
-          requestBody.brand.approvedWork = advancedValue.approvedWork || [];
-          options = Object.assign({}, options, { body: JSON.stringify(requestBody) });
-        }
-      } catch (_) {}
-    }
-    return nativeFetch.call(this, input, options);
-  };
-
+  function htmlEscape(value) {
+    return String(value == null ? "" : value).replace(/[&<>"']/g, function (char) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char];
+    });
+  }
 
   function getRuns() {
     var cache = window._soRunsCache || {};
@@ -206,6 +194,91 @@
     }
   }
 
+  function ensureWorkspaceStyles() {
+    if (document.getElementById("so-workspace-styles")) return;
+    var style = document.createElement("style");
+    style.id = "so-workspace-styles";
+    style.textContent = [
+      ".so-stage-rail{display:flex;align-items:center;gap:8px;margin:12px 0 18px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface)}",
+      ".so-stage-step{display:flex;align-items:center;gap:7px;min-width:0;color:var(--muted);font-size:12px;font-weight:650}",
+      ".so-stage-step:after{content:'';width:26px;height:1px;background:var(--border);margin-left:4px}",
+      ".so-stage-step:last-child:after{display:none}",
+      ".so-stage-num{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--surface2);border:1px solid var(--border);font-size:11px}",
+      ".so-stage-step.is-active{color:var(--accent)} .so-stage-step.is-active .so-stage-num{background:var(--accent);color:#fff;border-color:var(--accent)}",
+      ".so-stage-step.is-done{color:var(--green)} .so-stage-step.is-done .so-stage-num{border-color:var(--green)}",
+      ".so-workspace{display:grid;grid-template-columns:minmax(180px,220px) minmax(0,1fr) minmax(230px,280px);gap:14px;align-items:start}",
+      ".so-workspace-side{position:sticky;top:12px;border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:15px}",
+      ".so-workspace-main{min-width:0}.so-workspace-main>.att-board:first-child{margin-top:0}",
+      ".so-memory-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:14px 0 6px}",
+      ".so-memory-value{font-size:12px;line-height:1.45}",
+      ".so-memory-link{display:block;padding:8px 0;border-bottom:1px solid var(--border);color:var(--text);font-size:12px;text-decoration:none}",
+      ".so-memory-link span{display:block;color:var(--muted);font-size:10px;margin-top:2px}",
+      ".so-review-panel .att-board{margin:0}.so-review-panel textarea{min-height:120px!important}.so-review-panel .att-board>div:last-child{flex-direction:column}",
+      "@media(max-width:1050px){.so-workspace{grid-template-columns:190px minmax(0,1fr)}.so-review-panel{grid-column:1/-1;position:static}.so-review-panel .att-board>div:last-child{flex-direction:row}}",
+      "@media(max-width:720px){.so-stage-rail{overflow-x:auto}.so-stage-step{white-space:nowrap}.so-workspace{display:block}.so-workspace-side{position:static;margin-bottom:12px}.so-review-panel{margin-top:12px}}"
+    ].join("");
+    document.head.appendChild(style);
+  }
+
+  function stageRail(run) {
+    var stages = ["Research", "Strategy", "Copy", "Creative direction", "Canva deck"];
+    var current = run.status && run.status.indexOf("strategy") === 0 ? 1 : 0;
+    if (run.status && (run.status.indexOf("copy") === 0 || run.status === "strategy_approved")) current = 2;
+    var rail = document.createElement("div");
+    rail.className = "so-stage-rail";
+    rail.innerHTML = stages.map(function (label, index) {
+      var cls = index < current ? " is-done" : index === current ? " is-active" : "";
+      return '<div class="so-stage-step'+cls+'"><span class="so-stage-num">'+(index < current ? "✓" : index + 1)+'</span><span>'+label+'</span></div>';
+    }).join("");
+    return rail;
+  }
+
+  function brandMemory(run) {
+    var brand = (window._soBrandsCache || {})[run.brandId] || {};
+    var side = document.createElement("aside");
+    side.className = "so-workspace-side";
+    var works = (brand.approvedWork || []).slice().sort(function (a, b) { return (b.month || "").localeCompare(a.month || ""); }).slice(0, 4);
+    side.innerHTML = '<div class="bh">Brand memory</div>'+ 
+      '<div class="so-memory-label">Brand truth</div><div class="so-memory-value">'+htmlEscape(brand.oneLineTruth || "Add the brand truth in Manage brands.")+'</div>'+ 
+      '<div class="so-memory-label">Audience</div><div class="so-memory-value">'+htmlEscape((brand.audiences || []).map(function (a) { return a.description; }).slice(0, 2).join(" · ") || "Not configured")+'</div>'+ 
+      '<div class="so-memory-label">Approved work</div>'+ 
+      (works.length ? works.map(function (work) { return '<a class="so-memory-link" href="'+htmlEscape(work.url)+'" target="_blank" rel="noopener noreferrer">'+htmlEscape(work.title)+'<span>'+htmlEscape(work.month)+' · '+htmlEscape(work.type)+'</span></a>'; }).join("") : '<div class="so-memory-value" style="color:var(--muted)">Add final decks, designs and videos in Manage brands.</div>')+
+      (brand.driveFolderUrl ? '<a class="btn btn-ghost" href="'+htmlEscape(brand.driveFolderUrl)+'" target="_blank" rel="noopener noreferrer" style="margin-top:14px;width:100%;text-align:center">Open brand folder</a>' : "");
+    return side;
+  }
+
+  function buildWorkspace(root) {
+    var run = window._soCurrentRun;
+    if (!run || root.dataset.workspaceReady === "1") return;
+    var header = root.querySelector(".section-header");
+    if (!header) return;
+    ensureWorkspaceStyles();
+    var oldStrip = header.nextElementSibling;
+    if (oldStrip && !oldStrip.classList.contains("att-board")) oldStrip.style.display = "none";
+    var rail = stageRail(run);
+    header.insertAdjacentElement("afterend", rail);
+    var workspace = document.createElement("div");
+    workspace.className = "so-workspace";
+    var main = document.createElement("main");
+    main.className = "so-workspace-main";
+    var review = document.createElement("aside");
+    review.className = "so-workspace-side so-review-panel";
+    Array.from(root.children).forEach(function (child) {
+      if (child === header || child === oldStrip || child === rail || child === workspace) return;
+      var heading = child.querySelector && child.querySelector(".bh");
+      if (heading && heading.textContent.trim() === "Review and decide") review.appendChild(child);
+      else main.appendChild(child);
+    });
+    if (!review.children.length) review.innerHTML = '<div class="bh">Review status</div><div class="so-memory-value" style="color:var(--muted)">This stage is already approved or still running.</div>';
+    workspace.appendChild(brandMemory(run));
+    workspace.appendChild(main);
+    workspace.appendChild(review);
+    root.appendChild(workspace);
+    var headerFolder = header.querySelector(".so-run-folder-link");
+    if (headerFolder) headerFolder.remove();
+    root.dataset.workspaceReady = "1";
+  }
+
   function decorate() {
     queued = false;
     var root = document.getElementById("so-root");
@@ -220,6 +293,7 @@
     }
     simplifyReview(root);
     addBrandFolderAccess(root);
+    buildWorkspace(root);
     var brand = document.getElementById("so-new-brand");
     var month = document.getElementById("so-new-month");
     if (brand && brand.dataset.duplicateGuard !== "1") {
