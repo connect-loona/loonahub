@@ -22,6 +22,7 @@
 "use strict";
 const { BrandConfigSchema, MonthInputSchema } = require("./contracts");
 const { fbGet, fbSet, fbSafeKey } = require("./firebase");
+const { loadBrandLibrary: loadDriveBrandLibrary } = require("./google-drive");
 const { HOUSE_RULES, RESEARCH_PROMPT, STRATEGY_PROMPT, COPY_PROMPT, DIRECTION_PROMPT, DECK_BUILDER_PROMPT, CONCEPT_REFINE_PROMPT, RRO_LEARNINGS_SEED } = require("./prompts-data");
 
 // Add one line per new brand here (and to SEED_MONTH_INPUTS/SEED_LEARNINGS below) when
@@ -115,5 +116,9 @@ function loadPrompt(name) {
   return `${HOUSE_RULES}\n\n---\n\n${stage}`;
 }
 
-module.exports = { loadBrandConfig, loadMonthInput, loadLearnings, loadPrompt };
+async function loadBrandLibrary(config, options) {
+  return loadDriveBrandLibrary(config, options);
+}
+
+module.exports = { loadBrandConfig, loadMonthInput, loadLearnings, loadBrandLibrary, loadPrompt };
 
