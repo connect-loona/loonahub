@@ -12,7 +12,7 @@
 "use strict";
 const { fbGet, fbUpdate } = require("./lib/strategy/firebase");
 const { logActivity } = require("./lib/strategy/pipeline");
-const { isAuthorized } = require("./lib/strategy/auth");
+const { checkAuthorization } = require("./lib/strategy/auth");
 
 const NEXT_STAGE = { research: "strategy" };
 const STAGE_ORDER = ["research", "strategy"];
@@ -29,7 +29,8 @@ function cors() {
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: cors(), body: "" };
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: cors(), body: "Method not allowed" };
-  if (!isAuthorized(event)) return { statusCode: 401, headers: cors(), body: JSON.stringify({ error: "Unauthorized" }) };
+  const auth = checkAuthorization(event);
+  if (!auth.ok) return { statusCode: 401, headers: cors(), body: JSON.stringify({ error: "Unauthorized", reason: auth.reason }) };
 
   let body;
   try { body = JSON.parse(event.body || "{}"); } catch { return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "Invalid JSON" }) }; }

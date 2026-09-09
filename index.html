@@ -24344,7 +24344,7 @@ ${brandLines}`;
           body: JSON.stringify({ brandId: brandId, month: month, actor: currentUser || "Unknown" }),
         });
         var data = await res.json().catch(function(){ return {}; });
-        if(!res.ok) throw new Error(data.error || "Could not start this run.");
+        if(!res.ok) throw new Error((data.error||"Could not start this run.")+(data.reason?" — "+data.reason:""));
         soCloseNewRunModal();
         window.soOpenRun(data.runId);
       } catch(e) {
@@ -24543,7 +24543,7 @@ ${brandLines}`;
           body: JSON.stringify({ runId: runId, stage: stage, decision: decision, actor: currentUser || "Unknown", notes: notesEl ? notesEl.value.trim() : "" }),
         });
         var data = await res.json().catch(function(){ return {}; });
-        if(!res.ok) throw new Error(data.error || "Could not record this decision.");
+        if(!res.ok) throw new Error((data.error||"Could not record this decision.")+(data.reason?" — "+data.reason:""));
         // The live Firebase listener (soOpenRun's cb) re-renders automatically once the
         // function's writes land — no manual re-render needed here.
       } catch(e) {
