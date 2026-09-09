@@ -1,0 +1,40 @@
+name: Strategy OS tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # GitHub's ubuntu-24.04 runner image pre-configures a Google Chrome apt repo we never
+      # asked for (we only install Chromium, not Chrome) — its package index has been
+      # observed serving a persistent "Hash Sum mismatch" for a runner's whole lifetime, not
+      # a one-off flake, so retrying in place doesn't help. Drop that source before
+      # --with-deps runs its own apt-get update, so the broken repo is never consulted.
+      - name: Remove the pre-configured (and irrelevant) Google Chrome apt source
+        run: sudo rm -f /etc/apt/sources.list.d/google-chrome.list
+
+      - name: Install Playwright's Chromium
+        run: |
+          for i in 1 2 3; do
+            npx playwright install --with-deps chromium && exit 0
+            echo "Playwright install failed (attempt $i/3), retrying..."
+            sleep 10
+          done
+          exit 1
+
+      - name: Run backend + UI test suite
+        run: npm test

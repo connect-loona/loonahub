@@ -9,5 +9,13 @@
     "sarvamai": "^1.1.7",
     "web-push": "^3.6.7",
     "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
+  },
+  "scripts": {
+    "test": "node tests/run-all.js",
+    "test:strategy": "node tests/run-all.js strategy",
+    "test:e2e": "node tests/run-all.js e2e"
   }
 }

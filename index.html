@@ -24286,12 +24286,14 @@ ${brandLines}`;
     // specific re-render while the modal is open; the cache itself is still kept current,
     // so the list catches up correctly the next time it's actually rendered.
     var _soNewRunModalOpen = false;
+    var _soRunListView = "active"; // "active" | "archived"
 
     function soRoot(){ return document.getElementById("so-root"); }
 
     function soOpenPage(){
       _soOpenRunId = null;
       _soBrandView = null;
+      _soRunListView = "active";
       if(_soRunListener){ _soRunListener.ref && _soRunListener.ref.off("value", _soRunListener.cb); _soRunListener=null; }
       soRenderRunList();
       soListenRuns();
@@ -24348,10 +24350,28 @@ ${brandLines}`;
         .sort(function(a,b){ return (b.createdAt||"").localeCompare(a.createdAt||""); });
     }
 
+    function soIsArchived(r){ return !!(r && r.archivedAt); }
+
+    function soSetRunListView(view){
+      _soRunListView = view;
+      soRenderRunList();
+    }
+
     function soRenderRunList(){
       var root = soRoot(); if(!root) return;
-      var runs = soRunList();
+      var allRuns = soRunList();
+      var activeRuns = allRuns.filter(function(r){ return !soIsArchived(r); });
+      var archivedRuns = allRuns.filter(soIsArchived);
+      var viewingArchived = _soRunListView === "archived";
+      var runs = viewingArchived ? archivedRuns : activeRuns;
+
       var rows = runs.map(function(r){
+        var actions = viewingArchived
+          ? '<button class="btn btn-ghost" style="padding:4px 12px;font-size:11px" onclick="event.stopPropagation();window.soOpenRun(\''+esc(r.runId)+'\')">Open</button>'+
+            '<button class="btn btn-ghost" style="padding:4px 12px;font-size:11px" onclick="event.stopPropagation();window.soRestoreRun(\''+esc(r.runId)+'\')">Restore</button>'+
+            '<a href="#" style="font-size:11px;color:var(--muted);align-self:center" onclick="event.preventDefault();event.stopPropagation();window.soPurgeRun(\''+esc(r.runId)+'\')">Purge permanently</a>'
+          : '<button class="btn btn-ghost" style="padding:4px 12px;font-size:11px" onclick="event.stopPropagation();window.soOpenRun(\''+esc(r.runId)+'\')">Open</button>'+
+            '<button class="btn btn-ghost" style="padding:4px 12px;font-size:11px" onclick="event.stopPropagation();window.soArchiveRun(\''+esc(r.runId)+'\')">Archive</button>';
         return '<tr style="cursor:pointer" onclick="window.soOpenRun(\''+esc(r.runId)+'\')">'+
           '<td>'+esc(soBrandName(r.brandId))+'</td>'+
           '<td>'+esc(monthLabel(r.month))+'</td>'+
@@ -24359,10 +24379,7 @@ ${brandLines}`;
           '<td>'+esc(statusLabel(r.status))+'</td>'+
           '<td>'+esc(r.owner||'—')+'</td>'+
           '<td>'+esc(fmtDateTime(r.updatedAt))+'</td>'+
-          '<td style="display:flex;gap:6px">'+
-            '<button class="btn btn-ghost" style="padding:4px 12px;font-size:11px" onclick="event.stopPropagation();window.soOpenRun(\''+esc(r.runId)+'\')">Open</button>'+
-            '<button class="btn btn-ghost" style="padding:4px 12px;font-size:11px;color:var(--red);border-color:var(--red)" onclick="event.stopPropagation();window.soDeleteRun(\''+esc(r.runId)+'\')">Delete</button>'+
-          '</td>'+
+          '<td style="display:flex;gap:6px">'+actions+'</td>'+
         '</tr>';
       }).join("");
 
@@ -24376,10 +24393,16 @@ ${brandLines}`;
           '</div>'+
         '</div>'+
         '<div class="att-board">'+
-          '<div class="bh">Strategy runs<span class="tag">'+runs.length+'</span></div>'+
+          '<div class="bh" style="display:flex;align-items:center;gap:10px">'+
+            '<span>Strategy runs<span class="tag">'+runs.length+'</span></span>'+
+            '<span style="display:flex;gap:6px;margin-left:auto">'+
+              '<button class="btn '+(viewingArchived?'btn-ghost':'btn-primary')+'" style="padding:4px 12px;font-size:11px" onclick="window.soSetRunListView(\'active\')">Active ('+activeRuns.length+')</button>'+
+              '<button class="btn '+(viewingArchived?'btn-primary':'btn-ghost')+'" style="padding:4px 12px;font-size:11px" onclick="window.soSetRunListView(\'archived\')">Archived ('+archivedRuns.length+')</button>'+
+            '</span>'+
+          '</div>'+
           (runs.length
             ? '<div class="scroll"><table class="att-tbl wide"><thead><tr><th>Client</th><th>Month</th><th>Current stage</th><th>Status</th><th>Owner</th><th>Last updated</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>'
-            : '<div class="note">No strategy runs yet — start the first one.</div>')+
+            : '<div class="note">'+(viewingArchived ? 'No archived runs.' : 'No strategy runs yet — start the first one.')+'</div>')+
         '</div>'+
         '<div id="so-new-run-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:600;align-items:center;justify-content:center">'+
           '<div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:22px;width:340px;max-width:92vw">'+
@@ -24456,19 +24479,48 @@ ${brandLines}`;
       }
     }
 
-    // Deletes a run outright — mainly for clearing out stale/duplicate test or abandoned
-    // runs, which otherwise permanently block starting a fresh one for that brand+month
-    // (strategy-run-start.js's own 409 "already an active run" check has no way to know a
-    // listed run is dead). Direct Firebase write, same as the per-asset lock toggle — no
-    // backend logic needed for a plain delete, just a strong confirm since it can't be
-    // undone (the run's own history in strategy_stage_versions/strategy_activity is left
-    // behind untouched — orphaned but harmless, never referenced by anything once the run
-    // itself is gone).
-    async function soDeleteRun(runId){
+    // Archives a run — mainly for clearing out stale/duplicate test or abandoned runs,
+    // which otherwise permanently block starting a fresh one for that brand+month
+    // (strategy-run-start.js's own 409 "already an active run" check treats a listed run as
+    // live until it's either approved all the way through or archived). Unlike the old
+    // outright Delete this used to be, archiving is reversible: the run drops out of the
+    // active list and the duplicate-run check, but nothing about it is touched or lost, and
+    // it can be restored from the Archived view at any time. Direct Firebase write, same as
+    // the per-asset lock toggle — no backend logic needed.
+    async function soArchiveRun(runId){
       if(!_db) return;
       var run = (window._soRunsCache || {})[runId];
       var label = run ? (soBrandName(run.brandId)+' · '+monthLabel(run.month)) : runId;
-      if(!confirm('Delete this run ('+label+')? This can\'t be undone.')) return;
+      if(!confirm('Archive this run ('+label+')? It moves to the Archived view and won\'t block starting a new run for the same brand + month. You can restore it anytime.')) return;
+      var reason = prompt('Optional: why are you archiving this?') || "";
+      await _db.ref("strategy_runs/"+runId).update({
+        archivedAt: new Date().toISOString(),
+        archivedBy: currentUser || "Unknown",
+        archiveReason: reason || null,
+      });
+    }
+
+    async function soRestoreRun(runId){
+      if(!_db) return;
+      var run = (window._soRunsCache || {})[runId];
+      var label = run ? (soBrandName(run.brandId)+' · '+monthLabel(run.month)) : runId;
+      if(!confirm('Restore this run ('+label+')? It reappears in the active list.')) return;
+      await _db.ref("strategy_runs/"+runId).update({ archivedAt: null, archivedBy: null, archiveReason: null });
+    }
+
+    // The old outright-Delete behavior, kept as a deliberately harder-to-reach exceptional
+    // action — only offered from the Archived view, and gated behind typing the run's exact
+    // label back rather than a plain confirm(), matching the same pattern Hub already uses
+    // for its other irreversible deletes (see deleteMemberPermanently). The run's own
+    // history in strategy_stage_versions/strategy_activity is left behind untouched —
+    // orphaned but harmless, never referenced by anything once the run itself is gone.
+    async function soPurgeRun(runId){
+      if(!_db) return;
+      var run = (window._soRunsCache || {})[runId];
+      var label = run ? (soBrandName(run.brandId)+' · '+monthLabel(run.month)) : runId;
+      var typed = prompt('This PERMANENTLY deletes "'+label+'" — it cannot be restored.\n\nType the run\'s label exactly to confirm:\n\n'+label);
+      if(typed === null) return;
+      if(typed !== label){ alert('Didn\'t match — nothing was deleted.'); return; }
       await _db.ref("strategy_runs/"+runId).remove();
     }
 
@@ -25496,7 +25548,10 @@ ${brandLines}`;
     window.soOpenNewRunModal = soOpenNewRunModal;
     window.soCloseNewRunModal = soCloseNewRunModal;
     window.soSubmitNewRun = soSubmitNewRun;
-    window.soDeleteRun = soDeleteRun;
+    window.soSetRunListView = soSetRunListView;
+    window.soArchiveRun = soArchiveRun;
+    window.soRestoreRun = soRestoreRun;
+    window.soPurgeRun = soPurgeRun;
     window.soOpenRun = soOpenRun;
     window.soBackToList = soBackToList;
     window.soDecide = soDecide;
