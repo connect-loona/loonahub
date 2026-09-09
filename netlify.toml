@@ -1,9 +1,31 @@
 # LOONA Hub — Netlify config
-# Deploy: put index.html at the site root and this folder structure alongside it.
-
+#
+# Two apps share this one Netlify site: the legacy Hub (plain static files, unchanged) and
+# Strategy OS (React + TypeScript + Vite, under apps/strategy/, served at /strategy/). The
+# build command (scripts/build-dist.js) assembles both into dist/ — the legacy Hub's files
+# are copied in verbatim, Strategy OS's own Vite build lands at dist/strategy/. See that
+# script's own comment for why an allowlist of legacy files/dirs, not a denylist.
+#
+# This is a real behavior change from the plain static-file deploy this site used to be
+# (no [build] command at all) — a bad `npm install` or a Vite config mistake can now fail a
+# deploy. Netlify's failure mode for that is to keep serving the last successful deploy, not
+# take the site down, but still: validate on a PR's deploy preview before merging build
+# changes to main, same as any other change here.
 [build]
-  publish = "."
+  command = "npm run build"
+  publish = "dist"
   functions = "netlify/functions"
+
+# The Strategy rule must come before the general fallback (there isn't one for the legacy
+# Hub — it's plain multi-page static files, not a client-routed SPA, so no /* -> /index.html
+# catch-all exists or should exist here). This one's scoped to exactly /strategy/* so a
+# client-side route inside the Strategy app (e.g. /strategy/runs/abc123) still resolves to
+# its index.html instead of 404ing — everything else on this site keeps resolving to real
+# files exactly as it does today.
+[[redirects]]
+  from = "/strategy/*"
+  to = "/strategy/index.html"
+  status = 200
 
 [functions]
   node_bundler = "esbuild"
