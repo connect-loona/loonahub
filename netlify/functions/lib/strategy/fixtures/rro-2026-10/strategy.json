@@ -1,0 +1,430 @@
+{
+  "brandId": "rro",
+  "month": "2026-10",
+  "monthThesis": "The ingredient people treat as background is often the decision changing the result.",
+  "assets": [
+    {
+      "assetId": "RRO-01",
+      "sequence": 1,
+      "format": "reel",
+      "pillarId": "recipes-serving",
+      "portfolioId": "rro-oil",
+      "skuIds": [
+        "filtered-groundnut-oil"
+      ],
+      "conceptName": "Why it never tastes like your mother's",
+      "concept": "You can follow a family recipe exactly and still miss the inherited flavour carried by its cooking oil. The execution makes Filtered Groundnut Oil the specific decision, not a logo placed beside category content.",
+      "hook": "The recipe is right. The oil is why it still tastes wrong.",
+      "tension": "You can follow a family recipe exactly and still miss the inherited flavour carried by its cooking oil.",
+      "sendTo": "The sibling who keeps trying to recreate their mother's poha",
+      "brandAnchors": [
+        "RRO Oil",
+        "Filtered Groundnut Oil"
+      ],
+      "researchIds": [
+        "ARG-01",
+        "UB-01"
+      ],
+      "strategicRole": "Turn recipes-serving into a brand-owned argument.",
+      "gate": {
+        "logoSwapPass": true,
+        "killListPass": true,
+        "tensionPass": true,
+        "overheardPass": true,
+        "rationale": "Uses exact RRO portfolio and SKU context, names human friction and has a specific recipient."
+      }
+    },
+    {
+      "assetId": "RRO-02",
+      "sequence": 2,
+      "format": "reel",
+      "pillarId": "kitchen-know-how",
+      "portfolioId": "rro-oil",
+      "skuIds": [
+        "primio-refined-groundnut-oil"
+      ],
+      "conceptName": "The oil you throw out too early",
+      "concept": "Households reuse frying oil but make the keep-or-discard call by habit rather than a clear visible rule. The execution makes Primio Refined Groundnut Oil the specific decision, not a logo placed beside category content.",
+      "hook": "One pan is still usable. Most people would discard the wrong one.",
+      "tension": "Households reuse frying oil but make the keep-or-discard call by habit rather than a clear visible rule.",
+      "sendTo": "The family member who saves the frying oil after every snack night",
+      "brandAnchors": [
+        "RRO Oil",
+        "Primio Refined Groundnut Oil"
+      ],
+      "researchIds": [
+        "UB-02",
+        "LQ-02"
+      ],
+      "strategicRole": "Turn kitchen-know-how into a brand-owned argument.",
+      "gate": {
+        "logoSwapPass": true,
+        "killListPass": true,
+        "tensionPass": true,
+        "overheardPass": true,
+        "rationale": "Uses exact RRO portfolio and SKU context, names human friction and has a specific recipient."
+      }
+    },
+    {
+      "assetId": "RRO-03",
+      "sequence": 3,
+      "format": "reel",
+      "pillarId": "culture",
+      "portfolioId": "rro-oil",
+      "skuIds": [
+        "mastdil-premium-mustard-oil",
+        "filtered-groundnut-oil",
+        "tildil-premium-til-oil"
+      ],
+      "conceptName": "Tell me your oil, I'll tell you your state",
+      "concept": "Cooking oil is defended as family identity even when shoppers describe the choice as practical. The execution makes Filtered Groundnut Oil and Mastdil Premium Mustard Oil and TilDil Premium Til Oil the specific decision, not a logo placed beside category content.",
+      "hook": "Your family oil says where the recipe learned to speak.",
+      "tension": "Cooking oil is defended as family identity even when shoppers describe the choice as practical.",
+      "sendTo": "The friend who insists their home state's oil is the only correct one",
+      "brandAnchors": [
+        "RRO Oil",
+        "Filtered Groundnut Oil",
+        "Mastdil Premium Mustard Oil",
+        "TilDil Premium Til Oil"
+      ],
+      "researchIds": [
+        "ARG-01",
+        "LQ-01"
+      ],
+      "strategicRole": "Turn culture into a brand-owned argument.",
+      "gate": {
+        "logoSwapPass": true,
+        "killListPass": true,
+        "tensionPass": true,
+        "overheardPass": true,
+        "rationale": "Uses exact RRO portfolio and SKU context, names human friction and has a specific recipient."
+      }
+    },
+    {
+      "assetId": "RRO-04",
+      "sequence": 4,
+      "format": "reel",
+      "pillarId": "use-education",
+      "portfolioId": "rro-dairy",
+      "skuIds": [
+        "mozzarella-cheese-for-pizza"
+      ],
+      "conceptName": "The cheese pull is not the proof",
+      "concept": "The most camera-friendly pizza cue is not always the cue that makes the slice taste or eat better. The execution makes Mozzarella Cheese for Pizza the specific decision, not a logo placed beside category content.",
+      "hook": "A longer cheese pull can still make a worse pizza.",
+      "tension": "The most camera-friendly pizza cue is not always the cue that makes the slice taste or eat better.",
+      "sendTo": "The friend who judges every pizza by the cheese-pull video",
+      "brandAnchors": [
+        "RRO Dairy",
+        "Mozzarella Cheese for Pizza"
+      ],
+      "researchIds": [
+        "ARG-02",
+        "LQ-04"
+      ],
+      "strategicRole": "Turn use-education into a brand-owned argument.",
+      "gate": {
+        "logoSwapPass": true,
+        "killListPass": true,
+        "tensionPass": true,
+        "overheardPass": true,
+        "rationale": "Uses exact RRO portfolio and SKU context, names human friction and has a specific recipient."
+      }
+    },
+    {
+      "assetId": "RRO-05",
+      "sequence": 5,
+      "format": "reel",
+      "pillarId": "recipes-serving",
+      "portfolioId": "rro-dairy",
+      "skuIds": [
+        "burrata-cheese"
+      ],
+      "conceptName": "The burrata you were saving",
+      "concept": "People save premium fresh food for an occasion, even when waiting works against the experience they paid for. The execution makes Burrata Cheese the specific decision, not a logo placed beside category content.",
+      "hook": "Saving burrata for later is how the special meal loses its best part.",
+      "tension": "People save premium fresh food for an occasion, even when waiting works against the experience they paid for.",
+      "sendTo": "The host keeping the good ingredients for a more perfect evening",
+      "brandAnchors": [
+        "RRO Dairy",
+        "Burrata Cheese"
+      ],
+      "researchIds": [
+        "UB-03",
+        "LQ-05"
+      ],
+      "strategicRole": "Turn recipes-serving into a brand-owned argument.",
+      "gate": {
+        "logoSwapPass": true,
+        "killListPass": true,
+        "tensionPass": true,
+        "overheardPass": true,
+        "rationale": "Uses exact RRO portfolio and SKU context, names human friction and has a specific recipient."
+      }
+    },
+    {
+      "assetId": "RRO-06",
+      "sequence": 6,
+      "format": "reel",
+      "pillarId": "seasonal",
+      "portfolioId": "expressfoods-cereal",
+      "skuIds": [
+        "peanut-butter-granola-cereal"
+      ],
+      "conceptName": "Breakfast leaves the house",
+      "concept": "Busy people reject breakfast at home for lack of time, then spend more time and money solving hunger later. The execution makes Peanut Butter Granola Cereal the specific decision, not a logo placed beside category content.",
+      "hook": "The breakfast you skip at home usually appears at your desk as something worse.",
+      "tension": "Busy people reject breakfast at home for lack of time, then spend more time and money solving hunger later.",
+      "sendTo": "The colleague whose first meal arrives with the second meeting",
+      "brandAnchors": [
+        "ExpressFoods Cereal",
+        "Peanut Butter Granola Cereal"
+      ],
+      "researchIds": [
+        "UB-04",
+        "LQ-07"
+      ],
+      "strategicRole": "Turn seasonal into a brand-owned argument.",
+      "gate": {
+        "logoSwapPass": true,
+        "killListPass": true,
+        "tensionPass": true,
+        "overheardPass": true,
+        "rationale": "Uses exact RRO portfolio and SKU context, names human friction and has a specific recipient."
+      }
+    },
+    {
+      "assetId": "RRO-07",
+      "sequence": 7,
+      "format": "carousel",
+      "pillarId": "use-education",
+      "portfolioId": "rro-oil",
+      "skuIds": [
+        "primio-refined-groundnut-oil",
+        "filtered-groundnut-oil"
+      ],
+      "conceptName": "The wrong oil question",
+      "concept": "People want one winning oil while actual cooking decisions change with the dish, flavour and heat. The execution makes Primio Refined Groundnut Oil and Filtered Groundnut Oil the specific decision, not a logo placed beside category content.",
+      "hook": "The healthiest-oil debate starts with the wrong question.",
+      "tension": "People want one winning oil while actual cooking decisions change with the dish, flavour and heat.",
+      "sendTo": "The family group chat that keeps forwarding one-oil health rankings",
+      "brandAnchors": [
+        "RRO Oil",
+        "Primio Refined Groundnut Oil",
+        "Filtered Groundnut Oil"
+      ],
+      "researchIds": [
+        "ARG-03",
+        "LQ-03"
+      ],
+      "strategicRole": "Turn use-education into a brand-owned argument.",
+      "gate": {
+        "logoSwapPass": true,
+        "killListPass": true,
+        "tensionPass": true,
+        "overheardPass": true,
+        "rationale": "Uses exact RRO portfolio and SKU context, names human friction and has a specific recipient."
+      }
+    },
+    {
+      "assetId": "RRO-08",
+      "sequence": 8,
+      "format": "carousel",
+      "pillarId": "recipes-serving",
+      "portfolioId": "rro-dairy",
+      "skuIds": [
+        "sharp-cheddar-cheese",
+        "gouda-cheese"
+      ],
+      "conceptName": "The loudest cheese wins the wrong dish",
+      "concept": "Shoppers often choose intensity as a proxy for quality even when balance would serve the food better. The execution makes Sharp Cheddar Cheese and Gouda Cheese the specific decision, not a logo placed beside category content.",
+      "hook": "The stronger cheese does not automatically make the better sandwich.",
+      "tension": "Shoppers often choose intensity as a proxy for quality even when balance would serve the food better.",
+      "sendTo": "The friend who adds the strongest cheese to every board and sandwich",
+      "brandAnchors": [
+        "RRO Dairy",
+        "Sharp Cheddar Cheese",
+        "Gouda Cheese"
+      ],
+      "researchIds": [
+        "ARG-02",
+        "LQ-06"
+      ],
+      "strategicRole": "Turn recipes-serving into a brand-owned argument.",
+      "gate": {
+        "logoSwapPass": true,
+        "killListPass": true,
+        "tensionPass": true,
+        "overheardPass": true,
+        "rationale": "Uses exact RRO portfolio and SKU context, names human friction and has a specific recipient."
+      }
+    },
+    {
+      "assetId": "RRO-09",
+      "sequence": 9,
+      "format": "carousel",
+      "pillarId": "kitchen-know-how",
+      "portfolioId": "expressfoods-cereal",
+      "skuIds": [
+        "raisin-and-almond-granola"
+      ],
+      "conceptName": "The bowl you pour versus the bowl you eat",
+      "concept": "People pour cereal by eye into oversized bowls and are surprised by how quickly the pack disappears. The execution makes Raisin and Almond Granola the specific decision, not a logo placed beside category content.",
+      "hook": "Your breakfast bowl grows before the first bite.",
+      "tension": "People pour cereal by eye into oversized bowls and are surprised by how quickly the pack disappears.",
+      "sendTo": "The flatmate blamed for finishing the breakfast pack",
+      "brandAnchors": [
+        "ExpressFoods Cereal",
+        "Raisin and Almond Granola"
+      ],
+      "researchIds": [
+        "UB-05",
+        "LQ-08"
+      ],
+      "strategicRole": "Turn kitchen-know-how into a brand-owned argument.",
+      "gate": {
+        "logoSwapPass": true,
+        "killListPass": true,
+        "tensionPass": true,
+        "overheardPass": true,
+        "rationale": "Uses exact RRO portfolio and SKU context, names human friction and has a specific recipient."
+      }
+    },
+    {
+      "assetId": "RRO-10",
+      "sequence": 10,
+      "format": "carousel",
+      "pillarId": "trust",
+      "portfolioId": "expressfoods-cereal",
+      "skuIds": [
+        "protein-power-granola"
+      ],
+      "conceptName": "Protein on the front, context on the back",
+      "concept": "Fitness positioning can end the evaluation precisely where a careful breakfast choice should begin. The execution makes Protein Power Granola the specific decision, not a logo placed beside category content.",
+      "hook": "A protein-led pack still deserves the same label read.",
+      "tension": "Fitness positioning can end the evaluation precisely where a careful breakfast choice should begin.",
+      "sendTo": "The gym friend who buys any breakfast with protein on the front",
+      "brandAnchors": [
+        "ExpressFoods Cereal",
+        "Protein Power Granola"
+      ],
+      "researchIds": [
+        "ARG-04",
+        "LQ-09"
+      ],
+      "strategicRole": "Turn trust into a brand-owned argument.",
+      "gate": {
+        "logoSwapPass": true,
+        "killListPass": true,
+        "tensionPass": true,
+        "overheardPass": true,
+        "rationale": "Uses exact RRO portfolio and SKU context, names human friction and has a specific recipient."
+      }
+    },
+    {
+      "assetId": "RRO-11",
+      "sequence": 11,
+      "format": "static",
+      "pillarId": "culture",
+      "portfolioId": "rro-oil",
+      "skuIds": [
+        "mastdil-premium-mustard-oil"
+      ],
+      "conceptName": "November festival, October feed",
+      "concept": "Brands rush familiar festive content on autopilot even when the year's calendar has moved. The execution makes Mastdil Premium Mustard Oil the specific decision, not a logo placed beside category content.",
+      "hook": "Diwali is not in October this year. Your content calendar should know that.",
+      "tension": "Brands rush familiar festive content on autopilot even when the year's calendar has moved.",
+      "sendTo": "The marketer scheduling the usual Diwali grid in early October",
+      "brandAnchors": [
+        "RRO Oil",
+        "Mastdil Premium Mustard Oil"
+      ],
+      "researchIds": [
+        "CAL-01",
+        "WS-04"
+      ],
+      "strategicRole": "Turn culture into a brand-owned argument.",
+      "gate": {
+        "logoSwapPass": true,
+        "killListPass": true,
+        "tensionPass": true,
+        "overheardPass": true,
+        "rationale": "Uses exact RRO portfolio and SKU context, names human friction and has a specific recipient."
+      }
+    },
+    {
+      "assetId": "RRO-12",
+      "sequence": 12,
+      "format": "static",
+      "pillarId": "trust",
+      "portfolioId": "rro-dairy",
+      "skuIds": [
+        "cream-cheese"
+      ],
+      "conceptName": "The ingredient hidden by the garnish",
+      "concept": "Food styling can make an image prettier while erasing the ingredient the brand needs people to remember. The execution makes Cream Cheese the specific decision, not a logo placed beside category content.",
+      "hook": "If the product disappears, the recipe could belong to anyone.",
+      "tension": "Food styling can make an image prettier while erasing the ingredient the brand needs people to remember.",
+      "sendTo": "The food stylist who keeps pushing the pack out of frame",
+      "brandAnchors": [
+        "RRO Dairy",
+        "Cream Cheese"
+      ],
+      "researchIds": [
+        "WS-02",
+        "LQ-10"
+      ],
+      "strategicRole": "Turn trust into a brand-owned argument.",
+      "gate": {
+        "logoSwapPass": true,
+        "killListPass": true,
+        "tensionPass": true,
+        "overheardPass": true,
+        "rationale": "Uses exact RRO portfolio and SKU context, names human friction and has a specific recipient."
+      }
+    },
+    {
+      "assetId": "RRO-13",
+      "sequence": 13,
+      "format": "static",
+      "pillarId": "trust",
+      "portfolioId": "expressfoods-cereal",
+      "skuIds": [
+        "harvest-crunch-cereal-no-added-sugar"
+      ],
+      "conceptName": "The front is a signal, not the whole label",
+      "concept": "A single front-of-pack claim can become a shortcut for judging the entire product. The execution makes Harvest Crunch Cereal (No Added Sugar) the specific decision, not a logo placed beside category content.",
+      "hook": "No added sugar is one fact, not the whole breakfast decision.",
+      "tension": "A single front-of-pack claim can become a shortcut for judging the entire product.",
+      "sendTo": "The shopper who stops reading after one reassuring phrase",
+      "brandAnchors": [
+        "ExpressFoods Cereal",
+        "Harvest Crunch Cereal (No Added Sugar)"
+      ],
+      "researchIds": [
+        "ARG-04",
+        "LQ-09"
+      ],
+      "strategicRole": "Turn trust into a brand-owned argument.",
+      "gate": {
+        "logoSwapPass": true,
+        "killListPass": true,
+        "tensionPass": true,
+        "overheardPass": true,
+        "rationale": "Uses exact RRO portfolio and SKU context, names human friction and has a specific recipient."
+      }
+    }
+  ],
+  "discarded": [
+    {
+      "conceptName": "Generic October recipe",
+      "hook": "Four recipes for October",
+      "failedGate": "logo_swap",
+      "reason": "Any food brand could publish it."
+    }
+  ],
+  "balanceRationale": "The synthetic mix meets the exact format count and gives all three portfolios work with explicit tension.",
+  "unresolvedDecisions": [
+    "Deliverable count remains unconfirmed in the intake."
+  ]
+}

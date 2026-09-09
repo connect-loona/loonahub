@@ -4450,6 +4450,7 @@
         <button class="nav-btn" onclick="showPage('monthly',this)">Monthly Plan</button>
         <button class="nav-btn" onclick="showPage('team',this)">Team</button>
         <button class="nav-btn" onclick="showPage('brands',this)">Brands</button>
+        <button class="nav-btn" onclick="showPage('strategy',this)">Strategy OS</button>
         <button class="nav-btn" onclick="showPage('calendar',this)">📅 Calendar</button>
         <button class="nav-btn" onclick="showPage('loonacode',this)">Loona Code</button>
         <!-- AI Chat, Loona Radio, and Independence Day moved into the
@@ -5958,6 +5959,13 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- ======= STRATEGY OS ======= -->
+    <!-- RRO vertical slice only (Research -> Strategy). Copy/Direction/Deck/Canva
+         stages come in later phases — see the Strategy OS integration report. -->
+    <div class="page" id="page-strategy">
+      <div id="so-root"></div>
     </div>
 
     <!-- ======= CALENDAR ======= -->
@@ -17307,6 +17315,9 @@
       if (id === 'calendar') {
         openCalendarTab();
       }
+      if (id === 'strategy') {
+        if (typeof soOpenPage === 'function') soOpenPage();
+      }
       if (id === 'admin') {
         openAdminTab();
       }
@@ -24173,6 +24184,380 @@ ${brandLines}`;
     window.attRefreshLive();
     moveDeckLinks(); setTimeout(moveDeckLinks,400);
     reorderOverviewTop(); setTimeout(reorderOverviewTop,400);
+  })();
+  </script>
+
+  <!-- ===== Strategy OS (RRO vertical slice: Research -> Strategy) ===== -->
+  <script>
+  (function(){
+    "use strict";
+
+    function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+    function fmtDateTime(iso){
+      if(!iso) return "—";
+      try { return new Date(iso).toLocaleString("en-IN",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}); }
+      catch(e){ return iso; }
+    }
+    function monthLabel(m){
+      if(!m) return "—";
+      var parts=m.split("-"); var d=new Date(Number(parts[0]), Number(parts[1])-1, 1);
+      return d.toLocaleDateString("en-IN",{month:"long",year:"numeric"});
+    }
+
+    // Only RRO is configured for this vertical slice (see the Strategy OS integration
+    // report) — the "New monthly strategy" flow's brand picker is a fixed list of one
+    // for now rather than a false promise of brands that have no config/seed yet.
+    var AVAILABLE_BRANDS = [{ id: "rro", name: "RRO" }];
+
+    var STAGE_LABELS = { research: "Research", strategy: "Strategy" };
+    var STATUS_LABELS = {
+      draft: "Draft", queued: "Queued", locked: "Locked",
+      research_running: "Research running", research_needs_review: "Needs review",
+      research_changes_requested: "Changes requested", research_approved: "Research approved",
+      strategy_running: "Strategy running", strategy_needs_review: "Needs review",
+      strategy_changes_requested: "Changes requested", strategy_approved: "Strategy approved",
+      running: "Running", repairing: "Repairing", needs_review: "Needs review",
+      approved: "Approved", failed: "Failed", changes_requested: "Changes requested",
+    };
+    function statusLabel(s){ return STATUS_LABELS[s] || s || "—"; }
+
+    var _soRunsListener = null;   // strategy_runs (list view)
+    var _soRunListener = null;    // strategy_runs/<runId> (detail view)
+    var _soOpenRunId = null;
+
+    function soRoot(){ return document.getElementById("so-root"); }
+
+    function soOpenPage(){
+      _soOpenRunId = null;
+      if(_soRunListener){ _soRunListener.ref && _soRunListener.ref.off("value", _soRunListener.cb); _soRunListener=null; }
+      soRenderRunList();
+      soListenRuns();
+    }
+
+    var _soRunsCacheRaw = null; // last snapshot JSON — skip re-rendering the list when nothing actually changed
+
+    function soListenRuns(){
+      if(!_db) { soRoot().innerHTML = '<div class="note" style="margin-top:20px">Real-time sync isn\'t connected — Strategy OS needs Firebase to load runs.</div>'; return; }
+      if(_soRunsListener){ _soRunsListener.ref.off("value", _soRunsListener.cb); }
+      var ref = _db.ref("strategy_runs");
+      var cb = function(snap){
+        var val = snap.val() || {};
+        // Firebase's real SDK only fires "value" when something actually changed, but a
+        // polling stand-in (or a laggy connection re-delivering the same snapshot) can
+        // fire repeatedly with identical data — re-rendering the whole table every time
+        // yanks out from under an in-progress click on a row (Playwright surfaced this
+        // directly: "element was detached from the DOM, retrying"). Skip the render
+        // entirely when nothing changed instead of trying to out-run it.
+        var raw = JSON.stringify(val);
+        if(raw === _soRunsCacheRaw) return;
+        _soRunsCacheRaw = raw;
+        window._soRunsCache = val;
+        if(!_soOpenRunId) soRenderRunList();
+      };
+      ref.on("value", cb);
+      _soRunsListener = { ref: ref, cb: cb };
+    }
+
+    function soRunList(){
+      var runs = window._soRunsCache || {};
+      return Object.keys(runs).map(function(k){ return runs[k]; })
+        .sort(function(a,b){ return (b.createdAt||"").localeCompare(a.createdAt||""); });
+    }
+
+    function soRenderRunList(){
+      var root = soRoot(); if(!root) return;
+      var runs = soRunList();
+      var rows = runs.map(function(r){
+        return '<tr style="cursor:pointer" onclick="window.soOpenRun(\''+esc(r.runId)+'\')">'+
+          '<td>'+esc((AVAILABLE_BRANDS.find(function(b){return b.id===r.brandId;})||{}).name || r.brandId)+'</td>'+
+          '<td>'+esc(monthLabel(r.month))+'</td>'+
+          '<td>'+esc(STAGE_LABELS[currentStageOf(r)] || '—')+'</td>'+
+          '<td>'+esc(statusLabel(r.status))+'</td>'+
+          '<td>'+esc(r.owner||'—')+'</td>'+
+          '<td>'+esc(fmtDateTime(r.updatedAt))+'</td>'+
+          '<td><button class="btn btn-ghost" style="padding:4px 12px;font-size:11px" onclick="event.stopPropagation();window.soOpenRun(\''+esc(r.runId)+'\')">Open</button></td>'+
+        '</tr>';
+      }).join("");
+
+      root.innerHTML =
+        '<div class="section-header" style="margin-top:0">'+
+          '<div class="section-title">Strategy OS</div>'+
+          '<button class="btn btn-primary" onclick="window.soOpenNewRunModal()">+ New monthly strategy</button>'+
+        '</div>'+
+        '<div class="att-board">'+
+          '<div class="bh">Strategy runs<span class="tag">'+runs.length+'</span></div>'+
+          (runs.length
+            ? '<div class="scroll"><table class="att-tbl wide"><thead><tr><th>Client</th><th>Month</th><th>Current stage</th><th>Status</th><th>Owner</th><th>Last updated</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+            : '<div class="note">No strategy runs yet — start the first one.</div>')+
+        '</div>'+
+        '<div id="so-new-run-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:600;align-items:center;justify-content:center">'+
+          '<div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:22px;width:340px;max-width:92vw">'+
+            '<div style="font-weight:700;margin-bottom:14px">New monthly strategy</div>'+
+            '<label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Client</label>'+
+            '<select class="form-control" id="so-new-brand" style="margin-bottom:12px">'+
+              AVAILABLE_BRANDS.map(function(b){ return '<option value="'+esc(b.id)+'">'+esc(b.name)+'</option>'; }).join("")+
+            '</select>'+
+            '<label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Strategy month</label>'+
+            '<input class="form-control" type="month" id="so-new-month" style="margin-bottom:16px">'+
+            '<div id="so-new-run-error" style="color:var(--red);font-size:12px;margin-bottom:10px;display:none"></div>'+
+            '<div style="display:flex;gap:8px">'+
+              '<button class="btn btn-ghost" style="flex:1" onclick="window.soCloseNewRunModal()">Cancel</button>'+
+              '<button class="btn btn-primary" style="flex:1" id="so-new-run-submit" onclick="window.soSubmitNewRun()">Start research</button>'+
+            '</div>'+
+          '</div>'+
+        '</div>';
+    }
+
+    function currentStageOf(run){
+      if(!run || !run.stages) return null;
+      if(run.stages.strategy && run.stages.strategy.status !== "locked") return "strategy";
+      return "research";
+    }
+
+    function soOpenNewRunModal(){
+      soRenderRunList();
+      var modal = document.getElementById("so-new-run-modal");
+      var monthInput = document.getElementById("so-new-month");
+      if(monthInput && !monthInput.value){
+        var d = new Date(); d.setMonth(d.getMonth()+1);
+        monthInput.value = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
+      }
+      if(modal) modal.style.display = "flex";
+    }
+    function soCloseNewRunModal(){
+      var modal = document.getElementById("so-new-run-modal");
+      if(modal) modal.style.display = "none";
+    }
+
+    async function soSubmitNewRun(){
+      var brandId = document.getElementById("so-new-brand").value;
+      var month = document.getElementById("so-new-month").value;
+      var errEl = document.getElementById("so-new-run-error");
+      var btn = document.getElementById("so-new-run-submit");
+      if(errEl){ errEl.style.display="none"; }
+      if(!month){ if(errEl){ errEl.textContent="Pick a month."; errEl.style.display="block"; } return; }
+      if(btn){ btn.disabled=true; btn.textContent="Starting…"; }
+      try {
+        var res = await fetch("/.netlify/functions/strategy-run-start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ brandId: brandId, month: month, actor: currentUser || "Unknown" }),
+        });
+        var data = await res.json().catch(function(){ return {}; });
+        if(!res.ok) throw new Error(data.error || "Could not start this run.");
+        soCloseNewRunModal();
+        window.soOpenRun(data.runId);
+      } catch(e) {
+        if(errEl){ errEl.textContent = e.message || String(e); errEl.style.display="block"; }
+      } finally {
+        if(btn){ btn.disabled=false; btn.textContent="Start research"; }
+      }
+    }
+
+    // ---------- Run detail / stage review ----------
+
+    var _soCurrentRunRaw = null; // same "skip an unchanged snapshot" guard as soListenRuns()
+
+    function soOpenRun(runId){
+      _soOpenRunId = runId;
+      _soCurrentRunRaw = null;
+      if(_soRunListener){ _soRunListener.ref.off("value", _soRunListener.cb); _soRunListener=null; }
+      if(!_db) return;
+      var ref = _db.ref("strategy_runs/"+runId);
+      var cb = function(snap){
+        var val = snap.val();
+        var raw = JSON.stringify(val);
+        if(raw === _soCurrentRunRaw) return;
+        _soCurrentRunRaw = raw;
+        window._soCurrentRun = val;
+        soRenderRunDetail();
+      };
+      ref.on("value", cb);
+      _soRunListener = { ref: ref, cb: cb };
+    }
+
+    function soBackToList(){
+      _soOpenRunId = null;
+      if(_soRunListener){ _soRunListener.ref.off("value", _soRunListener.cb); _soRunListener=null; }
+      soRenderRunList();
+    }
+
+    function stageStripHtml(run){
+      var stages = ["research","strategy"];
+      return '<div style="display:flex;gap:8px;margin:14px 0 20px">'+
+        stages.map(function(s){
+          var st = (run.stages && run.stages[s]) || {status:"locked"};
+          var isCurrent = currentStageOf(run) === s;
+          var color = st.status === "approved" ? "var(--green)" : st.status === "failed" ? "var(--red)" : (isCurrent ? "var(--accent)" : "var(--muted)");
+          return '<div style="flex:1;border:1px solid var(--border);border-radius:10px;padding:10px 12px;'+(isCurrent?'background:var(--surface2)':'')+'">'+
+            '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em">'+esc(STAGE_LABELS[s])+'</div>'+
+            '<div style="font-weight:700;color:'+color+'">'+esc(statusLabel(st.status))+'</div>'+
+          '</div>';
+        }).join("")+
+      '</div>';
+    }
+
+    function soRenderRunDetail(){
+      var root = soRoot(); if(!root) return;
+      var run = window._soCurrentRun;
+      if(!run){
+        root.innerHTML = '<div class="note" style="margin-top:20px">This run could not be found.</div><button class="btn btn-ghost" style="margin-top:12px" onclick="window.soBackToList()">&larr; Back to Strategy OS</button>';
+        return;
+      }
+      var brandName = (AVAILABLE_BRANDS.find(function(b){return b.id===run.brandId;})||{}).name || run.brandId;
+      var research = run.stages && run.stages.research;
+      var strategy = run.stages && run.stages.strategy;
+
+      var body = "";
+      if(strategy && (strategy.status === "needs_review" || strategy.status === "approved") && strategy.checkpoint){
+        body = strategyReviewHtml(run, strategy);
+      } else if(research && (research.status === "needs_review" || research.status === "approved" || research.status === "changes_requested") && research.checkpoint){
+        body = researchReviewHtml(run, research);
+      } else {
+        body = pendingStageHtml(run);
+      }
+
+      root.innerHTML =
+        '<div class="section-header" style="margin-top:0">'+
+          '<div><button class="btn btn-ghost" style="padding:4px 10px;font-size:11px;margin-bottom:8px" onclick="window.soBackToList()">&larr; All runs</button>'+
+          '<div class="section-title">'+esc(brandName)+' &middot; '+esc(monthLabel(run.month))+'</div></div>'+
+        '</div>'+
+        stageStripHtml(run)+
+        body;
+    }
+
+    function pendingStageHtml(run){
+      var stage = currentStageOf(run);
+      var st = (run.stages && run.stages[stage]) || {};
+      if(st.status === "failed"){
+        return '<div class="att-board"><div class="bh" style="color:var(--red)">'+esc(STAGE_LABELS[stage])+' failed</div>'+
+          '<div class="note">'+esc(st.detail||"No details recorded.")+'</div></div>';
+      }
+      return '<div class="att-board"><div class="bh">'+esc(STAGE_LABELS[stage])+' in progress</div>'+
+        '<div class="note">'+esc(st.detail || "Working…")+' This updates live — no need to refresh.</div></div>';
+    }
+
+    function researchReviewHtml(run, stage){
+      var r = stage.checkpoint;
+      var readOnly = stage.status === "approved";
+      var qRows = (r.liveQuestions||[]).map(function(q){
+        var srcs = q.sourceIds.map(function(id){ var s=(r.sources||[]).find(function(x){return x.id===id;}); return s ? '<a href="'+esc(s.url)+'" target="_blank" style="color:var(--accent)">'+esc(s.type)+'</a>' : id; }).join(", ");
+        return '<div class="pf-absrow" style="align-items:flex-start;flex-direction:column;gap:4px;border-bottom:1px solid var(--border);padding:10px 0">'+
+          '<div style="font-weight:600">&ldquo;'+esc(q.verbatim)+'&rdquo;</div>'+
+          '<div style="font-size:12px;color:var(--muted)">'+esc(q.underlyingNeed)+'</div>'+
+          '<div style="font-size:11px">Source: '+srcs+'</div>'+
+        '</div>';
+      }).join("");
+
+      var argRows = (r.arguments||[]).map(function(a){
+        return '<div style="border-bottom:1px solid var(--border);padding:10px 0">'+
+          '<div style="font-weight:600">'+esc(a.disagreement)+'</div>'+
+          '<div style="font-size:12px;margin-top:4px"><b>Side A:</b> '+esc(a.sideA)+'</div>'+
+          '<div style="font-size:12px"><b>Side B:</b> '+esc(a.sideB)+'</div>'+
+          '<div style="font-size:12px;color:var(--accent);margin-top:4px">Credible position: '+esc(a.credibleBrandPosition)+' — '+esc(a.credibilityReason)+'</div>'+
+        '</div>';
+      }).join("");
+
+      var behRows = (r.unspokenBehaviours||[]).map(function(b){
+        return '<div style="border-bottom:1px solid var(--border);padding:10px 0">'+
+          '<div style="font-weight:600">'+esc(b.behaviour)+'</div>'+
+          '<div style="font-size:12px;color:var(--muted)">'+esc(b.hiddenTension)+'</div>'+
+        '</div>';
+      }).join("");
+
+      var killRows = (r.exhaustedTerritory||[]).map(function(t){
+        return '<div style="border-bottom:1px solid var(--border);padding:8px 0"><b>'+esc(t.territory)+'</b> — '+esc(t.reasonExhausted)+'</div>';
+      }).join("");
+
+      return '<div class="att-board"><div class="bh">Live questions <span class="tag">'+(r.liveQuestions||[]).length+'</span></div>'+qRows+'</div>'+
+        '<div class="att-board"><div class="bh">Category arguments <span class="tag">'+(r.arguments||[]).length+'</span></div>'+argRows+'</div>'+
+        '<div class="att-board"><div class="bh">Unspoken behaviours <span class="tag">'+(r.unspokenBehaviours||[]).length+'</span></div>'+behRows+'</div>'+
+        '<div class="att-board"><div class="bh">Exhausted territory (kill list) <span class="tag">'+(r.exhaustedTerritory||[]).length+'</span></div>'+killRows+'</div>'+
+        (readOnly
+          ? '<div class="note">Research approved '+esc(fmtDateTime((run.approvals&&run.approvals.research&&run.approvals.research.decidedAt)))+' by '+esc(run.approvals&&run.approvals.research&&run.approvals.research.decidedBy)+'.</div>'
+          : decisionBarHtml(run.runId, "research"));
+    }
+
+    function gateChip(pass, label){
+      return '<span style="display:inline-block;margin:2px 6px 2px 0;padding:2px 9px;border-radius:6px;font-size:10.5px;font-weight:700;'+
+        (pass ? 'background:#12291d;border:1px solid #2a5a3a;color:var(--green)' : 'background:#2c1414;border:1px solid #5a2a2a;color:var(--red)')+'">'+
+        (pass?'✓ ':'✗ ')+esc(label)+'</span>';
+    }
+
+    function strategyReviewHtml(run, stage){
+      var s = stage.checkpoint;
+      var readOnly = stage.status === "approved";
+      var byFormat = (s.assets||[]).reduce(function(acc,a){ acc[a.format]=(acc[a.format]||0)+1; return acc; }, {});
+      var assetRows = (s.assets||[]).map(function(a){
+        return '<div style="border-bottom:1px solid var(--border);padding:12px 0">'+
+          '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">'+
+            '<div style="font-weight:700">'+esc(a.assetId)+' &middot; '+esc(a.format)+' &middot; '+esc(a.conceptName)+'</div>'+
+            '<div style="font-size:11px;color:var(--muted)">'+esc(a.portfolioId||'—')+'</div>'+
+          '</div>'+
+          '<div style="margin:6px 0;font-style:italic">&ldquo;'+esc(a.hook)+'&rdquo;</div>'+
+          '<div style="font-size:12px;color:var(--muted)"><b>Tension:</b> '+esc(a.tension)+'</div>'+
+          '<div style="font-size:12px;color:var(--muted)"><b>Send to:</b> '+esc(a.sendTo)+'</div>'+
+          '<div style="margin-top:8px">'+
+            gateChip(a.gate.logoSwapPass,"Logo-swap")+gateChip(a.gate.killListPass,"Kill list")+
+            gateChip(a.gate.tensionPass,"Tension")+gateChip(a.gate.overheardPass,"Overheard")+
+          '</div>'+
+        '</div>';
+      }).join("");
+
+      return '<div class="att-board">'+
+          '<div class="bh">Asset plan <span class="tag">'+(s.assets||[]).length+' assets</span></div>'+
+          '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">'+
+            (byFormat.reel||0)+' reel &middot; '+(byFormat.carousel||0)+' carousel &middot; '+(byFormat.static||0)+' static'+
+          '</div>'+
+          '<div style="font-size:13px;margin-bottom:10px"><b>Month thesis:</b> '+esc(s.monthThesis)+'</div>'+
+        '</div>'+
+        '<div class="att-board"><div class="bh">Concepts</div>'+assetRows+'</div>'+
+        (s.discarded && s.discarded.length ? '<div class="att-board"><div class="bh">Discarded candidates <span class="tag">'+s.discarded.length+'</span></div>'+
+          s.discarded.map(function(d){ return '<div style="border-bottom:1px solid var(--border);padding:8px 0"><b>'+esc(d.conceptName)+'</b> — failed '+esc(d.failedGate)+': '+esc(d.reason)+'</div>'; }).join("")+
+        '</div>' : '')+
+        (readOnly
+          ? '<div class="note">Strategy approved '+esc(fmtDateTime((run.approvals&&run.approvals.strategy&&run.approvals.strategy.decidedAt)))+' by '+esc(run.approvals&&run.approvals.strategy&&run.approvals.strategy.decidedBy)+'. Copy is not built yet — this is where the RRO vertical slice currently ends.</div>'
+          : decisionBarHtml(run.runId, "strategy"));
+    }
+
+    function decisionBarHtml(runId, stage){
+      return '<div class="att-board">'+
+        '<div class="bh">Decision</div>'+
+        '<textarea class="form-control" id="so-decision-notes" placeholder="Notes (optional)" style="margin-bottom:10px;min-height:60px"></textarea>'+
+        '<div id="so-decision-error" style="color:var(--red);font-size:12px;margin-bottom:8px;display:none"></div>'+
+        '<div style="display:flex;gap:8px">'+
+          '<button class="btn btn-ghost" style="flex:1" onclick="window.soDecide(\''+esc(runId)+'\',\''+esc(stage)+'\',\'changes_requested\')">Request changes</button>'+
+          '<button class="btn btn-primary" style="flex:1" onclick="window.soDecide(\''+esc(runId)+'\',\''+esc(stage)+'\',\'approved\')">Approve '+esc(STAGE_LABELS[stage])+'</button>'+
+        '</div>'+
+      '</div>';
+    }
+
+    async function soDecide(runId, stage, decision){
+      var notesEl = document.getElementById("so-decision-notes");
+      var errEl = document.getElementById("so-decision-error");
+      if(errEl){ errEl.style.display="none"; }
+      try {
+        var res = await fetch("/.netlify/functions/strategy-stage-approve", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ runId: runId, stage: stage, decision: decision, actor: currentUser || "Unknown", notes: notesEl ? notesEl.value.trim() : "" }),
+        });
+        var data = await res.json().catch(function(){ return {}; });
+        if(!res.ok) throw new Error(data.error || "Could not record this decision.");
+        // The live Firebase listener (soOpenRun's cb) re-renders automatically once the
+        // function's writes land — no manual re-render needed here.
+      } catch(e) {
+        if(errEl){ errEl.textContent = e.message || String(e); errEl.style.display="block"; }
+      }
+    }
+
+    window.soOpenPage = soOpenPage;
+    window.soOpenNewRunModal = soOpenNewRunModal;
+    window.soCloseNewRunModal = soCloseNewRunModal;
+    window.soSubmitNewRun = soSubmitNewRun;
+    window.soOpenRun = soOpenRun;
+    window.soBackToList = soBackToList;
+    window.soDecide = soDecide;
   })();
   </script>
 
