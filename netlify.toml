@@ -7,6 +7,14 @@
 
 [functions]
   node_bundler = "esbuild"
+  # esbuild only bundles the JS require() graph — it can't see the Strategy OS functions'
+  # netlify/functions/lib/strategy/{seed,prompts,fixtures}/* files, since those are read at
+  # runtime via fs.readFileSync(path.join(__dirname, ...)), not require()'d. Without this,
+  # the deployed function zip is missing them entirely (works fine in local/CLI testing,
+  # which runs straight off the full repo checkout with no bundling step — the gap only
+  # shows up live, as "No brand config found ... not in Firebase, no seed file", which is
+  # exactly the "no seed file" branch firing because the seed file genuinely isn't there).
+  included_files = ["netlify/functions/lib/strategy/**"]
 
 # flag.loona.in — a clean, branded custom domain for the Independence Day
 # microsite so an Instagram bio/caption link never has to show the
