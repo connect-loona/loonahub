@@ -172,7 +172,7 @@ async function runResearchStage(runId) {
   };
   return executeStage(runId, run, {
     stage: "research",
-    agentName: "Loona Research",
+    agentName: "👨🏻‍✈️ Columbus — Research",
     promptFile: "01-research.md",
     schema: ResearchSchema,
     toolProfile: "research",
@@ -204,7 +204,7 @@ async function runStrategyStage(runId) {
   };
   return executeStage(runId, run, {
     stage: "strategy",
-    agentName: "Loona Strategy",
+    agentName: "🧕🏻 Dora — Strategy",
     promptFile: "02-strategy.md",
     schema: StrategySchema,
     toolProfile: "none",
@@ -236,7 +236,7 @@ async function runCopyStage(runId) {
   };
   return executeStage(runId, run, {
     stage: "copy",
-    agentName: "Loona Copy",
+    agentName: "👩‍🎨 Matilda — Copy",
     promptFile: "03-copy.md",
     schema: CopySchema,
     toolProfile: "none",
@@ -269,7 +269,7 @@ async function runDirectionStage(runId) {
   };
   return executeStage(runId, run, {
     stage: "creative-direction",
-    agentName: "Loona Creative Direction",
+    agentName: "👩🏼‍🎤 Barbie — Creative Direction",
     promptFile: "04-creative-direction.md",
     schema: CreativeDirectionSchema,
     toolProfile: "reference-search",
@@ -307,7 +307,7 @@ async function runDeckStage(runId) {
   };
   const result = await executeStage(runId, run, {
     stage: "deck-builder",
-    agentName: "Loona Deck Builder",
+    agentName: "👷🏾 Bob — Deck Builder",
     promptFile: "05-deck-builder.md",
     schema: DeckSpecSchema,
     toolProfile: "none",
@@ -409,7 +409,7 @@ async function proposeConceptCandidate(runId, assetId, requestType, notes) {
         // their own offline fixture instead of colliding on one shared one; the real
         // runtime just sees this as the task label sent to the model, equally reasonable.
         stage: `strategy-concept-${requestType}`,
-        agentName: "Loona Strategy — concept refinement",
+        agentName: "🧕🏻 Dora — Concept Refinement",
         instructions,
         input,
         outputSchema: StrategyAssetSchema,

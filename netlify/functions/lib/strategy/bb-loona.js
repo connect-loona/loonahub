@@ -11,12 +11,12 @@ const {
 } = require("./souls-data");
 
 const ASSIGNMENTS = {
-  "01-research.md": { agentName: "Loona Research", role: "Research", soul: RESEARCH_SOUL },
-  "02-strategy.md": { agentName: "Loona Strategy", role: "Strategy", soul: STRATEGY_SOUL },
-  "03-copy.md": { agentName: "Loona Copy", role: "Copy", soul: COPY_SOUL },
-  "04-creative-direction.md": { agentName: "Loona Creative Direction", role: "Creative Direction", soul: CREATIVE_DIRECTION_SOUL },
-  "05-deck-builder.md": { agentName: "Loona Deck Builder", role: "Deck Builder", soul: DECK_BUILDER_SOUL },
-  "06-concept-refine.md": { agentName: "Loona Strategy — concept refinement", role: "Concept Refinement", soul: CONCEPT_REFINEMENT_SOUL },
+  "01-research.md": { agentName: "👨🏻‍✈️ Columbus — Research", role: "Research", soul: RESEARCH_SOUL },
+  "02-strategy.md": { agentName: "🧕🏻 Dora — Strategy", role: "Strategy", soul: STRATEGY_SOUL },
+  "03-copy.md": { agentName: "👩‍🎨 Matilda — Copy", role: "Copy", soul: COPY_SOUL },
+  "04-creative-direction.md": { agentName: "👩🏼‍🎤 Barbie — Creative Direction", role: "Creative Direction", soul: CREATIVE_DIRECTION_SOUL },
+  "05-deck-builder.md": { agentName: "👷🏾 Bob — Deck Builder", role: "Deck Builder", soul: DECK_BUILDER_SOUL },
+  "06-concept-refine.md": { agentName: "🧕🏻 Dora — Concept Refinement", role: "Concept Refinement", soul: CONCEPT_REFINEMENT_SOUL },
 };
 
 function assignmentFor(promptFile) {
