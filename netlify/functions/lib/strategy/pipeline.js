@@ -14,6 +14,7 @@ const { validateResearch, validateStrategy, validateCopy, validateDirection, val
 const { OpenAIAgentsRuntime } = require("./runtime-openai");
 const { FixtureRuntime } = require("./runtime-fixture");
 const { StageValidationError } = require("./errors");
+const { saveStageVersion, saveStageMetrics } = require("./observability");
 
 const MAX_REPAIRS = 2;
 
@@ -65,6 +66,7 @@ async function setStageStatus(runId, stage, patch) {
 // Shared by both stage runners — identical shape to the original executeStage(), just
 // backed by Firebase instead of a local checkpoint file.
 async function executeStage(runId, run, def) {
+  const startedAt = Date.now();
   const runtime = createRuntime(run);
   const instructions = def.fixedInstructions || loadPrompt(def.promptFile);
   let repairIssues = [];
@@ -97,6 +99,13 @@ async function executeStage(runId, run, def) {
         // AFTER validation passes — never asked of the model itself, so it can't fabricate
         // a plausible-looking owner or status. See contracts.js's DeckPageSchema comment.
         const finalOutput = def.enrich ? def.enrich(parsed) : parsed;
+        await saveStageVersion(runId, def.stage, finalOutput, "generated", "system");
+        await saveStageMetrics(runId, def.stage, {
+          durationMs: Date.now() - startedAt,
+          attempts: attempt + 1,
+          repairs: attempt,
+          outcome: "needs_review",
+        });
         await setStageStatus(runId, def.stage, { status: "needs_review", detail: "Validated. Awaiting review.", checkpoint: finalOutput, error: null });
         await fbUpdate(`strategy_runs/${runId}`, { status: def.reviewStatus, updatedAt: new Date().toISOString() });
         await logActivity(runId, "system", `${def.stage}.completed`, `Passed on attempt ${attempt + 1}.`);
@@ -113,6 +122,12 @@ async function executeStage(runId, run, def) {
   }
 
   const message = lastError && lastError.message ? lastError.message : String(lastError);
+  await saveStageMetrics(runId, def.stage, {
+    durationMs: Date.now() - startedAt,
+    attempts: MAX_REPAIRS + 1,
+    repairs: MAX_REPAIRS,
+    outcome: "failed",
+  });
   await setStageStatus(runId, def.stage, { status: "failed", detail: message });
   await fbUpdate(`strategy_runs/${runId}`, { status: "failed", updatedAt: new Date().toISOString() });
   await logActivity(runId, "system", `${def.stage}.failed`, message);
@@ -302,3 +317,4 @@ async function runDeckStage(runId) {
 }
 
 module.exports = { runResearchStage, runStrategyStage, runCopyStage, runDirectionStage, runDeckStage, logActivity, buildStrategyResearchBrief };
+

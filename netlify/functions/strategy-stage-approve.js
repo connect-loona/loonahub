@@ -13,6 +13,7 @@
 const { fbGet, fbSet, fbUpdate } = require("./lib/strategy/firebase");
 const { logActivity } = require("./lib/strategy/pipeline");
 const { checkAuthorization } = require("./lib/strategy/auth");
+const { saveStageVersion, saveFeedbackEvent } = require("./lib/strategy/observability");
 
 const NEXT_STAGE = {
   research: "strategy",
@@ -71,6 +72,7 @@ exports.handler = async (event) => {
       [stage]: { decision, decidedBy: actor, decidedAt: now, notes: notes || null },
     });
     await logActivity(runId, actor, `${stage}.${decision}`, notes || null);
+    await saveFeedbackEvent(run, stage, decision, notes, actor);
 
     if (decision === "changes_requested") {
       await fbUpdate(`strategy_runs/${runId}`, { status: `${stage}_changes_requested`, updatedAt: now });
@@ -78,6 +80,7 @@ exports.handler = async (event) => {
     }
 
     // Approved.
+    if (stageState.checkpoint) await saveStageVersion(runId, stage, stageState.checkpoint, "approved", actor);
     await fbUpdate(`strategy_runs/${runId}/stages/${stage}`, { status: "approved", updatedAt: now });
     const nextStage = NEXT_STAGE[stage];
     if (!nextStage) {
@@ -107,3 +110,4 @@ exports.handler = async (event) => {
     return { statusCode: 500, headers: cors(), body: JSON.stringify({ error: error.message }) };
   }
 };
+
