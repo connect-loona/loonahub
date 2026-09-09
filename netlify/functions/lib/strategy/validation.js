@@ -23,6 +23,18 @@ function normalise(value) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
+// Firebase RTDB doesn't round-trip empty arrays — writing `frames: []` (a real, valid
+// value for a non-carousel copy asset) results in the key being dropped entirely, so a
+// later fbGet() of that same checkpoint comes back with `frames` missing rather than `[]`.
+// Confirmed live: a deck run crashed with "copyAsset.onCreative.frames is not iterable"
+// after Copy had already been approved and reloaded from Firebase for the Deck stage.
+// Every array field in these schemas that CAN legitimately be empty (no Zod `.min()`) is
+// at risk the moment it's read from a checkpoint rather than fresh model output, so this
+// wraps every such access rather than trusting the field is still an array.
+function safeArray(value) {
+  return value || [];
+}
+
 function duplicateValues(values) {
   const seen = new Set();
   const duplicates = new Set();
@@ -113,7 +125,7 @@ function validateStrategy(output, config, research, learnings, month) {
     ...research.unspokenBehaviours.map((entry) => entry.id),
     ...research.exhaustedTerritory.map((entry) => entry.id),
     ...research.whitespace.map((entry) => entry.id),
-    ...research.calendar.map((entry) => entry.id),
+    ...safeArray(research.calendar).map((entry) => entry.id),
   ]);
   const pillarIds = new Set(config.pillars.map((pillar) => pillar.id));
   const assetIds = output.assets.map((asset) => asset.assetId);
@@ -168,9 +180,9 @@ function validateStrategy(output, config, research, learnings, month) {
           if (!anchors.has(normalise(portfolio.name))) {
             issues.push(`${asset.assetId} brandAnchors must include exact portfolio name ${portfolio.name}.`);
           }
-          if (asset.skuIds.length === 0) issues.push(`${asset.assetId} must name at least one SKU.`);
+          if (safeArray(asset.skuIds).length === 0) issues.push(`${asset.assetId} must name at least one SKU.`);
           let anchoredSku = false;
-          for (const skuId of asset.skuIds) {
+          for (const skuId of safeArray(asset.skuIds)) {
             const product = portfolio.products.find((candidate) => candidate.id === skuId);
             if (!product) {
               issues.push(`${asset.assetId} uses SKU ${skuId} outside portfolio ${portfolio.id}.`);
@@ -188,23 +200,24 @@ function validateStrategy(output, config, research, learnings, month) {
 }
 
 function sameStringSet(a, b) {
+  a = safeArray(a); b = safeArray(b);
   return a.length === b.length && [...a].sort().every((value, index) => value === [...b].sort()[index]);
 }
 
 function selectedProducts(config, portfolioId, skuIds) {
   const portfolio = config.portfolios.find((candidate) => candidate.id === portfolioId);
   if (!portfolio) return [];
-  return portfolio.products.filter((product) => skuIds.includes(product.id));
+  return portfolio.products.filter((product) => safeArray(skuIds).includes(product.id));
 }
 
 function allCopyText(asset) {
   return [
     asset.hook,
     asset.onCreative.cover,
-    ...asset.onCreative.frames.map((frame) => `${frame.label} ${frame.text}`),
+    ...safeArray(asset.onCreative.frames).map((frame) => `${frame.label} ${frame.text}`),
     asset.onCreative.endFrame,
-    ...asset.script.scenes.flatMap((scene) => [scene.voiceover, scene.onScreenText]),
-    ...asset.captions.map((caption) => `${caption.copy} ${caption.hashtags.join(" ")}`),
+    ...safeArray(asset.script.scenes).flatMap((scene) => [scene.voiceover, scene.onScreenText]),
+    ...asset.captions.map((caption) => `${caption.copy} ${safeArray(caption.hashtags).join(" ")}`),
   ].join("\n");
 }
 
@@ -239,10 +252,10 @@ function validateCopy(output, config, strategy, month) {
     if (new Set(asset.captions.map((caption) => normalise(caption.copy))).size !== 3) {
       issues.push(`${asset.assetId} needs three genuinely distinct caption bodies.`);
     }
-    if (asset.format === "reel" && (asset.script.durationSeconds <= 0 || asset.script.scenes.length < 2)) {
+    if (asset.format === "reel" && (asset.script.durationSeconds <= 0 || safeArray(asset.script.scenes).length < 2)) {
       issues.push(`${asset.assetId} reel needs a timed multi-scene script.`);
     }
-    if (asset.format !== "reel" && (asset.script.durationSeconds !== 0 || asset.script.scenes.length !== 0)) {
+    if (asset.format !== "reel" && (asset.script.durationSeconds !== 0 || safeArray(asset.script.scenes).length !== 0)) {
       issues.push(`${asset.assetId} is not a reel; its script must be empty with durationSeconds 0.`);
     }
 
@@ -256,16 +269,16 @@ function validateCopy(output, config, strategy, month) {
       (rule) => rule.portfolioIds.length === 0 || (asset.portfolioId && rule.portfolioIds.includes(asset.portfolioId)),
     );
     for (const rule of applicableRules) {
-      if (!asset.claimAudit.rulesChecked.includes(rule.id)) {
+      if (!safeArray(asset.claimAudit.rulesChecked).includes(rule.id)) {
         issues.push(`${asset.assetId} did not record claim rule ${rule.id} as checked.`);
       }
       for (const trigger of rule.triggerPatterns) {
         const triggerPattern = new RegExp(trigger, "i");
         if (!triggerPattern.test(copyText)) continue;
         const approved = products.some((product) =>
-          [product.name, ...product.approvedClaims, ...product.approvedFacts].some((claim) => triggerPattern.test(claim)),
+          [product.name, ...safeArray(product.approvedClaims), ...safeArray(product.approvedFacts)].some((claim) => triggerPattern.test(claim)),
         );
-        const flagged = asset.claimAudit.verificationFlags.some((flag) => flag.ruleId === rule.id);
+        const flagged = safeArray(asset.claimAudit.verificationFlags).some((flag) => flag.ruleId === rule.id);
         if (!approved && !flagged) {
           issues.push(`${asset.assetId} uses language matching claim rule ${rule.id} without configured approval or a flag.`);
         }
@@ -274,10 +287,10 @@ function validateCopy(output, config, strategy, month) {
         }
       }
     }
-    if (asset.claimAudit.verificationFlags.length > 0 && asset.claimAudit.status === "ready") {
+    if (safeArray(asset.claimAudit.verificationFlags).length > 0 && asset.claimAudit.status === "ready") {
       issues.push(`${asset.assetId} has verification flags but is marked ready.`);
     }
-    if (asset.claimAudit.status === "blocked" && asset.claimAudit.verificationFlags.length === 0) {
+    if (asset.claimAudit.status === "blocked" && safeArray(asset.claimAudit.verificationFlags).length === 0) {
       issues.push(`${asset.assetId} is blocked without a visible verification flag.`);
     }
   }
@@ -309,8 +322,8 @@ function validateDirection(output, config, strategy, month) {
     if (asset.format !== strategyAsset.format) issues.push(`${asset.assetId} changed format in direction.`);
     if (asset.portfolioId !== strategyAsset.portfolioId) issues.push(`${asset.assetId} changed portfolio in direction.`);
     if (!sameStringSet(asset.skuIds, strategyAsset.skuIds)) issues.push(`${asset.assetId} changed SKU set in direction.`);
-    if (asset.format === "reel" && asset.shotList.length < 3) issues.push(`${asset.assetId} reel needs at least 3 shots.`);
-    for (const reference of asset.references) {
+    if (asset.format === "reel" && safeArray(asset.shotList).length < 3) issues.push(`${asset.assetId} reel needs at least 3 shots.`);
+    for (const reference of safeArray(asset.references)) {
       try {
         const url = new URL(reference.url);
         if (!/^https?:$/.test(url.protocol)) throw new Error("unsupported protocol");
@@ -355,7 +368,7 @@ function validateDeck(output, config, strategy, copy, direction, month) {
     if (!includesNormalised(page.creativeCopy, copyAsset.onCreative.cover)) {
       issues.push(`${page.assetId} creativeCopy is missing the exact cover line.`);
     }
-    for (const frame of copyAsset.onCreative.frames) {
+    for (const frame of safeArray(copyAsset.onCreative.frames)) {
       if (!includesNormalised(page.creativeCopy, frame.text)) {
         issues.push(`${page.assetId} creativeCopy omitted frame "${frame.label}".`);
       }
