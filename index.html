@@ -24204,10 +24204,18 @@ ${brandLines}`;
       return d.toLocaleDateString("en-IN",{month:"long",year:"numeric"});
     }
 
-    // Only RRO is configured for this vertical slice (see the Strategy OS integration
-    // report) — the "New monthly strategy" flow's brand picker is a fixed list of one
-    // for now rather than a false promise of brands that have no config/seed yet.
-    var AVAILABLE_BRANDS = [{ id: "rro", name: "RRO" }];
+    // Brands live in Firebase (strategy_brands/<id>) and are managed through the "Manage
+    // brands" screen — see soRenderBrandList()/soRenderBrandForm() below. window._soBrandsCache
+    // is kept live by soListenBrands().
+    function soBrandList(){
+      var brands = window._soBrandsCache || {};
+      return Object.keys(brands).map(function(k){ return brands[k]; })
+        .sort(function(a,b){ return (a.name||"").localeCompare(b.name||""); });
+    }
+    function soBrandName(id){
+      var b = (window._soBrandsCache||{})[id];
+      return b ? b.name : id;
+    }
 
     var STAGE_LABELS = { research: "Research", strategy: "Strategy" };
     var STATUS_LABELS = {
@@ -24223,15 +24231,47 @@ ${brandLines}`;
 
     var _soRunsListener = null;   // strategy_runs (list view)
     var _soRunListener = null;    // strategy_runs/<runId> (detail view)
+    var _soBrandsListener = null; // strategy_brands (brand list + name lookups everywhere)
     var _soOpenRunId = null;
+    var _soBrandView = null;      // null | "list" | brandId being edited | "__new__"
+    // Both the runs and brands listeners can re-render the run list underneath the "New
+    // monthly strategy" modal (e.g. any run's status changing, or the brands listener's
+    // very first real snapshot arriving after the modal is already open) — a full re-render
+    // replaces #so-root's innerHTML, which recreates the modal fresh at its default
+    // display:none and silently closes it out from under whoever has it open. Skip that
+    // specific re-render while the modal is open; the cache itself is still kept current,
+    // so the list catches up correctly the next time it's actually rendered.
+    var _soNewRunModalOpen = false;
 
     function soRoot(){ return document.getElementById("so-root"); }
 
     function soOpenPage(){
       _soOpenRunId = null;
+      _soBrandView = null;
       if(_soRunListener){ _soRunListener.ref && _soRunListener.ref.off("value", _soRunListener.cb); _soRunListener=null; }
       soRenderRunList();
       soListenRuns();
+      soListenBrands();
+    }
+
+    var _soBrandsCacheRaw = null;
+
+    function soListenBrands(){
+      if(!_db) return;
+      if(_soBrandsListener){ _soBrandsListener.ref.off("value", _soBrandsListener.cb); }
+      var ref = _db.ref("strategy_brands");
+      var cb = function(snap){
+        var val = snap.val() || {};
+        var raw = JSON.stringify(val);
+        if(raw === _soBrandsCacheRaw) return;
+        _soBrandsCacheRaw = raw;
+        window._soBrandsCache = val;
+        if(_soOpenRunId || _soNewRunModalOpen) return; // run detail / open modal don't re-render here
+        if(_soBrandView === "list") soRenderBrandList();
+        else if(!_soBrandView) soRenderRunList(); // brand names shown in the run table + New Run picker
+      };
+      ref.on("value", cb);
+      _soBrandsListener = { ref: ref, cb: cb };
     }
 
     var _soRunsCacheRaw = null; // last snapshot JSON — skip re-rendering the list when nothing actually changed
@@ -24252,7 +24292,7 @@ ${brandLines}`;
         if(raw === _soRunsCacheRaw) return;
         _soRunsCacheRaw = raw;
         window._soRunsCache = val;
-        if(!_soOpenRunId) soRenderRunList();
+        if(!_soOpenRunId && !_soNewRunModalOpen) soRenderRunList();
       };
       ref.on("value", cb);
       _soRunsListener = { ref: ref, cb: cb };
@@ -24269,7 +24309,7 @@ ${brandLines}`;
       var runs = soRunList();
       var rows = runs.map(function(r){
         return '<tr style="cursor:pointer" onclick="window.soOpenRun(\''+esc(r.runId)+'\')">'+
-          '<td>'+esc((AVAILABLE_BRANDS.find(function(b){return b.id===r.brandId;})||{}).name || r.brandId)+'</td>'+
+          '<td>'+esc(soBrandName(r.brandId))+'</td>'+
           '<td>'+esc(monthLabel(r.month))+'</td>'+
           '<td>'+esc(STAGE_LABELS[currentStageOf(r)] || '—')+'</td>'+
           '<td>'+esc(statusLabel(r.status))+'</td>'+
@@ -24279,10 +24319,14 @@ ${brandLines}`;
         '</tr>';
       }).join("");
 
+      var brands = soBrandList();
       root.innerHTML =
         '<div class="section-header" style="margin-top:0">'+
           '<div class="section-title">Strategy OS</div>'+
-          '<button class="btn btn-primary" onclick="window.soOpenNewRunModal()">+ New monthly strategy</button>'+
+          '<div style="display:flex;gap:8px">'+
+            '<button class="btn btn-ghost" onclick="window.soOpenBrandList()">Manage brands</button>'+
+            '<button class="btn btn-primary" onclick="window.soOpenNewRunModal()">+ New monthly strategy</button>'+
+          '</div>'+
         '</div>'+
         '<div class="att-board">'+
           '<div class="bh">Strategy runs<span class="tag">'+runs.length+'</span></div>'+
@@ -24293,16 +24337,18 @@ ${brandLines}`;
         '<div id="so-new-run-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:600;align-items:center;justify-content:center">'+
           '<div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:22px;width:340px;max-width:92vw">'+
             '<div style="font-weight:700;margin-bottom:14px">New monthly strategy</div>'+
-            '<label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Client</label>'+
-            '<select class="form-control" id="so-new-brand" style="margin-bottom:12px">'+
-              AVAILABLE_BRANDS.map(function(b){ return '<option value="'+esc(b.id)+'">'+esc(b.name)+'</option>'; }).join("")+
-            '</select>'+
+            (brands.length
+              ? '<label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Client</label>'+
+                '<select class="form-control" id="so-new-brand" style="margin-bottom:12px">'+
+                  brands.map(function(b){ return '<option value="'+esc(b.id)+'">'+esc(b.name)+'</option>'; }).join("")+
+                '</select>'
+              : '<div class="note" style="margin-bottom:12px">No brands configured yet — <a href="#" onclick="window.soCloseNewRunModal();window.soOpenBrandForm(\'__new__\');return false" style="color:var(--accent)">add one</a> first.</div>')+
             '<label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Strategy month</label>'+
             '<input class="form-control" type="month" id="so-new-month" style="margin-bottom:16px">'+
             '<div id="so-new-run-error" style="color:var(--red);font-size:12px;margin-bottom:10px;display:none"></div>'+
             '<div style="display:flex;gap:8px">'+
               '<button class="btn btn-ghost" style="flex:1" onclick="window.soCloseNewRunModal()">Cancel</button>'+
-              '<button class="btn btn-primary" style="flex:1" id="so-new-run-submit" onclick="window.soSubmitNewRun()">Start research</button>'+
+              (brands.length ? '<button class="btn btn-primary" style="flex:1" id="so-new-run-submit" onclick="window.soSubmitNewRun()">Start research</button>' : '')+
             '</div>'+
           '</div>'+
         '</div>';
@@ -24316,6 +24362,7 @@ ${brandLines}`;
 
     function soOpenNewRunModal(){
       soRenderRunList();
+      _soNewRunModalOpen = true;
       var modal = document.getElementById("so-new-run-modal");
       var monthInput = document.getElementById("so-new-month");
       if(monthInput && !monthInput.value){
@@ -24325,6 +24372,7 @@ ${brandLines}`;
       if(modal) modal.style.display = "flex";
     }
     function soCloseNewRunModal(){
+      _soNewRunModalOpen = false;
       var modal = document.getElementById("so-new-run-modal");
       if(modal) modal.style.display = "none";
     }
@@ -24404,7 +24452,7 @@ ${brandLines}`;
         root.innerHTML = '<div class="note" style="margin-top:20px">This run could not be found.</div><button class="btn btn-ghost" style="margin-top:12px" onclick="window.soBackToList()">&larr; Back to Strategy OS</button>';
         return;
       }
-      var brandName = (AVAILABLE_BRANDS.find(function(b){return b.id===run.brandId;})||{}).name || run.brandId;
+      var brandName = soBrandName(run.brandId);
       var research = run.stages && run.stages.research;
       var strategy = run.stages && run.stages.strategy;
 
@@ -24551,6 +24599,309 @@ ${brandLines}`;
       }
     }
 
+    // ---------- Manage brands (brief section 13: brand config as a form, not raw JSON) ----------
+    // Common fields (basics, voice, audience, visual, deliverables, pillars) get real form
+    // controls. Portfolios/claim rules/copy structure/Canva config are collapsed under
+    // "Advanced" as a raw-JSON editor rather than full nested sub-forms for every product
+    // and claim rule — most brands won't need them (RRO is the one that does), and building
+    // a repeatable-array-of-object editor three levels deep for a field almost nothing else
+    // uses isn't worth it yet. The server validates the merged whole either way.
+
+    function soOpenBrandList(){
+      _soBrandView = "list";
+      soRenderBrandList();
+    }
+
+    function soBackToRunsFromBrands(){
+      _soBrandView = null;
+      soRenderRunList();
+    }
+
+    function soRenderBrandList(){
+      var root = soRoot(); if(!root) return;
+      var brands = soBrandList();
+      var rows = brands.map(function(b){
+        return '<div class="pf-absrow" style="border-bottom:1px solid var(--border);padding:10px 0">'+
+          '<div><b>'+esc(b.name)+'</b><div style="font-size:11px;color:var(--muted)">'+esc(b.category||'—')+' · '+esc(b.id)+'</div></div>'+
+          '<button class="btn btn-ghost" style="padding:4px 12px;font-size:11px" onclick="window.soOpenBrandForm(\''+esc(b.id)+'\')">Edit</button>'+
+        '</div>';
+      }).join("");
+      root.innerHTML =
+        '<div class="section-header" style="margin-top:0">'+
+          '<div><button class="btn btn-ghost" style="padding:4px 10px;font-size:11px;margin-bottom:8px" onclick="window.soBackToRunsFromBrands()">&larr; All runs</button>'+
+          '<div class="section-title">Manage brands</div></div>'+
+          '<button class="btn btn-primary" onclick="window.soOpenBrandForm(\'__new__\')">+ Add brand</button>'+
+        '</div>'+
+        '<div class="att-board"><div class="bh">Brands<span class="tag">'+brands.length+'</span></div>'+
+          (brands.length ? rows : '<div class="note">No brands configured yet — add the first one.</div>')+
+        '</div>';
+    }
+
+    function soDefaultBrandTemplate(id){
+      return {
+        schemaVersion: "1.0", id: id || "", name: "", category: "",
+        market: [], aspirationalMarkets: [], website: null, driveFolderUrl: null, oneLineTruth: "",
+        deliverables: { reel: 6, carousel: 4, static: 3, confirmed: false },
+        voice: { descriptors: [], principles: [], bannedWords: [], bannedMoves: [], emojiRule: "", languageRule: "" },
+        audiences: [],
+        visual: { feel: [], palette: [], principles: [], avoid: [] },
+        pillars: [],
+        competitors: [], portfolios: [], claimRules: [], copyStructure: null,
+        knownUnknowns: [], sourceVectorStoreIds: [],
+        canva: {
+          enabled: false, mode: "brand_template",
+          templateIdEnv: "CANVA_BRAND_TEMPLATE_ID", sourceDesignIdEnv: "CANVA_SOURCE_DESIGN_ID",
+          fieldPrefix: "ASSET", indexWidth: 2,
+          fields: { format: "FORMAT", portfolio: "PORTFOLIO_SKU", idea: "IDEA", hook: "HOOK", creativeCopy: "CREATIVE_COPY", direction: "DIRECTION", shotList: "SHOT_LIST", captionOne: "CAPTION_A", captionTwo: "CAPTION_B", captionThree: "CAPTION_C", referenceImage: "REFERENCE_IMAGE", referenceCredit: "REFERENCE_CREDIT" },
+        },
+      };
+    }
+
+    var _soAudRowSeq = 0, _soPillarRowSeq = 0;
+
+    function audienceRowHtml(a, idx){
+      a = a || { id: "", description: "", buyingSituation: "", trigger: "" };
+      return '<div class="so-row" data-row="'+idx+'" style="border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px">'+
+        '<div style="display:flex;gap:8px;margin-bottom:6px">'+
+          '<input class="form-control" placeholder="id (e.g. household-cook)" value="'+esc(a.id)+'" data-field="id" style="flex:1">'+
+          '<button class="btn btn-ghost" style="padding:4px 10px" onclick="this.closest(\'.so-row\').remove()">&#10005;</button>'+
+        '</div>'+
+        '<textarea class="form-control" placeholder="Description" data-field="description" style="margin-bottom:6px;min-height:40px">'+esc(a.description)+'</textarea>'+
+        '<textarea class="form-control" placeholder="Buying situation" data-field="buyingSituation" style="margin-bottom:6px;min-height:40px">'+esc(a.buyingSituation)+'</textarea>'+
+        '<textarea class="form-control" placeholder="Trigger" data-field="trigger" style="min-height:40px">'+esc(a.trigger)+'</textarea>'+
+      '</div>';
+    }
+    function soAddAudienceRow(){
+      document.getElementById("so-audience-rows").insertAdjacentHTML("beforeend", audienceRowHtml(null, _soAudRowSeq++));
+    }
+
+    function pillarRowHtml(p, idx){
+      p = p || { id: "", name: "", description: "", targetShare: 0.1 };
+      return '<div class="so-row" data-row="'+idx+'" style="border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px">'+
+        '<div style="display:flex;gap:8px;margin-bottom:6px">'+
+          '<input class="form-control" placeholder="id" value="'+esc(p.id)+'" data-field="id" style="flex:1">'+
+          '<input class="form-control" placeholder="Name" value="'+esc(p.name)+'" data-field="name" style="flex:2">'+
+          '<input class="form-control" type="number" step="0.01" min="0" max="1" placeholder="Target share (0-1)" value="'+esc(p.targetShare)+'" data-field="targetShare" style="width:110px">'+
+          '<button class="btn btn-ghost" style="padding:4px 10px" onclick="this.closest(\'.so-row\').remove()">&#10005;</button>'+
+        '</div>'+
+        '<textarea class="form-control" placeholder="Description" data-field="description" style="min-height:40px">'+esc(p.description)+'</textarea>'+
+      '</div>';
+    }
+    function soAddPillarRow(){
+      document.getElementById("so-pillar-rows").insertAdjacentHTML("beforeend", pillarRowHtml(null, _soPillarRowSeq++));
+    }
+
+    function csvLine(arr){ return (arr||[]).join(", "); }
+    function linesText(arr){ return (arr||[]).join("\n"); }
+    function splitCsv(s){ return String(s||"").split(",").map(function(x){return x.trim();}).filter(Boolean); }
+    function splitLines(s){ return String(s||"").split("\n").map(function(x){return x.trim();}).filter(Boolean); }
+
+    function soOpenBrandForm(brandId){
+      _soBrandView = brandId;
+      soRenderBrandForm(brandId);
+    }
+
+    function soRenderBrandForm(brandId){
+      var root = soRoot(); if(!root) return;
+      var isNew = brandId === "__new__";
+      var existing = isNew ? null : (window._soBrandsCache||{})[brandId];
+      var b = existing || soDefaultBrandTemplate(isNew ? "" : brandId);
+      _soAudRowSeq = 0; _soPillarRowSeq = 0;
+      var advanced = { portfolios: b.portfolios, claimRules: b.claimRules, copyStructure: b.copyStructure, sourceVectorStoreIds: b.sourceVectorStoreIds, canva: b.canva };
+
+      root.innerHTML =
+        '<div class="section-header" style="margin-top:0">'+
+          '<div><button class="btn btn-ghost" style="padding:4px 10px;font-size:11px;margin-bottom:8px" onclick="window.soOpenBrandList()">&larr; Brands</button>'+
+          '<div class="section-title">'+(isNew ? "Add brand" : "Edit "+esc(b.name||b.id))+'</div></div>'+
+        '</div>'+
+
+        '<div class="att-board"><div class="bh">Basics</div>'+
+          '<label style="display:block;font-size:11px;color:var(--muted);margin:6px 0 4px">Brand id (slug — lowercase, hyphens, cannot be changed later)</label>'+
+          '<input class="form-control" id="so-bf-id" value="'+esc(b.id)+'" placeholder="e.g. rro"'+(isNew?'':' disabled style="opacity:.6"')+' style="margin-bottom:10px">'+
+          '<label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Name</label>'+
+          '<input class="form-control" id="so-bf-name" value="'+esc(b.name)+'" style="margin-bottom:10px">'+
+          '<label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Category</label>'+
+          '<input class="form-control" id="so-bf-category" value="'+esc(b.category)+'" style="margin-bottom:10px">'+
+          '<label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Market(s) — comma-separated</label>'+
+          '<input class="form-control" id="so-bf-market" value="'+esc(csvLine(b.market))+'" style="margin-bottom:10px">'+
+          '<label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Aspirational market(s) — comma-separated</label>'+
+          '<input class="form-control" id="so-bf-aspirational" value="'+esc(csvLine(b.aspirationalMarkets))+'" style="margin-bottom:10px">'+
+          '<label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Website</label>'+
+          '<input class="form-control" id="so-bf-website" value="'+esc(b.website||'')+'" style="margin-bottom:10px">'+
+          '<label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Google Drive folder link</label>'+
+          '<input class="form-control" id="so-bf-drive" value="'+esc(b.driveFolderUrl||'')+'" placeholder="Not read by Research yet — see the integration notes" style="margin-bottom:10px">'+
+          '<label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">One-line truth (what this brand actually is)</label>'+
+          '<textarea class="form-control" id="so-bf-truth" style="min-height:50px">'+esc(b.oneLineTruth)+'</textarea>'+
+        '</div>'+
+
+        '<div class="att-board"><div class="bh">Deliverables (per month)</div>'+
+          '<div style="display:flex;gap:10px;margin-bottom:10px">'+
+            '<div style="flex:1"><label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Reels</label><input class="form-control" type="number" min="0" id="so-bf-reel" value="'+b.deliverables.reel+'"></div>'+
+            '<div style="flex:1"><label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Carousels</label><input class="form-control" type="number" min="0" id="so-bf-carousel" value="'+b.deliverables.carousel+'"></div>'+
+            '<div style="flex:1"><label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Statics</label><input class="form-control" type="number" min="0" id="so-bf-static" value="'+b.deliverables.static+'"></div>'+
+          '</div>'+
+          '<label style="font-size:12px;display:flex;align-items:center;gap:6px"><input type="checkbox" id="so-bf-confirmed" '+(b.deliverables.confirmed?'checked':'')+'> Deliverable counts confirmed with client</label>'+
+        '</div>'+
+
+        '<div class="att-board"><div class="bh">Voice</div>'+
+          '<label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Descriptors (comma-separated, at least 3 — e.g. warm, trustworthy, practical)</label>'+
+          '<input class="form-control" id="so-bf-descriptors" value="'+esc(csvLine(b.voice.descriptors))+'" style="margin-bottom:10px">'+
+          '<label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Principles (one per line)</label>'+
+          '<textarea class="form-control" id="so-bf-principles" style="min-height:60px;margin-bottom:10px">'+esc(linesText(b.voice.principles))+'</textarea>'+
+          '<label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Banned words (comma-separated)</label>'+
+          '<input class="form-control" id="so-bf-bannedwords" value="'+esc(csvLine(b.voice.bannedWords))+'" style="margin-bottom:10px">'+
+          '<label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Banned moves (one per line)</label>'+
+          '<textarea class="form-control" id="so-bf-bannedmoves" style="min-height:60px;margin-bottom:10px">'+esc(linesText(b.voice.bannedMoves))+'</textarea>'+
+          '<label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Emoji rule</label>'+
+          '<input class="form-control" id="so-bf-emojirule" value="'+esc(b.voice.emojiRule)+'" style="margin-bottom:10px">'+
+          '<label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Language rule</label>'+
+          '<input class="form-control" id="so-bf-languagerule" value="'+esc(b.voice.languageRule)+'">'+
+        '</div>'+
+
+        '<div class="att-board"><div class="bh">Audiences <span class="tag">at least 1</span></div>'+
+          '<div id="so-audience-rows">'+(b.audiences.length ? b.audiences.map(function(a){ return audienceRowHtml(a, _soAudRowSeq++); }).join("") : audienceRowHtml(null, _soAudRowSeq++))+'</div>'+
+          '<button class="btn btn-ghost" style="font-size:12px" onclick="window.soAddAudienceRow()">+ Add audience</button>'+
+        '</div>'+
+
+        '<div class="att-board"><div class="bh">Visual</div>'+
+          '<label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Feel (comma-separated, at least 3)</label>'+
+          '<input class="form-control" id="so-bf-feel" value="'+esc(csvLine(b.visual.feel))+'" style="margin-bottom:10px">'+
+          '<label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Palette (comma-separated)</label>'+
+          '<input class="form-control" id="so-bf-palette" value="'+esc(csvLine(b.visual.palette))+'" style="margin-bottom:10px">'+
+          '<label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Principles (one per line, at least 1)</label>'+
+          '<textarea class="form-control" id="so-bf-visprinciples" style="min-height:60px;margin-bottom:10px">'+esc(linesText(b.visual.principles))+'</textarea>'+
+          '<label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Avoid (one per line, at least 1)</label>'+
+          '<textarea class="form-control" id="so-bf-visavoid" style="min-height:60px">'+esc(linesText(b.visual.avoid))+'</textarea>'+
+        '</div>'+
+
+        '<div class="att-board"><div class="bh">Content pillars <span class="tag">at least 1</span></div>'+
+          '<div id="so-pillar-rows">'+(b.pillars.length ? b.pillars.map(function(p){ return pillarRowHtml(p, _soPillarRowSeq++); }).join("") : pillarRowHtml(null, _soPillarRowSeq++))+'</div>'+
+          '<button class="btn btn-ghost" style="font-size:12px" onclick="window.soAddPillarRow()">+ Add pillar</button>'+
+        '</div>'+
+
+        '<div class="att-board"><div class="bh">Other</div>'+
+          '<label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Competitors (comma-separated — research only, never named in copy)</label>'+
+          '<input class="form-control" id="so-bf-competitors" value="'+esc(csvLine(b.competitors))+'" style="margin-bottom:10px">'+
+          '<label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px">Known unknowns (one per line)</label>'+
+          '<textarea class="form-control" id="so-bf-unknowns" style="min-height:60px">'+esc(linesText(b.knownUnknowns))+'</textarea>'+
+        '</div>'+
+
+        '<details class="att-board"><summary class="bh" style="cursor:pointer;list-style:none">Advanced (portfolios, claim rules, copy structure, Canva) &#9662;</summary>'+
+          '<div style="font-size:12px;color:var(--muted);margin:8px 0">Most brands don\'t need this — RRO is the one that does. Edit as JSON; it\'s validated the same as everything else on save.</div>'+
+          '<textarea class="form-control" id="so-bf-advanced" style="min-height:220px;font-family:monospace;font-size:12px">'+esc(JSON.stringify(advanced, null, 2))+'</textarea>'+
+        '</details>'+
+
+        '<div class="att-board">'+
+          '<div id="so-bf-error" style="color:var(--red);font-size:12px;margin-bottom:10px;display:none;white-space:pre-wrap"></div>'+
+          '<div style="display:flex;gap:8px">'+
+            '<button class="btn btn-ghost" style="flex:1" onclick="window.soOpenBrandList()">Cancel</button>'+
+            '<button class="btn btn-primary" style="flex:1" id="so-bf-submit" onclick="window.soSubmitBrandForm(\''+esc(brandId)+'\')">Save brand</button>'+
+          '</div>'+
+        '</div>';
+    }
+
+    async function soSubmitBrandForm(brandIdArg){
+      var isNew = brandIdArg === "__new__";
+      var errEl = document.getElementById("so-bf-error");
+      var btn = document.getElementById("so-bf-submit");
+      if(errEl){ errEl.style.display="none"; errEl.textContent=""; }
+
+      var id = document.getElementById("so-bf-id").value.trim();
+      if(!/^[a-z0-9-]+$/.test(id)){
+        if(errEl){ errEl.textContent="Brand id must be lowercase letters, numbers or hyphens."; errEl.style.display="block"; }
+        return;
+      }
+
+      var audiences = Array.from(document.querySelectorAll("#so-audience-rows .so-row")).map(function(row){
+        return {
+          id: row.querySelector('[data-field="id"]').value.trim(),
+          description: row.querySelector('[data-field="description"]').value.trim(),
+          buyingSituation: row.querySelector('[data-field="buyingSituation"]').value.trim(),
+          trigger: row.querySelector('[data-field="trigger"]').value.trim(),
+        };
+      }).filter(function(a){ return a.id; });
+
+      var pillars = Array.from(document.querySelectorAll("#so-pillar-rows .so-row")).map(function(row){
+        return {
+          id: row.querySelector('[data-field="id"]').value.trim(),
+          name: row.querySelector('[data-field="name"]').value.trim(),
+          description: row.querySelector('[data-field="description"]').value.trim(),
+          targetShare: parseFloat(row.querySelector('[data-field="targetShare"]').value) || 0,
+        };
+      }).filter(function(p){ return p.id; });
+
+      var advanced;
+      try {
+        advanced = JSON.parse(document.getElementById("so-bf-advanced").value || "{}");
+      } catch(e) {
+        if(errEl){ errEl.textContent="The Advanced JSON isn't valid: "+e.message; errEl.style.display="block"; }
+        return;
+      }
+
+      var config = {
+        schemaVersion: "1.0",
+        id: id,
+        name: document.getElementById("so-bf-name").value.trim(),
+        category: document.getElementById("so-bf-category").value.trim(),
+        market: splitCsv(document.getElementById("so-bf-market").value),
+        aspirationalMarkets: splitCsv(document.getElementById("so-bf-aspirational").value),
+        website: document.getElementById("so-bf-website").value.trim() || null,
+        driveFolderUrl: document.getElementById("so-bf-drive").value.trim() || null,
+        oneLineTruth: document.getElementById("so-bf-truth").value.trim(),
+        deliverables: {
+          reel: parseInt(document.getElementById("so-bf-reel").value, 10) || 0,
+          carousel: parseInt(document.getElementById("so-bf-carousel").value, 10) || 0,
+          static: parseInt(document.getElementById("so-bf-static").value, 10) || 0,
+          confirmed: document.getElementById("so-bf-confirmed").checked,
+        },
+        voice: {
+          descriptors: splitCsv(document.getElementById("so-bf-descriptors").value),
+          principles: splitLines(document.getElementById("so-bf-principles").value),
+          bannedWords: splitCsv(document.getElementById("so-bf-bannedwords").value),
+          bannedMoves: splitLines(document.getElementById("so-bf-bannedmoves").value),
+          emojiRule: document.getElementById("so-bf-emojirule").value.trim(),
+          languageRule: document.getElementById("so-bf-languagerule").value.trim(),
+        },
+        audiences: audiences,
+        visual: {
+          feel: splitCsv(document.getElementById("so-bf-feel").value),
+          palette: splitCsv(document.getElementById("so-bf-palette").value),
+          principles: splitLines(document.getElementById("so-bf-visprinciples").value),
+          avoid: splitLines(document.getElementById("so-bf-visavoid").value),
+        },
+        pillars: pillars,
+        competitors: splitCsv(document.getElementById("so-bf-competitors").value),
+        knownUnknowns: splitLines(document.getElementById("so-bf-unknowns").value),
+        portfolios: advanced.portfolios || [],
+        claimRules: advanced.claimRules || [],
+        copyStructure: advanced.copyStructure || null,
+        sourceVectorStoreIds: advanced.sourceVectorStoreIds || [],
+        canva: advanced.canva || soDefaultBrandTemplate().canva,
+      };
+
+      if(btn){ btn.disabled=true; btn.textContent="Saving…"; }
+      try {
+        var res = await fetch("/.netlify/functions/strategy-brand-save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ brandId: id, config: config }),
+        });
+        var data = await res.json().catch(function(){ return {}; });
+        if(!res.ok){
+          var msg = data.error || "Could not save this brand.";
+          if(Array.isArray(data.issues) && data.issues.length){
+            msg += "\n\n" + data.issues.map(function(i){ return "• "+i.path+": "+i.message; }).join("\n");
+          }
+          throw new Error(msg);
+        }
+        window.soOpenBrandList();
+      } catch(e) {
+        if(errEl){ errEl.textContent = e.message || String(e); errEl.style.display="block"; }
+      } finally {
+        if(btn){ btn.disabled=false; btn.textContent="Save brand"; }
+      }
+    }
+
     window.soOpenPage = soOpenPage;
     window.soOpenNewRunModal = soOpenNewRunModal;
     window.soCloseNewRunModal = soCloseNewRunModal;
@@ -24558,6 +24909,12 @@ ${brandLines}`;
     window.soOpenRun = soOpenRun;
     window.soBackToList = soBackToList;
     window.soDecide = soDecide;
+    window.soOpenBrandList = soOpenBrandList;
+    window.soBackToRunsFromBrands = soBackToRunsFromBrands;
+    window.soOpenBrandForm = soOpenBrandForm;
+    window.soAddAudienceRow = soAddAudienceRow;
+    window.soAddPillarRow = soAddPillarRow;
+    window.soSubmitBrandForm = soSubmitBrandForm;
   })();
   </script>
 
