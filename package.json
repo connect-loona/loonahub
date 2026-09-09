@@ -14,6 +14,7 @@
     "playwright": "1.56.1"
   },
   "scripts": {
+    "build": "node scripts/build-dist.js",
     "test": "node tests/run-all.js",
     "test:strategy": "node tests/run-all.js strategy",
     "test:e2e": "node tests/run-all.js e2e"
