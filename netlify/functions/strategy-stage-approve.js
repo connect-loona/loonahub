@@ -10,12 +10,23 @@
 // a manual next step for now (re-POST to strategy-run-start's sibling trigger), not
 // automatic. Both are natural fast-follows once this slice is confirmed working.
 "use strict";
-const { fbGet, fbUpdate } = require("./lib/strategy/firebase");
+const { fbGet, fbSet, fbUpdate } = require("./lib/strategy/firebase");
 const { logActivity } = require("./lib/strategy/pipeline");
 const { checkAuthorization } = require("./lib/strategy/auth");
 
 const NEXT_STAGE = { research: "strategy" };
 const STAGE_ORDER = ["research", "strategy"];
+
+// See strategy-run-start.js's siteBaseUrl() — process.env.URL/DEPLOY_URL aren't reliably
+// present at Function runtime (confirmed live: a fetch using them failed silently and left
+// a run stuck showing "queued" forever), so build the base URL from the incoming request's
+// own Host header instead, which is always present.
+function siteBaseUrl(event) {
+  const host = (event.headers && (event.headers.host || event.headers.Host || event.headers["x-forwarded-host"])) || "";
+  if (!host) return process.env.URL || process.env.DEPLOY_URL || "";
+  const proto = (event.headers && event.headers["x-forwarded-proto"]) || "https";
+  return `${proto}://${host}`;
+}
 
 function cors() {
   return {
@@ -73,12 +84,18 @@ exports.handler = async (event) => {
     await fbUpdate(`strategy_runs/${runId}/stages/${nextStage}`, { status: "queued", updatedAt: now });
     await fbUpdate(`strategy_runs/${runId}`, { status: `${stage}_approved`, updatedAt: now });
 
-    const base = process.env.URL || process.env.DEPLOY_URL || "";
-    await fetch(`${base}/.netlify/functions/strategy-${nextStage}-background`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ runId }),
-    }).catch((e) => console.error(`Failed to trigger ${nextStage} background function:`, e));
+    const base = siteBaseUrl(event);
+    try {
+      await fetch(`${base}/.netlify/functions/strategy-${nextStage}-background`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ runId }),
+      });
+    } catch (e) {
+      console.error(`Failed to trigger ${nextStage} background function:`, e);
+      await fbSet(`strategy_runs/${runId}/stages/${nextStage}`, { status: "failed", detail: `Could not start the ${nextStage} stage: ${e.message || e}` });
+      await fbSet(`strategy_runs/${runId}/status`, "failed");
+    }
 
     return { statusCode: 200, headers: cors(), body: JSON.stringify({ ok: true, status: `${stage}_approved` }) };
   } catch (error) {
