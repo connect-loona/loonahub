@@ -19,8 +19,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # --with-deps shells out to apt to install Chromium's OS-level libraries, which has
+      # been observed failing on GitHub's runner image with a transient "Hash Sum mismatch"
+      # against Google's own dl.google.com apt mirror (a flaky index refresh on their end,
+      # unrelated to this repo) — retry a few times before giving up so a bad mirror moment
+      # doesn't fail an otherwise-passing PR.
       - name: Install Playwright's Chromium
-        run: npx playwright install --with-deps chromium
+        run: |
+          for i in 1 2 3; do
+            npx playwright install --with-deps chromium && exit 0
+            echo "Playwright install failed (attempt $i/3), retrying..."
+            sleep 10
+          done
+          exit 1
 
       - name: Run backend + UI test suite
         run: npm test
