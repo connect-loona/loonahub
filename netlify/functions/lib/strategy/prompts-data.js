@@ -111,6 +111,15 @@ Every surviving asset must pass all four tests honestly:
 
 If a candidate fails, cut it. Do not rescue it with execution language.
 
+## Citing research
+
+Every asset's \`researchIds\` must contain only \`id\` values you can actually see in this
+input's \`liveQuestions\`, \`arguments\`, \`unspokenBehaviours\`, \`exhaustedTerritory\`, \`calendar\`
+or \`whitespace\` arrays — copy them character-for-character. Never invent an id, abbreviate
+one, or reuse a \`sources[].id\` (a source citation, not an insight one) in this field. If no
+entry in those six arrays actually supports a concept, the concept isn't grounded in
+research yet — sharpen it or cut it, rather than inventing a citation to fill the field.
+
 ## Hooks
 
 Write the exact opening words. “Frying oil education” is not a hook. “Two of these are still good — most people would throw out the wrong one” is a hook.
