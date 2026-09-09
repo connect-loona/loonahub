@@ -7,14 +7,17 @@
 
 [functions]
   node_bundler = "esbuild"
-  # esbuild only bundles the JS require() graph — it can't see the Strategy OS functions'
-  # netlify/functions/lib/strategy/{seed,prompts,fixtures}/* files, since those are read at
-  # runtime via fs.readFileSync(path.join(__dirname, ...)), not require()'d. Without this,
-  # the deployed function zip is missing them entirely (works fine in local/CLI testing,
-  # which runs straight off the full repo checkout with no bundling step — the gap only
-  # shows up live, as "No brand config found ... not in Firebase, no seed file", which is
-  # exactly the "no seed file" branch firing because the seed file genuinely isn't there).
-  included_files = ["netlify/functions/lib/strategy/**"]
+  # Strategy OS's brand config/prompts/learnings data used to be read at runtime via
+  # fs.readFileSync(path.join(__dirname, ...)) from netlify/functions/lib/strategy/{seed,
+  # prompts}/* — that broke live (verified: "No brand config found ... not in Firebase,
+  # no seed file") because esbuild concatenates every require()'d module into ONE output
+  # file per function, so __dirname inside the bundle no longer points at that file's
+  # original nested directory. `included_files` alone does NOT fix this — it correctly
+  # copies the files into the deploy, but the bundled code's computed path still doesn't
+  # match where they land. The actual fix was to stop reading them via fs at runtime
+  # entirely: netlify/functions/lib/strategy/store.js now require()s the seed JSON and an
+  # inlined prompts-data.js directly, so esbuild bundles the literal data into the same
+  # output file — no separate file to locate at runtime, no __dirname involved at all.
 
 # flag.loona.in — a clean, branded custom domain for the Independence Day
 # microsite so an Instagram bio/caption link never has to show the
