@@ -272,6 +272,8 @@
       ".so-stage-num{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--surface2);border:1px solid var(--border);font-size:11px}",
       ".so-stage-step.is-active{color:var(--accent)} .so-stage-step.is-active .so-stage-num{background:var(--accent);color:#fff;border-color:var(--accent)}",
       ".so-stage-step.is-done{color:var(--green)} .so-stage-step.is-done .so-stage-num{border-color:var(--green)}",
+      ".so-stage-step.is-clickable{cursor:pointer}",
+      ".so-stage-step.is-clickable:hover{color:var(--text)} .so-stage-step.is-clickable:hover .so-stage-num{background:var(--red);border-color:var(--red);color:#fff}",
       ".so-workspace{display:grid;grid-template-columns:minmax(180px,220px) minmax(0,1fr) minmax(230px,280px);gap:14px;align-items:start}",
       ".so-workspace-side{position:sticky;top:12px;border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:15px}",
       ".so-workspace-main{min-width:0}.so-workspace-main>.att-board:first-child{margin-top:0}",
@@ -302,10 +304,30 @@
     }
     var rail = document.createElement("div");
     rail.className = "so-stage-rail";
-    rail.innerHTML = stages.map(function (label, index) {
-      var cls = index < current ? " is-done" : index === current ? " is-active" : "";
-      return '<div class="so-stage-step'+cls+'"><span class="so-stage-num">'+(index < current ? "✓" : index + 1)+'</span><span>'+label+'</span></div>';
-    }).join("");
+    stages.forEach(function (label, index) {
+      var done = index < current;
+      var step = document.createElement("div");
+      step.className = "so-stage-step" + (done ? " is-done" : index === current ? " is-active" : "");
+      var num = document.createElement("span");
+      num.className = "so-stage-num";
+      num.textContent = done ? "✓" : String(index + 1);
+      var text = document.createElement("span");
+      text.textContent = label;
+      step.appendChild(num);
+      step.appendChild(text);
+      // Only a genuinely completed stage can be "gone back to" — the active stage is
+      // already what's showing below, and a locked/future one has nothing to go back to
+      // yet. window.soReopenStage (index.html) owns the confirm/notes prompt and the
+      // actual reset — this just wires the click.
+      if (done) {
+        step.classList.add("is-clickable");
+        step.title = "Reopen " + label;
+        step.addEventListener("click", function () {
+          if (window.soReopenStage) window.soReopenStage(run.runId, STAGE_KEYS[index]);
+        });
+      }
+      rail.appendChild(step);
+    });
     return rail;
   }
 

@@ -24654,6 +24654,33 @@ ${brandLines}`;
       }
     }
 
+    // "Go back" to an already-approved stage — a real, destructive reset, not a soft undo:
+    // see pipeline.js's reopenStage() for the full picture. Every stage after the one
+    // being reopened gets wiped back to "locked" (snapshotted first, nothing silently
+    // lost), because their content was built against what the reopened stage used to say.
+    // Triggered by clicking a completed stage in strategy-ui.js's numbered rail.
+    async function soReopenStage(runId, stage){
+      var stageIdx = STAGE_ORDER.indexOf(stage);
+      var downstream = stageIdx > -1 ? STAGE_ORDER.slice(stageIdx+1).map(function(s){ return STAGE_LABELS[s]; }) : [];
+      var warning = "Reopen "+(STAGE_LABELS[stage]||stage)+"? "+
+        (downstream.length ? "Everything after it ("+downstream.join(", ")+") will be reset and will need to be regenerated. " : "")+
+        "This can't be undone.";
+      if(!confirm(warning)) return;
+      var notes = prompt("Optional: what needs to change?") || "";
+      try {
+        var res = await fetch("/.netlify/functions/strategy-stage-reopen", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ runId: runId, stage: stage, notes: notes, actor: currentUser || "Unknown" }),
+        });
+        var data = await res.json().catch(function(){ return {}; });
+        if(!res.ok) throw new Error((data.error||"Could not reopen this stage.")+(data.reason?" — "+data.reason:""));
+        // The live Firebase listener re-renders once the reset lands.
+      } catch(e) {
+        alert("Could not reopen: "+(e.message||e));
+      }
+    }
+
     // Pushes one Hub task per deck page into the same `tasks` collection the rest of Hub's
     // Task Board already reads (see fbAddTask()) — deliberately NOT calling fbAddTask()
     // itself, since that function's dedup/auto-task machinery (is_auto/AUTO_TASK_KEYS) is
@@ -25449,6 +25476,7 @@ ${brandLines}`;
     window.soBackToList = soBackToList;
     window.soDecide = soDecide;
     window.soRetryStage = soRetryStage;
+    window.soReopenStage = soReopenStage;
     window.soCreateTeamTasks = soCreateTeamTasks;
     window.soUpdateDeckPage = soUpdateDeckPage;
     window.soSuggestSimilar = soSuggestSimilar;

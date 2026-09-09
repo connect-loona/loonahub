@@ -545,9 +545,52 @@ async function replaceAsset(runId, stage, assetId, notes, actor) {
   return acceptAssetCandidate(runId, stage, assetId, actor);
 }
 
+const REOPEN_STAGE_ORDER = ["research", "strategy", "copy", "creative-direction", "deck-builder"];
+
+// "Going back" to an already-approved stage — a genuinely destructive action, not a soft
+// undo: every stage AFTER the one being reopened gets wiped back to "locked" (checkpoint,
+// candidates and locks all cleared), because their content was built against what the
+// reopened stage used to say and can no longer be trusted once it might change again. The
+// reopened stage itself keeps its own checkpoint (nothing regenerated) but goes back to
+// "needs_review" with a clean candidates/locks slate, ready for another review round —
+// Refine/Replace/Suggest-similar, Send back with notes, or Approve again to re-run
+// everything downstream exactly like the first time through.
+//
+// Nothing is silently lost: every stage that gets wiped is snapshotted via
+// saveStageVersion() first, same as every other checkpoint mutation in this file, so the
+// full history is still there in strategy_stage_versions if anyone needs to see what a
+// wiped stage used to contain.
+async function reopenStage(runId, stage, actor, notes) {
+  const stageIndex = REOPEN_STAGE_ORDER.indexOf(stage);
+  if (stageIndex === -1) throw new Error(`"${stage}" isn't a stage that can be reopened.`);
+  const run = await fbGet(`strategy_runs/${runId}`);
+  if (!run) throw new Error(`Run ${runId} not found.`);
+  const targetState = run.stages && run.stages[stage];
+  if (!targetState || targetState.status !== "approved") {
+    throw new Error(`${stage} is ${targetState ? targetState.status : "unknown"}; only an already-approved stage can be reopened.`);
+  }
+
+  const now = new Date().toISOString();
+  const downstream = REOPEN_STAGE_ORDER.slice(stageIndex + 1);
+  for (const laterStage of downstream) {
+    const laterState = run.stages && run.stages[laterStage];
+    if (laterState && laterState.checkpoint) {
+      await saveStageVersion(runId, laterStage, laterState.checkpoint, `reopened_${stage}_cascade`, actor || "system");
+    }
+    await fbSet(`strategy_runs/${runId}/stages/${laterStage}`, { status: "locked", updatedAt: now });
+  }
+
+  await saveStageVersion(runId, stage, targetState.checkpoint, "reopened_before", actor || "system");
+  await fbSet(`strategy_runs/${runId}/stages/${stage}`, { status: "needs_review", checkpoint: targetState.checkpoint, updatedAt: now });
+  await fbUpdate(`strategy_runs/${runId}`, { status: `${stage}_needs_review`, updatedAt: now });
+  if (notes) await saveFeedbackEvent(run, stage, "reopened", notes, actor || "system");
+  await logActivity(runId, actor || "system", `${stage}.reopened`, notes || (downstream.length ? `Reset ${downstream.join(", ")} back to locked.` : null));
+  return { stage, resetDownstream: downstream };
+}
+
 module.exports = {
   runResearchStage, runStrategyStage, runCopyStage, runDirectionStage, runDeckStage,
-  proposeAssetCandidate, acceptAssetCandidate, replaceAsset,
+  proposeAssetCandidate, acceptAssetCandidate, replaceAsset, reopenStage,
   logActivity, buildStrategyResearchBrief,
 };
 
