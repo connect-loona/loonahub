@@ -24359,7 +24359,10 @@ ${brandLines}`;
           '<td>'+esc(statusLabel(r.status))+'</td>'+
           '<td>'+esc(r.owner||'—')+'</td>'+
           '<td>'+esc(fmtDateTime(r.updatedAt))+'</td>'+
-          '<td><button class="btn btn-ghost" style="padding:4px 12px;font-size:11px" onclick="event.stopPropagation();window.soOpenRun(\''+esc(r.runId)+'\')">Open</button></td>'+
+          '<td style="display:flex;gap:6px">'+
+            '<button class="btn btn-ghost" style="padding:4px 12px;font-size:11px" onclick="event.stopPropagation();window.soOpenRun(\''+esc(r.runId)+'\')">Open</button>'+
+            '<button class="btn btn-ghost" style="padding:4px 12px;font-size:11px;color:var(--red);border-color:var(--red)" onclick="event.stopPropagation();window.soDeleteRun(\''+esc(r.runId)+'\')">Delete</button>'+
+          '</td>'+
         '</tr>';
       }).join("");
 
@@ -24451,6 +24454,22 @@ ${brandLines}`;
       } finally {
         if(btn){ btn.disabled=false; btn.textContent="Start research"; }
       }
+    }
+
+    // Deletes a run outright — mainly for clearing out stale/duplicate test or abandoned
+    // runs, which otherwise permanently block starting a fresh one for that brand+month
+    // (strategy-run-start.js's own 409 "already an active run" check has no way to know a
+    // listed run is dead). Direct Firebase write, same as the per-asset lock toggle — no
+    // backend logic needed for a plain delete, just a strong confirm since it can't be
+    // undone (the run's own history in strategy_stage_versions/strategy_activity is left
+    // behind untouched — orphaned but harmless, never referenced by anything once the run
+    // itself is gone).
+    async function soDeleteRun(runId){
+      if(!_db) return;
+      var run = (window._soRunsCache || {})[runId];
+      var label = run ? (soBrandName(run.brandId)+' · '+monthLabel(run.month)) : runId;
+      if(!confirm('Delete this run ('+label+')? This can\'t be undone.')) return;
+      await _db.ref("strategy_runs/"+runId).remove();
     }
 
     // ---------- Run detail / stage review ----------
@@ -25472,6 +25491,7 @@ ${brandLines}`;
     window.soOpenNewRunModal = soOpenNewRunModal;
     window.soCloseNewRunModal = soCloseNewRunModal;
     window.soSubmitNewRun = soSubmitNewRun;
+    window.soDeleteRun = soDeleteRun;
     window.soOpenRun = soOpenRun;
     window.soBackToList = soBackToList;
     window.soDecide = soDecide;
