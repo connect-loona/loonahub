@@ -4,14 +4,14 @@
 // same reactive pattern the rest of Hub already uses everywhere else).
 //
 // Auth: this endpoint is meant to be called only from an already-logged-in Hub session.
-// See netlify/edge-functions/basic-auth.ts — strategy-*.js paths are carved OUT of that
-// gate's excludedPath list specifically so they DO require the site cookie, unlike most
-// of Hub's other functions (which skip auth entirely; fine for a chat helper, not fine
-// for something that can kick off billed AI runs and touch a client's live strategy).
+// basic-auth.ts's edge gate lets ALL /.netlify/functions/* requests through unchecked
+// (unlike most of Hub's other functions, this one shouldn't skip auth entirely — it can
+// kick off billed AI runs and touch a client's live strategy), so this function checks the
+// same site cookie itself — see ./lib/strategy/auth.js.
 "use strict";
 const { fbSet } = require("./lib/strategy/firebase");
 const { loadBrandConfig, loadMonthInput } = require("./lib/strategy/store");
-const { isAuthorized } = require("./lib/strategy/auth");
+const { checkAuthorization } = require("./lib/strategy/auth");
 
 function cors() {
   return {
@@ -29,7 +29,8 @@ function runId(brandId, month) {
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: cors(), body: "" };
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: cors(), body: "Method not allowed" };
-  if (!isAuthorized(event)) return { statusCode: 401, headers: cors(), body: JSON.stringify({ error: "Unauthorized" }) };
+  const auth = checkAuthorization(event);
+  if (!auth.ok) return { statusCode: 401, headers: cors(), body: JSON.stringify({ error: "Unauthorized", reason: auth.reason }) };
 
   let body;
   try { body = JSON.parse(event.body || "{}"); } catch { return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "Invalid JSON" }) }; }
