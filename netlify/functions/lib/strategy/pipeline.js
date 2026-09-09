@@ -24,11 +24,11 @@ const MAX_REPAIRS = 2;
 // is ever missing). Concept refinement reuses Strategy's own persona since it's the same
 // agent doing a smaller, scoped version of its regular job.
 const STAGE_AGENTS = {
-  research: { emoji: "🕵️", name: "Nosy" },
-  strategy: { emoji: "🧭", name: "Compass" },
-  copy: { emoji: "🖊️", name: "Inkwell" },
-  "creative-direction": { emoji: "📸", name: "Lens" },
-  "deck-builder": { emoji: "📦", name: "Stagehand" },
+  research: { emoji: "👨🏻‍✈️", name: "Columbus" },
+  strategy: { emoji: "🧕🏻", name: "Dora" },
+  copy: { emoji: "👩‍🎨", name: "Matilda" },
+  "creative-direction": { emoji: "👩🏼‍🎤", name: "Barbie" },
+  "deck-builder": { emoji: "👷🏾", name: "Bob" },
 };
 function stageAgent(stage) {
   return STAGE_AGENTS[stage] || { emoji: "🤖", name: "The agent" };
