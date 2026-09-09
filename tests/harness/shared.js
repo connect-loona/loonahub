@@ -138,6 +138,21 @@ function combinedInit({ fixed, baseUrl }) {
   };
 }
 
+// index.html loads the real Firebase JS SDK from gstatic.com's CDN via plain <script>
+// tags. On a machine with real outbound internet access, those scripts load successfully
+// and overwrite the fake window.firebase combinedInit() just injected — silently pointing
+// the rest of the test at Loona's REAL production Firebase project instead of the local
+// stand-in, which has none of the test's seeded data, so nothing the test looks for ever
+// shows up. (This doesn't reproduce everywhere: a sandbox with restricted/proxied outbound
+// HTTPS never loads the real SDK in the first place, so the fake shim survives unchallenged
+// there — which is exactly why this was invisible until CI, which has full internet
+// access.) Block the request outright so the fake shim always wins, in every environment —
+// call this on the browser context before page.goto(), so it's in place before any script
+// on the page gets a chance to run.
+async function blockRealFirebaseSdk(pageOrContext) {
+  await pageOrContext.route("https://www.gstatic.com/firebasejs/**", (route) => route.abort());
+}
+
 // Standard fixed timestamp used across tests that need a stable "now" (Sep 9 2026, 06:00
 // UTC) — matches the era every fixture in netlify/functions/lib/strategy/fixtures/ was
 // written for.
@@ -178,6 +193,6 @@ function finish() {
 module.exports = {
   HUB, RTDB_URL, DEV_LITE_URL, AUTH_TOKEN, FIXED_NOW,
   req, sleep, waitFor, wipeFirebase,
-  chromiumLaunchOptions, combinedInit, authCookie, loginAsGokul,
+  chromiumLaunchOptions, combinedInit, blockRealFirebaseSdk, authCookie, loginAsGokul,
   check, resetCheckState, allChecksPassed, finish,
 };

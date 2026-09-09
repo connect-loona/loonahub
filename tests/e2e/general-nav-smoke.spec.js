@@ -2,7 +2,7 @@
 // entirely to its own IIFE and backend files, but this confirms nothing outside it broke
 // (e.g. a stray syntax issue affecting the whole page's script parsing).
 const { chromium } = require("playwright");
-const { DEV_LITE_URL, FIXED_NOW, chromiumLaunchOptions, loginAsGokul } = require("../harness/shared");
+const { DEV_LITE_URL, FIXED_NOW, chromiumLaunchOptions, blockRealFirebaseSdk, loginAsGokul } = require("../harness/shared");
 
 function fakeDateInit(fixed) {
   const RealDate = Date;
@@ -46,6 +46,7 @@ function check(name, cond, extra) {
 (async () => {
   const browser = await chromium.launch(chromiumLaunchOptions());
   const page = await browser.newPage();
+  await blockRealFirebaseSdk(page);
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.addInitScript(fakeDateInit, FIXED_NOW);

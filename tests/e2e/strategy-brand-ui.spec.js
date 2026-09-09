@@ -6,7 +6,7 @@ const path = require("path");
 const { chromium } = require("playwright");
 const {
   HUB, RTDB_URL, DEV_LITE_URL, FIXED_NOW,
-  req, waitFor, chromiumLaunchOptions, combinedInit, authCookie, loginAsGokul,
+  req, waitFor, chromiumLaunchOptions, combinedInit, blockRealFirebaseSdk, authCookie, loginAsGokul,
 } = require("../harness/shared");
 
 let allPass = true;
@@ -30,6 +30,7 @@ function waitForCond(fn, label, timeoutMs = 3000) {
   // it directly rather than going through the real login page (which this stand-in server
   // doesn't implement).
   await context.addCookies([authCookie()]);
+  await blockRealFirebaseSdk(context);
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));

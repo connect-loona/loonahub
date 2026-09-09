@@ -9,7 +9,7 @@
 const { chromium } = require("playwright");
 const {
   RTDB_URL, DEV_LITE_URL, FIXED_NOW,
-  req, chromiumLaunchOptions, combinedInit, authCookie, loginAsGokul,
+  req, chromiumLaunchOptions, combinedInit, blockRealFirebaseSdk, authCookie, loginAsGokul,
 } = require("../harness/shared");
 
 let allPass = true;
@@ -45,6 +45,7 @@ function check(name, cond, extra) {
   const browser = await chromium.launch(chromiumLaunchOptions());
   const context = await browser.newContext({ viewport: { width: 1300, height: 1600 } });
   await context.addCookies([authCookie()]);
+  await blockRealFirebaseSdk(context);
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
