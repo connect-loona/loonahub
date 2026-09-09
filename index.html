@@ -24483,7 +24483,11 @@ ${brandLines}`;
 
     function stageStripHtml(run){
       var stages = STAGE_ORDER;
-      return '<div style="display:flex;gap:8px;margin:14px 0 20px;flex-wrap:wrap">'+
+      // id is load-bearing: strategy-ui.js's decorator hides this specific box (it's
+      // redundant once its own numbered stage rail is showing) — it used to guess "the
+      // element right after the header" instead, which broke the moment nextActionCardHtml
+      // started rendering first (see strategy-ui.js's buildWorkspace for the full story).
+      return '<div id="so-stage-strip" style="display:flex;gap:8px;margin:14px 0 20px;flex-wrap:wrap">'+
         stages.map(function(s){
           var st = (run.stages && run.stages[s]) || {status:"locked"};
           var isCurrent = currentStageOf(run) === s;
