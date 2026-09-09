@@ -24496,6 +24496,11 @@ ${brandLines}`;
 
     function soBackToList(){
       _soOpenRunId = null;
+      _soCurrentRunRaw = null;
+      window._soCurrentRun = null; // strategy-ui.js's decorator reads this global to build
+      // the run-detail workspace (Brand memory / Review status sidebars, the stage rail) —
+      // leaving it set to whatever run was last open meant coming back to the plain run
+      // list still had that stale run's workspace furniture injected on top of it.
       if(_soRunListener){ _soRunListener.ref.off("value", _soRunListener.cb); _soRunListener=null; }
       soRenderRunList();
     }

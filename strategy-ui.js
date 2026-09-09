@@ -350,6 +350,18 @@
     if (!run || root.querySelector(".so-workspace")) return;
     var header = root.querySelector(".section-header");
     if (!header) return;
+    // window._soCurrentRun is a global index.html sets while a run's detail view is open
+    // and is meant to clear on the way back to the list — but this has been wrong before
+    // (see soBackToList's own fix), and any other future path back to the list could make
+    // the same mistake again. Rather than trust that global alone, confirm this is actually
+    // the detail page by its own unique marker — its back button calls soBackToList()
+    // specifically, unlike the Manage-brands page's own "← All runs" button (soBackToRunsFromBrands) —
+    // before building workspace furniture around a run that might not even be the one
+    // currently on screen.
+    var onDetailPage = Array.from(header.querySelectorAll("button")).some(function (btn) {
+      return (btn.getAttribute("onclick") || "").indexOf("soBackToList") !== -1;
+    });
+    if (!onDetailPage) return;
     ensureWorkspaceStyles();
     // This used to grab "whatever comes right after the header" and hide it unless it
     // looked like an .att-board, on the assumption that would always be the old plain
