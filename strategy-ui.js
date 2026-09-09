@@ -287,16 +287,18 @@
   }
 
   function stageRail(run) {
-    var stages = ["Research", "Strategy", "Copy", "Creative direction", "Canva deck"];
-    // run.status is always `${stageKey}_${state}` for one of STAGE_KEYS (see actionFor's
-    // comment) — the rail's "current" index is just that stage's position, with the one
-    // exception that "<stage>_approved" means the run has moved ON to the next stage
-    // (or, for the last stage, is simply finished).
-    var current = 0;
+    var stages = ["Research", "Strategy", "Copy", "Creative direction", "Deck"];
+    // Walk each stage's OWN status (run.stages[key].status) instead of pattern-matching the
+    // run-level status string — that string collapses to a bare "failed" once any stage's
+    // repair loop is exhausted (see pipeline.js's executeStage), which doesn't start with
+    // any STAGE_KEYS entry, so this used to silently fall through to current=0 and freeze
+    // the rail on "Research" no matter which stage actually failed. Same "first stage that
+    // isn't approved yet" rule index.html's own currentStageOf() uses, so the rail and the
+    // review boards below it always agree on which stage is current.
+    var current = STAGE_KEYS.length - 1;
     for (var i = 0; i < STAGE_KEYS.length; i++) {
-      if (run.status && run.status.indexOf(STAGE_KEYS[i]) === 0) {
-        current = run.status === STAGE_KEYS[i] + "_approved" ? i + 1 : i;
-      }
+      var stageStatus = run.stages && run.stages[STAGE_KEYS[i]] && run.stages[STAGE_KEYS[i]].status;
+      if (stageStatus !== "approved") { current = i; break; }
     }
     var rail = document.createElement("div");
     rail.className = "so-stage-rail";
@@ -327,8 +329,14 @@
     var header = root.querySelector(".section-header");
     if (!header) return;
     ensureWorkspaceStyles();
-    var oldStrip = header.nextElementSibling;
-    if (oldStrip && !oldStrip.classList.contains("att-board")) oldStrip.style.display = "none";
+    // This used to grab "whatever comes right after the header" and hide it unless it
+    // looked like an .att-board, on the assumption that would always be the old plain
+    // stage-progress strip. That broke silently once index.html started rendering the
+    // "Your next action" card (which IS an .att-board) before the strip — this rail
+    // replaces the strip, not the action card, so target it by id instead of guessing by
+    // position. See index.html's stageStripHtml for the matching id.
+    var oldStrip = root.querySelector("#so-stage-strip");
+    if (oldStrip) oldStrip.style.display = "none";
     var rail = stageRail(run);
     header.insertAdjacentElement("afterend", rail);
     var workspace = document.createElement("div");
