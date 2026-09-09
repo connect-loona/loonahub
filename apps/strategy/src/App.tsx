@@ -29,48 +29,53 @@ export default function App() {
     );
   }, [user]);
 
-  const bg = status === "authenticated" ? "#1a4d2e" : status === "signed-out" ? "#5c1a1a" : "#333";
+  // Status accent — the one color that actually needs to vary by state. Everything else
+  // below comes from design-tokens.css (the shared file index.html also links), proving
+  // the wiring works rather than just declaring it.
+  const accent = status === "authenticated" ? "var(--green)" : status === "signed-out" ? "var(--red)" : "var(--muted)";
 
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: bg, color: "#fff", padding: 32 }}>
-      <h1 style={{ marginTop: 0 }}>Strategy OS — auth spike</h1>
-      <p style={{ opacity: 0.8 }}>
-        This page is not the real Strategy OS. It exists only to answer one question: does a
-        session already established by logging into Hub (the legacy compat SDK) show up here,
-        in a brand-new app using the modular Firebase SDK, on this same origin?
-      </p>
+    <div style={{ fontFamily: "var(--font)", minHeight: "100vh", background: "var(--bg)", color: "var(--text)", padding: "var(--space-2xl)" }}>
+      <div style={{ maxWidth: 640, margin: "0 auto", background: "var(--surface)", border: "1px solid var(--border)", borderLeft: `4px solid ${accent}`, borderRadius: "var(--radius-lg)", padding: "var(--space-2xl)" }}>
+        <h1 style={{ marginTop: 0, fontSize: "var(--text-2xl)" }}>Strategy OS — auth spike</h1>
+        <p style={{ color: "var(--muted)", fontSize: "var(--text-base)" }}>
+          This page is not the real Strategy OS. It exists only to answer one question: does a
+          session already established by logging into Hub (the legacy compat SDK) show up here,
+          in a brand-new app using the modular Firebase SDK, on this same origin?
+        </p>
 
-      {status === "checking" && <p>Checking auth state…</p>}
+        {status === "checking" && <p style={{ fontSize: "var(--text-md)" }}>Checking auth state…</p>}
 
-      {status === "signed-out" && (
-        <div>
-          <p style={{ fontSize: 20, fontWeight: 700 }}>❌ No user detected.</p>
-          <p>
-            If you're already logged into Hub at this same URL's origin and still see this,
-            the spike has failed — the session isn't shared across SDKs/versions as hoped.
-          </p>
-        </div>
-      )}
+        {status === "signed-out" && (
+          <div>
+            <p style={{ fontSize: "var(--text-lg)", fontWeight: 700, color: accent }}>❌ No user detected.</p>
+            <p style={{ fontSize: "var(--text-base)" }}>
+              If you're already logged into Hub at this same URL's origin and still see this,
+              the spike has failed — the session isn't shared across SDKs/versions as hoped.
+            </p>
+          </div>
+        )}
 
-      {status === "authenticated" && user && (
-        <div>
-          <p style={{ fontSize: 20, fontWeight: 700 }}>✅ User detected.</p>
-          <dl>
-            <dt style={{ opacity: 0.7 }}>uid</dt>
-            <dd>{user.uid}</dd>
-            <dt style={{ opacity: 0.7 }}>email</dt>
-            <dd>{user.email ?? "(none)"}</dd>
-            <dt style={{ opacity: 0.7 }}>displayName</dt>
-            <dd>{user.displayName ?? "(none)"}</dd>
-            <dt style={{ opacity: 0.7 }}>ID token</dt>
-            <dd>
-              {idTokenPreview && <span>{idTokenPreview} (fetched successfully)</span>}
-              {idTokenError && <span style={{ color: "#ffb3b3" }}>Failed: {idTokenError}</span>}
-              {!idTokenPreview && !idTokenError && <span>fetching…</span>}
-            </dd>
-          </dl>
-        </div>
-      )}
+        {status === "authenticated" && user && (
+          <div>
+            <p style={{ fontSize: "var(--text-lg)", fontWeight: 700, color: accent }}>✅ User detected.</p>
+            <dl style={{ fontSize: "var(--text-base)" }}>
+              <dt style={{ color: "var(--muted)", fontSize: "var(--text-sm)" }}>uid</dt>
+              <dd>{user.uid}</dd>
+              <dt style={{ color: "var(--muted)", fontSize: "var(--text-sm)" }}>email</dt>
+              <dd>{user.email ?? "(none)"}</dd>
+              <dt style={{ color: "var(--muted)", fontSize: "var(--text-sm)" }}>displayName</dt>
+              <dd>{user.displayName ?? "(none)"}</dd>
+              <dt style={{ color: "var(--muted)", fontSize: "var(--text-sm)" }}>ID token</dt>
+              <dd>
+                {idTokenPreview && <span>{idTokenPreview} (fetched successfully)</span>}
+                {idTokenError && <span style={{ color: "var(--red)" }}>Failed: {idTokenError}</span>}
+                {!idTokenPreview && !idTokenError && <span>fetching…</span>}
+              </dd>
+            </dl>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

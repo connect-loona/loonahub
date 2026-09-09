@@ -1,0 +1,84 @@
+/* ============================================================================
+ * Loona Hub — shared design tokens
+ * ============================================================================
+ * Step 3 of the Strategy OS rewrite: colours, type scale, spacing and radii,
+ * imported by BOTH the legacy Hub (index.html, via a <link> tag in its <head>,
+ * placed before its own inline <style> block so nothing here overrides it —
+ * zero visual change to the legacy page) and the new Strategy OS app
+ * (apps/strategy/, imported directly as its one source of truth).
+ *
+ * Tokens only, deliberately — no shared components. Components in a shared
+ * file would reintroduce the exact coupling between the two apps this rewrite
+ * exists to remove; the goal is that they look like one product, not that
+ * they share code. See the working-instructions doc's Step 3.
+ *
+ * Colours and --font/--card-font are copied verbatim from index.html's own
+ * :root block (unchanged, not reinvented) — that stays the source of truth
+ * for the legacy page; these values must be kept in sync with it by hand if
+ * it ever changes, since duplicating a <link> import there would risk
+ * overriding a page this fragile in ways not worth the risk for a tokens-only
+ * step. Type scale, spacing and radii are NOT already tokenized anywhere in
+ * Hub — it's used ad hoc, organically, all over 25,000+ lines (a border-radius
+ * survey alone turned up a dozen distinct values in real use: 4, 6, 7, 8, 9,
+ * 10, 12, 14, 16, 18, 20px). Rather than inventing an arbitrary new scale,
+ * these name the values that already recur most often — the de facto choices
+ * — as an actual small scale, so the new app rhymes with Hub's real visual
+ * language instead of a designer's idealized version of it.
+ * ============================================================================ */
+
+:root {
+  /* ---- Colour (verbatim from index.html) ---- */
+  --bg: #0a0503;
+  --surface: #161316;
+  --surface2: #1c1714;
+  --border: rgba(186, 186, 186, .14);
+  --accent: #ff6d29;
+  --accent2: #ff9457;
+  --text: #ffffff;
+  --muted: #bababa;
+  --green: #4caf7d;
+  --yellow: #f5c842;
+  --red: #e05c5c;
+  --blue: #5b9cf6;
+  --purple: #9f7aea;
+
+  /* ---- Type ---- */
+  --font: 'Neue Montreal', 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --card-font: 'Playfair Display', Georgia, 'Times New Roman', serif;
+
+  /* A small scale built from the most common font-size values actually in
+     use across Hub's own stylesheet (10/11/12/13/14/15px for labels/body,
+     stepping up to 16/19/22px for emphasis/headings). */
+  --text-xs: 10px;
+  --text-sm: 11px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 19px;
+  --text-2xl: 22px;
+
+  /* ---- Spacing ---- */
+  /* Built from the most common padding/gap values in real use (4/8/12/16/20/
+     24/32px), rounded to a clean 4px-ish rhythm rather than the dozens of
+     one-off in-between values (11px, 18px, 22px, 30px, ...) scattered
+     throughout — those are Hub's own organic drift, not something to carry
+     forward as new "tokens". */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 20px;
+  --space-2xl: 24px;
+  --space-3xl: 32px;
+
+  /* ---- Radii ---- */
+  /* border-radius:8px is Hub's single most common value by a wide margin
+     (91 occurrences vs. the next-most-common's 44) — the closest thing to a
+     de facto default already in use; the rest of the scale brackets it. */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-full: 999px;
+}
