@@ -16,9 +16,12 @@ const { checkAuthorization } = require("./lib/strategy/auth");
 // A run only stops being "active" once its very last stage (deck-builder) has been
 // approved — everything before that, including "failed", is still active: a failed run
 // is meant to be retried via strategy-stage-retry.js, not silently duplicated by starting
-// a second run for the same brand + month underneath it.
-function isActiveRunStatus(status) {
-  return status !== "deck-builder_approved";
+// a second run for the same brand + month underneath it. An archived run (see
+// index.html's soArchiveRun) is the other way out: the Hub UI uses it for stale/abandoned
+// runs that aren't going to be retried, and archiving one deliberately frees up its
+// brand + month for a fresh run without needing to touch its status.
+function isActiveRun(run) {
+  return run.status !== "deck-builder_approved" && !run.archivedAt;
 }
 
 function cors() {
@@ -75,7 +78,7 @@ exports.handler = async (event) => {
     // node" pattern the Hub UI's own listeners already use for this data.
     const allRuns = (await fbGet("strategy_runs")) || {};
     const existing = Object.values(allRuns).find(
-      (r) => r && r.brandId === brandId && r.month === month && isActiveRunStatus(r.status)
+      (r) => r && r.brandId === brandId && r.month === month && isActiveRun(r)
     );
     if (existing) {
       return {
