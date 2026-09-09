@@ -129,6 +129,48 @@
     if (notes) notes.placeholder = "What should change? Add notes before sending it back.";
   }
 
+  function addBrandFolderAccess(root) {
+    var driveInput = document.getElementById("so-bf-drive");
+    if (driveInput && !root.querySelector(".so-brand-folder-card")) {
+      var originalLabel = driveInput.previousElementSibling;
+      var card = document.createElement("div");
+      card.className = "att-board so-brand-folder-card";
+      card.style.borderColor = "var(--accent)";
+      var heading = document.createElement("div");
+      heading.className = "bh";
+      heading.textContent = "Master brand folder";
+      var help = document.createElement("div");
+      help.style.cssText = "font-size:12px;color:var(--muted);margin-bottom:10px";
+      help.textContent = "Add the main folder containing logos, brand guidelines, design files, photos, videos and other working assets.";
+      var label = document.createElement("label");
+      label.style.cssText = "display:block;font-size:11px;color:var(--muted);margin-bottom:4px";
+      label.textContent = "Google Drive folder link";
+      driveInput.placeholder = "Paste the master brand folder link";
+      driveInput.style.marginBottom = "0";
+      card.appendChild(heading);
+      card.appendChild(help);
+      card.appendChild(label);
+      card.appendChild(driveInput);
+      var firstBoard = root.querySelector(".att-board");
+      if (firstBoard) firstBoard.insertAdjacentElement("beforebegin", card);
+      if (originalLabel && originalLabel.tagName === "LABEL") originalLabel.remove();
+    }
+
+    if (!driveInput && window._soCurrentRun && !root.querySelector(".so-run-folder-link")) {
+      var brand = (window._soBrandsCache || {})[window._soCurrentRun.brandId];
+      if (!brand || !brand.driveFolderUrl) return;
+      var header = root.querySelector(".section-header");
+      if (!header) return;
+      var link = document.createElement("a");
+      link.className = "btn btn-ghost so-run-folder-link";
+      link.href = brand.driveFolderUrl;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = "Open brand folder";
+      header.appendChild(link);
+    }
+  }
+
   function decorate() {
     queued = false;
     var root = document.getElementById("so-root");
@@ -142,6 +184,7 @@
       }
     }
     simplifyReview(root);
+    addBrandFolderAccess(root);
     var brand = document.getElementById("so-new-brand");
     var month = document.getElementById("so-new-month");
     if (brand && brand.dataset.duplicateGuard !== "1") {
