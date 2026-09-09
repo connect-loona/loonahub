@@ -118,7 +118,7 @@ function waitForCond(fn, label, timeoutMs = 3000) {
   check("RRO shows up in the brand list once seeded", brandListText.includes("RRO"));
 
   await page.locator(".pf-absrow", { hasText: "RRO" }).locator("button", { hasText: "Edit" }).click();
-  await page.waitForTimeout(300);
+  await waitForCond(async () => ((await page.inputValue("#so-bf-name").catch(() => "")) === "RRO Foods") || null, "the Edit form populates RRO's existing name");
   check("editing RRO loads its existing name into the form", await page.inputValue("#so-bf-name") === "RRO Foods");
   check("the brand id field is locked when editing an existing brand", await page.isDisabled("#so-bf-id"));
   const advancedJsonBefore = await page.inputValue("#so-bf-advanced");
