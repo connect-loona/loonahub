@@ -266,7 +266,7 @@
 
   function buildWorkspace(root) {
     var run = window._soCurrentRun;
-    if (!run || root.dataset.workspaceReady === "1") return;
+    if (!run || root.querySelector(".so-workspace")) return;
     var header = root.querySelector(".section-header");
     if (!header) return;
     ensureWorkspaceStyles();
@@ -293,7 +293,6 @@
     root.appendChild(workspace);
     var headerFolder = header.querySelector(".so-run-folder-link");
     if (headerFolder) headerFolder.remove();
-    root.dataset.workspaceReady = "1";
   }
 
   function decorate() {
