@@ -18,6 +18,22 @@ const { saveStageVersion, saveStageMetrics, saveFeedbackEvent } = require("./obs
 
 const MAX_REPAIRS = 2;
 
+// Purely cosmetic — gives Hub's "Your next action" card a little personality while a
+// stage is actually running, instead of the generic "Running agent." text. Keyed by
+// def.stage, so a new stage just needs an entry here (falls back to a plain robot if one
+// is ever missing). Concept refinement reuses Strategy's own persona since it's the same
+// agent doing a smaller, scoped version of its regular job.
+const STAGE_AGENTS = {
+  research: { emoji: "🕵️", name: "Nosy" },
+  strategy: { emoji: "🧭", name: "Compass" },
+  copy: { emoji: "🖊️", name: "Inkwell" },
+  "creative-direction": { emoji: "📸", name: "Lens" },
+  "deck-builder": { emoji: "📦", name: "Stagehand" },
+};
+function stageAgent(stage) {
+  return STAGE_AGENTS[stage] || { emoji: "🤖", name: "The agent" };
+}
+
 function createRuntime(run) {
   if (run.runtime === "fixture") return new FixtureRuntime(run.fixtureDir);
   return new OpenAIAgentsRuntime();
@@ -75,10 +91,13 @@ async function executeStage(runId, run, def) {
 
   await fbUpdate(`strategy_runs/${runId}`, { status: def.runningStatus, updatedAt: new Date().toISOString() });
 
+  const agent = stageAgent(def.stage);
   for (let attempt = 0; attempt <= MAX_REPAIRS; attempt += 1) {
     await setStageStatus(runId, def.stage, {
       status: attempt === 0 ? "running" : "repairing",
-      detail: attempt === 0 ? "Running agent." : `Repair attempt ${attempt} of ${MAX_REPAIRS}.`,
+      detail: attempt === 0
+        ? `${agent.emoji} ${agent.name} is on it.`
+        : `${agent.emoji} ${agent.name} is fixing an issue — attempt ${attempt} of ${MAX_REPAIRS}.`,
     });
     try {
       const input = previousOutput ? { originalInput: def.input, previousOutput } : def.input;
@@ -374,7 +393,11 @@ async function proposeConceptCandidate(runId, assetId, requestType, notes) {
   };
 
   const candidatePath = `strategy_runs/${runId}/stages/strategy/candidates/${assetId}`;
-  await fbSet(candidatePath, { status: "running", requestType, notes: notes || null, updatedAt: new Date().toISOString() });
+  const agent = stageAgent("strategy");
+  await fbSet(candidatePath, {
+    status: "running", requestType, notes: notes || null, updatedAt: new Date().toISOString(),
+    detail: `${agent.emoji} ${agent.name} is sketching a replacement.`,
+  });
 
   let repairIssues = [];
   let lastError = null;
