@@ -24627,14 +24627,18 @@ ${brandLines}`;
     // page is assigned to the run's owner (Strategy OS doesn't have its own member picker),
     // so whoever ran this can immediately reassign from the Task Board if needed.
     async function soCreateTeamTasks(runId){
-      var run = window._soCurrentRun;
-      if(!run || run.runId !== runId) return;
-      var deckStage = run.stages && run.stages["deck-builder"];
-      var pages = deckStage && deckStage.checkpoint && deckStage.checkpoint.pages;
-      if(!pages || !pages.length || !_db) return;
+      if(!_db) return;
       var btn = document.getElementById("so-team-tasks-btn");
       if(btn){ btn.disabled=true; btn.textContent="Creating…"; }
       try {
+        // Read the run fresh from Firebase rather than trusting window._soCurrentRun —
+        // that cache is only updated by soOpenRun's own listener callback, and reading it
+        // here would race against that if a snapshot is still in flight at click time.
+        var snap = await _db.ref("strategy_runs/"+runId).once("value");
+        var run = snap.val();
+        var deckStage = run && run.stages && run.stages["deck-builder"];
+        var pages = deckStage && deckStage.checkpoint && deckStage.checkpoint.pages;
+        if(!run || !pages || !pages.length) throw new Error("This run has no finished deck to create tasks from.");
         var owner = run.owner || currentUser || "Gokul";
         var brandName = soBrandName(run.brandId);
         pages.forEach(function(p){
@@ -24648,9 +24652,12 @@ ${brandLines}`;
           });
         });
         await _db.ref("strategy_runs/"+runId).update({ teamTasksCreatedAt: new Date().toISOString() });
-      } finally {
-        if(btn){ btn.disabled=false; }
+      } catch(e) {
+        if(btn){ btn.disabled=false; btn.textContent="Create team tasks"; }
+        alert("Could not create team tasks: "+(e.message||e));
+        return;
       }
+      if(btn){ btn.disabled=false; }
     }
 
     function researchReviewHtml(run, stage){
@@ -24691,7 +24698,10 @@ ${brandLines}`;
         '<div class="att-board"><div class="bh">Exhausted territory (kill list) <span class="tag">'+(r.exhaustedTerritory||[]).length+'</span></div>'+killRows+'</div>'+
         (readOnly
           ? '<div class="note">Research approved '+esc(fmtDateTime((run.approvals&&run.approvals.research&&run.approvals.research.decidedAt)))+' by '+esc(run.approvals&&run.approvals.research&&run.approvals.research.decidedBy)+'.</div>'
-          : decisionBarHtml(run.runId, "research"));
+          // Approve/Send back with notes live in the "Your next action" card above, not
+          // duplicated here — this avoided two independent controls (and two elements
+          // sharing the same #so-decision-notes id) doing the same thing on one page.
+          : '<div class="note">Use the "Your next action" card above to approve this or send it back with notes.</div>');
     }
 
     function gateChip(pass, label){
@@ -24733,7 +24743,7 @@ ${brandLines}`;
         '</div>' : '')+
         (readOnly
           ? '<div class="note">Strategy approved '+esc(fmtDateTime((run.approvals&&run.approvals.strategy&&run.approvals.strategy.decidedAt)))+' by '+esc(run.approvals&&run.approvals.strategy&&run.approvals.strategy.decidedBy)+'.</div>'
-          : decisionBarHtml(run.runId, "strategy"));
+          : '<div class="note">Use the "Your next action" card above to approve this or send it back with notes.</div>');
     }
 
     function claimStatusChip(status){
@@ -24781,7 +24791,7 @@ ${brandLines}`;
           c.globalVerificationFlags.map(function(f){ return '<div style="padding:6px 0">'+esc(f)+'</div>'; }).join("")+'</div>' : '')+
         (readOnly
           ? '<div class="note">Copy approved '+esc(fmtDateTime((run.approvals&&run.approvals.copy&&run.approvals.copy.decidedAt)))+' by '+esc(run.approvals&&run.approvals.copy&&run.approvals.copy.decidedBy)+'.</div>'
-          : decisionBarHtml(run.runId, "copy"));
+          : '<div class="note">Use the "Your next action" card above to approve this or send it back with notes.</div>');
     }
 
     function directionReviewHtml(run, stage){
@@ -24819,7 +24829,7 @@ ${brandLines}`;
           d.productionNotes.map(function(n){ return '<div style="padding:6px 0">'+esc(n)+'</div>'; }).join("")+'</div>' : '')+
         (readOnly
           ? '<div class="note">Creative direction approved '+esc(fmtDateTime((run.approvals&&run.approvals["creative-direction"]&&run.approvals["creative-direction"].decidedAt)))+' by '+esc(run.approvals&&run.approvals["creative-direction"]&&run.approvals["creative-direction"].decidedBy)+'.</div>'
-          : decisionBarHtml(run.runId, "creative-direction"));
+          : '<div class="note">Use the "Your next action" card above to approve this or send it back with notes.</div>');
     }
 
     var PRODUCTION_STATUSES = ["not_started","in_progress","ready_for_review","complete"];
@@ -24858,25 +24868,13 @@ ${brandLines}`;
           // The Open Canva deck / Create team tasks actions live in the "Your next action"
           // card once the deck is approved (nextActionCardHtml) — not duplicated here.
           ? '<div class="note">Deck approved '+esc(fmtDateTime((run.approvals&&run.approvals["deck-builder"]&&run.approvals["deck-builder"].decidedAt)))+' by '+esc(run.approvals&&run.approvals["deck-builder"]&&run.approvals["deck-builder"].decidedBy)+'.</div>'
-          : decisionBarHtml(run.runId, "deck-builder"));
+          : '<div class="note">Use the "Your next action" card above to approve this or send it back with notes.</div>');
     }
 
     async function soUpdateDeckPage(runId, pageIndex, field, value){
       if(!_db) return;
       var patch = {}; patch[field] = value;
       await _db.ref("strategy_runs/"+runId+"/stages/deck-builder/checkpoint/pages/"+pageIndex).update(patch);
-    }
-
-    function decisionBarHtml(runId, stage){
-      return '<div class="att-board">'+
-        '<div class="bh">Decision</div>'+
-        '<textarea class="form-control" id="so-decision-notes" placeholder="Notes (optional)" style="margin-bottom:10px;min-height:60px"></textarea>'+
-        '<div id="so-decision-error" style="color:var(--red);font-size:12px;margin-bottom:8px;display:none"></div>'+
-        '<div style="display:flex;gap:8px">'+
-          '<button class="btn btn-ghost" style="flex:1" onclick="window.soDecide(\''+esc(runId)+'\',\''+esc(stage)+'\',\'changes_requested\')">Request changes</button>'+
-          '<button class="btn btn-primary" style="flex:1" onclick="window.soDecide(\''+esc(runId)+'\',\''+esc(stage)+'\',\'approved\')">Approve '+esc(STAGE_LABELS[stage])+'</button>'+
-        '</div>'+
-      '</div>';
     }
 
     async function soDecide(runId, stage, decision){
