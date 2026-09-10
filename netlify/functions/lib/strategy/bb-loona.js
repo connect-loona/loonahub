@@ -10,25 +10,33 @@ const {
   CONCEPT_REFINEMENT_SOUL,
   COPY_REFINEMENT_SOUL,
 } = require("./souls-data");
+const { STAGE_ORDER, AGENT_REGISTRY, agentForPrompt, renderAgentAnatomy } = require("./agents/agent-registry");
 
-const ASSIGNMENTS = {
-  "01-research.md": { agentName: "👨🏻‍✈️ Columbus — Research", role: "Research", soul: RESEARCH_SOUL },
-  "02-strategy.md": { agentName: "🧕🏻 Dora — Strategy", role: "Strategy", soul: STRATEGY_SOUL },
-  "03-copy.md": { agentName: "👩‍🎨 Matilda — Copy", role: "Copy", soul: COPY_SOUL },
-  "04-creative-direction.md": { agentName: "👩🏼‍🎤 Barbie — Creative Direction", role: "Creative Direction", soul: CREATIVE_DIRECTION_SOUL },
-  "05-deck-builder.md": { agentName: "👷🏾 Bob — Deck Builder", role: "Deck Builder", soul: DECK_BUILDER_SOUL },
-  "06-concept-refine.md": { agentName: "🧕🏻 Dora — Concept Refinement", role: "Concept Refinement", soul: CONCEPT_REFINEMENT_SOUL },
-  "07-copy-refine.md": { agentName: "👩‍🎨 Matilda — Copy Refinement", role: "Copy Refinement", soul: COPY_REFINEMENT_SOUL },
+const SOUL_BY_KEY = {
+  RESEARCH_SOUL,
+  STRATEGY_SOUL,
+  COPY_SOUL,
+  CREATIVE_DIRECTION_SOUL,
+  DECK_BUILDER_SOUL,
+  CONCEPT_REFINEMENT_SOUL,
+  COPY_REFINEMENT_SOUL,
 };
+
+const ASSIGNMENTS = Object.fromEntries(Object.values(AGENT_REGISTRY).map((agent) => [
+  agent.promptFile,
+  { agentName: agent.displayName, role: agent.role, soul: SOUL_BY_KEY[agent.soulKey], anatomy: renderAgentAnatomy(agent) },
+]));
 
 function assignmentFor(promptFile) {
   const assignment = ASSIGNMENTS[promptFile];
   if (!assignment) throw new Error(`BB Loona has no specialist assignment for ${promptFile}.`);
+  if (!assignment.soul) throw new Error(`BB Loona assignment for ${promptFile} has no soul.`);
   return assignment;
 }
 
 function composeAgentInstructions(promptFile, houseRules, stagePrompt) {
   const assignment = assignmentFor(promptFile);
+  const agent = agentForPrompt(promptFile);
   return [
     LOONA_SOUL,
     "---",
@@ -38,6 +46,10 @@ function composeAgentInstructions(promptFile, houseRules, stagePrompt) {
     "---",
     assignment.soul,
     "---",
+    assignment.anatomy,
+    "---",
+    `# Stage boundary\n\nStable stage ID: ${agent ? agent.stage : "unknown"}\nStable agent ID: ${agent ? agent.id : "unknown"}\nUse these IDs exactly in reasoning, validation and handoff discipline. Display names may be warm; IDs must stay stable.`,
+    "---",
     houseRules,
     "---",
     stagePrompt,
@@ -45,12 +57,11 @@ function composeAgentInstructions(promptFile, houseRules, stagePrompt) {
 }
 
 function coordinatorSnapshot(run) {
-  const order = ["research", "strategy", "copy", "creative-direction", "deck-builder"];
   const stages = run && run.stages ? run.stages : {};
-  const active = order.find((stage) => {
+  const active = STAGE_ORDER.find((stage) => {
     const status = stages[stage] && stages[stage].status;
     return status && !["approved", "locked"].includes(status);
-  }) || order.find((stage) => !stages[stage] || stages[stage].status !== "approved") || null;
+  }) || STAGE_ORDER.find((stage) => !stages[stage] || stages[stage].status !== "approved") || null;
   return {
     name: "BB Loona",
     runId: run && run.runId,
