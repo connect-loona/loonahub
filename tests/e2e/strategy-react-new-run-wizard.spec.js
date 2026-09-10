@@ -64,12 +64,16 @@ async function runFor(month) {
   await waitFor(async () => (await page.locator("text=Agreed deliverables for the monthly plan").count()) > 0 || null, { label: "monthly details screen renders" });
 
   check("deliverables default from the brand's own config", (
-    await page.locator('input[aria-label="Reels"]').inputValue() === "6" &&
-    await page.locator('input[aria-label="Carousels"]').inputValue() === "4" &&
-    await page.locator('input[aria-label="Statics"]').inputValue() === "3"
+    await page.locator('input[aria-label="Count — Reels"]').inputValue() === "6" &&
+    await page.locator('input[aria-label="Count — Carousels"]').inputValue() === "4" &&
+    await page.locator('input[aria-label="Count — Static"]').inputValue() === "3"
   ));
 
-  await page.locator('input[aria-label="Reels"]').fill("8");
+  await page.locator('input[aria-label="Count — Reels"]').fill("8");
+  // Also exercise "+ Add deliverable" — Story is next in the preset list once
+  // reel/carousel/static are already used.
+  await page.locator("button", { hasText: "+ Add deliverable" }).click();
+  await page.locator('input[aria-label="Count — Story"]').fill("2");
   await page.locator('textarea[aria-label="Notes"]').fill("Focus on the Diwali gifting angle this month.");
   await page.locator("button", { hasText: "Submit & start research" }).click();
 
@@ -82,6 +86,7 @@ async function runFor(month) {
   check("monthly run tagged runType: monthly", monthlyRun.runType === "monthly", monthlyRun.runType);
   check("monthly run's deliverablesOverride reflects the edited reel count (8), not the brand default (6)", monthlyRun.deliverablesOverride && monthlyRun.deliverablesOverride.reel === 8, monthlyRun.deliverablesOverride);
   check("monthly run's deliverablesOverride keeps the untouched carousel/static defaults", monthlyRun.deliverablesOverride.carousel === 4 && monthlyRun.deliverablesOverride.static === 3);
+  check("monthly run's deliverablesOverride includes the added Story row", monthlyRun.deliverablesOverride.story === 2, monthlyRun.deliverablesOverride);
   check("monthly run's sourceContext carries the priorities text (reaches Research's prompt — see pipeline.js)", (monthlyRun.sourceContext || []).some((s) => s.includes("Diwali gifting")), monthlyRun.sourceContext);
 
   // ---- Campaign path ----
@@ -95,9 +100,9 @@ async function runFor(month) {
   await page.locator("button", { hasText: "Continue" }).click();
   await waitFor(async () => (await page.locator("text=Campaign details").count()) > 0 || null, { label: "campaign details screen renders" });
 
-  check("campaign screen still offers the deliverables picker", await page.locator('input[aria-label="Reels"]').count() > 0);
+  check("campaign screen still offers the deliverables picker", await page.locator('input[aria-label="Count — Reels"]').count() > 0);
   await page.locator('textarea[aria-label="Notes"]').fill("Diwali gifting push across RRO's oil range.");
-  await page.locator('input[aria-label="Carousels"]').fill("2");
+  await page.locator('input[aria-label="Count — Carousels"]').fill("2");
   await page.locator("button", { hasText: "Submit & start research" }).click();
 
   await waitFor(async () => (await page.locator(".st-stage-rail").count()) > 0 || null, { label: "navigates into run detail after campaign submit" });

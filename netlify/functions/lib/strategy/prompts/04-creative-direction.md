@@ -13,7 +13,7 @@ Return JSON matching this shape exactly.
   "assets": [
     {
       "assetId": "same id as the strategy/copy asset",
-      "format": "reel | carousel | static",
+      "format": "reel | carousel | static | story",
       "portfolioId": "same portfolioId as the strategy asset, or null",
       "skuIds": ["same skuIds as the strategy asset"],
       "visualConcept": "one paragraph — what the viewer actually sees, concretely",
@@ -37,7 +37,7 @@ Return JSON matching this shape exactly.
 }
 ```
 
-`shotList` is required for every reel (minimum 3 shots — enough to actually block a shoot) and optional for carousels/statics where a single composition note may be enough.
+`shotList` is required for every reel (minimum 3 shots — enough to actually block a shoot) and optional for carousels/statics/stories where a single composition note may be enough.
 
 ## References are sourced, not invented
 

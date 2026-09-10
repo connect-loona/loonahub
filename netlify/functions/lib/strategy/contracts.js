@@ -13,7 +13,13 @@ const { z } = require("zod");
 const NonEmpty = z.string().min(1);
 const NullableText = z.string().nullable();
 
-const AssetFormatSchema = z.enum(["reel", "carousel", "static"]);
+// "story" is treated the same as "static" everywhere a format-conditional rule exists
+// (validation.js: no script, no shot-list minimum) — see 02-strategy.md's "Deliverable
+// formats" section for what actually distinguishes it creatively. Adding a genuinely new
+// generated format (as opposed to a deliverable-count-only line item like "blog"/
+// "whatsapp" — see BrandConfigSchema.deliverables below) means adding it here AND teaching
+// every stage's prompt file about it, the same way "story" was added.
+const AssetFormatSchema = z.enum(["reel", "carousel", "static", "story"]);
 
 const ApprovedWorkSchema = z
   .object({
@@ -114,14 +120,24 @@ const BrandConfigSchema = z
     driveFolderUrl: NullableText,
     approvedWork: z.array(ApprovedWorkSchema).optional().default([]),
     oneLineTruth: NonEmpty,
+    // reel/carousel/static stay required, as before. `story` is a fourth format the
+    // pipeline can also actually generate (see AssetFormatSchema) — optional/defaulted to
+    // 0 so brand configs saved before it existed keep parsing unchanged. Beyond those four,
+    // `.catchall()` accepts any other named deliverable ("blog", "whatsapp", or whatever
+    // the "+ Add deliverable" UI is given — see DeliverablesFields.tsx) as a plain count:
+    // it's recorded and included in a run's total deliverable count, but validation.js only
+    // enforces the count for formats in AssetFormatSchema (reel/carousel/static/story) —
+    // the strategy stage has no way to produce a "blog" or "whatsapp" format asset yet, so
+    // requiring an exact count for one would be a target nothing could ever satisfy.
     deliverables: z
       .object({
         reel: z.number().int().min(0),
         carousel: z.number().int().min(0),
         static: z.number().int().min(0),
+        story: z.number().int().min(0).optional().default(0),
         confirmed: z.boolean(),
       })
-      .strict(),
+      .catchall(z.number().int().min(0)),
     voice: z
       .object({
         descriptors: z.array(NonEmpty).min(3).max(6),

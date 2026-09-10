@@ -14,6 +14,7 @@
 import { useState } from "react";
 import type { DeliverablesCount, StrategyBrand } from "../lib/types";
 import { startRun } from "../lib/api";
+import { DeliverablesFields, deliverablesToMap, rowsFromDeliverables, type Row } from "../components/DeliverablesFields";
 
 type RunType = "monthly" | "campaign";
 type Step = "intake" | "details";
@@ -22,30 +23,6 @@ function defaultMonth(): string {
   const d = new Date();
   d.setMonth(d.getMonth() + 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function deliverablesOf(brand: StrategyBrand | undefined): DeliverablesCount {
-  const d = (brand as (StrategyBrand & { deliverables?: Partial<DeliverablesCount> }) | undefined)?.deliverables;
-  return { reel: d?.reel ?? 6, carousel: d?.carousel ?? 4, static: d?.static ?? 3 };
-}
-
-function DeliverablesEditor({ value, onChange }: { value: DeliverablesCount; onChange: (next: DeliverablesCount) => void }) {
-  return (
-    <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-      <div style={{ flex: 1 }}>
-        <label className="st-field-label">Reels</label>
-        <input className="st-form-control" aria-label="Reels" type="number" min={0} value={value.reel} onChange={(e) => onChange({ ...value, reel: parseInt(e.target.value, 10) || 0 })} />
-      </div>
-      <div style={{ flex: 1 }}>
-        <label className="st-field-label">Carousels</label>
-        <input className="st-form-control" aria-label="Carousels" type="number" min={0} value={value.carousel} onChange={(e) => onChange({ ...value, carousel: parseInt(e.target.value, 10) || 0 })} />
-      </div>
-      <div style={{ flex: 1 }}>
-        <label className="st-field-label">Statics</label>
-        <input className="st-form-control" aria-label="Statics" type="number" min={0} value={value.static} onChange={(e) => onChange({ ...value, static: parseInt(e.target.value, 10) || 0 })} />
-      </div>
-    </div>
-  );
 }
 
 export function NewRunWizard({
@@ -64,7 +41,7 @@ export function NewRunWizard({
   const [runType, setRunType] = useState<RunType>("monthly");
   const [month, setMonth] = useState(defaultMonth());
 
-  const [deliverables, setDeliverables] = useState<DeliverablesCount>(deliverablesOf(brands[0]));
+  const [deliverableRows, setDeliverableRows] = useState<Row[]>(() => rowsFromDeliverables(brands[0]?.deliverables as DeliverablesCount | undefined));
   const [notes, setNotes] = useState("");
 
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +57,7 @@ export function NewRunWizard({
     // screen is reached — matches "show the current deliverables that we set as
     // default" from a fresh pick, rather than carrying over a stale edit from a
     // previously-selected brand.
-    setDeliverables(deliverablesOf(selectedBrand));
+    setDeliverableRows(rowsFromDeliverables(selectedBrand?.deliverables as DeliverablesCount | undefined));
     setStep("details");
   }
 
@@ -93,7 +70,7 @@ export function NewRunWizard({
         month,
         actor,
         runType,
-        deliverablesOverride: deliverables,
+        deliverablesOverride: deliverablesToMap(deliverableRows),
         sourceContext: notes.trim() ? [notes.trim()] : [],
       });
       onCreated(runId);
@@ -177,7 +154,7 @@ export function NewRunWizard({
               onChange={(e) => setNotes(e.target.value)}
             />
             <label className="st-field-label">Deliverables for this campaign</label>
-            <DeliverablesEditor value={deliverables} onChange={setDeliverables} />
+            <DeliverablesFields rows={deliverableRows} onChange={setDeliverableRows} />
           </>
         ) : (
           <>
@@ -185,7 +162,7 @@ export function NewRunWizard({
               Below are the agreed deliverables for the monthly plan — the default is this brand's own configured
               count, but you can edit it for this run only; it won't change the brand's saved settings.
             </div>
-            <DeliverablesEditor value={deliverables} onChange={setDeliverables} />
+            <DeliverablesFields rows={deliverableRows} onChange={setDeliverableRows} />
             <label className="st-field-label">Explain your details and priorities for this month's plan</label>
             <textarea
               className="st-form-control"

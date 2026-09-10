@@ -5,12 +5,13 @@
 // else).
 //
 // runType ("monthly" | "campaign", defaults to "monthly") and deliverablesOverride
-// ({reel, carousel, static}) come from the new-run intake wizard (apps/strategy's
-// NewRunWizard) — a campaign run goes through the exact same 5-stage pipeline as a
-// monthly one for now (per the working-instructions doc, a campaign-specific pipeline is
-// separate, later work). deliverablesOverride is a per-run-only override: it's read by
-// runStrategyStage (pipeline.js) instead of the brand's own stored deliverables, and never
-// written back to the brand config itself.
+// ({reel: n, carousel: n, ...} — any of the brand's configured deliverable names, see
+// contracts.js's BrandConfigSchema.deliverables) come from the new-run intake wizard
+// (apps/strategy's NewRunWizard) — a campaign run goes through the exact same 5-stage
+// pipeline as a monthly one for now (per the working-instructions doc, a campaign-specific
+// pipeline is separate, later work). deliverablesOverride is a per-run-only override: it's
+// read by runStrategyStage (pipeline.js) instead of the brand's own stored deliverables,
+// and never written back to the brand config itself.
 //
 // Auth: this endpoint is meant to be called only from an already-logged-in Hub session.
 // basic-auth.ts's edge gate lets ALL /.netlify/functions/* requests through unchecked
@@ -63,14 +64,20 @@ exports.handler = async (event) => {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "month must be YYYY-MM." }) };
 
   const runType = body.runType === "campaign" ? "campaign" : "monthly";
+  // An open map of {deliverableName: count} — not just reel/carousel/static, since the
+  // wizard's deliverables editor (DeliverablesFields.tsx) can list any of the brand's
+  // configured deliverable names, including ones added on the fly (see contracts.js's
+  // BrandConfigSchema.deliverables). Every value just has to be a non-negative integer.
   let deliverablesOverride = null;
-  if (body.deliverablesOverride && typeof body.deliverablesOverride === "object") {
-    const d = body.deliverablesOverride;
-    const reel = Number(d.reel), carousel = Number(d.carousel), staticCount = Number(d.static);
-    if (![reel, carousel, staticCount].every((n) => Number.isInteger(n) && n >= 0)) {
-      return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "deliverablesOverride's reel/carousel/static must all be non-negative integers." }) };
+  if (body.deliverablesOverride && typeof body.deliverablesOverride === "object" && !Array.isArray(body.deliverablesOverride)) {
+    deliverablesOverride = {};
+    for (const [name, rawValue] of Object.entries(body.deliverablesOverride)) {
+      const value = Number(rawValue);
+      if (!Number.isInteger(value) || value < 0) {
+        return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: `deliverablesOverride.${name} must be a non-negative integer.` }) };
+      }
+      deliverablesOverride[name] = value;
     }
-    deliverablesOverride = { reel, carousel, static: staticCount };
   }
 
   try {

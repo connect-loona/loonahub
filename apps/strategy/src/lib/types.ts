@@ -76,15 +76,17 @@ export interface ConceptCandidate {
   };
 }
 
-// The per-run-only deliverables override the new-run wizard's deliverables screen sends —
-// see strategy-run-start.js's own header comment. Applied by runStrategyStage
-// (pipeline.js) instead of the brand's own stored `deliverables`; never written back to
-// the brand config itself.
-export interface DeliverablesCount {
-  reel: number;
-  carousel: number;
-  static: number;
-}
+// An open map of {deliverableName: count} — reel/carousel/static/story are the ones the
+// pipeline can actually generate (see AssetFormatSchema in contracts.js), but a brand's
+// config (and this per-run override) can name any other deliverable too, e.g. "blog" —
+// see DeliverablesFields.tsx and contracts.js's BrandConfigSchema.deliverables comment for
+// why those extra ones are recorded but not enforced against generated asset counts.
+//
+// Used two ways: as a brand's own stored `deliverables` config (BrandForm.tsx), and as the
+// new-run wizard's per-run-only override — see strategy-run-start.js's own header comment.
+// Applied by runStrategyStage (pipeline.js) instead of the brand's own stored
+// `deliverables`; never written back to the brand config itself.
+export type DeliverablesCount = Record<string, number>;
 
 export interface StrategyRun {
   runId: string;

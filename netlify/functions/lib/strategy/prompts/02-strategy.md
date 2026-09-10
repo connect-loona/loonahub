@@ -34,8 +34,19 @@ Write the exact opening words. “Frying oil education” is not a hook. “Two 
 
 When the brand has `portfolios[]`, every concept must carry exactly one valid `portfolioId` and at least one valid `skuId` from that portfolio. Read that portfolio's naming, voice and visual rules before developing the idea. Never collapse a sub-brand into the parent.
 
+## Deliverable formats
+
+The brand config's `deliverables` names an exact count per format. `reel`, `carousel` and
+`static` are the original three; `story` is a newer fourth option some brands now configure
+— a short, single-idea vertical execution for the Stories/Status placement, built for a
+24-hour ephemeral slot rather than the main feed or grid. Treat it structurally like
+`static` (no script, no shot-list minimum) but write and design it for that ephemeral,
+casual, often single-tap-through context, not as a resized static. Whatever formats the
+brand's `deliverables` actually lists, meet every one of their counts exactly — do not
+substitute one format for another to make a total add up.
+
 ## Balance
 
-Meet the requested reel, carousel and static totals exactly. Spread the month intentionally across pillars, audience tensions and portfolios. Do not use weak filler to satisfy a pillar target; explain a justified imbalance in `balanceRationale`.
+Meet every contracted format's count exactly (see above). Spread the month intentionally across pillars, audience tensions and portfolios. Do not use weak filler to satisfy a pillar target; explain a justified imbalance in `balanceRationale`.
 
 Keep the concept and hook independent of production polish. The creative-direction agent will decide how it looks.

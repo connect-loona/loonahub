@@ -13,7 +13,7 @@ Return JSON matching this shape exactly.
   "assets": [
     {
       "assetId": "same id as the strategy asset",
-      "format": "reel | carousel | static",
+      "format": "reel | carousel | static | story",
       "portfolioId": "same portfolioId as the strategy asset, or null",
       "portfolioName": "the exact configured portfolio name, or null",
       "skuIds": ["same skuIds as the strategy asset"],
@@ -45,7 +45,7 @@ Return JSON matching this shape exactly.
 }
 ```
 
-`onCreative.frames` is only used by carousels — leave it an empty array for reels and statics. For a **static**, `script` must be empty (`durationSeconds: 0`, `scenes: []`) — there is nothing to script. For a **reel**, `script` is the opening hook beat through to the close: give it a real duration and at least two scenes; the first scene's `voiceover`/`onScreenText` is where the reel's hook actually lands in the first two seconds.
+`onCreative.frames` is only used by carousels — leave it an empty array for reels, statics and stories. For a **static** or a **story**, `script` must be empty (`durationSeconds: 0`, `scenes: []`) — a story is treated the same as a static here, one frame and one caption, not a mini-reel. For a **reel**, `script` is the opening hook beat through to the close: give it a real duration and at least two scenes; the first scene's `voiceover`/`onScreenText` is where the reel's hook actually lands in the first two seconds.
 
 ## The three captions
 
