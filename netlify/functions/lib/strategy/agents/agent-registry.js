@@ -27,9 +27,10 @@ const AGENT_REGISTRY = {
       "Separate evidence from inference.",
       "Preserve real audience wording and source IDs.",
       "Reject promotional, circular, stale or undated sources.",
+      "Reject irrelevant search results even when they rank highly; category fit beats search position.",
       "Surface unknowns instead of smoothing them into strategy.",
     ],
-    qualityChecks: ["schema", "evidence", "minimum-counts", "dates", "source-discipline"],
+    qualityChecks: ["schema", "evidence", "minimum-counts", "dates", "source-discipline", "category-relevance"],
   },
   strategy: {
     id: "strategy",
@@ -57,8 +58,9 @@ const AGENT_REGISTRY = {
       "Each concept needs a one-sentence tension.",
       "Hooks must be actual publishable words.",
       "Preserve exact portfolio, SKU and deliverable discipline.",
+      "When the brand is food, hospitality, retail or lifestyle, ground the concept in that world instead of generic software, productivity or office metaphors.",
     ],
-    qualityChecks: ["concept-gates", "counts", "portfolio-discipline", "kill-list", "hook-language"],
+    qualityChecks: ["concept-gates", "counts", "portfolio-discipline", "kill-list", "hook-language", "category-fit"],
   },
   copy: {
     id: "copy",
@@ -85,9 +87,11 @@ const AGENT_REGISTRY = {
       "Write the strongest safe version when proof is missing and flag the claim.",
       "Preserve approved product, portfolio and hook language.",
       "Three captions must differ in angle and rhythm.",
+      "Write in the brand's category vocabulary; food, retail and lifestyle brands should sound sensory and human, not like SaaS or productivity copy.",
+      "If the user asks for a refinement, answer that exact note first before improving anything else.",
       "Avoid empty advertising cliches and generic engagement prompts.",
     ],
-    qualityChecks: ["claim-rules", "caption-count", "portfolio-voice", "hook-preservation", "duration"],
+    qualityChecks: ["claim-rules", "caption-count", "portfolio-voice", "hook-preservation", "duration", "note-obedience", "category-language"],
   },
   "creative-direction": {
     id: "creative-direction",
@@ -112,10 +116,14 @@ const AGENT_REGISTRY = {
     guardrails: [
       "References support a transferable principle; they are not instructions to copy.",
       "Every reference requires a working source.",
+      "Every reference must match the asset's category, format and visible production need; reject off-category links even if the title has a useful word.",
+      "For food, cafe, restaurant or FMCG work, references must show food, drink, packaging, retail, hospitality, people eating, menu culture or comparable sensory/lifestyle scenes; never use unrelated software tutorials, office videos, Excel screens, dashboards or productivity content.",
+      "If a strong matching reference cannot be found, say reference_unavailable and describe the visual principle instead of adding a weak link.",
+      "Describe why each reference is relevant in one sentence using visible details from the page or image.",
       "Describe visible decisions, not vague words such as premium or dynamic.",
       "Respect product, pack, logo, colour and production reality.",
     ],
-    qualityChecks: ["references", "shot-list", "brand-visuals", "production-feasibility", "format"],
+    qualityChecks: ["references", "reference-category-fit", "source-working", "no-off-category-links", "shot-list", "brand-visuals", "production-feasibility", "format"],
   },
   "deck-builder": {
     id: "deck-builder",
@@ -142,9 +150,10 @@ const AGENT_REGISTRY = {
       "Every approved asset appears exactly once.",
       "Preserve approved words, references and order.",
       "Keep claims-to-verify and dependencies visible.",
+      "Drop or mark weak references instead of passing bad links into the deck.",
       "Canva failure must never block JSON or PPTX.",
     ],
-    qualityChecks: ["page-count", "field-preservation", "json-export", "pptx-export", "canva-gate"],
+    qualityChecks: ["page-count", "field-preservation", "json-export", "pptx-export", "canva-gate", "reference-sanity"],
   },
   "concept-refinement": {
     id: "concept-refinement",
@@ -158,8 +167,14 @@ const AGENT_REGISTRY = {
     inputs: ["Original approved strategy asset.", "Human notes or requested replacement mode.", "Brand config, research brief, kill list and learnings."],
     memory: ["Concept-level rejection reasons.", "Human refinement notes.", "Permanent kill signals and successful replacement patterns."],
     tools: [],
-    guardrails: ["Do not change unrelated assets.", "Preserve assetId and required format.", "Do not bypass gates that failed in the original strategy stage."],
-    qualityChecks: ["single-asset-scope", "identity-preservation", "concept-gates"],
+    guardrails: [
+      "Do not change unrelated assets.",
+      "Preserve assetId and required format.",
+      "Start by satisfying the user's exact requested change; only then improve clarity, tension or feasibility.",
+      "If the note is ambiguous, make the smallest reasonable interpretation and state the assumption in the returned rationale.",
+      "Do not bypass gates that failed in the original strategy stage."
+    ],
+    qualityChecks: ["single-asset-scope", "identity-preservation", "concept-gates", "note-obedience"],
   },
   "copy-refinement": {
     id: "copy-refinement",
@@ -173,8 +188,14 @@ const AGENT_REGISTRY = {
     inputs: ["Original approved copy asset.", "Human notes or replacement mode.", "Brand voice, claim rules and strategy context."],
     memory: ["Copy-level rejection reasons.", "Claim failures and accepted rewrites.", "Caption angle patterns that worked for this brand."],
     tools: [],
-    guardrails: ["Do not silently rewrite Dora's approved hook.", "Do not add unverified claims.", "Do not change unrelated assets."],
-    qualityChecks: ["single-asset-scope", "claim-rules", "hook-preservation"],
+    guardrails: [
+      "Do not silently rewrite Dora's approved hook.",
+      "Do not add unverified claims.",
+      "Do not change unrelated assets.",
+      "Start by satisfying the user's exact requested change; keep everything else stable unless it directly improves that request.",
+      "Return a short note explaining which part of the user's feedback was addressed."
+    ],
+    qualityChecks: ["single-asset-scope", "claim-rules", "hook-preservation", "note-obedience"],
   },
 };
 
