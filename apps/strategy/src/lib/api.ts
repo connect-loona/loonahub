@@ -7,6 +7,7 @@
 // so calls succeed either way), but sending the token now means nothing here needs to
 // change when server-side ID-token verification is added as its own follow-up.
 import { getIdTokenOrNull } from "./firebase";
+import type { DeliverablesCount } from "./types";
 
 async function post(path: string, body: unknown): Promise<unknown> {
   const token = await getIdTokenOrNull();
@@ -22,7 +23,16 @@ async function post(path: string, body: unknown): Promise<unknown> {
   return data;
 }
 
-export function startRun(args: { brandId: string; month: string; actor: string }): Promise<{ runId: string }> {
+// runType/deliverablesOverride/sourceContext come from the new-run wizard (NewRunWizard) —
+// see strategy-run-start.js's own header comment for what each does server-side.
+export function startRun(args: {
+  brandId: string;
+  month: string;
+  actor: string;
+  runType?: "monthly" | "campaign";
+  deliverablesOverride?: DeliverablesCount;
+  sourceContext?: string[];
+}): Promise<{ runId: string }> {
   return post("strategy-run-start", args) as Promise<{ runId: string }>;
 }
 

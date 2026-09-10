@@ -5,6 +5,7 @@ import { RunList } from "./pages/RunList";
 import { RunDetail } from "./pages/RunDetail";
 import { BrandList } from "./pages/BrandList";
 import { BrandForm } from "./pages/BrandForm";
+import { NewRunWizard } from "./pages/NewRunWizard";
 import "./styles/components.css";
 
 type AuthStatus = "checking" | "authenticated" | "signed-out";
@@ -14,6 +15,7 @@ type AuthStatus = "checking" | "authenticated" | "signed-out";
 // Next.js" boundary rule).
 type View =
   | { kind: "runs" }
+  | { kind: "new-run" }
   | { kind: "run"; runId: string }
   | { kind: "brands" }
   | { kind: "brand-form"; brandId: string };
@@ -55,6 +57,15 @@ export default function App() {
   let body;
   if (view.kind === "run") {
     body = <RunDetail runId={view.runId} actor={actor} onBack={() => setView({ kind: "runs" })} />;
+  } else if (view.kind === "new-run") {
+    body = (
+      <NewRunWizard
+        actor={actor}
+        brands={brands}
+        onCancel={() => setView({ kind: "runs" })}
+        onCreated={(runId) => setView({ kind: "run", runId })}
+      />
+    );
   } else if (view.kind === "brands") {
     body = (
       <BrandList
@@ -73,7 +84,14 @@ export default function App() {
       />
     );
   } else {
-    body = <RunList actor={actor} onOpenRun={(runId) => setView({ kind: "run", runId })} onManageBrands={() => setView({ kind: "brands" })} />;
+    body = (
+      <RunList
+        actor={actor}
+        onOpenRun={(runId) => setView({ kind: "run", runId })}
+        onManageBrands={() => setView({ kind: "brands" })}
+        onStartNewRun={() => setView({ kind: "new-run" })}
+      />
+    );
   }
 
   return (

@@ -92,13 +92,14 @@ async function loginAsFakeUser(page) {
   check("archived row offers Restore", await page.locator("button", { hasText: "Restore" }).count() > 0);
   check("archived row offers Purge permanently", await page.locator("text=Purge permanently").count() > 0);
 
-  // New Run modal — brand picker populated from the seeded brand.
+  // New Run wizard — brand picker populated from the seeded brand.
   await page.locator("button", { hasText: /^Active/ }).click();
   await page.waitForTimeout(200);
-  await page.locator("button", { hasText: "+ New monthly strategy" }).click();
-  await waitFor(async () => (await page.locator("select option", { hasText: "RRO Foods" }).count()) > 0 || null, { label: "New Run modal shows the seeded brand" });
-  check("New Run modal's brand picker includes the seeded brand", true);
+  await page.locator("button", { hasText: "+ New strategy run" }).click();
+  await waitFor(async () => (await page.locator("text=Are you ready to build the strategy in Loona way?").count()) > 0 || null, { label: "New Run wizard's intake screen renders" });
+  check("New Run wizard's brand picker includes the seeded brand", await page.locator("select option", { hasText: "RRO Foods" }).count() > 0);
   await page.locator("button", { hasText: "Cancel" }).click();
+  await waitFor(async () => (await page.locator("button", { hasText: "+ New strategy run" }).count()) > 0 || null, { label: "Cancel returns to the run list" });
 
   check("no page errors", errors.length === 0, errors);
 

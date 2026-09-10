@@ -189,13 +189,20 @@ async function runStrategyStage(runId) {
   const research = run.stages && run.stages.research && run.stages.research.checkpoint;
   if (!research) throw new Error(`Run ${runId} has no approved research checkpoint yet.`);
   const config = await loadBrandConfig(run.brandId);
+  // deliverablesOverride (set at run-start time, from the new-run intake wizard's
+  // deliverables screen) is a per-run-only override of the brand's own stored deliverable
+  // counts — never written back to the brand config, and only applied to what the
+  // Strategy stage's prompt sees and what its output is validated against.
+  const effectiveConfig = run.deliverablesOverride
+    ? { ...config, deliverables: { ...config.deliverables, ...run.deliverablesOverride } }
+    : config;
   const [monthInput, learnings, brandLibrary] = await Promise.all([
     loadMonthInput(run.brandId, run.month),
     loadLearnings(run.brandId),
     loadBrandLibrary(config),
   ]);
   const common = {
-    brandConfig: config,
+    brandConfig: effectiveConfig,
     monthInput,
     learnings,
     brandLibrary,
@@ -209,7 +216,7 @@ async function runStrategyStage(runId) {
     schema: StrategySchema,
     toolProfile: "none",
     input: Object.assign({}, common, { research: buildStrategyResearchBrief(research) }),
-    validate: (output) => validateStrategy(output, config, research, learnings, run.month),
+    validate: (output) => validateStrategy(output, effectiveConfig, research, learnings, run.month),
     runningStatus: "strategy_running",
     reviewStatus: "strategy_needs_review",
   });

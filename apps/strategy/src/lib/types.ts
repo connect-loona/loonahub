@@ -72,6 +72,16 @@ export interface ConceptCandidate {
   };
 }
 
+// The per-run-only deliverables override the new-run wizard's deliverables screen sends —
+// see strategy-run-start.js's own header comment. Applied by runStrategyStage
+// (pipeline.js) instead of the brand's own stored `deliverables`; never written back to
+// the brand config itself.
+export interface DeliverablesCount {
+  reel: number;
+  carousel: number;
+  static: number;
+}
+
 export interface StrategyRun {
   runId: string;
   brandId: string;
@@ -88,6 +98,11 @@ export interface StrategyRun {
   fixtureDir?: string | null;
   approvals?: Partial<Record<StageKey, { decidedAt: string; decidedBy: string }>>;
   teamTasksCreatedAt?: string;
+  // "monthly" | "campaign" (defaults to "monthly" server-side) — tags a run without
+  // changing its pipeline; see strategy-run-start.js.
+  runType?: "monthly" | "campaign";
+  deliverablesOverride?: DeliverablesCount | null;
+  sourceContext?: string[];
 }
 
 // ---- Research checkpoint (see strategy-app.js's researchReviewHtml) ----
