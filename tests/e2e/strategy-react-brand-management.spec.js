@@ -38,12 +38,13 @@ async function loginAsFakeUser(page) {
 
   // ---- Empty state ----
   await page.locator("button", { hasText: "Manage brands" }).click();
-  // Wait for "+ Add brand" specifically, not "Manage brands" text — RunList's own button
-  // already reads "Manage brands" before this click even fires, so that text is already
-  // on the page and the wait would resolve immediately without actually confirming
-  // navigation happened, racing the very next check against the still-RunList screen.
-  await waitFor(async () => (await page.locator("button", { hasText: "+ Add brand" }).count()) > 0 || null, { label: "brand list renders" });
-  check("empty brand list shows the empty-state note", await page.locator("text=No brands configured yet").count() > 0);
+  // Wait for the empty-state note itself, not just "+ Add brand" (which BrandList renders
+  // unconditionally in its header, before useBrands()'s live listener has delivered its
+  // first snapshot — its board shows "Loading…" until then). Waiting on the button alone
+  // confirms navigation but not that the brands listener has actually resolved, racing
+  // the very next check against a still-"Loading…" board.
+  await waitFor(async () => (await page.locator("text=No brands configured yet").count()) > 0 || null, { label: "empty brand list renders" });
+  check("empty brand list shows the empty-state note", true);
 
   await page.locator("button", { hasText: "+ Add brand" }).click();
   // Same ambiguous-text hazard as above — the button we just clicked already contains
