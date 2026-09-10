@@ -31,7 +31,10 @@ const LEGACY_FILES = [
   "apple-touch-icon.png",
   "apple-touch-icon-precomposed.png",
 ];
-const LEGACY_DIRS = ["assets", "icons", "independence"];
+// "strategy-old" is a frozen rollback snapshot (see strategy-old/README.md) — copied
+// verbatim like any other legacy dir, but deliberately NOT kept in sync with the live
+// files of the same name at the repo root.
+const LEGACY_DIRS = ["assets", "icons", "independence", "strategy-old"];
 
 console.log("Cleaning dist/...");
 fs.rmSync(DIST, { recursive: true, force: true });

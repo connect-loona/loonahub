@@ -225,13 +225,6 @@
             '<button class="btn btn-primary" onclick="window.soOpenNewRunModal()">+ New monthly strategy</button>'+
           '</div>'+
         '</div>'+
-        // Additive, not a cutover — the rewrite (see docs/strategy-os-touchpoints.md and
-        // the working-instructions doc) has full parity now, but this stays a link rather
-        // than replacing this tab outright, matching the doc's own rollback provision
-        // (the old implementation stays reachable at /strategy-old/ for a month). Whoever
-        // decides to make /strategy/ the default just needs to update Hub's own nav
-        // click handler for this tab — nothing here depends on that decision either way.
-        '<div class="note" style="margin-bottom:14px">Rebuilt in React — <a href="/strategy/" style="color:var(--accent)">try the new Strategy OS &rarr;</a></div>'+
         '<div class="att-board">'+
           '<div class="bh" style="display:flex;align-items:center;gap:10px">'+
             '<span>Strategy runs<span class="tag">'+runs.length+'</span></span>'+

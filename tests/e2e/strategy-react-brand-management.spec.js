@@ -38,11 +38,17 @@ async function loginAsFakeUser(page) {
 
   // ---- Empty state ----
   await page.locator("button", { hasText: "Manage brands" }).click();
-  await waitFor(async () => (await page.locator("text=Manage brands").count()) > 0 || null, { label: "brand list renders" });
+  // Wait for "+ Add brand" specifically, not "Manage brands" text — RunList's own button
+  // already reads "Manage brands" before this click even fires, so that text is already
+  // on the page and the wait would resolve immediately without actually confirming
+  // navigation happened, racing the very next check against the still-RunList screen.
+  await waitFor(async () => (await page.locator("button", { hasText: "+ Add brand" }).count()) > 0 || null, { label: "brand list renders" });
   check("empty brand list shows the empty-state note", await page.locator("text=No brands configured yet").count() > 0);
 
   await page.locator("button", { hasText: "+ Add brand" }).click();
-  await waitFor(async () => (await page.locator("text=Add brand").count()) > 0 || null, { label: "add brand form renders" });
+  // Same ambiguous-text hazard as above — the button we just clicked already contains
+  // "Add brand" as a substring, so wait for something only the form itself has.
+  await waitFor(async () => (await page.locator("button", { hasText: "Save brand" }).count()) > 0 || null, { label: "add brand form renders" });
   check("clicking + Add brand opens the form", await page.locator("input[disabled]").count() === 0, "id field should be editable for a new brand");
 
   // ---- Submit with too-few required items -> specific validation error ----
