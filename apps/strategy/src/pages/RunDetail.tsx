@@ -3,13 +3,12 @@
 // review-panel three-column layout that's actually live on Hub today, not just the plainer
 // layout strategy-app.js renders on its own — see docs/strategy-os-touchpoints.md).
 //
-// Only the strategy stage's review board (StrategyReview) is ported so far — the
-// working-instructions doc calls this "the interface that matters most": thirteen concept
-// cards, each editable, regeneratable with a stated reason, or killable with a stated
-// reason. Research/copy/creative-direction/deck-builder review boards are a fast-follow;
-// this screen still works correctly for runs at any stage (the rail, next-action card, and
-// brand memory panel are stage-agnostic), it just doesn't yet show the detailed board for
-// those other stages.
+// The working-instructions doc calls this "the interface that matters most": thirteen
+// concept cards, each editable, regeneratable with a stated reason, or killable with a
+// stated reason (the strategy stage's own review board). All five stages' review boards
+// are ported now — research/creative-direction are read-only content, copy shares the
+// same refine/replace/lock action set as strategy, and deck adds the per-page Owner/
+// Production status fields.
 import { latestReviewableStage, STAGE_LABELS, type StrategyRun } from "../lib/types";
 import { monthLabel } from "../lib/format";
 import { useBrands, useRun } from "../lib/useRuns";
@@ -17,7 +16,11 @@ import { reopenStage } from "../lib/api";
 import { StageRail } from "../components/StageRail";
 import { BrandMemory } from "../components/BrandMemory";
 import { NextActionCard } from "../components/NextActionCard";
+import { ResearchReview } from "../components/ResearchReview";
 import { StrategyReview } from "../components/StrategyReview";
+import { CopyReview } from "../components/CopyReview";
+import { CreativeDirectionReview } from "../components/CreativeDirectionReview";
+import { DeckReview } from "../components/DeckReview";
 
 function ReviewBody({ run, reviewStage }: { run: StrategyRun; reviewStage: ReturnType<typeof latestReviewableStage> }) {
   if (!reviewStage) {
@@ -29,17 +32,13 @@ function ReviewBody({ run, reviewStage }: { run: StrategyRun; reviewStage: Retur
     );
   }
   const stage = run.stages[reviewStage]!;
-  if (reviewStage === "strategy") {
-    return <StrategyReview run={run} stage={stage} actor={run.owner} />;
+  switch (reviewStage) {
+    case "research": return <ResearchReview run={run} stage={stage} />;
+    case "strategy": return <StrategyReview run={run} stage={stage} actor={run.owner} />;
+    case "copy": return <CopyReview run={run} stage={stage} actor={run.owner} />;
+    case "creative-direction": return <CreativeDirectionReview run={run} stage={stage} />;
+    case "deck-builder": return <DeckReview run={run} stage={stage} />;
   }
-  return (
-    <div className="st-board" style={{ marginTop: 0 }}>
-      <div className="st-board-header">{STAGE_LABELS[reviewStage]}</div>
-      <div className="st-note">
-        The {STAGE_LABELS[reviewStage].toLowerCase()} review board isn't in the new app yet — use Hub's existing Strategy OS tab to review this stage for now.
-      </div>
-    </div>
-  );
 }
 
 export function RunDetail({ runId, actor, onBack }: { runId: string; actor: string; onBack: () => void }) {

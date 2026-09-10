@@ -74,3 +74,30 @@ export function rejectCandidate(args: { runId: string; stage: string; assetId: s
 export function toggleAssetLock(args: { runId: string; stage: string; assetId: string; actor: string; locked: boolean }): Promise<{ ok: true; locked: boolean }> {
   return post("strategy-asset-lock", args) as Promise<{ ok: true; locked: boolean }>;
 }
+
+export function updateDeckPage(args: { runId: string; pageIndex: number; field: "owner" | "productionStatus"; value: string }): Promise<{ ok: true }> {
+  return post("strategy-deck-page-update", args) as Promise<{ ok: true }>;
+}
+
+export function createTeamTasks(args: { runId: string; actor: string }): Promise<{ ok: true; tasksCreated: number }> {
+  return post("strategy-team-tasks-create", args) as Promise<{ ok: true; tasksCreated: number }>;
+}
+
+// Not routed through post() — strategy-brand-save.js's 422 response carries a per-field
+// `issues` array (see strategy-app.js's soSubmitBrandForm), which the generic error
+// message post() builds doesn't surface. Same bearer-token attachment as post(), just with
+// its own error formatting.
+export async function saveBrand(args: { brandId: string; config: Record<string, unknown> }): Promise<{ ok: true }> {
+  const token = await getIdTokenOrNull();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch("/.netlify/functions/strategy-brand-save", { method: "POST", headers, body: JSON.stringify(args) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const d = data as { error?: string; issues?: { path: string; message: string }[] };
+    let msg = d.error || "Could not save this brand.";
+    if (Array.isArray(d.issues) && d.issues.length) msg += "\n\n" + d.issues.map((i) => `• ${i.path}: ${i.message}`).join("\n");
+    throw new Error(msg);
+  }
+  return data as { ok: true };
+}

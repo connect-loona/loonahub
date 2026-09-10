@@ -3,9 +3,58 @@
 // there is to do about it right now. Lands in the review sidebar of the run-detail
 // workspace (see strategy-ui.js's buildWorkspace, which moves this specific card there).
 import { useState } from "react";
-import { currentStageOf, STAGE_LABELS, type StrategyRun } from "../lib/types";
+import { currentStageOf, STAGE_LABELS, type StageState, type StrategyRun } from "../lib/types";
 import { plainActionPhrase, STAGE_AGENT_EMOJI } from "../lib/format";
-import { decideStage, retryStage } from "../lib/api";
+import { createTeamTasks, decideStage, retryStage } from "../lib/api";
+
+// Shown once the deck stage is approved — ported from strategy-app.js's
+// deckCompleteActionsHtml(). Canva's own status can still be not_configured/failed even
+// here (deck content itself doesn't depend on Canva succeeding).
+function DeckCompleteActions({ run, actor, stageState }: { run: StrategyRun; actor: string; stageState: StageState }) {
+  const canva = stageState.canva;
+  const tasksCreated = !!run.teamTasksCreatedAt;
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleCreateTasks() {
+    setCreating(true);
+    setError(null);
+    try {
+      await createTeamTasks({ runId: run.runId, actor });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  return (
+    <div style={{ marginTop: 10 }}>
+      {error && <div className="st-error-text">{error}</div>}
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <a
+          className="st-btn st-btn-primary"
+          style={{ flex: 1, textAlign: "center", textDecoration: "none" }}
+          href={`/.netlify/functions/strategy-deck-download?runId=${encodeURIComponent(run.runId)}`}
+        >
+          Download deck (.pptx)
+        </a>
+        {canva?.status === "published" && canva.url ? (
+          <a className="st-btn st-btn-primary" style={{ flex: 1, textAlign: "center", textDecoration: "none" }} href={canva.url} target="_blank" rel="noopener noreferrer">
+            Open Canva deck
+          </a>
+        ) : canva?.status === "failed" ? (
+          <div className="st-note" style={{ color: "var(--red)", flex: 1 }}>Canva publish failed: {canva.detail || "Unknown error"}</div>
+        ) : (
+          <div className="st-note" style={{ flex: 1 }}>{canva?.detail || "Canva isn't connected for this brand yet — the deck content is ready above."}</div>
+        )}
+        <button className={`st-btn ${tasksCreated ? "st-btn-ghost" : "st-btn-primary"}`} style={{ flex: 1 }} disabled={tasksCreated || creating} onClick={handleCreateTasks}>
+          {tasksCreated ? "Team tasks created ✓" : creating ? "Creating…" : "Create team tasks"}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export function NextActionCard({ run, actor }: { run: StrategyRun; actor: string }) {
   const stage = currentStageOf(run);
@@ -99,9 +148,7 @@ export function NextActionCard({ run, actor }: { run: StrategyRun; actor: string
       )}
 
       {stage === "deck-builder" && st.status === "approved" && (
-        <div className="st-note" style={{ marginTop: 10 }}>
-          This run is complete. Deck download, Canva publish, and team-task creation aren't in the new app yet — use Hub's existing Strategy OS tab for those.
-        </div>
+        <DeckCompleteActions run={run} actor={actor} stageState={st} />
       )}
     </div>
   );

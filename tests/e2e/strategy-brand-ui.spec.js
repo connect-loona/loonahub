@@ -14,7 +14,13 @@ function check(name, cond, extra) {
   console.log((cond ? "✅" : "❌") + " " + name + (extra !== undefined ? " — " + JSON.stringify(extra).slice(0, 300) : ""));
   allPass = allPass && cond;
 }
-function waitForCond(fn, label, timeoutMs = 3000) {
+// This file used to default to 3000ms here — far tighter than shared.js's own waitFor()
+// default of 15000ms used everywhere else in the suite. Under real (non-overlapping) load
+// that tighter budget measurably flakes on more than one distinct wait in this file (a
+// brand save round-tripping full schema validation, the RRO-seeding chain, ...), confirmed
+// via repeated isolated re-runs — not a logic race in any one of them. Match the rest of
+// the suite's margin instead of re-tuning each call site by hand.
+function waitForCond(fn, label, timeoutMs = 15000) {
   return waitFor(fn, { label, timeoutMs });
 }
 
@@ -37,20 +43,20 @@ function waitForCond(fn, label, timeoutMs = 3000) {
 
   await page.addInitScript(combinedInit, { fixed: FIXED_NOW, baseUrl: RTDB_URL });
   await page.goto(`${DEV_LITE_URL}/index.html`, { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(500);
+  await waitForCond(async () => (await page.evaluate(() => typeof window.login === "function")) || null, "index.html's own script has executed (window.login exists)");
   await loginAsGokul(page);
-  await page.waitForTimeout(500);
+  await waitForCond(async () => (await page.locator(".nav-btn").count()) > 0 || null, "login renders the authenticated nav");
   await page.locator(".nav-btn", { hasText: "Strategy OS" }).click();
-  await page.waitForTimeout(400);
+  await waitForCond(async () => (await page.locator("button", { hasText: "+ New monthly strategy" }).count()) > 0 || null, "Strategy OS page renders");
 
   // ---- Empty state: New Run modal offers no brand picker, points to "add one" ----
   await page.locator("button", { hasText: "+ New monthly strategy" }).click();
-  await page.waitForTimeout(200);
+  await waitForCond(async () => (await page.locator("#so-new-run-modal").isVisible()) || null, "New Run modal opens");
   const emptyModalText = await page.locator("#so-new-run-modal").textContent();
   check("New Run modal shows \"no brands\" state when none exist", emptyModalText.includes("No brands configured"));
   check("the \"add one\" link is offered instead of a brand picker", await page.locator("#so-new-run-modal select#so-new-brand").count() === 0);
   await page.locator("#so-new-run-modal a", { hasText: "add one" }).click();
-  await page.waitForTimeout(300);
+  await waitForCond(async () => ((await page.locator("#page-strategy .section-title").textContent()) === "Add brand") || null, "clicking \"add one\" opens the Add Brand form");
 
   // ---- Landed on the Add Brand form ----
   check("clicking \"add one\" opens the Add Brand form", (await page.locator("#page-strategy .section-title").textContent()) === "Add brand");
@@ -97,9 +103,9 @@ function waitForCond(fn, label, timeoutMs = 3000) {
 
   // ---- New Run modal now offers the brand ----
   await page.locator("button", { hasText: "All runs" }).click();
-  await page.waitForTimeout(300);
+  await waitForCond(async () => (await page.locator("button", { hasText: "+ New monthly strategy" }).count()) > 0 || null, "back on the run list");
   await page.locator("button", { hasText: "+ New monthly strategy" }).click();
-  await page.waitForTimeout(200);
+  await waitForCond(async () => (await page.locator("#so-new-brand option").count()) > 0 || null, "New Run modal's brand picker populates");
   const brandOptions = await page.locator("#so-new-brand option").allTextContents();
   check("the New Run brand picker now includes the brand added through the form", brandOptions.includes("Acme Co"), brandOptions);
   await page.locator("#so-new-run-modal button", { hasText: "Cancel" }).click();
