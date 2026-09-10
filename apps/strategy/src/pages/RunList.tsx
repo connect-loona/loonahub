@@ -7,7 +7,7 @@ import { NewRunModal } from "../components/NewRunModal";
 
 type ListView = "active" | "archived";
 
-export function RunList({ actor, onOpenRun }: { actor: string; onOpenRun: (runId: string) => void }) {
+export function RunList({ actor, onOpenRun, onManageBrands }: { actor: string; onOpenRun: (runId: string) => void; onManageBrands: () => void }) {
   const { runs, loading: runsLoading } = useRuns();
   const { brands } = useBrands();
   const [view, setView] = useState<ListView>("active");
@@ -80,7 +80,7 @@ export function RunList({ actor, onOpenRun }: { actor: string; onOpenRun: (runId
       <div className="st-section-header">
         <div className="st-section-title">Strategy OS</div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="st-btn st-btn-ghost" disabled title="Coming in a later phase of the rewrite">Manage brands</button>
+          <button className="st-btn st-btn-ghost" onClick={onManageBrands}>Manage brands</button>
           <button className="st-btn st-btn-primary" onClick={() => setModalOpen(true)}>+ New monthly strategy</button>
         </div>
       </div>
