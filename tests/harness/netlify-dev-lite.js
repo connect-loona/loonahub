@@ -23,9 +23,35 @@ const HUB = path.join(__dirname, "..", "..");
 
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".png": "image/png", ".css": "text/css" };
 
+// Mirrors netlify.toml's own /strategy/* redirect: that path is served from the built
+// apps/strategy output at dist/strategy/, not the repo root like everything else here —
+// so tests exercise the exact same routing shape production actually has, build step
+// included (run `npm run build` before pointing a test at this server's /strategy/ path).
+const STRATEGY_DIST = path.join(HUB, "dist", "strategy");
+
 function serveStatic(req, res) {
   let p = decodeURIComponent(req.url.split("?")[0]);
   if (p === "/") p = "/index.html";
+
+  if (p === "/strategy" || p.startsWith("/strategy/")) {
+    const rel = p === "/strategy" ? "/index.html" : p.slice("/strategy".length) || "/index.html";
+    const assetPath = path.join(STRATEGY_DIST, rel);
+    if (!assetPath.startsWith(STRATEGY_DIST)) { res.statusCode = 403; return res.end("forbidden"); }
+    return fs.readFile(assetPath, (err, data) => {
+      if (err) {
+        // SPA fallback, same as netlify.toml's status=200 rewrite — any /strategy/* path
+        // that isn't a real built asset still serves the app shell.
+        return fs.readFile(path.join(STRATEGY_DIST, "index.html"), (err2, indexData) => {
+          if (err2) { res.statusCode = 404; return res.end("not found — did you run `npm run build`?"); }
+          res.setHeader("Content-Type", "text/html");
+          res.end(indexData);
+        });
+      }
+      res.setHeader("Content-Type", MIME[path.extname(assetPath)] || "application/octet-stream");
+      res.end(data);
+    });
+  }
+
   const full = path.join(HUB, p);
   if (!full.startsWith(HUB)) { res.statusCode = 403; return res.end("forbidden"); }
   fs.readFile(full, (err, data) => {

@@ -7,7 +7,7 @@
 "use strict";
 const path = require("path");
 const fs = require("fs");
-const { spawn } = require("child_process");
+const { spawn, execSync } = require("child_process");
 const http = require("http");
 
 const HUB = path.join(__dirname, "..");
@@ -97,6 +97,16 @@ function listTestFiles(dir, suffix) {
     const strategyTests = only === "e2e" ? [] : listTestFiles(path.join(HUB, "tests/strategy"), ".test.js");
     const e2eTests = only === "strategy" ? [] : listTestFiles(path.join(HUB, "tests/e2e"), ".spec.js");
     const allTests = strategyTests.concat(e2eTests);
+
+    // The React Strategy OS e2e tests (tests/e2e/strategy-react-*.spec.js) load
+    // apps/strategy's built output at /strategy/ (see netlify-dev-lite.js's own handling
+    // of that path) — built in test mode, which swaps in firebase.fake.ts instead of the
+    // real Firebase SDK (see apps/strategy/src/lib/firebase.ts). Only worth doing when
+    // e2e tests are actually going to run.
+    if (e2eTests.length > 0) {
+      console.log("Building Strategy OS (test mode)...");
+      execSync("npm ci && npm run build:test", { cwd: path.join(HUB, "apps/strategy"), stdio: "inherit" });
+    }
 
     const rtdbUrl = `http://127.0.0.1:${RTDB_PORT}`;
     for (const file of allTests) {
