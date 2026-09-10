@@ -64,6 +64,11 @@ function check(name, cond, extra) {
     check(`clicking "${tab}" activates its page`, !!activePage, activePage);
   }
 
+  // The Strategy OS tab is still on screen from the loop above — check its new link into
+  // the rebuilt React app (see strategy-app.js's soRenderRunList()).
+  const newAppLink = page.locator("#page-strategy a", { hasText: "try the new Strategy OS" });
+  check("Strategy OS tab links to the rebuilt /strategy/ app", await newAppLink.getAttribute("href") === "/strategy/", await newAppLink.getAttribute("href"));
+
   check("no uncaught page errors across all tab navigation", errors.length === 0, JSON.stringify(errors));
   console.log(allPass ? "\n✅ ALL CHECKS PASSED" : "\n❌ SOME CHECKS FAILED");
   await browser.close();

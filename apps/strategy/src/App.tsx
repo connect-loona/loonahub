@@ -1,0 +1,84 @@
+import { useEffect, useState } from "react";
+import { onAuthChange, type CurrentUser } from "./lib/firebase";
+import { useBrands } from "./lib/useRuns";
+import { RunList } from "./pages/RunList";
+import { RunDetail } from "./pages/RunDetail";
+import { BrandList } from "./pages/BrandList";
+import { BrandForm } from "./pages/BrandForm";
+import "./styles/components.css";
+
+type AuthStatus = "checking" | "authenticated" | "signed-out";
+
+// Mirrors strategy-app.js's own view state (_soOpenRunId / _soBrandView) — one screen
+// visible at a time, no routing library (matching the working-instructions doc's "no
+// Next.js" boundary rule).
+type View =
+  | { kind: "runs" }
+  | { kind: "run"; runId: string }
+  | { kind: "brands" }
+  | { kind: "brand-form"; brandId: string };
+
+export default function App() {
+  const [authStatus, setAuthStatus] = useState<AuthStatus>("checking");
+  const [user, setUser] = useState<CurrentUser | null>(null);
+  const [view, setView] = useState<View>({ kind: "runs" });
+  const { brands } = useBrands();
+
+  useEffect(() => {
+    // Confirmed live on a real deploy (the Step 1 auth spike): a session the legacy
+    // compat SDK already established shows up here with zero shared code.
+    return onAuthChange((nextUser) => {
+      setUser(nextUser);
+      setAuthStatus(nextUser ? "authenticated" : "signed-out");
+    });
+  }, []);
+
+  if (authStatus === "checking") {
+    return <div style={{ padding: 32, color: "var(--muted)" }}>Checking your Hub session…</div>;
+  }
+
+  if (authStatus === "signed-out") {
+    return (
+      <div style={{ padding: 32, color: "var(--text)" }}>
+        <h1>Strategy OS</h1>
+        <p style={{ color: "var(--muted)" }}>
+          You're not signed into Hub on this device/browser yet. Log into Hub at the root of
+          this site first, then come back to this page.
+        </p>
+        <a href="/" style={{ color: "var(--accent)" }}>Go to Hub</a>
+      </div>
+    );
+  }
+
+  const actor = (user?.displayName || user?.email?.split("@")[0] || "Unknown") as string;
+
+  let body;
+  if (view.kind === "run") {
+    body = <RunDetail runId={view.runId} actor={actor} onBack={() => setView({ kind: "runs" })} />;
+  } else if (view.kind === "brands") {
+    body = (
+      <BrandList
+        onBack={() => setView({ kind: "runs" })}
+        onEditBrand={(brandId) => setView({ kind: "brand-form", brandId })}
+        onAddBrand={() => setView({ kind: "brand-form", brandId: "__new__" })}
+      />
+    );
+  } else if (view.kind === "brand-form") {
+    body = (
+      <BrandForm
+        brandId={view.brandId}
+        initialBrand={brands.find((b) => b.id === view.brandId)}
+        onCancel={() => setView({ kind: "brands" })}
+        onSaved={() => setView({ kind: "brands" })}
+      />
+    );
+  } else {
+    body = <RunList actor={actor} onOpenRun={(runId) => setView({ kind: "run", runId })} onManageBrands={() => setView({ kind: "brands" })} />;
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)", padding: 32 }}>
+      {body}
+    </div>
+  );
+}
