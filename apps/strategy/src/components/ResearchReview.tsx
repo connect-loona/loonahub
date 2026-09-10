@@ -14,7 +14,7 @@ export function ResearchReview({ run, stage }: { run: StrategyRun; stage: StageS
     <>
       <div className="st-board" style={{ marginTop: 0 }}>
         <div className="st-board-header">Real audience questions <span className="st-tag">{(r.liveQuestions || []).length}</span></div>
-        <div className="st-board-help">Actual questions and doubts found in reviews, comments, search behaviour or community conversations. Use these to understand what people already care about before concepts are written.</div>
+        <div style={{ color: "var(--muted)", fontSize: 12, marginBottom: 8 }}>Actual questions and doubts found in reviews, comments, search behaviour or community conversations. Use these to understand what people already care about before concepts are written.</div>
         {(r.liveQuestions || []).map((q, i) => (
           <div key={i} style={{ borderBottom: "1px solid var(--border)", padding: "10px 0", display: "flex", flexDirection: "column", gap: 4 }}>
             <div style={{ fontWeight: 600 }}>&ldquo;{q.verbatim}&rdquo;</div>
