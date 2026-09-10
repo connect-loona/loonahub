@@ -6,87 +6,11 @@
 import { useState } from "react";
 import type { ConceptCandidate, StageState, StrategyCheckpoint, StrategyRun } from "../lib/types";
 import { fmtDateTime } from "../lib/format";
-import { acceptCandidate, discardConcept, proposeConcept, rejectCandidate, toggleAssetLock } from "../lib/api";
+import { discardConcept, proposeConcept, toggleAssetLock } from "../lib/api";
+import { ConceptCandidatePreview } from "./ConceptCandidatePreview";
 
 function GateChip({ pass, label }: { pass: boolean; label: string }) {
   return <span className={`st-chip ${pass ? "st-chip-pass" : "st-chip-fail"}`}>{pass ? "✓ " : "✗ "}{label}</span>;
-}
-
-function CandidatePreview({ runId, assetId, candidate, actor, onError }: {
-  runId: string; assetId: string; candidate: ConceptCandidate | undefined; actor: string; onError: (msg: string) => void;
-}) {
-  const [busy, setBusy] = useState(false);
-  if (!candidate) return null;
-
-  if (candidate.status === "running") {
-    return (
-      <div className="st-note" style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
-        <span className="st-working" aria-hidden><span /><span /><span /></span>
-        <span>{candidate.detail || "Working on a replacement…"}</span>
-      </div>
-    );
-  }
-
-  if (candidate.status === "failed") {
-    return (
-      <>
-        <div className="st-note" style={{ marginTop: 8, color: "var(--red)" }}>Couldn't generate a replacement: {candidate.detail || "Unknown error"}</div>
-        <button
-          className="st-btn st-btn-ghost st-btn-sm"
-          style={{ marginTop: 6 }}
-          disabled={busy}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              if (candidate.requestType === "discard" || candidate.requestType === "replace") {
-                await discardConcept({ runId, stage: "strategy", assetId, notes: candidate.notes, actor });
-              } else {
-                await proposeConcept({ runId, stage: "strategy", assetId, action: (candidate.requestType as "refine" | "similar") || "similar", notes: candidate.notes });
-              }
-            } catch (e) {
-              onError(e instanceof Error ? e.message : String(e));
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          Try again
-        </button>
-      </>
-    );
-  }
-
-  if (candidate.status === "ready" && candidate.candidate) {
-    const c = candidate.candidate;
-    return (
-      <div className="st-candidate-box">
-        <div className="st-candidate-label">Proposed replacement</div>
-        <div style={{ fontWeight: 700 }}>{c.conceptName}</div>
-        <div style={{ margin: "4px 0", fontStyle: "italic" }}>&ldquo;{c.hook}&rdquo;</div>
-        <div style={{ fontSize: 12, color: "var(--muted)" }}><b>Tension:</b> {c.tension}</div>
-        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-          <button
-            className="st-btn st-btn-ghost"
-            style={{ flex: 1 }}
-            disabled={busy}
-            onClick={async () => { setBusy(true); try { await rejectCandidate({ runId, stage: "strategy", assetId }); } catch (e) { onError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); } }}
-          >
-            Discard suggestion
-          </button>
-          <button
-            className="st-btn st-btn-primary"
-            style={{ flex: 1 }}
-            disabled={busy}
-            onClick={async () => { setBusy(true); try { await acceptCandidate({ runId, stage: "strategy", assetId, actor }); } catch (e) { onError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); } }}
-          >
-            Use this instead
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return null;
 }
 
 function ConceptRow({ run, stage, actor, assetId, asset, candidate, locked, onError }: {
@@ -171,7 +95,7 @@ function ConceptRow({ run, stage, actor, assetId, asset, candidate, locked, onEr
         </div>
       )}
 
-      <CandidatePreview runId={run.runId} assetId={assetId} candidate={candidate} actor={actor} onError={onError} />
+      <ConceptCandidatePreview runId={run.runId} stage="strategy" assetId={assetId} candidate={candidate} actor={actor} onError={onError} />
     </div>
   );
 }

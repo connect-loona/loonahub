@@ -164,7 +164,14 @@
         if(raw === _soRunsCacheRaw) return;
         _soRunsCacheRaw = raw;
         window._soRunsCache = val;
-        if(!_soOpenRunId && !_soNewRunModalOpen) soRenderRunList();
+        // Also skip while the Manage Brands screen (list OR an open edit/add form) is
+        // showing — _soBrandView is non-null for either. Without this, a run update
+        // arriving while someone's mid-edit on a brand form (e.g. a background research
+        // job's own writes, same as the run this file's own e2e test starts) replaced the
+        // form with the run list out from under them — the exact same
+        // "element was detached from the DOM" symptom the comment above already fixed for
+        // the run list's own clicks, just via a different trigger onto the same #so-root.
+        if(!_soOpenRunId && !_soNewRunModalOpen && !_soBrandView) soRenderRunList();
       };
       ref.on("value", cb);
       _soRunsListener = { ref: ref, cb: cb };

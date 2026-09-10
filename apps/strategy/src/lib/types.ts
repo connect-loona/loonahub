@@ -20,6 +20,8 @@ export interface StageState {
   detail?: string;
   candidates?: Record<string, ConceptCandidate>;
   locks?: Record<string, { lockedAt: string; lockedBy: string }>;
+  // Deck-builder only — see strategy-app.js's deckCompleteActionsHtml().
+  canva?: { status: string; url?: string; detail?: string };
 }
 
 // The strategy stage's own checkpoint shape — the "thirteen concept cards" the
@@ -64,6 +66,8 @@ export interface ConceptCandidate {
     conceptName?: string;
     hook?: string;
     tension?: string;
+    captions?: Caption[];
+    claimAudit?: ClaimAudit;
     [key: string]: unknown;
   };
 }
@@ -84,6 +88,92 @@ export interface StrategyRun {
   fixtureDir?: string | null;
   approvals?: Partial<Record<StageKey, { decidedAt: string; decidedBy: string }>>;
   teamTasksCreatedAt?: string;
+}
+
+// ---- Research checkpoint (see strategy-app.js's researchReviewHtml) ----
+export interface ResearchSource { id: string; url: string; type: string }
+export interface LiveQuestion { verbatim: string; underlyingNeed: string; sourceIds: string[] }
+export interface CategoryArgument { disagreement: string; sideA: string; sideB: string; credibleBrandPosition: string; credibilityReason: string }
+export interface UnspokenBehaviour { behaviour: string; hiddenTension: string }
+export interface ExhaustedTerritory { territory: string; reasonExhausted: string }
+export interface ResearchCheckpoint {
+  liveQuestions?: LiveQuestion[];
+  arguments?: CategoryArgument[];
+  unspokenBehaviours?: UnspokenBehaviour[];
+  exhaustedTerritory?: ExhaustedTerritory[];
+  sources?: ResearchSource[];
+}
+
+// ---- Copy checkpoint (see strategy-app.js's copyReviewHtml) ----
+export interface ClaimAudit { status?: string; rewrittenClaims?: string[]; verificationFlags?: string[] }
+export interface Caption { version: string | number; angle: string; copy: string; hashtags?: string[] }
+export interface OnCreativeFrame { label: string; text: string }
+export interface CopyAsset {
+  assetId: string;
+  format: string;
+  skuNames?: string[];
+  portfolioName?: string;
+  hook: string;
+  onCreative?: { cover?: string; frames?: OnCreativeFrame[]; endFrame?: string };
+  script?: { durationSeconds: number; scenes: { timing: string; visual: string; voiceover: string }[] };
+  claimAudit?: ClaimAudit;
+  captions?: Caption[];
+}
+export interface CopyCheckpoint {
+  assets: CopyAsset[];
+  globalVerificationFlags?: string[];
+}
+
+// ---- Creative direction checkpoint (see strategy-app.js's directionReviewHtml) ----
+export interface DirectionShot { shot: string; framing: string; action: string; productVisibility: string }
+export interface DirectionReference { url: string; title?: string; source: string; useFor: string; rightsNote: string }
+export interface DirectionAsset {
+  assetId: string;
+  format: string;
+  productionMode: string;
+  visualConcept: string;
+  artDirection: string;
+  palette?: string[];
+  typography: string;
+  composition: string;
+  shotList?: DirectionShot[];
+  references?: DirectionReference[];
+  designNotes?: string[];
+  avoid?: string[];
+}
+export interface CreativeDirectionCheckpoint {
+  assets: DirectionAsset[];
+  productionNotes?: string[];
+}
+
+// ---- Deck checkpoint (see strategy-app.js's deckReviewHtml) ----
+export const PRODUCTION_STATUSES = ["not_started", "in_progress", "ready_for_review", "complete"] as const;
+export type ProductionStatus = (typeof PRODUCTION_STATUSES)[number];
+export const PRODUCTION_STATUS_LABELS: Record<ProductionStatus, string> = {
+  not_started: "Not started", in_progress: "In progress", ready_for_review: "Ready for review", complete: "Complete",
+};
+export interface DeckPage {
+  pageNumber: number;
+  assetId: string;
+  format: string;
+  portfolioAndSku?: string;
+  idea: string;
+  hook: string;
+  creativeCopy: string;
+  direction: string;
+  shotList: string;
+  captionOne: string;
+  captionTwo: string;
+  captionThree: string;
+  referenceImageUrl?: string;
+  referenceCredit?: string;
+  owner?: string;
+  productionStatus: ProductionStatus;
+}
+export interface DeckCheckpoint {
+  title?: string;
+  subtitle?: string;
+  pages: DeckPage[];
 }
 
 export interface StrategyBrand {
