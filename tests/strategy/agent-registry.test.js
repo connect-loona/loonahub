@@ -40,8 +40,22 @@ for (const promptFile of ["06-concept-refine.md", "07-copy-refine.md"]) {
   const agent = agentForPrompt(promptFile);
   assert.ok(agent, `${promptFile} must resolve to a refinement agent`);
   assert.ok(agent.guardrails.includes("Do not change unrelated assets."), `${promptFile} must stay single-asset scoped`);
+  assert.ok(agent.qualityChecks.includes("note-obedience"), `${promptFile} must check the user's exact note`);
   const composed = composeAgentInstructions(promptFile, "HOUSE RULES", "STAGE PROMPT");
   includes(composed, "Do not change unrelated assets.");
+  includes(composed, "user's exact requested change");
 }
+
+const creativeDirection = AGENT_REGISTRY["creative-direction"];
+const creativeInstructions = composeAgentInstructions("04-creative-direction.md", "HOUSE RULES", "STAGE PROMPT");
+assert.ok(creativeDirection.qualityChecks.includes("reference-category-fit"), "creative direction must check reference category fit");
+assert.ok(creativeDirection.qualityChecks.includes("no-off-category-links"), "creative direction must reject off-category links");
+includes(creativeInstructions, "never use unrelated software tutorials, office videos, Excel screens, dashboards or productivity content");
+includes(creativeInstructions, "reference_unavailable");
+
+const copy = AGENT_REGISTRY.copy;
+assert.ok(copy.qualityChecks.includes("note-obedience"), "copy must check direct response to feedback");
+assert.ok(copy.qualityChecks.includes("category-language"), "copy must check category language");
+includes(composeAgentInstructions("03-copy.md", "HOUSE RULES", "STAGE PROMPT"), "not like SaaS or productivity copy");
 
 console.log("agent-registry.test.js passed");
