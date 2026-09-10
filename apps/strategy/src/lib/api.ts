@@ -37,3 +37,40 @@ export function restoreRun(args: { runId: string; actor: string }): Promise<{ ok
 export function purgeRun(args: { runId: string; actor: string }): Promise<{ ok: true }> {
   return post("strategy-run-archive", { ...args, action: "purge" }) as Promise<{ ok: true }>;
 }
+
+export function decideStage(args: { runId: string; stage: string; decision: "approved" | "changes_requested"; actor: string; notes?: string }): Promise<{ ok: true }> {
+  return post("strategy-stage-approve", args) as Promise<{ ok: true }>;
+}
+
+export function retryStage(args: { runId: string; stage: string; actor: string }): Promise<{ ok: true }> {
+  return post("strategy-stage-retry", args) as Promise<{ ok: true }>;
+}
+
+export function reopenStage(args: { runId: string; stage: string; notes?: string; actor: string }): Promise<{ ok: true }> {
+  return post("strategy-stage-reopen", args) as Promise<{ ok: true }>;
+}
+
+// "refine" (with notes) or "similar" (strategy only) — kicks off a candidate replacement
+// for one concept card, reviewed before it's committed (see conceptCandidateHtml in the
+// legacy app).
+export function proposeConcept(args: { runId: string; stage: string; assetId: string; action: "refine" | "similar"; notes?: string }): Promise<{ ok: true }> {
+  return post("strategy-concept-propose", args) as Promise<{ ok: true }>;
+}
+
+// "discard"/"replace" — each stage's own "kill it, no review needed" type; auto-accepts,
+// so there's no separate accept step for this one.
+export function discardConcept(args: { runId: string; stage: string; assetId: string; notes?: string; actor: string }): Promise<{ ok: true }> {
+  return post("strategy-concept-discard", args) as Promise<{ ok: true }>;
+}
+
+export function acceptCandidate(args: { runId: string; stage: string; assetId: string; actor: string }): Promise<{ ok: true }> {
+  return post("strategy-concept-accept", args) as Promise<{ ok: true }>;
+}
+
+export function rejectCandidate(args: { runId: string; stage: string; assetId: string }): Promise<{ ok: true }> {
+  return post("strategy-concept-candidate-reject", args) as Promise<{ ok: true }>;
+}
+
+export function toggleAssetLock(args: { runId: string; stage: string; assetId: string; actor: string; locked: boolean }): Promise<{ ok: true; locked: boolean }> {
+  return post("strategy-asset-lock", args) as Promise<{ ok: true; locked: boolean }>;
+}

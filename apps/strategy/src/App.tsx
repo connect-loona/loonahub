@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { onAuthChange, type CurrentUser } from "./lib/firebase";
 import { RunList } from "./pages/RunList";
+import { RunDetail } from "./pages/RunDetail";
 import "./styles/components.css";
 
 type AuthStatus = "checking" | "authenticated" | "signed-out";
@@ -41,12 +42,7 @@ export default function App() {
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)", padding: 32 }}>
       {openRunId ? (
-        <div>
-          <button className="st-btn st-btn-ghost" onClick={() => setOpenRunId(null)}>← All runs</button>
-          <p className="st-note" style={{ marginTop: 16 }}>
-            Run detail view for <code>{openRunId}</code> — coming in the next phase of the rewrite.
-          </p>
-        </div>
+        <RunDetail runId={openRunId} actor={actor} onBack={() => setOpenRunId(null)} />
       ) : (
         <RunList actor={actor} onOpenRun={setOpenRunId} />
       )}
