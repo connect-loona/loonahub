@@ -16,7 +16,7 @@ Return JSON matching this shape exactly.
     {
       "pageNumber": 1,
       "assetId": "same id as the strategy/copy/direction asset",
-      "format": "reel | carousel | static",
+      "format": "reel | carousel | static | story",
       "portfolioAndSku": "portfolio name + SKU name(s), or the brand name if there is no portfolio",
       "idea": "copied exactly from the strategy asset's concept field — do not paraphrase",
       "hook": "copied exactly from the copy asset's hook field",

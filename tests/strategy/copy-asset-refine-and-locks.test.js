@@ -87,9 +87,21 @@ function check(name, cond, extra) {
   const candidateAfterReplace = (await req("GET", `${RTDB_URL}/strategy_runs/${runId}/stages/copy/candidates/RRO-01.json`)).body;
   check("replace leaves no lingering candidate (auto-accepted, cleared)", candidateAfterReplace === null, candidateAfterReplace);
 
-  // ---- 4. Copy has no "similar" request type ----
-  const similarOnCopy = await apiReq("POST", `${DEV_LITE_URL}/.netlify/functions/strategy-concept-propose`, { runId, stage: "copy", assetId: "RRO-02", action: "similar" });
-  check('"similar" is not a valid action for copy', similarOnCopy.status === 400, similarOnCopy.body);
+  // ---- 4. Copy also supports "similar" ("Suggest another" in the UI) ----
+  const beforeSimilar = (await req("GET", `${RTDB_URL}/strategy_runs/${runId}.json`)).body;
+  const rro01BeforeSimilar = beforeSimilar.stages.copy.checkpoint.assets.find((a) => a.assetId === "RRO-01");
+  const similarOnCopy = await apiReq("POST", `${DEV_LITE_URL}/.netlify/functions/strategy-concept-propose`, { runId, stage: "copy", assetId: "RRO-01", action: "similar", focus: "Caption A" });
+  check('"similar" is a valid action for copy ("Suggest another")', similarOnCopy.status === 200, similarOnCopy.body);
+  const similarCandidate = await waitFor(async () => {
+    const c = (await req("GET", `${RTDB_URL}/strategy_runs/${runId}/stages/copy/candidates/RRO-01.json`)).body;
+    return c && c.status !== "running" ? c : null;
+  }, { label: "copy similar candidate ready" });
+  check('copy "similar" candidate reached "ready"', similarCandidate.status === "ready", similarCandidate);
+  check("similar candidate's focus is recorded on the candidate doc", similarCandidate.focus === "Caption A", similarCandidate.focus);
+  check("similar candidate keeps the current asset's identity fields (hook unchanged)", similarCandidate.candidate
+    && similarCandidate.candidate.assetId === "RRO-01"
+    && similarCandidate.candidate.hook === rro01BeforeSimilar.hook, similarCandidate.candidate);
+  check("similar candidate offers genuinely different captions from the current checkpoint", similarCandidate.candidate.captions[0].copy !== rro01BeforeSimilar.captions[0].copy, similarCandidate.candidate.captions[0].copy);
 
   // ---- 5. Gating: can't refine once copy is approved ----
   await req("PATCH", `${RTDB_URL}/strategy_runs/${runId}/stages/copy.json`, { status: "approved" });

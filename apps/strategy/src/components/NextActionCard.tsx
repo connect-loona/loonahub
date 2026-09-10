@@ -67,7 +67,29 @@ export function NextActionCard({ run, actor }: { run: StrategyRun; actor: string
   const [busy, setBusy] = useState<"approve" | "notes" | "retry" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Strategy and Copy are the two stages with a per-asset lock ("this one's done, don't
+  // touch it again") — approving either of them is what actually kicks off the next stage
+  // (Copy, then Creative direction), so this is the point that matters: catch it before
+  // moving on with concepts/copy still unlocked, rather than silently carrying whatever's
+  // there forward. Research/creative-direction/deck-builder have no lock concept, so this
+  // never applies to them.
+  function unlockedCount(): number {
+    if (stage !== "strategy" && stage !== "copy") return 0;
+    const checkpoint = st.checkpoint as { assets?: unknown[] } | undefined;
+    const total = checkpoint?.assets?.length || 0;
+    const locked = Object.keys(st.locks || {}).length;
+    return Math.max(0, total - locked);
+  }
+
   async function handleDecide(decision: "approved" | "changes_requested") {
+    if (decision === "approved") {
+      const left = unlockedCount();
+      if (left > 0) {
+        const noun = left === 1 ? "asset is" : "assets are";
+        const ok = confirm(`${left} ${noun} still not locked. Continue to the next stage anyway?`);
+        if (!ok) return;
+      }
+    }
     setBusy(decision === "approved" ? "approve" : "notes");
     setError(null);
     try {

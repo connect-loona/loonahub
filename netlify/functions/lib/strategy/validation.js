@@ -1,5 +1,18 @@
-// Ported verbatim (logic unchanged) from loona-strategy-agents/src/core/validation.ts.
+// Ported verbatim (logic unchanged) from loona-strategy-agents/src/core/validation.ts,
+// except validateStrategy's per-format deliverable check below, which was generalized from
+// a hardcoded reel/carousel/static loop to every format the pipeline actually knows how to
+// generate (see SUPPORTED_ASSET_FORMATS) — BrandConfigSchema.deliverables can now carry
+// additional named counts (e.g. "blog") that aren't a real AssetFormatSchema format yet, so
+// this can no longer assume every one of its keys is an enforceable per-asset count.
 "use strict";
+const { AssetFormatSchema } = require("./contracts");
+
+// Formats the strategy stage can actually assign to a generated asset today. A brand's
+// `deliverables` may list other named counts too (see contracts.js's own comment on that
+// field) — those are recorded and counted toward planning totals elsewhere, but never
+// enforced here, since the pipeline has no way to produce an asset in an unsupported
+// format.
+const SUPPORTED_ASSET_FORMATS = AssetFormatSchema.options;
 
 const DESCRIPTIVE_HOOK_PATTERNS = [
   /^education\b/i,
@@ -105,14 +118,20 @@ function validateStrategy(output, config, research, learnings, month) {
   if (output.brandId !== config.id) issues.push(`brandId must be ${config.id}.`);
   if (output.month !== month) issues.push(`month must be ${month}.`);
 
-  const expectedTotal = Object.values(config.deliverables)
+  // Only sum/enforce counts for formats the strategy stage can actually produce — an
+  // unsupported deliverable line item (e.g. "blog") is real config the brand cares about,
+  // but isn't a target this stage could ever hit, so it's excluded from both the total and
+  // the per-format check below rather than being an unsatisfiable requirement forever.
+  const expectedTotal = SUPPORTED_ASSET_FORMATS
+    .map((format) => config.deliverables[format])
     .filter((value) => typeof value === "number")
     .reduce((sum, value) => sum + value, 0);
   if (output.assets.length !== expectedTotal) {
     issues.push(`Expected ${expectedTotal} assets, received ${output.assets.length}.`);
   }
 
-  for (const format of ["reel", "carousel", "static"]) {
+  for (const format of SUPPORTED_ASSET_FORMATS) {
+    if (typeof config.deliverables[format] !== "number") continue;
     const actual = output.assets.filter((asset) => asset.format === format).length;
     if (actual !== config.deliverables[format]) {
       issues.push(`Expected ${config.deliverables[format]} ${format} assets, received ${actual}.`);

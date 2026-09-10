@@ -1,7 +1,17 @@
-// POST { brandId, month, actor, runtime?, sourceContext? } -> creates a strategy_runs
-// entry and kicks off the Research stage as a Background Function (fire-and-forget —
-// the Hub UI follows progress live via its Firebase listener on strategy_runs/<runId>,
-// same reactive pattern the rest of Hub already uses everywhere else).
+// POST { brandId, month, actor, runtime?, sourceContext?, runType?, deliverablesOverride? }
+// -> creates a strategy_runs entry and kicks off the Research stage as a Background
+// Function (fire-and-forget — the Hub UI follows progress live via its Firebase listener
+// on strategy_runs/<runId>, same reactive pattern the rest of Hub already uses everywhere
+// else).
+//
+// runType ("monthly" | "campaign", defaults to "monthly") and deliverablesOverride
+// ({reel: n, carousel: n, ...} — any of the brand's configured deliverable names, see
+// contracts.js's BrandConfigSchema.deliverables) come from the new-run intake wizard
+// (apps/strategy's NewRunWizard) — a campaign run goes through the exact same 5-stage
+// pipeline as a monthly one for now (per the working-instructions doc, a campaign-specific
+// pipeline is separate, later work). deliverablesOverride is a per-run-only override: it's
+// read by runStrategyStage (pipeline.js) instead of the brand's own stored deliverables,
+// and never written back to the brand config itself.
 //
 // Auth: this endpoint is meant to be called only from an already-logged-in Hub session.
 // basic-auth.ts's edge gate lets ALL /.netlify/functions/* requests through unchecked
@@ -53,6 +63,23 @@ exports.handler = async (event) => {
   if (!/^[a-z0-9-]+$/.test(brandId)) return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "brandId must be lowercase letters, numbers or hyphens." }) };
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "month must be YYYY-MM." }) };
 
+  const runType = body.runType === "campaign" ? "campaign" : "monthly";
+  // An open map of {deliverableName: count} — not just reel/carousel/static, since the
+  // wizard's deliverables editor (DeliverablesFields.tsx) can list any of the brand's
+  // configured deliverable names, including ones added on the fly (see contracts.js's
+  // BrandConfigSchema.deliverables). Every value just has to be a non-negative integer.
+  let deliverablesOverride = null;
+  if (body.deliverablesOverride && typeof body.deliverablesOverride === "object" && !Array.isArray(body.deliverablesOverride)) {
+    deliverablesOverride = {};
+    for (const [name, rawValue] of Object.entries(body.deliverablesOverride)) {
+      const value = Number(rawValue);
+      if (!Number.isInteger(value) || value < 0) {
+        return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: `deliverablesOverride.${name} must be a non-negative integer.` }) };
+      }
+      deliverablesOverride[name] = value;
+    }
+  }
+
   try {
     // Fail fast with a clear error if the brand isn't configured, rather than creating a
     // run doc that can never start.
@@ -89,6 +116,8 @@ exports.handler = async (event) => {
       runtime: runtimeName,
       fixtureDir: runtimeName === "fixture" ? (body.fixtureDir || null) : null,
       sourceContext: Array.isArray(body.sourceContext) ? body.sourceContext.filter((s) => typeof s === "string") : [],
+      runType,
+      deliverablesOverride,
       owner: actor,
       createdAt: now,
       updatedAt: now,

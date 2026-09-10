@@ -1,10 +1,14 @@
-// POST { runId, stage, assetId, action, notes? } — kicks off a candidate replacement for
-// ONE asset in an awaiting-review stage ("refine" with notes on any supported stage, or
-// "similar" for an alternative in the same spirit — strategy only). Fires the actual model
-// call as a background function (real model calls can run long, same reason every other
-// stage does this) and returns immediately; the candidate's progress (running/ready/failed)
-// lives at strategy_runs/<runId>/stages/<stage>/candidates/<assetId>, watched live the same
-// way everything else in this run is.
+// POST { runId, stage, assetId, action, notes?, focus? } — kicks off a candidate
+// replacement for ONE asset in an awaiting-review stage ("refine" with notes on any
+// supported stage, or "similar"/"suggest another" for an alternative in the same spirit —
+// strategy and copy). `focus` is an optional free-text pointer at the specific part of the
+// asset the reviewer means (e.g. "Caption B", "Script") — see CopyReview.tsx's per-
+// caption/script "Refine this" links; it's passed straight through to the refine prompt as
+// a hint, it doesn't change what shape the model has to return. Fires the actual model call
+// as a background function (real model calls can run long, same reason every other stage
+// does this) and returns immediately; the candidate's progress (running/ready/failed) lives
+// at strategy_runs/<runId>/stages/<stage>/candidates/<assetId>, watched live the same way
+// everything else in this run is.
 "use strict";
 const { fbGet, fbSet } = require("./lib/strategy/firebase");
 const { checkAuthorization } = require("./lib/strategy/auth");
@@ -14,7 +18,7 @@ const { checkAuthorization } = require("./lib/strategy/auth");
 // instead, since that one auto-accepts).
 const VALID_ACTIONS_BY_STAGE = {
   strategy: ["refine", "similar"],
-  copy: ["refine"],
+  copy: ["refine", "similar"],
 };
 
 // See strategy-run-start.js's siteBaseUrl() — process.env.URL/DEPLOY_URL aren't reliably
@@ -47,6 +51,12 @@ exports.handler = async (event) => {
   const { runId, assetId, action } = body;
   const stage = body.stage || "strategy"; // default keeps any stale cached frontend working
   const notes = String(body.notes || "").trim();
+  // Optional: which specific part of the asset the reviewer flagged — e.g. "Caption B" or
+  // "Script" on a copy asset (see CopyReview.tsx's per-caption/script "Refine this" links).
+  // Purely a prompt hint threaded through to proposeAssetCandidate/the refine prompts; it
+  // doesn't change validation or the schema the model must still return a full asset
+  // against.
+  const focus = String(body.focus || "").trim() || null;
   const validActions = VALID_ACTIONS_BY_STAGE[stage];
   if (!runId || !assetId || !validActions || !validActions.includes(action)) {
     return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: `runId, assetId and a valid action (${validActions ? validActions.map((a) => `"${a}"`).join(" or ") : "unsupported stage"}) are required.` }) };
@@ -74,7 +84,7 @@ exports.handler = async (event) => {
       await fetch(`${base}/.netlify/functions/strategy-concept-propose-background`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ runId, stage, assetId, action, notes }),
+        body: JSON.stringify({ runId, stage, assetId, action, notes, focus }),
       });
     } catch (e) {
       console.error("Failed to trigger strategy-concept-propose-background:", e);

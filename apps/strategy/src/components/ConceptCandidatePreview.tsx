@@ -35,7 +35,7 @@ export function ConceptCandidatePreview({ runId, stage, assetId, candidate, acto
     return (
       <div className="st-note" style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
         <span className="st-working" aria-hidden><span /><span /><span /></span>
-        <span>{candidate.detail || "Working on a replacement…"}</span>
+        <span>{candidate.detail || "Working on a replacement…"}{candidate.focus ? ` (${candidate.focus})` : ""}</span>
       </div>
     );
   }
@@ -50,7 +50,7 @@ export function ConceptCandidatePreview({ runId, stage, assetId, candidate, acto
           disabled={busy}
           onClick={() => withBusy(() => (candidate.requestType === "discard" || candidate.requestType === "replace")
             ? discardConcept({ runId, stage, assetId, notes: candidate.notes, actor })
-            : proposeConcept({ runId, stage, assetId, action: (candidate.requestType as "refine" | "similar") || "similar", notes: candidate.notes }))}
+            : proposeConcept({ runId, stage, assetId, action: (candidate.requestType as "refine" | "similar") || "similar", notes: candidate.notes, focus: candidate.focus || undefined }))}
         >
           Try again
         </button>
@@ -79,7 +79,7 @@ export function ConceptCandidatePreview({ runId, stage, assetId, candidate, acto
     );
     return (
       <div className="st-candidate-box">
-        <div className="st-candidate-label">Proposed replacement</div>
+        <div className="st-candidate-label">Proposed replacement{candidate.focus ? ` — ${candidate.focus}` : ""}</div>
         {preview}
         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
           <button className="st-btn st-btn-ghost" style={{ flex: 1 }} disabled={busy} onClick={() => withBusy(() => rejectCandidate({ runId, stage, assetId }))}>

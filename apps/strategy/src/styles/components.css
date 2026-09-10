@@ -72,9 +72,13 @@ body {
 .st-error-text { color: var(--red); font-size: var(--text-md); margin-bottom: var(--space-sm); }
 
 /* ---- Run detail workspace (legacy: strategy-ui.js's buildWorkspace/ensureWorkspaceStyles —
-   the numbered stage rail + Brand memory sidebar + review panel three-column layout that's
-   actually live on Hub today, not just strategy-app.js's own plainer stage strip) ---- */
-.st-workspace { display: grid; grid-template-columns: minmax(180px, 220px) minmax(0, 1fr) minmax(230px, 280px); gap: var(--space-md); align-items: start; }
+   the numbered stage rail + Brand memory sidebar layout that's actually live on Hub today,
+   not just strategy-app.js's own plainer stage strip). "Your next action" (.st-review-panel)
+   used to be the third column here; it now renders full-width above the stage rail instead
+   (see RunDetail.tsx) so it's the first thing anyone sees, not something scrolled past on the
+   right — the class name stays for e2e locator compatibility, it just isn't part of this
+   grid anymore. ---- */
+.st-workspace { display: grid; grid-template-columns: minmax(180px, 220px) minmax(0, 1fr); gap: var(--space-md); align-items: start; }
 .st-workspace-side { position: sticky; top: var(--space-md); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); padding: var(--space-lg); }
 .st-workspace-main { min-width: 0; }
 .st-memory-label { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 14px 0 6px; }
@@ -82,10 +86,6 @@ body {
 .st-memory-value { font-size: var(--text-base); line-height: 1.45; }
 .st-memory-link { display: block; padding: 8px 0; border-bottom: 1px solid var(--border); color: var(--text); font-size: var(--text-base); text-decoration: none; }
 .st-memory-link span { display: block; color: var(--muted); font-size: var(--text-xs); margin-top: 2px; }
-@media (max-width: 1050px) {
-  .st-workspace { grid-template-columns: 190px minmax(0, 1fr); }
-  .st-workspace-side.st-review-panel { grid-column: 1 / -1; position: static; }
-}
 @media (max-width: 720px) {
   .st-workspace { display: block; }
   .st-workspace-side { position: static; margin-bottom: var(--space-md); }

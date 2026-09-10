@@ -2,16 +2,19 @@ import { useMemo, useState } from "react";
 import { useBrands, useRuns } from "../lib/useRuns";
 import { currentStageOf, isArchived, STAGE_LABELS, type StrategyRun } from "../lib/types";
 import { fmtDateTime, monthLabel, statusLabel } from "../lib/format";
-import { archiveRun, purgeRun, restoreRun, startRun } from "../lib/api";
-import { NewRunModal } from "../components/NewRunModal";
+import { archiveRun, purgeRun, restoreRun } from "../lib/api";
 
 type ListView = "active" | "archived";
 
-export function RunList({ actor, onOpenRun, onManageBrands }: { actor: string; onOpenRun: (runId: string) => void; onManageBrands: () => void }) {
+export function RunList({ actor, onOpenRun, onManageBrands, onStartNewRun }: {
+  actor: string;
+  onOpenRun: (runId: string) => void;
+  onManageBrands: () => void;
+  onStartNewRun: () => void;
+}) {
   const { runs, loading: runsLoading } = useRuns();
   const { brands } = useBrands();
   const [view, setView] = useState<ListView>("active");
-  const [modalOpen, setModalOpen] = useState(false);
   const [busyRunId, setBusyRunId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,19 +72,13 @@ export function RunList({ actor, onOpenRun, onManageBrands }: { actor: string; o
     }
   }
 
-  async function handleStartRun(brandId: string, month: string) {
-    const { runId } = await startRun({ brandId, month, actor });
-    setModalOpen(false);
-    onOpenRun(runId);
-  }
-
   return (
     <div>
       <div className="st-section-header">
         <div className="st-section-title">Strategy OS</div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="st-btn st-btn-ghost" onClick={onManageBrands}>Manage brands</button>
-          <button className="st-btn st-btn-primary" onClick={() => setModalOpen(true)}>+ New monthly strategy</button>
+          <button className="st-btn st-btn-primary" onClick={onStartNewRun}>+ New strategy run</button>
         </div>
       </div>
 
@@ -136,13 +133,6 @@ export function RunList({ actor, onOpenRun, onManageBrands }: { actor: string; o
         )}
       </div>
 
-      {modalOpen && (
-        <NewRunModal
-          brands={brands}
-          onCancel={() => setModalOpen(false)}
-          onSubmit={handleStartRun}
-        />
-      )}
     </div>
   );
 }

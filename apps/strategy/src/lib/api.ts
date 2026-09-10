@@ -7,6 +7,7 @@
 // so calls succeed either way), but sending the token now means nothing here needs to
 // change when server-side ID-token verification is added as its own follow-up.
 import { getIdTokenOrNull } from "./firebase";
+import type { DeliverablesCount } from "./types";
 
 async function post(path: string, body: unknown): Promise<unknown> {
   const token = await getIdTokenOrNull();
@@ -22,7 +23,16 @@ async function post(path: string, body: unknown): Promise<unknown> {
   return data;
 }
 
-export function startRun(args: { brandId: string; month: string; actor: string }): Promise<{ runId: string }> {
+// runType/deliverablesOverride/sourceContext come from the new-run wizard (NewRunWizard) —
+// see strategy-run-start.js's own header comment for what each does server-side.
+export function startRun(args: {
+  brandId: string;
+  month: string;
+  actor: string;
+  runType?: "monthly" | "campaign";
+  deliverablesOverride?: DeliverablesCount;
+  sourceContext?: string[];
+}): Promise<{ runId: string }> {
   return post("strategy-run-start", args) as Promise<{ runId: string }>;
 }
 
@@ -50,10 +60,11 @@ export function reopenStage(args: { runId: string; stage: string; notes?: string
   return post("strategy-stage-reopen", args) as Promise<{ ok: true }>;
 }
 
-// "refine" (with notes) or "similar" (strategy only) — kicks off a candidate replacement
-// for one concept card, reviewed before it's committed (see conceptCandidateHtml in the
-// legacy app).
-export function proposeConcept(args: { runId: string; stage: string; assetId: string; action: "refine" | "similar"; notes?: string }): Promise<{ ok: true }> {
+// "refine" (with notes) or "similar"/"suggest another" (strategy and copy) — kicks off a
+// candidate replacement for one concept/copy card, reviewed before it's committed (see
+// conceptCandidateHtml in the legacy app). `focus` optionally points at the specific part
+// of the asset being refined (e.g. "Caption B", "Script" — copy only, see CopyReview.tsx).
+export function proposeConcept(args: { runId: string; stage: string; assetId: string; action: "refine" | "similar"; notes?: string; focus?: string }): Promise<{ ok: true }> {
   return post("strategy-concept-propose", args) as Promise<{ ok: true }>;
 }
 

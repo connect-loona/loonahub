@@ -13,12 +13,35 @@ being asked:
 - `request.type: "refine"` — a human reviewer sent this copy back with notes in
   `request.notes`. Address the notes directly, in the copy itself, not in a rationale
   field.
+- `request.type: "similar"` — generate an alternative take on `targetAsset`'s copy: same
+  hook, same underlying concept, a genuinely different execution (different angle per
+  caption, different script beats, different on-creative lines) — not a reworded
+  paraphrase of what's already there.
 - `request.type: "replace"` — `targetAsset`'s copy isn't working; `request.notes` may
   explain why. Write a genuinely new take on the same hook and concept — new on-creative
   lines, a new script (if a reel), new captions — not a light edit of what's there.
 
+`request.focus`, when present, names the one specific part of `targetAsset` the reviewer
+actually flagged — e.g. `"Caption B"` or `"Script"`. When it's set:
+- Only rewrite that named part. Every other caption, the on-creative lines, and the script
+  (whichever `focus` doesn't name) should carry over from `targetAsset` unchanged, unless a
+  change there is strictly required for consistency (e.g. a claim rewrite cascading into
+  every caption).
+- `request.notes` still applies specifically to that named part — see the mandatory-notes
+  rule below.
+
+**`request.notes` is a mandatory instruction, not a suggestion or a tone note.** If the
+notes name a specific, concrete element — a CTA, a price, a claim, a specific word or
+phrase to use or drop — that exact element must end up literally present in the copy you
+return (the caption text itself, the script's final voiceover line, or the `endFrame`,
+whichever fits the format and what `focus` names), not merely implied or gestured at. A
+refinement that reads as "similar but nicer" without that concrete element actually visible
+is not a valid response to the notes. Before returning, re-read `request.notes` line by
+line and check that each specific thing it asked for is findable, in plain text, somewhere
+in what you're returning.
+
 Keep `assetId`, `format`, `portfolioId`, `portfolioName`, `skuIds`, `skuNames` and `hook`
-exactly as given on `targetAsset` on either request type — the hook is inherited from the
+exactly as given on `targetAsset` on every request type — the hook is inherited from the
 approved strategy concept and is never reworded here. Return exactly one asset object, in
 the same shape as every other entry in `currentAssetPlan`.
 

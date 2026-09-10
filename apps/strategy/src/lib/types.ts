@@ -62,6 +62,10 @@ export interface ConceptCandidate {
   detail?: string;
   requestType?: string;
   notes?: string;
+  // The specific part of the asset this request pointed at (e.g. "Caption B", "Script") —
+  // see CopyReview.tsx's per-caption/script "Refine this" links and
+  // strategy-concept-propose.js's own header comment.
+  focus?: string | null;
   candidate?: {
     conceptName?: string;
     hook?: string;
@@ -71,6 +75,18 @@ export interface ConceptCandidate {
     [key: string]: unknown;
   };
 }
+
+// An open map of {deliverableName: count} — reel/carousel/static/story are the ones the
+// pipeline can actually generate (see AssetFormatSchema in contracts.js), but a brand's
+// config (and this per-run override) can name any other deliverable too, e.g. "blog" —
+// see DeliverablesFields.tsx and contracts.js's BrandConfigSchema.deliverables comment for
+// why those extra ones are recorded but not enforced against generated asset counts.
+//
+// Used two ways: as a brand's own stored `deliverables` config (BrandForm.tsx), and as the
+// new-run wizard's per-run-only override — see strategy-run-start.js's own header comment.
+// Applied by runStrategyStage (pipeline.js) instead of the brand's own stored
+// `deliverables`; never written back to the brand config itself.
+export type DeliverablesCount = Record<string, number>;
 
 export interface StrategyRun {
   runId: string;
@@ -88,6 +104,11 @@ export interface StrategyRun {
   fixtureDir?: string | null;
   approvals?: Partial<Record<StageKey, { decidedAt: string; decidedBy: string }>>;
   teamTasksCreatedAt?: string;
+  // "monthly" | "campaign" (defaults to "monthly" server-side) — tags a run without
+  // changing its pipeline; see strategy-run-start.js.
+  runType?: "monthly" | "campaign";
+  deliverablesOverride?: DeliverablesCount | null;
+  sourceContext?: string[];
 }
 
 // ---- Research checkpoint (see strategy-app.js's researchReviewHtml) ----
