@@ -10,8 +10,9 @@
 const { fbGet, fbSet, fbUpdate } = require("./firebase");
 const { loadBrandConfig, loadMonthInput, loadLearnings, loadBrandLibrary, loadPrompt } = require("./store");
 const { ResearchSchema, StrategySchema, StrategyAssetSchema, CopySchema, CopyAssetSchema, CreativeDirectionSchema, DeckSpecSchema } = require("./contracts");
-const { validateResearch, validateStrategy, validateCopy, validateDirection, validateDeck } = require("./validation");
+const { validateResearch, validateStrategy, validateCopy, validateDirection, validateDeck, allCopyText, checkNoteObedience } = require("./validation");
 const { OpenAIAgentsRuntime } = require("./runtime-openai");
+const { ClaudeRuntime } = require("./runtime-claude");
 const { FixtureRuntime } = require("./runtime-fixture");
 const { StageValidationError } = require("./errors");
 const { saveStageVersion, saveStageMetrics, saveFeedbackEvent } = require("./observability");
@@ -36,6 +37,7 @@ function stageAgent(stage) {
 
 function createRuntime(run) {
   if (run.runtime === "fixture") return new FixtureRuntime(run.fixtureDir);
+  if (run.runtime === "claude") return new ClaudeRuntime();
   return new OpenAIAgentsRuntime();
 }
 
@@ -390,6 +392,9 @@ const ASSET_STAGE_CONFIG = {
     callValidate: (swapped, config, context, learnings, month) => validateStrategy(swapped, config, context.research, learnings, month),
     describeChange: (oldAsset, newAsset) =>
       `Replaced "${oldAsset.conceptName}" (${oldAsset.hook}) with "${newAsset.conceptName}" (${newAsset.hook}).`,
+    // See checkNoteObedience in validation.js — the plain text a refine's notes are
+    // checked against.
+    noteText: (candidate) => [candidate.conceptName, candidate.concept, candidate.hook, candidate.tension].filter(Boolean).join(" \n "),
   },
   copy: {
     label: "Copy",
@@ -408,6 +413,7 @@ const ASSET_STAGE_CONFIG = {
     callValidate: (swapped, config, context, learnings, month) => validateCopy(swapped, config, context.strategy, month),
     describeChange: (oldAsset, newAsset) =>
       `Refreshed the copy for ${oldAsset.assetId} (hook: "${oldAsset.hook}").`,
+    noteText: (candidate) => allCopyText(candidate),
   },
 };
 
@@ -482,7 +488,8 @@ async function proposeAssetCandidate(runId, stage, assetId, requestType, notes, 
       const parsed = cfg.schema.parse(raw);
       const candidate = Object.assign({}, parsed, cfg.lockedFields(targetAsset));
       const swappedAssets = checkpoint.assets.map((asset, i) => (i === targetIndex ? candidate : asset));
-      const issues = cfg.callValidate(Object.assign({}, checkpoint, { assets: swappedAssets }), config, context, learnings, run.month);
+      const issues = cfg.callValidate(Object.assign({}, checkpoint, { assets: swappedAssets }), config, context, learnings, run.month)
+        .concat(checkNoteObedience(requestType, notes, cfg.noteText(candidate)));
       if (issues.length === 0) {
         await fbSet(candidatePath, { status: "ready", requestType, notes: notes || null, focus: focus || null, candidate, updatedAt: new Date().toISOString() });
         return candidate;

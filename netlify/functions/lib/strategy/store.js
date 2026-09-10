@@ -37,6 +37,9 @@ const SEED_MONTH_INPUTS = {
 const SEED_LEARNINGS = {
   rro: RRO_LEARNINGS_SEED,
 };
+// Decision types that represent a durable "don't repeat this" signal — see loadLearnings'
+// own comment on why these get a much larger retention window than routine feedback.
+const PERMANENT_LEARNING_DECISIONS = new Set(["changes_requested", "reopened", "asset_discard", "asset_replace"]);
 const PROMPT_BY_FILE = {
   "01-research.md": RESEARCH_PROMPT,
   "02-strategy.md": STRATEGY_PROMPT,
@@ -100,10 +103,18 @@ async function loadLearnings(brandId) {
     : (SEED_LEARNINGS[brandId] || "# Brand learnings\n\nNo learning events recorded yet.\n");
   if (!(typeof raw === "string" && raw.length > 0)) await fbSet(`strategy_learnings/${key}/text`, text);
 
-  const events = Object.values(eventsRaw || {})
+  const sortedEvents = Object.values(eventsRaw || {})
     .filter((event) => event && event.notes)
-    .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")))
-    .slice(-30);
+    .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+  // A flat "last 30" cutoff quietly drops exactly the events most worth keeping — a
+  // "changes_requested"/"reopened"/kill decision is a durable "don't repeat this" signal,
+  // not routine chatter, and a brand with a long history could lose its oldest, most
+  // load-bearing corrections to nothing more than newer minor refinements piling up after
+  // them. PERMANENT_DECISIONS gets a much larger cap of its own instead; only the lower-
+  // stakes routine adjustments (a plain refine/similar/approval) stay capped at 30.
+  const permanent = sortedEvents.filter((event) => PERMANENT_LEARNING_DECISIONS.has(event.decision)).slice(-200);
+  const routine = sortedEvents.filter((event) => !PERMANENT_LEARNING_DECISIONS.has(event.decision)).slice(-30);
+  const events = [...permanent, ...routine].sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
   if (events.length) {
     text += "\n\n# Recent human review feedback\n" + events.map((event) =>
       `- ${event.month || "unknown month"} · ${event.stage} · ${event.decision}: ${event.notes}`

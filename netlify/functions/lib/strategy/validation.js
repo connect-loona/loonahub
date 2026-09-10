@@ -403,4 +403,40 @@ function validateDeck(output, config, strategy, copy, direction, month) {
   return [...new Set(issues)];
 }
 
-module.exports = { validateResearch, validateStrategy, validateCopy, validateDirection, validateDeck };
+// Turns "note-obedience" (listed as a quality check for Copy, Concept Refinement and Copy
+// Refinement in agent-registry.js) from a line in the prompt into an actual, deterministic
+// check — the same repair-loop mechanism every other validator here already feeds into
+// (see proposeAssetCandidate in pipeline.js). Only applies to `refine` requests with real
+// notes; `similar`/`discard`/`replace` have no notes to be obedient to.
+//
+// This is deliberately conservative, not a general "did the model do what I asked" judge
+// (that would need its own model call and would risk false-positive rejections burning the
+// repair budget on a request phrased in a way this can't parse). It only checks two things
+// a plain-text scan can verify reliably:
+//   1. A phrase the reviewer put in quotes — if they wrote out exact words they want used,
+//      those words must actually appear somewhere in the response.
+//   2. An explicit CTA ("CTA"/"call to action") request — checked against a small list of
+//      common CTA-shaped verbs, since this was the literal reported failure (a note asking
+//      for a CTA that never visibly landed in the output).
+// Everything else the notes might ask for is still addressed via the composed prompt's own
+// "start by satisfying the user's exact requested change" instruction — it just isn't
+// mechanically enforced here.
+const CTA_VERB_PATTERN = /\b(shop|buy|order|try|get yours|visit|learn more|sign up|book|grab|swap|dm us|link in bio|tap|swipe up|call us|message us|reach out|explore|discover|head to|check out)\b/i;
+
+function checkNoteObedience(requestType, notes, candidateText) {
+  if (requestType !== "refine" || !notes) return [];
+  const issues = [];
+  const text = candidateText || "";
+  const quoted = [...notes.matchAll(/["“]([^"”]{4,})["”]/g)].map((m) => m[1].trim());
+  for (const phrase of quoted) {
+    if (!normalise(text).includes(normalise(phrase))) {
+      issues.push(`The notes asked for the exact phrase "${phrase}" — it isn't found anywhere in the response.`);
+    }
+  }
+  if (/\bctas?\b|\bcall[- ]to[- ]actions?\b/i.test(notes) && !CTA_VERB_PATTERN.test(text)) {
+    issues.push("The notes asked for a call-to-action (CTA) — no CTA-shaped language was found anywhere in the response.");
+  }
+  return issues;
+}
+
+module.exports = { validateResearch, validateStrategy, validateCopy, validateDirection, validateDeck, allCopyText, checkNoteObedience };

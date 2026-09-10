@@ -118,7 +118,11 @@ async function loginAsFakeUser(page) {
   await rro01Row.locator('a[aria-label="Refine Caption A"]').click();
   await waitFor(async () => (await rro01Row.locator("text=Focused on:").count()) > 0 || null, { label: "refine box shows what it's focused on" });
   check("targeted refine box names the focused caption", (await rro01Row.locator("text=Focused on:").textContent()).includes("Caption A"));
-  await rro01Row.locator("textarea").fill("Add a clear CTA at the end.");
+  // A generic note, deliberately not a concrete/checkable ask (a CTA request or a quoted
+  // phrase) — this test is proving the "focus" targeting mechanism reaches the backend, not
+  // exercising checkNoteObedience (see tests/strategy/note-obedience.test.js for that),
+  // and copy-asset-refine.json's canned output has no CTA-shaped language in it.
+  await rro01Row.locator("textarea").fill("Make this caption a bit punchier.");
   await rro01Row.locator("button", { hasText: "Send" }).click();
 
   const candidate = await waitFor(async () => {

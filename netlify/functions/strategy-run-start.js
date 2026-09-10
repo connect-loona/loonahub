@@ -107,7 +107,10 @@ exports.handler = async (event) => {
     }
 
     const id = runId(brandId, month);
-    const runtimeName = body.runtime === "fixture" ? "fixture" : "openai";
+    // "openai" (default), "fixture" (offline testing), or "claude" (Anthropic runtime —
+    // see runtime-claude.js; every agent runs through the same createRuntime() in
+    // pipeline.js, so this one field is all it takes to run any stage on Claude instead).
+    const runtimeName = body.runtime === "fixture" ? "fixture" : body.runtime === "claude" ? "claude" : "openai";
     const now = new Date().toISOString();
     await fbSet(`strategy_runs/${id}`, {
       runId: id,
