@@ -1,0 +1,245 @@
+// The strategy stage's review screen — ported from strategy-app.js's strategyReviewHtml()/
+// conceptCandidateHtml()/gateChip(). This is the interface the working-instructions doc
+// calls out as the one that matters most: thirteen concept cards, each editable
+// (Refine/Suggest similar), regeneratable with a stated reason (Discard), or locked as a
+// human checkpoint.
+import { useState } from "react";
+import type { ConceptCandidate, StageState, StrategyCheckpoint, StrategyRun } from "../lib/types";
+import { fmtDateTime } from "../lib/format";
+import { acceptCandidate, discardConcept, proposeConcept, rejectCandidate, toggleAssetLock } from "../lib/api";
+
+function GateChip({ pass, label }: { pass: boolean; label: string }) {
+  return <span className={`st-chip ${pass ? "st-chip-pass" : "st-chip-fail"}`}>{pass ? "✓ " : "✗ "}{label}</span>;
+}
+
+function CandidatePreview({ runId, assetId, candidate, actor, onError }: {
+  runId: string; assetId: string; candidate: ConceptCandidate | undefined; actor: string; onError: (msg: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  if (!candidate) return null;
+
+  if (candidate.status === "running") {
+    return (
+      <div className="st-note" style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+        <span className="st-working" aria-hidden><span /><span /><span /></span>
+        <span>{candidate.detail || "Working on a replacement…"}</span>
+      </div>
+    );
+  }
+
+  if (candidate.status === "failed") {
+    return (
+      <>
+        <div className="st-note" style={{ marginTop: 8, color: "var(--red)" }}>Couldn't generate a replacement: {candidate.detail || "Unknown error"}</div>
+        <button
+          className="st-btn st-btn-ghost st-btn-sm"
+          style={{ marginTop: 6 }}
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              if (candidate.requestType === "discard" || candidate.requestType === "replace") {
+                await discardConcept({ runId, stage: "strategy", assetId, notes: candidate.notes, actor });
+              } else {
+                await proposeConcept({ runId, stage: "strategy", assetId, action: (candidate.requestType as "refine" | "similar") || "similar", notes: candidate.notes });
+              }
+            } catch (e) {
+              onError(e instanceof Error ? e.message : String(e));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          Try again
+        </button>
+      </>
+    );
+  }
+
+  if (candidate.status === "ready" && candidate.candidate) {
+    const c = candidate.candidate;
+    return (
+      <div className="st-candidate-box">
+        <div className="st-candidate-label">Proposed replacement</div>
+        <div style={{ fontWeight: 700 }}>{c.conceptName}</div>
+        <div style={{ margin: "4px 0", fontStyle: "italic" }}>&ldquo;{c.hook}&rdquo;</div>
+        <div style={{ fontSize: 12, color: "var(--muted)" }}><b>Tension:</b> {c.tension}</div>
+        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <button
+            className="st-btn st-btn-ghost"
+            style={{ flex: 1 }}
+            disabled={busy}
+            onClick={async () => { setBusy(true); try { await rejectCandidate({ runId, stage: "strategy", assetId }); } catch (e) { onError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); } }}
+          >
+            Discard suggestion
+          </button>
+          <button
+            className="st-btn st-btn-primary"
+            style={{ flex: 1 }}
+            disabled={busy}
+            onClick={async () => { setBusy(true); try { await acceptCandidate({ runId, stage: "strategy", assetId, actor }); } catch (e) { onError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); } }}
+          >
+            Use this instead
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function ConceptRow({ run, stage, actor, assetId, asset, candidate, locked, onError }: {
+  run: StrategyRun; stage: StageState; actor: string; assetId: string;
+  asset: StrategyCheckpoint["assets"][number]; candidate: ConceptCandidate | undefined; locked: boolean;
+  onError: (msg: string) => void;
+}) {
+  const readOnly = stage.status === "approved";
+  const busyCandidate = candidate?.status === "running";
+  const [refineOpen, setRefineOpen] = useState(false);
+  const [refineNotes, setRefineNotes] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function withBusy(fn: () => Promise<unknown>) {
+    setBusy(true);
+    try {
+      await fn();
+    } catch (e) {
+      onError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDiscard() {
+    if (!confirm("Discard this concept? A replacement will be generated automatically.")) return;
+    const notes = prompt("Optional: why is this concept being discarded? Helps future strategy avoid the same idea.") || "";
+    await withBusy(() => discardConcept({ runId: run.runId, stage: "strategy", assetId, notes, actor }));
+  }
+
+  async function handleSendRefine() {
+    const trimmed = refineNotes.trim();
+    if (!trimmed) { alert("Add a note on what should change first."); return; }
+    await withBusy(() => proposeConcept({ runId: run.runId, stage: "strategy", assetId, action: "refine", notes: trimmed }));
+  }
+
+  const disabled = busy || busyCandidate;
+
+  return (
+    <div className={`st-concept-row ${locked ? "is-locked" : ""}`}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
+        <div style={{ fontWeight: 700 }}>
+          {asset.assetId} &middot; {asset.format} &middot; {asset.conceptName}
+          {locked && <span style={{ color: "var(--green)", fontSize: 11 }}> 🔒</span>}
+        </div>
+        <div style={{ fontSize: 11, color: "var(--muted)" }}>{asset.portfolioId || "—"}</div>
+      </div>
+      <div style={{ margin: "6px 0", fontStyle: "italic" }}>&ldquo;{asset.hook}&rdquo;</div>
+      <div style={{ fontSize: 12, color: "var(--muted)" }}><b>Tension:</b> {asset.tension}</div>
+      <div style={{ fontSize: 12, color: "var(--muted)" }}><b>Send to:</b> {asset.sendTo}</div>
+      <div style={{ marginTop: 8 }}>
+        <GateChip pass={asset.gate.logoSwapPass} label="Logo-swap" />
+        <GateChip pass={asset.gate.killListPass} label="Kill list" />
+        <GateChip pass={asset.gate.tensionPass} label="Tension" />
+        <GateChip pass={asset.gate.overheardPass} label="Overheard" />
+      </div>
+
+      {!readOnly && (
+        <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <button className="st-btn st-btn-ghost st-btn-sm" disabled={disabled} onClick={() => setRefineOpen((v) => !v)}>Refine</button>
+          <button className="st-btn st-btn-ghost st-btn-sm" disabled={disabled} onClick={() => withBusy(() => proposeConcept({ runId: run.runId, stage: "strategy", assetId, action: "similar" }))}>Suggest similar</button>
+          <button className="st-btn st-btn-ghost st-btn-sm" style={{ color: "var(--red)", borderColor: "var(--red)" }} disabled={disabled} onClick={handleDiscard}>Discard</button>
+          <button
+            className={`st-btn st-btn-sm ${locked ? "st-btn-primary" : "st-btn-ghost"}`}
+            style={{ marginLeft: "auto" }}
+            onClick={() => withBusy(() => toggleAssetLock({ runId: run.runId, stage: "strategy", assetId, actor, locked: !locked }))}
+          >
+            {locked ? "🔒 Locked" : "Lock"}
+          </button>
+        </div>
+      )}
+      {!readOnly && refineOpen && (
+        <div style={{ marginTop: 8 }}>
+          <textarea
+            className="st-form-control"
+            placeholder="What should change about this concept?"
+            style={{ minHeight: 50, fontSize: 12, marginBottom: 6 }}
+            value={refineNotes}
+            onChange={(e) => setRefineNotes(e.target.value)}
+          />
+          <button className="st-btn st-btn-primary st-btn-sm" disabled={disabled} onClick={handleSendRefine}>Send</button>
+        </div>
+      )}
+
+      <CandidatePreview runId={run.runId} assetId={assetId} candidate={candidate} actor={actor} onError={onError} />
+    </div>
+  );
+}
+
+export function StrategyReview({ run, stage, actor }: { run: StrategyRun; stage: StageState; actor: string }) {
+  const s = stage.checkpoint as StrategyCheckpoint;
+  const readOnly = stage.status === "approved";
+  const candidates = stage.candidates || {};
+  const locks = stage.locks || {};
+  const [error, setError] = useState<string | null>(null);
+
+  const byFormat = (s.assets || []).reduce<Record<string, number>>((acc, a) => { acc[a.format] = (acc[a.format] || 0) + 1; return acc; }, {});
+  const lockedCount = Object.keys(locks).length;
+  const total = (s.assets || []).length;
+  const left = Math.max(0, total - lockedCount);
+  const approval = run.approvals?.strategy;
+
+  return (
+    <>
+      <div className="st-board" style={{ marginTop: 0 }}>
+        <div className="st-board-header">Asset plan <span className="st-tag">{total} assets</span></div>
+        <div className="st-note" style={{ marginBottom: 10 }}>
+          {byFormat.reel || 0} reel &middot; {byFormat.carousel || 0} carousel &middot; {byFormat.static || 0} static
+        </div>
+        <div style={{ fontSize: 13, marginBottom: 10 }}><b>Month thesis:</b> {s.monthThesis}</div>
+      </div>
+
+      <div className="st-board">
+        <div className="st-board-header" style={{ justifyContent: "space-between" }}>
+          Concepts
+          {!readOnly && (
+            <span className={`st-lock-summary ${lockedCount === total && total > 0 ? "is-complete" : ""}`} style={{ marginLeft: "auto" }}>
+              {lockedCount} of {total} locked{left > 0 ? ` · ${left} left` : ""}
+            </span>
+          )}
+        </div>
+        {error && <div className="st-error-text">{error}</div>}
+        {(s.assets || []).map((asset) => (
+          <ConceptRow
+            key={asset.assetId}
+            run={run}
+            stage={stage}
+            actor={actor}
+            assetId={asset.assetId}
+            asset={asset}
+            candidate={candidates[asset.assetId]}
+            locked={!!locks[asset.assetId]}
+            onError={setError}
+          />
+        ))}
+      </div>
+
+      {!!s.discarded?.length && (
+        <div className="st-board">
+          <div className="st-board-header">Discarded candidates <span className="st-tag">{s.discarded.length}</span></div>
+          {s.discarded.map((d, i) => (
+            <div key={i} style={{ borderBottom: "1px solid var(--border)", padding: "8px 0" }}>
+              <b>{d.conceptName}</b> — failed {d.failedGate}: {d.reason}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {readOnly ? (
+        <div className="st-note">Strategy approved {fmtDateTime(approval?.decidedAt)} by {approval?.decidedBy}.</div>
+      ) : (
+        <div className="st-note">Use the "Your next action" card to approve this or send it back with notes.</div>
+      )}
+    </>
+  );
+}

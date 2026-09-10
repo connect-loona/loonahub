@@ -21,6 +21,23 @@ export function useRuns(): { runs: StrategyRun[]; loading: boolean } {
   return { runs, loading };
 }
 
+// React equivalent of strategy-app.js's soOpenRun() — a live listener on one run's own
+// path, used by the run detail view.
+export function useRun(runId: string): { run: StrategyRun | null; loading: boolean } {
+  const [run, setRun] = useState<StrategyRun | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    return listenPath<StrategyRun>(`strategy_runs/${runId}`, (val) => {
+      setRun(val);
+      setLoading(false);
+    });
+  }, [runId]);
+
+  return { run, loading };
+}
+
 export function useBrands(): { brands: StrategyBrand[]; loading: boolean } {
   const [brands, setBrands] = useState<StrategyBrand[]>([]);
   const [loading, setLoading] = useState(true);
