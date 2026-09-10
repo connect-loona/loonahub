@@ -87,8 +87,11 @@ function waitForCond(fn, label, timeoutMs = 3000) {
   await waitForCond(async () => ((await page.locator("#page-strategy .section-title").textContent()) === "Manage brands") || null, "navigates to brand list on success");
   check("a valid new brand saves and returns to the brand list", true);
   // The list re-renders once the Firebase listener's next poll catches up with the write
-  // that just landed — give it a beat rather than asserting on the very first paint.
-  await waitForCond(async () => ((await page.locator("#page-strategy").textContent()).includes("Acme Co")) || null, "the new brand appears in the list", 2000);
+  // that just landed — give it a beat rather than asserting on the very first paint. This
+  // used to cap out at 2000ms, tighter than every other wait in this file (which default to
+  // 3000ms); under any real load that budget is enough to flake on nothing more than normal
+  // poll-cycle jitter, so it now uses the same default as the rest of the file.
+  await waitForCond(async () => ((await page.locator("#page-strategy").textContent()).includes("Acme Co")) || null, "the new brand appears in the list");
   const listText = await page.locator("#page-strategy").textContent();
   check("the new brand appears in the list", listText.includes("Acme Co") && listText.includes("acme"));
 
@@ -113,11 +116,16 @@ function waitForCond(fn, label, timeoutMs = 3000) {
   }, fixtureDir);
   check("starting an RRO run (which seeds strategy_brands/rro as a side effect) succeeds", rroRunStartStatus === 200, rroRunStartStatus);
   await page.locator("button", { hasText: "Manage brands" }).click();
-  await waitForCond(async () => ((await page.locator("#page-strategy").textContent()).includes("RRO")) || null, "RRO appears in the brand list once seeded");
-  const brandListText = await page.locator("#page-strategy").textContent();
-  check("RRO shows up in the brand list once seeded", brandListText.includes("RRO"));
+  // Wait for RRO's actual row (with its Edit button attached), not just for "RRO" to appear
+  // anywhere in the page's text — the list can re-render more than once while the Firebase
+  // listener's data catches up, and a plain textContent check can pass on an intermediate
+  // render that doesn't yet have the row's buttons mounted, leaving the click below racing
+  // a row that isn't there yet.
+  const rroEditButton = page.locator(".pf-absrow", { hasText: "RRO" }).locator("button", { hasText: "Edit" });
+  await waitForCond(async () => (await rroEditButton.count()) > 0 || null, "RRO's row (with its Edit button) renders in the brand list");
+  check("RRO shows up in the brand list once seeded", true);
 
-  await page.locator(".pf-absrow", { hasText: "RRO" }).locator("button", { hasText: "Edit" }).click();
+  await rroEditButton.click();
   await waitForCond(async () => ((await page.inputValue("#so-bf-name").catch(() => "")) === "RRO Foods") || null, "the Edit form populates RRO's existing name");
   check("editing RRO loads its existing name into the form", await page.inputValue("#so-bf-name") === "RRO Foods");
   check("the brand id field is locked when editing an existing brand", await page.isDisabled("#so-bf-id"));
