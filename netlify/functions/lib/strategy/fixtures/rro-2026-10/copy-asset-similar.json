@@ -1,0 +1,69 @@
+{
+  "assetId": "RRO-01",
+  "format": "reel",
+  "portfolioId": "rro-oil",
+  "portfolioName": "RRO Oil",
+  "skuIds": ["filtered-groundnut-oil"],
+  "skuNames": ["Filtered Groundnut Oil"],
+  "hook": "The recipe is right. The oil is why it still tastes wrong.",
+  "onCreative": {
+    "cover": "The recipe is right. The oil is why it still tastes wrong.",
+    "frames": [],
+    "endFrame": "Filtered Groundnut Oil — the one swap the recipe never mentioned."
+  },
+  "script": {
+    "durationSeconds": 22,
+    "scenes": [
+      {
+        "timing": "0-3s",
+        "visual": "A dog-eared recipe card on the counter, oil bottle just out of frame.",
+        "voiceover": "You've made this a hundred times. It still doesn't taste like hers.",
+        "onScreenText": "The recipe is right. The oil is why it still tastes wrong."
+      },
+      {
+        "timing": "3-17s",
+        "visual": "Pour shot, then the same dish finished two ways side by side.",
+        "voiceover": "The recipe never names the oil. It just assumes any bottle does the same job.",
+        "onScreenText": "Filtered Groundnut Oil"
+      },
+      {
+        "timing": "17-22s",
+        "visual": "Final plated shot, pack beside the dish.",
+        "voiceover": "One swap. Same recipe. Finally tastes like it should.",
+        "onScreenText": "RRO"
+      }
+    ]
+  },
+  "captions": [
+    {
+      "version": "A",
+      "angle": "Nostalgic",
+      "copy": "It's the exact recipe she wrote down. The only thing that never made it onto the card was which oil to use.",
+      "hashtags": ["#RRO"]
+    },
+    {
+      "version": "B",
+      "angle": "Problem-first",
+      "copy": "You've followed this recipe exactly for years. The one ingredient it never specified is the one that changes everything.",
+      "hashtags": ["#RRO", "#HomeCooking"]
+    },
+    {
+      "version": "C",
+      "angle": "Short",
+      "copy": "The recipe was never missing a step. It was missing an oil.",
+      "hashtags": ["#RRO"]
+    }
+  ],
+  "claimAudit": {
+    "rulesChecked": [
+      "exact-sku-nutrition",
+      "oil-process-and-heat",
+      "availability-geography",
+      "medical-disease-claims",
+      "pack-and-label-accuracy"
+    ],
+    "rewrittenClaims": [],
+    "verificationFlags": [],
+    "status": "ready"
+  }
+}

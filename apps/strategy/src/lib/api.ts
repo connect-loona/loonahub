@@ -60,10 +60,11 @@ export function reopenStage(args: { runId: string; stage: string; notes?: string
   return post("strategy-stage-reopen", args) as Promise<{ ok: true }>;
 }
 
-// "refine" (with notes) or "similar" (strategy only) — kicks off a candidate replacement
-// for one concept card, reviewed before it's committed (see conceptCandidateHtml in the
-// legacy app).
-export function proposeConcept(args: { runId: string; stage: string; assetId: string; action: "refine" | "similar"; notes?: string }): Promise<{ ok: true }> {
+// "refine" (with notes) or "similar"/"suggest another" (strategy and copy) — kicks off a
+// candidate replacement for one concept/copy card, reviewed before it's committed (see
+// conceptCandidateHtml in the legacy app). `focus` optionally points at the specific part
+// of the asset being refined (e.g. "Caption B", "Script" — copy only, see CopyReview.tsx).
+export function proposeConcept(args: { runId: string; stage: string; assetId: string; action: "refine" | "similar"; notes?: string; focus?: string }): Promise<{ ok: true }> {
   return post("strategy-concept-propose", args) as Promise<{ ok: true }>;
 }
 

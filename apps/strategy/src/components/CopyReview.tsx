@@ -21,6 +21,7 @@ function CopyAssetRow({ run, stage, actor, asset, candidate, locked, onError }: 
   const readOnly = stage.status === "approved";
   const busyCandidate = candidate?.status === "running";
   const [refineOpen, setRefineOpen] = useState(false);
+  const [refineFocus, setRefineFocus] = useState<string | null>(null);
   const [refineNotes, setRefineNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const assetId = asset.assetId;
@@ -42,10 +43,20 @@ function CopyAssetRow({ run, stage, actor, asset, candidate, locked, onError }: 
     await withBusy(() => discardConcept({ runId: run.runId, stage: "copy", assetId, notes, actor }));
   }
 
+  // Opens the refine box, optionally aimed at one specific part of the asset (a caption
+  // version or the script) rather than a whole-asset rewrite — see each caption/script's own
+  // "Refine this" link below. Re-opening (or switching targets) always resets the notes —
+  // a note written for one caption shouldn't silently get sent against a different one.
+  function openRefine(focus: string | null) {
+    setRefineFocus(focus);
+    setRefineNotes("");
+    setRefineOpen(true);
+  }
+
   async function handleSendRefine() {
     const trimmed = refineNotes.trim();
     if (!trimmed) { alert("Add a note on what should change first."); return; }
-    await withBusy(() => proposeConcept({ runId: run.runId, stage: "copy", assetId, action: "refine", notes: trimmed }));
+    await withBusy(() => proposeConcept({ runId: run.runId, stage: "copy", assetId, action: "refine", notes: trimmed, focus: refineFocus || undefined }));
   }
 
   const disabled = busy || busyCandidate;
@@ -69,7 +80,12 @@ function CopyAssetRow({ run, stage, actor, asset, candidate, locked, onError }: 
       {asset.onCreative?.endFrame && <div style={{ fontSize: 12, color: "var(--muted)" }}><b>End frame:</b> {asset.onCreative.endFrame}</div>}
       {!!asset.script?.scenes?.length && (
         <div style={{ marginTop: 8 }}>
-          <b style={{ fontSize: 12 }}>Script ({asset.script.durationSeconds}s)</b>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+            <b style={{ fontSize: 12 }}>Script ({asset.script.durationSeconds}s)</b>
+            {!readOnly && (
+              <a href="#" aria-label="Refine Script" style={{ fontSize: 11, color: "var(--accent)" }} onClick={(e) => { e.preventDefault(); openRefine("Script"); }}>Refine this</a>
+            )}
+          </div>
           {asset.script.scenes.map((sc, i) => (
             <div key={i} style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>{sc.timing} — {sc.visual} &middot; VO: "{sc.voiceover}"</div>
           ))}
@@ -77,17 +93,28 @@ function CopyAssetRow({ run, stage, actor, asset, candidate, locked, onError }: 
       )}
       {!!audit.rewrittenClaims?.length && <div style={{ fontSize: 12, color: "#e0a53a", marginTop: 6 }}><b>Rewritten claims:</b> {audit.rewrittenClaims.join("; ")}</div>}
       {!!audit.verificationFlags?.length && <div style={{ fontSize: 12, color: "var(--red)", marginTop: 4 }}><b>Needs verification:</b> {audit.verificationFlags.join("; ")}</div>}
-      {(asset.captions || []).map((cap, i) => (
-        <div key={i} style={{ borderTop: "1px solid var(--border)", paddingTop: 6, marginTop: 6 }}>
-          <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase" }}>Version {cap.version} &middot; {cap.angle}</div>
-          <div style={{ fontSize: 13, whiteSpace: "pre-wrap" }}>{cap.copy}</div>
-          <div style={{ fontSize: 11, color: "var(--accent)" }}>{(cap.hashtags || []).join(" ")}</div>
+      {!!asset.captions?.length && (
+        <div style={{ marginTop: 8 }}>
+          <b style={{ fontSize: 12 }}>Captions</b>
+          {asset.captions.map((cap, i) => (
+            <div key={i} style={{ borderTop: "1px solid var(--border)", paddingTop: 6, marginTop: 6 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase" }}>Version {cap.version} &middot; {cap.angle}</div>
+                {!readOnly && (
+                  <a href="#" aria-label={`Refine Caption ${cap.version}`} style={{ fontSize: 11, color: "var(--accent)" }} onClick={(e) => { e.preventDefault(); openRefine(`Caption ${cap.version}`); }}>Refine this</a>
+                )}
+              </div>
+              <div style={{ fontSize: 13, whiteSpace: "pre-wrap" }}>{cap.copy}</div>
+              <div style={{ fontSize: 11, color: "var(--accent)" }}>{(cap.hashtags || []).join(" ")}</div>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
 
       {!readOnly && (
         <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <button className="st-btn st-btn-ghost st-btn-sm" disabled={disabled} onClick={() => setRefineOpen((v) => !v)}>Refine</button>
+          <button className="st-btn st-btn-ghost st-btn-sm" disabled={disabled} onClick={() => (refineOpen ? setRefineOpen(false) : openRefine(null))}>Refine</button>
+          <button className="st-btn st-btn-ghost st-btn-sm" disabled={disabled} onClick={() => withBusy(() => proposeConcept({ runId: run.runId, stage: "copy", assetId, action: "similar" }))}>Suggest another</button>
           <button className="st-btn st-btn-ghost st-btn-sm" style={{ color: "var(--red)", borderColor: "var(--red)" }} disabled={disabled} onClick={handleReplace}>Replace</button>
           <button
             className={`st-btn st-btn-sm ${locked ? "st-btn-primary" : "st-btn-ghost"}`}
@@ -100,9 +127,10 @@ function CopyAssetRow({ run, stage, actor, asset, candidate, locked, onError }: 
       )}
       {!readOnly && refineOpen && (
         <div style={{ marginTop: 8 }}>
+          {refineFocus && <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Focused on: <b>{refineFocus}</b></div>}
           <textarea
             className="st-form-control"
-            placeholder="What should change about this copy?"
+            placeholder={refineFocus ? `What should change about ${refineFocus.toLowerCase()}?` : "What should change about this copy?"}
             style={{ minHeight: 50, fontSize: 12, marginBottom: 6 }}
             value={refineNotes}
             onChange={(e) => setRefineNotes(e.target.value)}

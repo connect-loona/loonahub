@@ -411,7 +411,7 @@ const ASSET_STAGE_CONFIG = {
   },
 };
 
-async function proposeAssetCandidate(runId, stage, assetId, requestType, notes) {
+async function proposeAssetCandidate(runId, stage, assetId, requestType, notes, focus) {
   const cfg = ASSET_STAGE_CONFIG[stage];
   if (!cfg) throw new Error(`Asset refinement isn't supported for stage "${stage}".`);
   const run = await fbGet(`strategy_runs/${runId}`);
@@ -442,7 +442,9 @@ async function proposeAssetCandidate(runId, stage, assetId, requestType, notes) 
     brandLibrary,
     currentAssetPlan: checkpoint.assets,
     targetAsset,
-    request: { type: requestType, notes: notes || null },
+    // focus: an optional pointer at the specific part of targetAsset the reviewer means
+    // (e.g. "Caption B", "Script") — see strategy-concept-propose.js's own header comment.
+    request: { type: requestType, notes: notes || null, focus: focus || null },
   }, context);
 
   // Clicking Refine/Replace on an already-locked asset means it's back in play — clear the
@@ -454,7 +456,7 @@ async function proposeAssetCandidate(runId, stage, assetId, requestType, notes) 
   await Promise.all([
     fbSet(`strategy_runs/${runId}/stages/${stage}/locks/${assetId}`, null),
     fbSet(candidatePath, {
-      status: "running", requestType, notes: notes || null, updatedAt: new Date().toISOString(),
+      status: "running", requestType, notes: notes || null, focus: focus || null, updatedAt: new Date().toISOString(),
       detail: `${agent.emoji} ${agent.name} is sketching a replacement.`,
     }),
   ]);
@@ -482,7 +484,7 @@ async function proposeAssetCandidate(runId, stage, assetId, requestType, notes) 
       const swappedAssets = checkpoint.assets.map((asset, i) => (i === targetIndex ? candidate : asset));
       const issues = cfg.callValidate(Object.assign({}, checkpoint, { assets: swappedAssets }), config, context, learnings, run.month);
       if (issues.length === 0) {
-        await fbSet(candidatePath, { status: "ready", requestType, notes: notes || null, candidate, updatedAt: new Date().toISOString() });
+        await fbSet(candidatePath, { status: "ready", requestType, notes: notes || null, focus: focus || null, candidate, updatedAt: new Date().toISOString() });
         return candidate;
       }
       repairIssues = issues;
@@ -493,7 +495,7 @@ async function proposeAssetCandidate(runId, stage, assetId, requestType, notes) 
     }
   }
   const message = lastError && lastError.message ? lastError.message : String(lastError);
-  await fbSet(candidatePath, { status: "failed", requestType, notes: notes || null, detail: message, updatedAt: new Date().toISOString() });
+  await fbSet(candidatePath, { status: "failed", requestType, notes: notes || null, focus: focus || null, detail: message, updatedAt: new Date().toISOString() });
   throw lastError;
 }
 

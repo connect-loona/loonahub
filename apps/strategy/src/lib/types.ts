@@ -62,6 +62,10 @@ export interface ConceptCandidate {
   detail?: string;
   requestType?: string;
   notes?: string;
+  // The specific part of the asset this request pointed at (e.g. "Caption B", "Script") —
+  // see CopyReview.tsx's per-caption/script "Refine this" links and
+  // strategy-concept-propose.js's own header comment.
+  focus?: string | null;
   candidate?: {
     conceptName?: string;
     hook?: string;

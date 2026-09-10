@@ -18,6 +18,12 @@ describing what's being asked:
 - `request.type: "discard"` — `targetAsset` is dead; `request.notes` explains why. Do not
   preserve any part of it — the concept, hook and tension must all be genuinely new.
 
+**`request.notes` is a mandatory instruction, not a suggestion.** If the notes name a
+specific, concrete element the concept should include or change, that element must be
+literally present in the `concept` or `hook` you return — not merely implied. Before
+returning, re-read `request.notes` and check that each specific thing it asked for actually
+shows up in what you're returning.
+
 Keep `assetId`, `sequence`, `format`, `portfolioId` and `skuIds` exactly as given on
 `targetAsset` — you are not choosing a new slot, only new content for this one. Return
 exactly one asset object, in the same shape as every other entry in `currentAssetPlan`.

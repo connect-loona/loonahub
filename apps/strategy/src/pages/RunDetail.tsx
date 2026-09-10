@@ -84,6 +84,14 @@ export function RunDetail({ runId, actor, onBack }: { runId: string; actor: stri
         </div>
       </div>
 
+      {/* Full-width and first thing on the page — the "Your next action" card was
+          previously the third column of the workspace grid below, off to the side of the
+          numbered stage rail; it now leads, since it's the one thing that always says what
+          to do right now. */}
+      <div className="st-review-panel">
+        <NextActionCard run={run} actor={actor} />
+      </div>
+
       <StageRail run={run} onReopen={handleReopen} />
 
       <div className="st-workspace">
@@ -91,9 +99,6 @@ export function RunDetail({ runId, actor, onBack }: { runId: string; actor: stri
         <main className="st-workspace-main">
           <ReviewBody run={run} reviewStage={reviewStage} />
         </main>
-        <div className="st-workspace-side st-review-panel">
-          <NextActionCard run={run} actor={actor} />
-        </div>
       </div>
     </div>
   );
