@@ -90,7 +90,16 @@ async function loginAsFakeUser(page) {
     const c = (await req("GET", `${RTDB_URL}/strategy_runs/${runId}/stages/strategy/candidates/RRO-01.json`)).body;
     return c && c.status === "ready" && c.history && c.history.length === 4 ? c : null;
   }, { label: "second (chained) refine candidate ready with 4 history turns" });
-  await waitFor(async () => (await rro01Row.locator(".st-chat-turn-user").count()) === 2 || null, { label: "second turn's UI catches up" });
+  // Wait for BOTH turn counts together, not just user turns — they render from the same
+  // history array in one pass, but checking only one count right after its own waitFor
+  // resolves left a real (if narrow) race in CI where the assistant count read a frame
+  // before the DOM fully caught up, occasionally failing "two assistant turns now render"
+  // even though the underlying data was already correct.
+  await waitFor(async () => {
+    const users = await rro01Row.locator(".st-chat-turn-user").count();
+    const assistants = await rro01Row.locator(".st-chat-turn-assistant").count();
+    return users === 2 && assistants === 2 ? true : null;
+  }, { label: "second turn's UI catches up (both user and assistant turns rendered)" });
   const threadText = await rro01Row.locator(".st-chat-thread").textContent();
   check("BOTH rounds' notes are still visible in the thread (chained, not replaced)", threadText.includes("pan loyalty") && threadText.includes("loyalty angle"), threadText);
   check("two assistant turns now render", (await rro01Row.locator(".st-chat-turn-assistant").count()) === 2);
