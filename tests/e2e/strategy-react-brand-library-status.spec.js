@@ -110,6 +110,23 @@ function seedRun(runId) {
   await waitFor(async () => (await page.locator("text=7 files indexed from RRO Foods").count()) > 0 || null, { label: "library without textFileCount renders" });
   check("a library doc with no textFileCount is not falsely flagged as unreadable", await page.locator("text=none could be read").count() === 0);
 
+  // ---- 7. Unreadable files are named, with the reason — "3 files unread" tells you there's
+  // a problem, but only the filename tells you which deck to go and re-export. ----
+  await req("PUT", `${RTDB_URL}/strategy_brand_library/rro.json`, {
+    brandId: "rro", folderId: "abc123", folderName: "RRO Foods",
+    indexedAt: "2026-09-11T06:00:00.000Z", fileCount: 9, textFileCount: 7, truncated: false,
+    unreadFiles: [
+      { name: "New RRO  JanFeb Plan.pdf", reason: "Too large to read (96MB). Export it at a smaller size, or split it, to bring it under 20MB." },
+      { name: "cover.png", reason: "Nothing readable in a image/png of this type." },
+    ],
+  });
+  await waitFor(async () => (await page.locator("text=the agents can't read").count()) > 0 || null, { label: "unread list renders" });
+  await page.locator("summary", { hasText: "the agents can't read" }).click();
+  const sideText = await page.locator(".st-workspace-side").textContent();
+  check("the oversized file is named", sideText.includes("New RRO  JanFeb Plan.pdf"), sideText.slice(0, 200));
+  check("and the reason says what to do about it", sideText.includes("96MB") && sideText.includes("under 20MB"));
+  check("a readable-count summary still shows alongside", sideText.includes("7 readable"));
+
   check("no page errors", errors.length === 0, errors);
 
   console.log(allPass ? "\n✅ ALL CHECKS PASSED" : "\n❌ SOME CHECKS FAILED");

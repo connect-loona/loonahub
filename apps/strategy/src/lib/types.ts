@@ -240,6 +240,12 @@ export interface BrandLibraryStatus {
   indexedAt?: string | null;
   fileCount?: number;
   textFileCount?: number;
+  // Files that were indexed but whose contents the agents never saw, each with the reason
+  // (too large to read, unsupported type, a read failure). Named so the fix is actionable —
+  // knowing WHICH deck is too big is what lets someone go and re-export it.
+  unreadFiles?: { name: string; reason: string }[];
+  filesReadThisIndex?: number;
+  filesFromMemory?: number;
   truncated?: boolean;
   stale?: boolean;
   refreshError?: string;

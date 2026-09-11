@@ -36,12 +36,31 @@ function DriveLibraryStatus({ brandId }: { brandId?: string }) {
       </div>
     );
   }
+  const unread = library.unreadFiles || [];
   return (
-    <div className="st-memory-value" style={{ color: "var(--green)", fontSize: 12, marginTop: 6 }}>
-      📁 {fileCount} file{fileCount === 1 ? "" : "s"} indexed from {library.folderName || "Drive"}
-      {typeof textFileCount === "number" && textFileCount < fileCount ? ` · ${textFileCount} readable` : ""}
-      {library.indexedAt ? ` · ${fmtDateTime(library.indexedAt)}` : ""}
-    </div>
+    <>
+      <div className="st-memory-value" style={{ color: "var(--green)", fontSize: 12, marginTop: 6 }}>
+        📁 {fileCount} file{fileCount === 1 ? "" : "s"} indexed from {library.folderName || "Drive"}
+        {typeof textFileCount === "number" && textFileCount < fileCount ? ` · ${textFileCount} readable` : ""}
+        {library.indexedAt ? ` · ${fmtDateTime(library.indexedAt)}` : ""}
+      </div>
+      {unread.length > 0 && (
+        // Naming them is the point: "3 files unread" tells you there's a problem, but the
+        // only way to act on it is knowing which deck is too big to read.
+        <details className="st-memory-value" style={{ fontSize: 12, marginTop: 4 }}>
+          <summary style={{ cursor: "pointer", color: "var(--muted)" }}>
+            {unread.length} file{unread.length === 1 ? "" : "s"} the agents can&apos;t read
+          </summary>
+          <ul style={{ margin: "6px 0 0", paddingLeft: 18, color: "var(--muted)" }}>
+            {unread.map((file) => (
+              <li key={file.name} style={{ marginBottom: 3 }}>
+                <strong style={{ fontWeight: 600 }}>{file.name}</strong> — {file.reason}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </>
   );
 }
 
