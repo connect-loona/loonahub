@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "description": "Server-side dependencies for Loona Hub's Netlify Functions.",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.125.0",
     "@openai/agents": "^0.17.2",
     "pptxgenjs": "^4.0.1",
     "sarvamai": "^1.1.7",
