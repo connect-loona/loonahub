@@ -10,7 +10,8 @@ process.env.FIREBASE_DB_URL = require("../harness/shared").RTDB_URL;
 const path = require("path");
 const { HUB, RTDB_URL, wipeFirebase, req, check, finish } = require("../harness/shared");
 const { fbGet } = require(path.join(HUB, "netlify/functions/lib/strategy/firebase"));
-const { createRuntime, providerForStage } = require(path.join(HUB, "netlify/functions/lib/strategy/pipeline"));
+const { createRuntime, providerForStage, tierForStage, modelFor, shouldEscalateTier } = require(path.join(HUB, "netlify/functions/lib/strategy/pipeline"));
+const { StageValidationError } = require(path.join(HUB, "netlify/functions/lib/strategy/errors"));
 const { FixtureRuntime } = require(path.join(HUB, "netlify/functions/lib/strategy/runtime-fixture"));
 const runStart = require(path.join(HUB, "netlify/functions/strategy-run-start.js"));
 const crypto = require("crypto");
@@ -44,6 +45,49 @@ function order(run, stage) {
   check("an overridden stage uses its own model", providerForStage(mixed, "copy") === "claude", providerForStage(mixed, "copy"));
   check("a stage left out of the map uses the run default", providerForStage(mixed, "research") === "openai", providerForStage(mixed, "research"));
   check("the overridden stage's failover is the run default", JSON.stringify(order(mixed, "copy")) === JSON.stringify(["claude", "openai"]), order(mixed, "copy"));
+
+  // ---- Model tiers: Deck Builder is the cheap stage, everything else is not ----
+  check("deck-builder runs on the economy tier", tierForStage("deck-builder") === "economy", tierForStage("deck-builder"));
+  for (const stage of ["research", "strategy", "copy", "creative-direction"]) {
+    check(`${stage} stays on the standard tier`, tierForStage(stage) === "standard", tierForStage(stage));
+  }
+  check("an unknown stage name defaults to standard, never to the cheap model", tierForStage("nonsense") === "standard");
+
+  // The two tiers must actually resolve to DIFFERENT models, or the whole thing is a no-op.
+  check("openai's economy model differs from its standard one", modelFor("openai", "economy") !== modelFor("openai", "standard"), [modelFor("openai", "economy"), modelFor("openai", "standard")]);
+  check("claude's economy model differs from its standard one", modelFor("claude", "economy") !== modelFor("claude", "standard"), [modelFor("claude", "economy"), modelFor("claude", "standard")]);
+
+  // Model ids come from env, never hard-coded at the call site (build brief's rule).
+  const savedModel = process.env.STRATEGY_OPENAI_MODEL_ECONOMY;
+  process.env.STRATEGY_OPENAI_MODEL_ECONOMY = "some-cheaper-model";
+  check("the economy model id is env-overridable", modelFor("openai", "economy") === "some-cheaper-model", modelFor("openai", "economy"));
+  if (savedModel === undefined) delete process.env.STRATEGY_OPENAI_MODEL_ECONOMY; else process.env.STRATEGY_OPENAI_MODEL_ECONOMY = savedModel;
+
+  // The tier reaches the runtime that will actually be built, and an explicit tier (what
+  // executeStage passes when it escalates) overrides the stage's configured one.
+  check("a deck-builder runtime carries the economy tier", createRuntime({ runtime: "openai" }, "deck-builder").tier === "economy");
+  check("a strategy runtime carries the standard tier", createRuntime({ runtime: "openai" }, "strategy").tier === "standard");
+  check("an explicit tier overrides the stage default (this is the escalation path)", createRuntime({ runtime: "openai" }, "deck-builder", "standard").tier === "standard");
+
+  // Escalating must not silently change WHICH provider runs — only which model of it.
+  check("escalation keeps the stage's provider order", JSON.stringify(order({ runtime: "claude" }, "deck-builder")) === JSON.stringify(["claude", "openai"]), order({ runtime: "claude" }, "deck-builder"));
+
+  // ---- When a cheap stage escalates itself to the standard model ----
+  const badAnswer = new StageValidationError("deck-builder", ["Deck is missing a page for RRO-04."]);
+  const providerDown = Object.assign(new Error("You have no credits remaining."), { status: 429 });
+
+  check("escalates after the economy model returns a result that doesn't validate", shouldEscalateTier({ tier: "economy", attempt: 1, alreadyEscalated: false, lastError: badAnswer }));
+  check("escalates on a schema failure too", shouldEscalateTier({ tier: "economy", attempt: 1, alreadyEscalated: false, lastError: Object.assign(new Error("Invalid input"), { name: "ZodError" }) }));
+  // A pricier model of a provider that's out of credits fails identically, and the other
+  // provider has already been tried by then — escalating would just spend more to fail.
+  check("does NOT escalate when the provider simply couldn't answer", !shouldEscalateTier({ tier: "economy", attempt: 1, alreadyEscalated: false, lastError: providerDown }));
+  check("escalates at most once, not on every repair", !shouldEscalateTier({ tier: "economy", attempt: 2, alreadyEscalated: true, lastError: badAnswer }));
+  check("never escalates on the first attempt — the cheap model gets a real go", !shouldEscalateTier({ tier: "economy", attempt: 0, alreadyEscalated: false, lastError: null }));
+  // Standard-tier stages have nowhere to escalate TO; this must stay a no-op for them, or
+  // every ordinary repair would quietly change model mid-stage.
+  check("a standard-tier stage never escalates", !shouldEscalateTier({ tier: "standard", attempt: 1, alreadyEscalated: false, lastError: badAnswer }));
+  // Fixture runtimes carry no tier at all — offline/test runs must be untouched by any of this.
+  check("a fixture run (no tier) never escalates", !shouldEscalateTier({ tier: undefined, attempt: 1, alreadyEscalated: false, lastError: badAnswer }));
 
   // ---- Fixture runs are never failed over: one deterministic source of output ----
   check("a fixture run gets the FixtureRuntime, not a failover chain", createRuntime({ runtime: "fixture", fixtureDir: FIXTURE_DIR }, "research") instanceof FixtureRuntime);

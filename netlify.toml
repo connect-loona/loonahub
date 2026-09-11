@@ -167,9 +167,16 @@
 #                             ALSO reused (same key, no separate credential) by Strategy OS's
 #                             Research + Strategy stages via the OpenAI Agents SDK — see
 #                             netlify/functions/lib/strategy/runtime-openai.js.)
-#   STRATEGY_OPENAI_MODEL    (optional — model id for Strategy OS's Research/Strategy stages;
+#   STRATEGY_OPENAI_MODEL    (optional — model id for Strategy OS stages running on OpenAI;
 #                             defaults to "gpt-5.4" if unset. Never hard-code a model name in
 #                             code, per the Strategy OS build brief — change it here instead.)
+#   STRATEGY_OPENAI_MODEL_ECONOMY
+#                            (optional — the cheap tier, defaults to "gpt-4o-mini". Used only
+#                             by stages listed in pipeline.js's STAGE_MODEL_TIERS, which today
+#                             is Deck Builder alone: it decides nothing, it lays already-
+#                             approved content into a fixed schema. If its first attempt fails
+#                             validation the stage escalates itself to the standard model, so
+#                             a too-weak economy model costs one wasted call, not a dead run.)
 #   ANTHROPIC_API_KEY        (Claude, used by Strategy OS's Claude runtime — see
 #   or CLAUDE_API_KEY         netlify/functions/lib/strategy/runtime-claude.js. EITHER name works:
 #                             ANTHROPIC_API_KEY is the SDK's own name and what this file always
@@ -184,6 +191,10 @@
 #   STRATEGY_CLAUDE_MODEL    (optional — model id for stages running on Claude; defaults to
 #                             "claude-opus-5" if unset. Same rule as STRATEGY_OPENAI_MODEL:
 #                             change it here, never in code.)
+#   STRATEGY_CLAUDE_MODEL_ECONOMY
+#                            (optional — Claude's cheap tier, defaults to Haiku. Same role as
+#                             STRATEGY_OPENAI_MODEL_ECONOMY above, for when a cheap-tier stage
+#                             is running on Claude rather than OpenAI.)
 #   SARVAM_API_KEY           (Sarvam AI batch speech-to-text, used by Loona Notes' meeting
 #                             recorder — see netlify/functions/sarvam-*.js)
 #   GOOGLE_CALENDAR_SERVICE_ACCOUNT   (full JSON key contents for the service account
