@@ -7,7 +7,7 @@ import { useState } from "react";
 import type { ConceptCandidate, StageState, StrategyCheckpoint, StrategyRun } from "../lib/types";
 import { fmtDateTime } from "../lib/format";
 import { discardConcept, proposeConcept, toggleAssetLock } from "../lib/api";
-import { ConceptCandidatePreview } from "./ConceptCandidatePreview";
+import { ConceptChatPanel } from "./ConceptChatPanel";
 
 function GateChip({ pass, label }: { pass: boolean; label: string }) {
   return <span className={`st-chip ${pass ? "st-chip-pass" : "st-chip-fail"}`}>{pass ? "✓ " : "✗ "}{label}</span>;
@@ -20,8 +20,7 @@ function ConceptRow({ run, stage, actor, assetId, asset, candidate, locked, onEr
 }) {
   const readOnly = stage.status === "approved";
   const busyCandidate = candidate?.status === "running";
-  const [refineOpen, setRefineOpen] = useState(false);
-  const [refineNotes, setRefineNotes] = useState("");
+  const [chatOpen, setChatOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function withBusy(fn: () => Promise<unknown>) {
@@ -39,12 +38,6 @@ function ConceptRow({ run, stage, actor, assetId, asset, candidate, locked, onEr
     if (!confirm("Discard this concept? A replacement will be generated automatically.")) return;
     const notes = prompt("Optional: why is this concept being discarded? Helps future strategy avoid the same idea.") || "";
     await withBusy(() => discardConcept({ runId: run.runId, stage: "strategy", assetId, notes, actor }));
-  }
-
-  async function handleSendRefine() {
-    const trimmed = refineNotes.trim();
-    if (!trimmed) { alert("Add a note on what should change first."); return; }
-    await withBusy(() => proposeConcept({ runId: run.runId, stage: "strategy", assetId, action: "refine", notes: trimmed }));
   }
 
   const disabled = busy || busyCandidate;
@@ -70,7 +63,7 @@ function ConceptRow({ run, stage, actor, assetId, asset, candidate, locked, onEr
 
       {!readOnly && (
         <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <button className="st-btn st-btn-ghost st-btn-sm" disabled={disabled} onClick={() => setRefineOpen((v) => !v)}>Refine</button>
+          <button className="st-btn st-btn-ghost st-btn-sm" disabled={disabled} onClick={() => setChatOpen((v) => !v)}>Refine</button>
           <button className="st-btn st-btn-ghost st-btn-sm" disabled={disabled} onClick={() => withBusy(() => proposeConcept({ runId: run.runId, stage: "strategy", assetId, action: "similar" }))}>Suggest similar</button>
           <button className="st-btn st-btn-ghost st-btn-sm" style={{ color: "var(--red)", borderColor: "var(--red)" }} disabled={disabled} onClick={handleDiscard}>Discard</button>
           <button
@@ -82,20 +75,10 @@ function ConceptRow({ run, stage, actor, assetId, asset, candidate, locked, onEr
           </button>
         </div>
       )}
-      {!readOnly && refineOpen && (
-        <div style={{ marginTop: 8 }}>
-          <textarea
-            className="st-form-control"
-            placeholder="What should change about this concept?"
-            style={{ minHeight: 50, fontSize: 12, marginBottom: 6 }}
-            value={refineNotes}
-            onChange={(e) => setRefineNotes(e.target.value)}
-          />
-          <button className="st-btn st-btn-primary st-btn-sm" disabled={disabled} onClick={handleSendRefine}>Send</button>
-        </div>
-      )}
-
-      <ConceptCandidatePreview runId={run.runId} stage="strategy" assetId={assetId} candidate={candidate} actor={actor} onError={onError} />
+      <ConceptChatPanel
+        runId={run.runId} stage="strategy" assetId={assetId} candidate={candidate} actor={actor}
+        open={chatOpen} onOpenChange={setChatOpen} onError={onError}
+      />
     </div>
   );
 }

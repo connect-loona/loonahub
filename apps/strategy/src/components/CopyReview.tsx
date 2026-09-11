@@ -6,7 +6,7 @@ import { useState } from "react";
 import type { ConceptCandidate, CopyAsset, CopyCheckpoint, StageState, StrategyRun } from "../lib/types";
 import { fmtDateTime } from "../lib/format";
 import { discardConcept, proposeConcept, toggleAssetLock } from "../lib/api";
-import { ConceptCandidatePreview } from "./ConceptCandidatePreview";
+import { ConceptChatPanel } from "./ConceptChatPanel";
 
 function claimChipStyle(status?: string) {
   const color = status === "ready" ? "var(--green)" : status === "flagged" ? "var(--yellow)" : "var(--red)";
@@ -20,9 +20,8 @@ function CopyAssetRow({ run, stage, actor, asset, candidate, locked, onError }: 
 }) {
   const readOnly = stage.status === "approved";
   const busyCandidate = candidate?.status === "running";
-  const [refineOpen, setRefineOpen] = useState(false);
-  const [refineFocus, setRefineFocus] = useState<string | null>(null);
-  const [refineNotes, setRefineNotes] = useState("");
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatFocus, setChatFocus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const assetId = asset.assetId;
 
@@ -43,20 +42,13 @@ function CopyAssetRow({ run, stage, actor, asset, candidate, locked, onError }: 
     await withBusy(() => discardConcept({ runId: run.runId, stage: "copy", assetId, notes, actor }));
   }
 
-  // Opens the refine box, optionally aimed at one specific part of the asset (a caption
-  // version or the script) rather than a whole-asset rewrite — see each caption/script's own
-  // "Refine this" link below. Re-opening (or switching targets) always resets the notes —
-  // a note written for one caption shouldn't silently get sent against a different one.
+  // Opens the chat, optionally aimed at one specific part of the asset (a caption version
+  // or the script) rather than a whole-asset rewrite — see each caption/script's own
+  // "Refine this" link below. Switching targets while chatting is rare enough that we just
+  // re-point the focus tag; it doesn't reset or discard whatever thread is already there.
   function openRefine(focus: string | null) {
-    setRefineFocus(focus);
-    setRefineNotes("");
-    setRefineOpen(true);
-  }
-
-  async function handleSendRefine() {
-    const trimmed = refineNotes.trim();
-    if (!trimmed) { alert("Add a note on what should change first."); return; }
-    await withBusy(() => proposeConcept({ runId: run.runId, stage: "copy", assetId, action: "refine", notes: trimmed, focus: refineFocus || undefined }));
+    setChatFocus(focus);
+    setChatOpen(true);
   }
 
   const disabled = busy || busyCandidate;
@@ -113,7 +105,7 @@ function CopyAssetRow({ run, stage, actor, asset, candidate, locked, onError }: 
 
       {!readOnly && (
         <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <button className="st-btn st-btn-ghost st-btn-sm" disabled={disabled} onClick={() => (refineOpen ? setRefineOpen(false) : openRefine(null))}>Refine</button>
+          <button className="st-btn st-btn-ghost st-btn-sm" disabled={disabled} onClick={() => (chatOpen ? setChatOpen(false) : openRefine(null))}>Refine</button>
           <button className="st-btn st-btn-ghost st-btn-sm" disabled={disabled} onClick={() => withBusy(() => proposeConcept({ runId: run.runId, stage: "copy", assetId, action: "similar" }))}>Suggest another</button>
           <button className="st-btn st-btn-ghost st-btn-sm" style={{ color: "var(--red)", borderColor: "var(--red)" }} disabled={disabled} onClick={handleReplace}>Replace</button>
           <button
@@ -125,21 +117,10 @@ function CopyAssetRow({ run, stage, actor, asset, candidate, locked, onError }: 
           </button>
         </div>
       )}
-      {!readOnly && refineOpen && (
-        <div style={{ marginTop: 8 }}>
-          {refineFocus && <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Focused on: <b>{refineFocus}</b></div>}
-          <textarea
-            className="st-form-control"
-            placeholder={refineFocus ? `What should change about ${refineFocus.toLowerCase()}?` : "What should change about this copy?"}
-            style={{ minHeight: 50, fontSize: 12, marginBottom: 6 }}
-            value={refineNotes}
-            onChange={(e) => setRefineNotes(e.target.value)}
-          />
-          <button className="st-btn st-btn-primary st-btn-sm" disabled={disabled} onClick={handleSendRefine}>Send</button>
-        </div>
-      )}
-
-      <ConceptCandidatePreview runId={run.runId} stage="copy" assetId={assetId} candidate={candidate} actor={actor} onError={onError} />
+      <ConceptChatPanel
+        runId={run.runId} stage="copy" assetId={assetId} candidate={candidate} actor={actor}
+        open={chatOpen} onOpenChange={setChatOpen} focus={chatFocus} onFocusClear={() => setChatFocus(null)} onError={onError}
+      />
     </div>
   );
 }

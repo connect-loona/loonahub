@@ -156,3 +156,13 @@ body {
 .st-candidate-label { font-size: 10px; color: var(--accent); text-transform: uppercase; letter-spacing: .04em; font-weight: 700; margin-bottom: 6px; }
 .st-lock-summary { font-size: var(--text-sm); font-weight: 700; padding: 3px 10px; border-radius: var(--radius-full); background: var(--surface2); border: 1px solid var(--border); color: var(--muted); }
 .st-lock-summary.is-complete { color: var(--green); }
+
+/* ---- Concept refine chat (ConceptChatPanel.tsx) — the running transcript rendered under a
+   concept/copy card once "Refine" has sent at least one message. Each chained "refine"
+   round appends a user + assistant turn rather than replacing the box outright, so this
+   reads as an actual conversation instead of a series of one-shot swaps. ---- */
+.st-chat-panel { margin-top: 8px; }
+.st-chat-thread { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; margin-bottom: 8px; padding-right: 4px; }
+.st-chat-turn { font-size: var(--text-sm); line-height: 1.45; padding: 6px 10px; border-radius: var(--radius-md); }
+.st-chat-turn-user { background: var(--surface2); border: 1px solid var(--border); align-self: flex-end; max-width: 92%; }
+.st-chat-turn-assistant { border-left: 2px solid var(--accent); padding-left: 8px; color: var(--muted); align-self: flex-start; max-width: 92%; }

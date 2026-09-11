@@ -56,6 +56,22 @@ export interface StrategyCheckpoint {
   discarded?: DiscardedConcept[];
 }
 
+// One turn in a candidate's running chat thread — see ConceptChatPanel.tsx and
+// pipeline.js's proposeAssetCandidate. A user turn records what was asked for; an
+// assistant turn records a one-line summary of what that round produced (computed
+// server-side by ASSET_STAGE_CONFIG's summarize()). The candidate object's own shape never
+// changes — this is a separate, additive transcript alongside it.
+export interface ConceptChatTurn {
+  role: "user" | "assistant";
+  at: string;
+  // user turns:
+  notes?: string | null;
+  focus?: string | null;
+  requestType?: string;
+  // assistant turns:
+  summary?: string;
+}
+
 // A pending refine/similar candidate for one asset — see strategy-concept-propose.js.
 export interface ConceptCandidate {
   status: "running" | "ready" | "failed";
@@ -66,6 +82,9 @@ export interface ConceptCandidate {
   // see CopyReview.tsx's per-caption/script "Refine this" links and
   // strategy-concept-propose.js's own header comment.
   focus?: string | null;
+  // The running conversation for this candidate — grows across chained "refine" turns,
+  // resets on a fresh "similar"/"discard"/"replace". See ConceptChatPanel.tsx.
+  history?: ConceptChatTurn[];
   candidate?: {
     conceptName?: string;
     hook?: string;
