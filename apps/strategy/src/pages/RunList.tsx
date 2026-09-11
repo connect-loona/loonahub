@@ -3,6 +3,7 @@ import { useBrands, useRuns } from "../lib/useRuns";
 import { currentStageOf, isArchived, STAGE_LABELS, type StrategyRun } from "../lib/types";
 import { fmtDateTime, monthLabel, statusLabel } from "../lib/format";
 import { archiveRun, purgeRun, restoreRun } from "../lib/api";
+import { AgentGreeting } from "../components/AgentGreeting";
 
 type ListView = "active" | "archived";
 
@@ -74,6 +75,8 @@ export function RunList({ actor, onOpenRun, onManageBrands, onStartNewRun }: {
 
   return (
     <div>
+      <AgentGreeting />
+
       <div className="st-section-header">
         <div className="st-section-title">Strategy OS</div>
         <div style={{ display: "flex", gap: 8 }}>
