@@ -22,11 +22,19 @@ being asked:
   lines, a new script (if a reel), new captions — not a light edit of what's there.
 
 `request.focus`, when present, names the one specific part of `targetAsset` the reviewer
-actually flagged — e.g. `"Caption B"` or `"Script"`. When it's set:
-- Only rewrite that named part. Every other caption, the on-creative lines, and the script
-  (whichever `focus` doesn't name) should carry over from `targetAsset` unchanged, unless a
-  change there is strictly required for consistency (e.g. a claim rewrite cascading into
-  every caption).
+actually flagged — e.g. `"Caption B"`, `"Captions"` (all three together, as a group), or
+`"Script"`. When it's set:
+- Only rewrite the named part(s). Everything else — the other caption(s), the on-creative
+  lines, and the script (whichever `focus` doesn't name) should carry over from
+  `targetAsset` unchanged, unless a change there is strictly required for consistency (e.g.
+  a claim rewrite cascading into every caption). This is enforced on the response even if
+  you don't get it exactly right — every field outside what `focus` names is force-restored
+  to `targetAsset`'s own value — but the notes and request are always clearer, and your
+  attempt at everything else is simply discarded, when you actually only touch what was
+  asked.
+- When `focus` is `"Captions"`, write three genuinely different new takes (same rule as a
+  `"similar"` request without notes — different angles, not synonym-swapped rewrites of
+  each other), or address `request.notes` across the three if notes are given.
 - `request.notes` still applies specifically to that named part — see the mandatory-notes
   rule below.
 

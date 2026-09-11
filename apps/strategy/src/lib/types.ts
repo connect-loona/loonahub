@@ -82,6 +82,10 @@ export interface ConceptCandidate {
   // see CopyReview.tsx's per-caption/script "Refine this" links and
   // strategy-concept-propose.js's own header comment.
   focus?: string | null;
+  // "captions" | "script" (copy only) — set when this candidate is one independent
+  // section's own thread rather than a whole-asset one. See ConceptChatPanel.tsx and
+  // pipeline.js's ASSET_STAGE_CONFIG.copy.sections.
+  section?: string | null;
   // The running conversation for this candidate — grows across chained "refine" turns,
   // resets on a fresh "similar"/"discard"/"replace". See ConceptChatPanel.tsx.
   history?: ConceptChatTurn[];

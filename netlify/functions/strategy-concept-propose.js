@@ -1,14 +1,21 @@
-// POST { runId, stage, assetId, action, notes?, focus? } — kicks off a candidate
+// POST { runId, stage, assetId, action, notes?, focus?, section? } — kicks off a candidate
 // replacement for ONE asset in an awaiting-review stage ("refine" with notes on any
 // supported stage, or "similar"/"suggest another" for an alternative in the same spirit —
 // strategy and copy). `focus` is an optional free-text pointer at the specific part of the
-// asset the reviewer means (e.g. "Caption B", "Script") — see CopyReview.tsx's per-
-// caption/script "Refine this" links; it's passed straight through to the refine prompt as
-// a hint, it doesn't change what shape the model has to return. Fires the actual model call
-// as a background function (real model calls can run long, same reason every other stage
-// does this) and returns immediately; the candidate's progress (running/ready/failed) lives
-// at strategy_runs/<runId>/stages/<stage>/candidates/<assetId>, watched live the same way
-// everything else in this run is.
+// asset the reviewer means (e.g. "Caption B", "Script") — passed straight through to the
+// refine prompt as a hint, it doesn't change what shape the model has to return.
+//
+// `section` ("captions" | "script", copy only) is a stronger version of the same idea: it
+// scopes the candidate to a fully INDEPENDENT thread — its own Firebase key, its own lock,
+// hard-enforced so only that section's fields can actually change (see pipeline.js's
+// ASSET_STAGE_CONFIG.copy.sections) — so refining captions and refining the script can run
+// at the same time without either clobbering the other. See CopyReview.tsx.
+//
+// Fires the actual model call as a background function (real model calls can run long,
+// same reason every other stage does this) and returns immediately; the candidate's
+// progress (running/ready/failed) lives at strategy_runs/<runId>/stages/<stage>/candidates/
+// <assetId>, or <assetId>::<section> when sectioned — watched live the same way everything
+// else in this run is.
 "use strict";
 const { fbGet, fbSet } = require("./lib/strategy/firebase");
 const { checkAuthorization } = require("./lib/strategy/auth");
@@ -57,6 +64,7 @@ exports.handler = async (event) => {
   // doesn't change validation or the schema the model must still return a full asset
   // against.
   const focus = String(body.focus || "").trim() || null;
+  const section = String(body.section || "").trim() || null;
   const validActions = VALID_ACTIONS_BY_STAGE[stage];
   if (!runId || !assetId || !validActions || !validActions.includes(action)) {
     return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: `runId, assetId and a valid action (${validActions ? validActions.map((a) => `"${a}"`).join(" or ") : "unsupported stage"}) are required.` }) };
@@ -64,6 +72,7 @@ exports.handler = async (event) => {
   if (action === "refine" && !notes) {
     return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "Refining needs notes on what should change." }) };
   }
+  const candidateKey = section ? `${assetId}::${section}` : assetId;
 
   try {
     const run = await fbGet(`strategy_runs/${runId}`);
@@ -74,9 +83,9 @@ exports.handler = async (event) => {
     }
     const existing = targetStage.checkpoint && targetStage.checkpoint.assets.find((asset) => asset.assetId === assetId);
     if (!existing) return { statusCode: 404, headers: cors(), body: JSON.stringify({ error: `Asset ${assetId} not found in this run's ${stage}.` }) };
-    const existingCandidate = await fbGet(`strategy_runs/${runId}/stages/${stage}/candidates/${assetId}`);
+    const existingCandidate = await fbGet(`strategy_runs/${runId}/stages/${stage}/candidates/${candidateKey}`);
     if (existingCandidate && existingCandidate.status === "running") {
-      return { statusCode: 409, headers: cors(), body: JSON.stringify({ error: `A replacement for ${assetId} is already being generated.` }) };
+      return { statusCode: 409, headers: cors(), body: JSON.stringify({ error: `A replacement for ${assetId}${section ? ` (${section})` : ""} is already being generated.` }) };
     }
 
     const base = siteBaseUrl(event);
@@ -84,11 +93,11 @@ exports.handler = async (event) => {
       await fetch(`${base}/.netlify/functions/strategy-concept-propose-background`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ runId, stage, assetId, action, notes, focus }),
+        body: JSON.stringify({ runId, stage, assetId, action, notes, focus, section }),
       });
     } catch (e) {
       console.error("Failed to trigger strategy-concept-propose-background:", e);
-      await fbSet(`strategy_runs/${runId}/stages/${stage}/candidates/${assetId}`, { status: "failed", requestType: action, notes: notes || null, detail: `Could not start: ${e.message || e}` });
+      await fbSet(`strategy_runs/${runId}/stages/${stage}/candidates/${candidateKey}`, { status: "failed", requestType: action, notes: notes || null, detail: `Could not start: ${e.message || e}` });
       return { statusCode: 502, headers: cors(), body: JSON.stringify({ error: `Could not start: ${e.message || e}` }) };
     }
 

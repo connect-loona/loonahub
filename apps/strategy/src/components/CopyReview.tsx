@@ -1,11 +1,17 @@
 // The copy stage's review screen — ported from strategy-app.js's copyReviewHtml(). Same
-// Refine/Replace/Lock action set as the strategy stage's concept cards, but "Replace"
-// (not "Discard") is copy's own auto-accept kill type — see strategy-app.js's
+// Replace/Lock action set as the strategy stage's concept cards, but "Replace" (not
+// "Discard") is copy's own auto-accept kill type — see strategy-app.js's
 // soReplaceCopyAsset.
+//
+// Captions and script are each their own independently refinable, lockable section (see
+// pipeline.js's ASSET_STAGE_CONFIG.copy.sections) — captions render as a row of three
+// cards with one shared chat/refine box (plus a one-click "Get 3 variations"), and the
+// script gets its own always-visible chat box below it. Each has its own Lock button; an
+// asset only counts as "locked" for the stage-wide summary once BOTH are locked.
 import { useState } from "react";
 import type { ConceptCandidate, CopyAsset, CopyCheckpoint, StageState, StrategyRun } from "../lib/types";
 import { fmtDateTime } from "../lib/format";
-import { discardConcept, proposeConcept, toggleAssetLock } from "../lib/api";
+import { discardConcept, toggleAssetLock } from "../lib/api";
 import { ConceptChatPanel } from "./ConceptChatPanel";
 
 function claimChipStyle(status?: string) {
@@ -14,16 +20,23 @@ function claimChipStyle(status?: string) {
   return { color, background: bg };
 }
 
-function CopyAssetRow({ run, stage, actor, asset, candidate, locked, onError }: {
+function SectionLockButton({ locked, disabled, onClick }: { locked: boolean; disabled: boolean; onClick: () => void }) {
+  return (
+    <button className={`st-btn st-btn-sm ${locked ? "st-btn-primary" : "st-btn-ghost"}`} disabled={disabled} onClick={onClick}>
+      {locked ? "🔒 Locked" : "Lock"}
+    </button>
+  );
+}
+
+function CopyAssetRow({ run, stage, actor, asset, captionsCandidate, scriptCandidate, captionsLocked, scriptLocked, onError }: {
   run: StrategyRun; stage: StageState; actor: string; asset: CopyAsset;
-  candidate: ConceptCandidate | undefined; locked: boolean; onError: (msg: string) => void;
+  captionsCandidate: ConceptCandidate | undefined; scriptCandidate: ConceptCandidate | undefined;
+  captionsLocked: boolean; scriptLocked: boolean; onError: (msg: string) => void;
 }) {
   const readOnly = stage.status === "approved";
-  const busyCandidate = candidate?.status === "running";
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatFocus, setChatFocus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const assetId = asset.assetId;
+  const hasScript = !!asset.script?.scenes?.length || asset.format === "reel";
 
   async function withBusy(fn: () => Promise<unknown>) {
     setBusy(true);
@@ -42,25 +55,18 @@ function CopyAssetRow({ run, stage, actor, asset, candidate, locked, onError }: 
     await withBusy(() => discardConcept({ runId: run.runId, stage: "copy", assetId, notes, actor }));
   }
 
-  // Opens the chat, optionally aimed at one specific part of the asset (a caption version
-  // or the script) rather than a whole-asset rewrite — see each caption/script's own
-  // "Refine this" link below. Switching targets while chatting is rare enough that we just
-  // re-point the focus tag; it doesn't reset or discard whatever thread is already there.
-  function openRefine(focus: string | null) {
-    setChatFocus(focus);
-    setChatOpen(true);
-  }
-
-  const disabled = busy || busyCandidate;
+  const busyCaptions = captionsCandidate?.status === "running";
+  const busyScript = scriptCandidate?.status === "running";
+  const disabled = busy || busyCaptions || busyScript;
   const audit = asset.claimAudit || {};
   const label = (asset.skuNames && asset.skuNames.join(", ")) || asset.portfolioName || "—";
 
   return (
-    <div className={`st-concept-row ${locked ? "is-locked" : ""}`}>
+    <div className="st-concept-row">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
         <div style={{ fontWeight: 700 }}>
           {asset.assetId} &middot; {asset.format} &middot; {label}
-          {locked && <span style={{ color: "var(--green)", fontSize: 11 }}> 🔒</span>}
+          {captionsLocked && scriptLocked && <span style={{ color: "var(--green)", fontSize: 11 }}> 🔒</span>}
         </div>
         {audit.status && <span className="st-chip" style={claimChipStyle(audit.status)}>{audit.status}</span>}
       </div>
@@ -70,57 +76,58 @@ function CopyAssetRow({ run, stage, actor, asset, candidate, locked, onError }: 
         <div key={i} style={{ fontSize: 12, color: "var(--muted)" }}>{f.label}: {f.text}</div>
       ))}
       {asset.onCreative?.endFrame && <div style={{ fontSize: 12, color: "var(--muted)" }}><b>End frame:</b> {asset.onCreative.endFrame}</div>}
-      {!!asset.script?.scenes?.length && (
-        <div style={{ marginTop: 8 }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-            <b style={{ fontSize: 12 }}>Script ({asset.script.durationSeconds}s)</b>
-            {!readOnly && (
-              <a href="#" aria-label="Refine Script" style={{ fontSize: 11, color: "var(--accent)" }} onClick={(e) => { e.preventDefault(); openRefine("Script"); }}>Refine this</a>
-            )}
-          </div>
-          {asset.script.scenes.map((sc, i) => (
-            <div key={i} style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>{sc.timing} — {sc.visual} &middot; VO: "{sc.voiceover}"</div>
-          ))}
-        </div>
-      )}
       {!!audit.rewrittenClaims?.length && <div style={{ fontSize: 12, color: "#e0a53a", marginTop: 6 }}><b>Rewritten claims:</b> {audit.rewrittenClaims.join("; ")}</div>}
       {!!audit.verificationFlags?.length && <div style={{ fontSize: 12, color: "var(--red)", marginTop: 4 }}><b>Needs verification:</b> {audit.verificationFlags.join("; ")}</div>}
+
+      {/* ---- Captions: a row of three cards, one shared chat/refine box below ---- */}
       {!!asset.captions?.length && (
-        <div style={{ marginTop: 8 }}>
-          <b style={{ fontSize: 12 }}>Captions</b>
-          {asset.captions.map((cap, i) => (
-            <div key={i} style={{ borderTop: "1px solid var(--border)", paddingTop: 6, marginTop: 6 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase" }}>Version {cap.version} &middot; {cap.angle}</div>
-                {!readOnly && (
-                  <a href="#" aria-label={`Refine Caption ${cap.version}`} style={{ fontSize: 11, color: "var(--accent)" }} onClick={(e) => { e.preventDefault(); openRefine(`Caption ${cap.version}`); }}>Refine this</a>
-                )}
+        <div className="st-copy-section st-copy-section-captions" style={{ marginTop: 10 }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+            <b style={{ fontSize: 12 }}>Captions</b>
+            {!readOnly && <SectionLockButton locked={captionsLocked} disabled={disabled} onClick={() => withBusy(() => toggleAssetLock({ runId: run.runId, stage: "copy", assetId, actor, locked: !captionsLocked, section: "captions" }))} />}
+          </div>
+          <div className="st-caption-card-row">
+            {asset.captions.map((cap, i) => (
+              <div key={i} className="st-caption-card">
+                <div className="st-caption-card-label">{cap.version} &middot; {cap.angle}</div>
+                <div className="st-caption-card-copy">{cap.copy}</div>
+                {!!cap.hashtags?.length && <div className="st-caption-card-tags">{cap.hashtags.join(" ")}</div>}
               </div>
-              <div style={{ fontSize: 13, whiteSpace: "pre-wrap" }}>{cap.copy}</div>
-              <div style={{ fontSize: 11, color: "var(--accent)" }}>{(cap.hashtags || []).join(" ")}</div>
-            </div>
+            ))}
+          </div>
+          {!readOnly && (
+            <ConceptChatPanel
+              runId={run.runId} stage="copy" assetId={assetId} section="captions" focus="Captions" variationsCount={3}
+              candidate={captionsCandidate} actor={actor} open onOpenChange={() => {}} showCancel={false} onError={onError}
+            />
+          )}
+        </div>
+      )}
+
+      {/* ---- Script: its own always-visible chat box ---- */}
+      {hasScript && (
+        <div className="st-copy-section st-copy-section-script" style={{ marginTop: 12 }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+            <b style={{ fontSize: 12 }}>Script{asset.script?.durationSeconds ? ` (${asset.script.durationSeconds}s)` : ""}</b>
+            {!readOnly && <SectionLockButton locked={scriptLocked} disabled={disabled} onClick={() => withBusy(() => toggleAssetLock({ runId: run.runId, stage: "copy", assetId, actor, locked: !scriptLocked, section: "script" }))} />}
+          </div>
+          {(asset.script?.scenes || []).map((sc, i) => (
+            <div key={i} style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>{sc.timing} — {sc.visual} &middot; VO: "{sc.voiceover}"</div>
           ))}
+          {!readOnly && (
+            <ConceptChatPanel
+              runId={run.runId} stage="copy" assetId={assetId} section="script" focus="Script"
+              candidate={scriptCandidate} actor={actor} open onOpenChange={() => {}} showCancel={false} onError={onError}
+            />
+          )}
         </div>
       )}
 
       {!readOnly && (
-        <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <button className="st-btn st-btn-ghost st-btn-sm" disabled={disabled} onClick={() => (chatOpen ? setChatOpen(false) : openRefine(null))}>Refine</button>
-          <button className="st-btn st-btn-ghost st-btn-sm" disabled={disabled} onClick={() => withBusy(() => proposeConcept({ runId: run.runId, stage: "copy", assetId, action: "similar" }))}>Suggest another</button>
+        <div style={{ marginTop: 10 }}>
           <button className="st-btn st-btn-ghost st-btn-sm" style={{ color: "var(--red)", borderColor: "var(--red)" }} disabled={disabled} onClick={handleReplace}>Replace</button>
-          <button
-            className={`st-btn st-btn-sm ${locked ? "st-btn-primary" : "st-btn-ghost"}`}
-            style={{ marginLeft: "auto" }}
-            onClick={() => withBusy(() => toggleAssetLock({ runId: run.runId, stage: "copy", assetId, actor, locked: !locked }))}
-          >
-            {locked ? "🔒 Locked" : "Lock"}
-          </button>
         </div>
       )}
-      <ConceptChatPanel
-        runId={run.runId} stage="copy" assetId={assetId} candidate={candidate} actor={actor}
-        open={chatOpen} onOpenChange={setChatOpen} focus={chatFocus} onFocusClear={() => setChatFocus(null)} onError={onError}
-      />
     </div>
   );
 }
@@ -132,7 +139,11 @@ export function CopyReview({ run, stage, actor }: { run: StrategyRun; stage: Sta
   const locks = stage.locks || {};
   const [error, setError] = useState<string | null>(null);
   const total = (c.assets || []).length;
-  const lockedCount = Object.keys(locks).length;
+  // An asset counts as "locked" for the stage-wide summary only once BOTH its captions and
+  // script sections are locked independently — see SectionLockButton / strategy-asset-
+  // lock.js's `section` param.
+  const isLocked = (assetId: string) => !!locks[`${assetId}::captions`] && !!locks[`${assetId}::script`];
+  const lockedCount = (c.assets || []).filter((a) => isLocked(a.assetId)).length;
   const left = Math.max(0, total - lockedCount);
   const approval = run.approvals?.copy;
 
@@ -155,8 +166,10 @@ export function CopyReview({ run, stage, actor }: { run: StrategyRun; stage: Sta
             stage={stage}
             actor={actor}
             asset={asset}
-            candidate={candidates[asset.assetId]}
-            locked={!!locks[asset.assetId]}
+            captionsCandidate={candidates[`${asset.assetId}::captions`]}
+            scriptCandidate={candidates[`${asset.assetId}::script`]}
+            captionsLocked={!!locks[`${asset.assetId}::captions`]}
+            scriptLocked={!!locks[`${asset.assetId}::script`]}
             onError={setError}
           />
         ))}
