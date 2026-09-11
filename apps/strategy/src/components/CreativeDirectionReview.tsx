@@ -1,21 +1,67 @@
 // The creative-direction stage's review screen — ported from strategy-app.js's
-// directionReviewHtml(). Read-only content (no per-item actions, matching the legacy
-// app) — approve/send-back lives entirely in the "Your next action" card.
+// directionReviewHtml(). No refine/regenerate actions here (matching the legacy app), but
+// each asset now has its own Lock button — see strategy-stage-approve.js's header comment:
+// approving a stage with anything locked now carries forward only the locked subset, so
+// this is the one place in creative-direction to say "keep this one" before moving on.
+import { useState } from "react";
 import type { CreativeDirectionCheckpoint, StageState, StrategyRun } from "../lib/types";
 import { fmtDateTime } from "../lib/format";
+import { toggleAssetLock } from "../lib/api";
 
-export function CreativeDirectionReview({ run, stage }: { run: StrategyRun; stage: StageState }) {
+export function CreativeDirectionReview({ run, stage, actor }: { run: StrategyRun; stage: StageState; actor: string }) {
   const d = stage.checkpoint as CreativeDirectionCheckpoint;
   const readOnly = stage.status === "approved";
   const approval = run.approvals?.["creative-direction"];
+  const locks = stage.locks || {};
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const total = (d.assets || []).length;
+  const lockedCount = (d.assets || []).filter((a) => !!locks[a.assetId]).length;
+  const left = Math.max(0, total - lockedCount);
+
+  async function handleToggleLock(assetId: string, locked: boolean) {
+    setBusyId(assetId);
+    setError(null);
+    try {
+      await toggleAssetLock({ runId: run.runId, stage: "creative-direction", assetId, actor, locked });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   return (
     <>
       <div className="st-board" style={{ marginTop: 0 }}>
-        <div className="st-board-header">Creative direction <span className="st-tag">{(d.assets || []).length} assets</span></div>
-        {(d.assets || []).map((a) => (
+        <div className="st-board-header" style={{ justifyContent: "space-between" }}>
+          Creative direction <span className="st-tag">{total} assets</span>
+          {!readOnly && (
+            <span className={`st-lock-summary ${lockedCount === total && total > 0 ? "is-complete" : ""}`} style={{ marginLeft: "auto" }}>
+              {lockedCount} of {total} locked{left > 0 ? ` · ${left} left` : ""}
+            </span>
+          )}
+        </div>
+        {error && <div className="st-error-text">{error}</div>}
+        {(d.assets || []).map((a) => {
+          const locked = !!locks[a.assetId];
+          return (
           <div key={a.assetId} style={{ borderBottom: "1px solid var(--border)", padding: "12px 0" }}>
-            <div style={{ fontWeight: 700 }}>{a.assetId} &middot; {a.format} &middot; {a.productionMode}</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
+              <div style={{ fontWeight: 700 }}>
+                {a.assetId} &middot; {a.format} &middot; {a.productionMode}
+                {locked && <span style={{ color: "var(--green)", fontSize: 11 }}> 🔒</span>}
+              </div>
+              {!readOnly && (
+                <button
+                  className={`st-btn st-btn-sm ${locked ? "st-btn-primary" : "st-btn-ghost"}`}
+                  disabled={busyId === a.assetId}
+                  onClick={() => handleToggleLock(a.assetId, !locked)}
+                >
+                  {locked ? "🔒 Locked" : "Lock"}
+                </button>
+              )}
+            </div>
             <div style={{ margin: "6px 0" }}>{a.visualConcept}</div>
             <div style={{ fontSize: 12, color: "var(--muted)" }}><b>Art direction:</b> {a.artDirection}</div>
             <div style={{ fontSize: 12, color: "var(--muted)" }}><b>Palette:</b> {(a.palette || []).join(", ")}</div>
@@ -37,7 +83,8 @@ export function CreativeDirectionReview({ run, stage }: { run: StrategyRun; stag
             {!!a.designNotes?.length && <div style={{ fontSize: 12, marginTop: 6 }}><b>Design notes:</b> {a.designNotes.join("; ")}</div>}
             {!!a.avoid?.length && <div style={{ fontSize: 12, color: "var(--red)" }}><b>Avoid:</b> {a.avoid.join("; ")}</div>}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {!!d.productionNotes?.length && (
