@@ -75,6 +75,16 @@ async function runFor(month) {
   await page.locator("button", { hasText: "+ Add deliverable" }).click();
   await page.locator('input[aria-label="Count — Story"]').fill("2");
   await page.locator('textarea[aria-label="Notes"]').fill("Focus on the Diwali gifting angle this month.");
+
+  // ---- Advanced: which model writes this run (collapsed by default) ----
+  check("the model pickers are collapsed until Advanced is opened", await page.locator('select[aria-label="Default model"]').isVisible() === false);
+  await page.locator("summary", { hasText: "Advanced" }).click();
+  await waitFor(async () => (await page.locator('select[aria-label="Default model"]').isVisible()) || null, { label: "advanced block opens" });
+  check("the default model starts on ChatGPT", await page.locator('select[aria-label="Default model"]').inputValue() === "openai");
+  check("every stage starts on \"same as default\"", await page.locator('select[aria-label="Copy model"]').inputValue() === "");
+  await page.locator('select[aria-label="Default model"]').selectOption("claude");
+  await page.locator('select[aria-label="Copy model"]').selectOption("openai");
+
   await page.locator("button", { hasText: "Submit & start research" }).click();
 
   // Submitting navigates into the run detail view — wait for the stage rail (renders
@@ -88,6 +98,9 @@ async function runFor(month) {
   check("monthly run's deliverablesOverride keeps the untouched carousel/static defaults", monthlyRun.deliverablesOverride.carousel === 4 && monthlyRun.deliverablesOverride.static === 3);
   check("monthly run's deliverablesOverride includes the added Story row", monthlyRun.deliverablesOverride.story === 2, monthlyRun.deliverablesOverride);
   check("monthly run's sourceContext carries the priorities text (reaches Research's prompt — see pipeline.js)", (monthlyRun.sourceContext || []).some((s) => s.includes("Diwali gifting")), monthlyRun.sourceContext);
+  check("the Advanced block's default-model pick is stored on the run", monthlyRun.runtime === "claude", monthlyRun.runtime);
+  check("the per-stage override is stored for the stage it was set on", monthlyRun.runtimes && monthlyRun.runtimes.copy === "openai", monthlyRun.runtimes);
+  check("stages left on \"same as default\" aren't stored as overrides", monthlyRun.runtimes && !monthlyRun.runtimes.research, monthlyRun.runtimes);
 
   // ---- Campaign path ----
   await page.locator("button", { hasText: "All runs" }).click();
@@ -113,6 +126,10 @@ async function runFor(month) {
   check("campaign run goes through the same pipeline (still has the standard 5 stages)", Object.keys(campaignRun.stages || {}).length === 5, campaignRun.stages);
   check("campaign run's deliverablesOverride reflects the edited carousel count (2)", campaignRun.deliverablesOverride && campaignRun.deliverablesOverride.carousel === 2, campaignRun.deliverablesOverride);
   check("campaign run's sourceContext carries the campaign details text", (campaignRun.sourceContext || []).some((s) => s.includes("Diwali gifting push")), campaignRun.sourceContext);
+  // Advanced was never opened on this path — leaving it alone has to behave exactly as the
+  // wizard did before the model pickers existed.
+  check("leaving Advanced untouched stores no per-stage overrides", campaignRun.runtimes === null || campaignRun.runtimes === undefined, campaignRun.runtimes);
+  check("leaving Advanced untouched keeps the ChatGPT default", campaignRun.runtime === "openai", campaignRun.runtime);
 
   check("no page errors", errors.length === 0, errors);
 

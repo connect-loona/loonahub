@@ -25,11 +25,16 @@ async function post(path: string, body: unknown): Promise<unknown> {
 
 // runType/deliverablesOverride/sourceContext come from the new-run wizard (NewRunWizard) —
 // see strategy-run-start.js's own header comment for what each does server-side.
+// runtime picks which model writes the run; runtimes overrides that per stage (keys are the
+// five pipeline stage names). Both are preferences, not bindings — an unreachable provider
+// falls over to the other one server-side (runtime-failover.js).
 export function startRun(args: {
   brandId: string;
   month: string;
   actor: string;
   runType?: "monthly" | "campaign";
+  runtime?: "openai" | "claude";
+  runtimes?: Record<string, "openai" | "claude">;
   deliverablesOverride?: DeliverablesCount;
   sourceContext?: string[];
 }): Promise<{ runId: string }> {

@@ -18,6 +18,25 @@ import { DeliverablesFields, deliverablesToMap, rowsFromDeliverables, type Row }
 
 type RunType = "monthly" | "campaign";
 type Step = "intake" | "details";
+type Provider = "openai" | "claude";
+
+// Which model writes each stage. The picked one goes FIRST — if it's unreachable (no
+// credits, outage, key not configured) the run falls over to the other one rather than
+// failing, so this is a preference, not a hard binding. See runtime-failover.js.
+const PROVIDER_LABELS: Record<Provider, string> = {
+  openai: "ChatGPT",
+  claude: "Claude",
+};
+
+// Same five stages strategy-run-start.js accepts in its `runtimes` map, with the names the
+// rail already shows people.
+const STAGES: { key: string; label: string }[] = [
+  { key: "research", label: "Research" },
+  { key: "strategy", label: "Strategy" },
+  { key: "copy", label: "Copy" },
+  { key: "creative-direction", label: "Creative direction" },
+  { key: "deck-builder", label: "Deck" },
+];
 
 function defaultMonth(): string {
   const d = new Date();
@@ -44,6 +63,12 @@ export function NewRunWizard({
   const [deliverableRows, setDeliverableRows] = useState<Row[]>(() => rowsFromDeliverables(brands[0]?.deliverables as DeliverablesCount | undefined));
   const [notes, setNotes] = useState("");
 
+  // Model preferences. `runtime` is the whole run's default; `stageRuntimes` overrides it
+  // for individual stages ("" = follow the run default). Both are optional — leaving the
+  // Advanced block untouched sends exactly what the wizard sent before this existed.
+  const [runtime, setRuntime] = useState<Provider>("openai");
+  const [stageRuntimes, setStageRuntimes] = useState<Record<string, Provider | "">>({});
+
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -65,11 +90,20 @@ export function NewRunWizard({
     setSubmitting(true);
     setError(null);
     try {
+      // Only send stages that were actually overridden — an empty map means "every stage
+      // runs on the run default", which is what the server already assumes.
+      const runtimes: Record<string, Provider> = {};
+      for (const { key } of STAGES) {
+        const choice = stageRuntimes[key];
+        if (choice) runtimes[key] = choice;
+      }
       const { runId } = await startRun({
         brandId,
         month,
         actor,
         runType,
+        runtime,
+        runtimes: Object.keys(runtimes).length ? runtimes : undefined,
         deliverablesOverride: deliverablesToMap(deliverableRows),
         sourceContext: notes.trim() ? [notes.trim()] : [],
       });
@@ -174,6 +208,46 @@ export function NewRunWizard({
             />
           </>
         )}
+
+        <details className="st-advanced" style={{ marginTop: 16 }}>
+          <summary className="st-field-label" style={{ cursor: "pointer" }}>Advanced — which model writes this run</summary>
+          <div style={{ marginTop: 10 }}>
+            <div className="st-note" style={{ marginBottom: 10 }}>
+              Whichever model you pick goes first. If it's out of credits or unreachable, the run automatically
+              falls over to the other one instead of failing.
+            </div>
+            <label className="st-field-label">Default model</label>
+            <select
+              className="st-form-control"
+              aria-label="Default model"
+              value={runtime}
+              onChange={(e) => setRuntime(e.target.value as Provider)}
+            >
+              {(Object.keys(PROVIDER_LABELS) as Provider[]).map((p) => (
+                <option key={p} value={p}>{PROVIDER_LABELS[p]}</option>
+              ))}
+            </select>
+
+            <div className="st-field-label" style={{ marginTop: 12 }}>Per stage</div>
+            {STAGES.map((stage) => (
+              <div key={stage.key} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                <div style={{ flex: 1 }}>{stage.label}</div>
+                <select
+                  className="st-form-control"
+                  style={{ flex: 1, marginBottom: 0 }}
+                  aria-label={`${stage.label} model`}
+                  value={stageRuntimes[stage.key] || ""}
+                  onChange={(e) => setStageRuntimes({ ...stageRuntimes, [stage.key]: e.target.value as Provider | "" })}
+                >
+                  <option value="">Same as default ({PROVIDER_LABELS[runtime]})</option>
+                  {(Object.keys(PROVIDER_LABELS) as Provider[]).map((p) => (
+                    <option key={p} value={p}>{PROVIDER_LABELS[p]}</option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+        </details>
 
         {error && <div className="st-error-text" style={{ marginTop: 16 }}>{error}</div>}
 

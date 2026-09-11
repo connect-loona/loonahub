@@ -170,11 +170,20 @@
 #   STRATEGY_OPENAI_MODEL    (optional — model id for Strategy OS's Research/Strategy stages;
 #                             defaults to "gpt-5.4" if unset. Never hard-code a model name in
 #                             code, per the Strategy OS build brief — change it here instead.)
-#   ANTHROPIC_API_KEY        (provisioned ahead of need — the RRO vertical slice's Research and
-#                             Strategy stages don't call Claude at all (see the Strategy OS
-#                             integration report), only the Copy stage does once it's built
-#                             (Claude drafts, ChatGPT reviews — brief section 3). Set this now so
-#                             that phase doesn't need a second credentials round-trip.)
+#   ANTHROPIC_API_KEY        (Claude, used by Strategy OS's Claude runtime — see
+#   or CLAUDE_API_KEY         netlify/functions/lib/strategy/runtime-claude.js. EITHER name works:
+#                             ANTHROPIC_API_KEY is the SDK's own name and what this file always
+#                             documented, but CLAUDE_API_KEY is the name actually set in the
+#                             dashboard, so the runtime reads both rather than making anyone
+#                             re-enter a working secret (same approach as
+#                             GOOGLE_CALENDER_SERVICE_ACCOUNT's misspelling below).
+#                             Any stage can run on Claude — the New run wizard's Advanced block
+#                             picks a default and optional per-stage overrides — and whichever
+#                             provider a stage isn't using is its automatic failover when the
+#                             other is out of credits or unreachable (runtime-failover.js).)
+#   STRATEGY_CLAUDE_MODEL    (optional — model id for stages running on Claude; defaults to
+#                             "claude-opus-5" if unset. Same rule as STRATEGY_OPENAI_MODEL:
+#                             change it here, never in code.)
 #   SARVAM_API_KEY           (Sarvam AI batch speech-to-text, used by Loona Notes' meeting
 #                             recorder — see netlify/functions/sarvam-*.js)
 #   GOOGLE_CALENDAR_SERVICE_ACCOUNT   (full JSON key contents for the service account

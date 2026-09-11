@@ -14,6 +14,7 @@ const { validateResearch, validateStrategy, validateCopy, validateDirection, val
 const { OpenAIAgentsRuntime } = require("./runtime-openai");
 const { ClaudeRuntime } = require("./runtime-claude");
 const { FixtureRuntime } = require("./runtime-fixture");
+const { FailoverRuntime } = require("./runtime-failover");
 const { StageValidationError } = require("./errors");
 const { saveStageVersion, saveStageMetrics, saveFeedbackEvent } = require("./observability");
 
@@ -35,10 +36,31 @@ function stageAgent(stage) {
   return STAGE_AGENTS[stage] || { emoji: "🤖", name: "The agent" };
 }
 
-function createRuntime(run) {
+const PROVIDER_FACTORIES = {
+  openai: () => new OpenAIAgentsRuntime(),
+  claude: () => new ClaudeRuntime(),
+};
+
+// Which provider a given stage prefers. `run.runtimes` is an optional per-stage map
+// ({ research: "openai", copy: "claude", ... }) — set it and that stage runs on that
+// model; leave it out and every stage falls back to the run's single `runtime`, which is
+// what every run created before per-stage assignment existed does. There is deliberately
+// no opinionated built-in map: both providers can do every stage (both have web search
+// for Research and reference-search), so picking one per stage is a taste call for the
+// team to make per brand, not something to hard-code here on a guess.
+function providerForStage(run, stage) {
+  const perStage = run.runtimes && stage ? run.runtimes[stage] : null;
+  const chosen = perStage || run.runtime;
+  return PROVIDER_FACTORIES[chosen] ? chosen : "openai";
+}
+
+function createRuntime(run, stage) {
+  // Fixture runs never fail over: tests need one deterministic source of output, and the
+  // whole point of the fixture runtime is that it can't fail for provider reasons anyway.
   if (run.runtime === "fixture") return new FixtureRuntime(run.fixtureDir);
-  if (run.runtime === "claude") return new ClaudeRuntime();
-  return new OpenAIAgentsRuntime();
+  const primary = providerForStage(run, stage);
+  const order = [primary, ...Object.keys(PROVIDER_FACTORIES).filter((name) => name !== primary)];
+  return new FailoverRuntime(order.map((name) => ({ name, create: PROVIDER_FACTORIES[name] })));
 }
 
 // Strategy needs the evidence and tensions that survived Research, not its full working
@@ -98,7 +120,7 @@ function pick(obj, keys) {
 // backed by Firebase instead of a local checkpoint file.
 async function executeStage(runId, run, def) {
   const startedAt = Date.now();
-  const runtime = createRuntime(run);
+  const runtime = createRuntime(run, def.stage);
   const instructions = def.fixedInstructions || loadPrompt(def.promptFile);
   let repairIssues = [];
   let previousOutput = null;
@@ -139,6 +161,11 @@ async function executeStage(runId, run, def) {
           attempts: attempt + 1,
           repairs: attempt,
           outcome: "needs_review",
+          // Which provider actually produced this checkpoint — not necessarily the one the
+          // run asked for, since FailoverRuntime may have moved on after an outage. Worth
+          // recording: it's the only way to tell after the fact whether a month's work came
+          // from the model the team picked.
+          servedBy: runtime.servedBy || null,
         });
         await setStageStatus(runId, def.stage, { status: "needs_review", detail: "Validated. Awaiting review.", checkpoint: finalOutput, error: null });
         await fbUpdate(`strategy_runs/${runId}`, { status: def.reviewStatus, coordinator: { name: "BB Loona", currentStage: def.stage, specialist: def.agentName, status: "awaiting_human_review" }, updatedAt: new Date().toISOString() });
@@ -507,7 +534,7 @@ async function proposeAssetCandidate(runId, stage, assetId, requestType, notes, 
     loadBrandLibrary(config),
     cfg.loadContext(run),
   ]);
-  const runtime = createRuntime(run);
+  const runtime = createRuntime(run, stage);
   const instructions = loadPrompt(cfg.promptFile);
   const input = Object.assign({
     brandConfig: config,
@@ -784,5 +811,8 @@ module.exports = {
   proposeAssetCandidate, acceptAssetCandidate, replaceAsset, reopenStage,
   applyLockFilterOnApprove,
   logActivity, buildStrategyResearchBrief,
+  // Exported for tests only — FailoverRuntime builds its providers lazily, so the returned
+  // runtime can be inspected for provider ORDER without any key being configured.
+  createRuntime, providerForStage,
 };
 
