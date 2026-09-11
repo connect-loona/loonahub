@@ -25,15 +25,27 @@ async function post(path: string, body: unknown): Promise<unknown> {
 
 // runType/deliverablesOverride/sourceContext come from the new-run wizard (NewRunWizard) —
 // see strategy-run-start.js's own header comment for what each does server-side.
+// runtime picks which model writes the run; runtimes overrides that per stage (keys are the
+// five pipeline stage names). Both are preferences, not bindings — an unreachable provider
+// falls over to the other one server-side (runtime-failover.js).
 export function startRun(args: {
   brandId: string;
   month: string;
   actor: string;
   runType?: "monthly" | "campaign";
+  runtime?: "openai" | "claude";
+  runtimes?: Record<string, "openai" | "claude">;
   deliverablesOverride?: DeliverablesCount;
   sourceContext?: string[];
 }): Promise<{ runId: string }> {
   return post("strategy-run-start", args) as Promise<{ runId: string }>;
+}
+
+// Re-reads a brand's Drive folder now, instead of waiting for the next strategy run to do it
+// as a side effect. Returns as soon as the scan is queued — the work happens in a background
+// function and progress shows up on the strategy_brand_library/<brandId> listener.
+export function scanBrandLibrary(args: { brandId: string; actor: string }): Promise<{ ok: true; brandId: string }> {
+  return post("strategy-brand-library-scan", args) as Promise<{ ok: true; brandId: string }>;
 }
 
 export function archiveRun(args: { runId: string; actor: string; reason?: string }): Promise<{ ok: true }> {

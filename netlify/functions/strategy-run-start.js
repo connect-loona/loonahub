@@ -24,6 +24,9 @@ const { loadBrandConfig, loadMonthInput } = require("./lib/strategy/store");
 const { checkAuthorization } = require("./lib/strategy/auth");
 const { siteBaseUrl } = require("./lib/site-base-url");
 
+// The five pipeline stages, in order — the only keys a per-stage `runtimes` map may use.
+const STAGE_NAMES = ["research", "strategy", "copy", "creative-direction", "deck-builder"];
+
 // A run only stops being "active" once its very last stage (deck-builder) has been
 // approved — everything before that, including "failed", is still active: a failed run
 // is meant to be retried via strategy-stage-retry.js, not silently duplicated by starting
@@ -111,12 +114,23 @@ exports.handler = async (event) => {
     // see runtime-claude.js; every agent runs through the same createRuntime() in
     // pipeline.js, so this one field is all it takes to run any stage on Claude instead).
     const runtimeName = body.runtime === "fixture" ? "fixture" : body.runtime === "claude" ? "claude" : "openai";
+    // Optional per-stage override — { research: "claude", copy: "openai", ... }. Any stage
+    // left out runs on `runtime` above. Ignored entirely for fixture runs, which have only
+    // one possible source of output. See providerForStage() in pipeline.js.
+    const runtimes = {};
+    if (runtimeName !== "fixture" && body.runtimes && typeof body.runtimes === "object") {
+      for (const stage of STAGE_NAMES) {
+        const choice = body.runtimes[stage];
+        if (choice === "openai" || choice === "claude") runtimes[stage] = choice;
+      }
+    }
     const now = new Date().toISOString();
     await fbSet(`strategy_runs/${id}`, {
       runId: id,
       brandId,
       month,
       runtime: runtimeName,
+      runtimes: Object.keys(runtimes).length ? runtimes : null,
       fixtureDir: runtimeName === "fixture" ? (body.fixtureDir || null) : null,
       sourceContext: Array.isArray(body.sourceContext) ? body.sourceContext.filter((s) => typeof s === "string") : [],
       runType,

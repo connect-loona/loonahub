@@ -14,6 +14,7 @@ const { validateResearch, validateStrategy, validateCopy, validateDirection, val
 const { OpenAIAgentsRuntime } = require("./runtime-openai");
 const { ClaudeRuntime } = require("./runtime-claude");
 const { FixtureRuntime } = require("./runtime-fixture");
+const { FailoverRuntime, isProviderError } = require("./runtime-failover");
 const { StageValidationError } = require("./errors");
 const { saveStageVersion, saveStageMetrics, saveFeedbackEvent } = require("./observability");
 
@@ -35,10 +36,90 @@ function stageAgent(stage) {
   return STAGE_AGENTS[stage] || { emoji: "🤖", name: "The agent" };
 }
 
-function createRuntime(run) {
+// Two model tiers per provider. "standard" is the thinking tier every judgement stage
+// runs on; "economy" is the cheap tier for stages that are assembly rather than judgement.
+// Model ids stay in env vars, never hard-coded here, per the build brief — these are only
+// the fallbacks for when nothing is configured (the same ones each runtime already
+// defaulted to, plus an economy default per provider).
+const MODEL_TIERS = {
+  openai: {
+    standard: () => process.env.STRATEGY_OPENAI_MODEL || "gpt-5.4",
+    economy: () => process.env.STRATEGY_OPENAI_MODEL_ECONOMY || "gpt-4o-mini",
+  },
+  claude: {
+    standard: () => process.env.STRATEGY_CLAUDE_MODEL || "claude-opus-5",
+    economy: () => process.env.STRATEGY_CLAUDE_MODEL_ECONOMY || "claude-haiku-4-5-20251001",
+  },
+};
+
+// Deck Builder is the one stage that decides nothing. Every judgement call — which concepts
+// survive, what they say, how they look — was made and human-approved upstream; Bob's job is
+// to lay approved content into deck pages against a fixed schema (toolProfile: "none", no
+// web search, no new ideas). That's exactly the work a cheap model does as well as an
+// expensive one, and it's the longest single output in the pipeline, so it's also where the
+// spend actually is.
+//
+// Every other stage stays on the standard tier: research judges what's true, strategy and
+// copy judge what's good, creative direction judges what's findable. Those are not places to
+// save money.
+const STAGE_MODEL_TIERS = {
+  "deck-builder": "economy",
+};
+
+function tierForStage(stage) {
+  return STAGE_MODEL_TIERS[stage] || "standard";
+}
+
+// Should a cheap stage move up to the standard model for this attempt? Yes exactly once,
+// and only when the previous attempt produced a bad ANSWER — a schema or validation
+// failure. Failover can't rescue those (they aren't provider errors), so without escalating
+// the economy tier would burn every repair attempt against a model that already showed it
+// can't do this job.
+//
+// Not when the provider simply couldn't answer: a pricier model of a provider that's out of
+// credits fails identically, and FailoverRuntime has already tried the other provider.
+function shouldEscalateTier({ tier, attempt, alreadyEscalated, lastError }) {
+  if (attempt === 0 || alreadyEscalated) return false;
+  if (tier !== "economy") return false;
+  return Boolean(lastError) && !isProviderError(lastError);
+}
+
+function modelFor(provider, tier) {
+  const tiers = MODEL_TIERS[provider];
+  if (!tiers) return undefined;
+  return (tiers[tier] || tiers.standard)();
+}
+
+const PROVIDER_FACTORIES = {
+  openai: (tier) => new OpenAIAgentsRuntime(modelFor("openai", tier)),
+  claude: (tier) => new ClaudeRuntime(modelFor("claude", tier)),
+};
+
+// Which provider a given stage prefers. `run.runtimes` is an optional per-stage map
+// ({ research: "openai", copy: "claude", ... }) — set it and that stage runs on that
+// model; leave it out and every stage falls back to the run's single `runtime`, which is
+// what every run created before per-stage assignment existed does. There is deliberately
+// no opinionated built-in map: both providers can do every stage (both have web search
+// for Research and reference-search), so picking one per stage is a taste call for the
+// team to make per brand, not something to hard-code here on a guess.
+function providerForStage(run, stage) {
+  const perStage = run.runtimes && stage ? run.runtimes[stage] : null;
+  const chosen = perStage || run.runtime;
+  return PROVIDER_FACTORIES[chosen] ? chosen : "openai";
+}
+
+// `tier` defaults to whatever the stage is configured for, and is passed explicitly when
+// executeStage escalates a cheap stage to the standard tier after a failed attempt.
+function createRuntime(run, stage, tier) {
+  // Fixture runs never fail over: tests need one deterministic source of output, and the
+  // whole point of the fixture runtime is that it can't fail for provider reasons anyway.
   if (run.runtime === "fixture") return new FixtureRuntime(run.fixtureDir);
-  if (run.runtime === "claude") return new ClaudeRuntime();
-  return new OpenAIAgentsRuntime();
+  const resolvedTier = tier || tierForStage(stage);
+  const primary = providerForStage(run, stage);
+  const order = [primary, ...Object.keys(PROVIDER_FACTORIES).filter((name) => name !== primary)];
+  const runtime = new FailoverRuntime(order.map((name) => ({ name, create: () => PROVIDER_FACTORIES[name](resolvedTier) })));
+  runtime.tier = resolvedTier;
+  return runtime;
 }
 
 // Strategy needs the evidence and tensions that survived Research, not its full working
@@ -98,7 +179,7 @@ function pick(obj, keys) {
 // backed by Firebase instead of a local checkpoint file.
 async function executeStage(runId, run, def) {
   const startedAt = Date.now();
-  const runtime = createRuntime(run);
+  let runtime = createRuntime(run, def.stage);
   const instructions = def.fixedInstructions || loadPrompt(def.promptFile);
   let repairIssues = [];
   let previousOutput = null;
@@ -107,7 +188,20 @@ async function executeStage(runId, run, def) {
   await fbUpdate(`strategy_runs/${runId}`, { status: def.runningStatus, coordinator: { name: "BB Loona", currentStage: def.stage, specialist: def.agentName, status: "working" }, updatedAt: new Date().toISOString() });
 
   const agent = stageAgent(def.stage);
+  let escalated = false;
   for (let attempt = 0; attempt <= MAX_REPAIRS; attempt += 1) {
+    // A cheap model that can't satisfy the schema gets exactly one go. Failover doesn't
+    // help here — a validation failure isn't a provider error (see runtime-failover.js), so
+    // without this the economy tier would burn every repair attempt and fail the stage
+    // outright. Escalating on the first repair means the saving is real when the cheap
+    // model can do the job, and costs one wasted call when it can't.
+    // See shouldEscalateTier() for exactly when, and why not on a provider outage.
+    if (shouldEscalateTier({ tier: runtime.tier, attempt, alreadyEscalated: escalated, lastError })) {
+      escalated = true;
+      runtime = createRuntime(run, def.stage, "standard");
+      console.warn(`[${def.stage}] the economy model couldn't produce a valid result — escalating to the standard model for the repair.`);
+      await logActivity(runId, "system", `${def.stage}.model_escalated`, "The economy model's first attempt didn't validate — retried on the standard model.");
+    }
     await setStageStatus(runId, def.stage, {
       status: attempt === 0 ? "running" : "repairing",
       detail: attempt === 0
@@ -139,6 +233,16 @@ async function executeStage(runId, run, def) {
           attempts: attempt + 1,
           repairs: attempt,
           outcome: "needs_review",
+          // Which provider actually produced this checkpoint — not necessarily the one the
+          // run asked for, since FailoverRuntime may have moved on after an outage. Worth
+          // recording: it's the only way to tell after the fact whether a month's work came
+          // from the model the team picked.
+          servedBy: runtime.servedBy || null,
+          // Which price tier actually produced it, and whether a cheap stage had to be
+          // escalated — the only way to tell later whether the saving is real or whether
+          // this stage is paying for two calls every month and should go back to standard.
+          modelTier: runtime.tier || null,
+          escalated,
         });
         await setStageStatus(runId, def.stage, { status: "needs_review", detail: "Validated. Awaiting review.", checkpoint: finalOutput, error: null });
         await fbUpdate(`strategy_runs/${runId}`, { status: def.reviewStatus, coordinator: { name: "BB Loona", currentStage: def.stage, specialist: def.agentName, status: "awaiting_human_review" }, updatedAt: new Date().toISOString() });
@@ -507,7 +611,7 @@ async function proposeAssetCandidate(runId, stage, assetId, requestType, notes, 
     loadBrandLibrary(config),
     cfg.loadContext(run),
   ]);
-  const runtime = createRuntime(run);
+  const runtime = createRuntime(run, stage);
   const instructions = loadPrompt(cfg.promptFile);
   const input = Object.assign({
     brandConfig: config,
@@ -784,5 +888,8 @@ module.exports = {
   proposeAssetCandidate, acceptAssetCandidate, replaceAsset, reopenStage,
   applyLockFilterOnApprove,
   logActivity, buildStrategyResearchBrief,
+  // Exported for tests only — FailoverRuntime builds its providers lazily, so the returned
+  // runtime can be inspected for provider ORDER without any key being configured.
+  createRuntime, providerForStage, tierForStage, modelFor, shouldEscalateTier,
 };
 

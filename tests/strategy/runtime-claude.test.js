@@ -11,11 +11,25 @@ const { ConfigurationError } = require(path.join(HUB, "netlify/functions/lib/str
 
 const TestSchema = z.object({ ok: z.boolean() }).strict();
 
+// The runtime accepts either env var name (see anthropicApiKey() in runtime-claude.js), so
+// the missing-key check has to clear BOTH — otherwise it passes or fails depending on which
+// name happens to be set wherever the suite is run, which is exactly the kind of
+// environment-dependent test that hides a real regression.
+const KEY_NAMES = ["ANTHROPIC_API_KEY", "CLAUDE_API_KEY"];
+function clearApiKeys() {
+  const saved = KEY_NAMES.map((name) => [name, name in process.env, process.env[name]]);
+  for (const name of KEY_NAMES) delete process.env[name];
+  return () => {
+    for (const [name, had, value] of saved) {
+      if (had) process.env[name] = value;
+      else delete process.env[name];
+    }
+  };
+}
+
 (async () => {
-  // ---- Missing ANTHROPIC_API_KEY (and no injected client) throws ConfigurationError ----
-  const hadKey = "ANTHROPIC_API_KEY" in process.env;
-  const savedKey = process.env.ANTHROPIC_API_KEY;
-  delete process.env.ANTHROPIC_API_KEY;
+  // ---- No key under EITHER name (and no injected client) throws ConfigurationError ----
+  let restoreKeys = clearApiKeys();
   let threw = null;
   try {
     // eslint-disable-next-line no-new
@@ -23,8 +37,24 @@ const TestSchema = z.object({ ok: z.boolean() }).strict();
   } catch (e) {
     threw = e;
   }
-  check("throws without ANTHROPIC_API_KEY and no injected client", threw instanceof ConfigurationError, threw && threw.message);
-  if (hadKey) process.env.ANTHROPIC_API_KEY = savedKey;
+  check("throws with neither key name set and no injected client", threw instanceof ConfigurationError, threw && threw.message);
+
+  // ---- Either name on its own is enough. CLAUDE_API_KEY is the name actually set in the
+  // Netlify dashboard, and until the runtime learned to read it, Claude could not start at
+  // all despite a key being present — so this is the case production really depends on. ----
+  for (const name of KEY_NAMES) {
+    process.env[name] = "sk-ant-test-not-a-real-key";
+    let built = null;
+    let buildError = null;
+    try {
+      built = new ClaudeRuntime();
+    } catch (e) {
+      buildError = e;
+    }
+    check(`${name} alone is enough to construct the runtime`, built instanceof ClaudeRuntime, buildError && buildError.message);
+    delete process.env[name];
+  }
+  restoreKeys();
 
   // ---- Basic (toolProfile: "none") request shape ----
   let lastParseCall = null;

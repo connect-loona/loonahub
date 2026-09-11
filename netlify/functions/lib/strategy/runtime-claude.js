@@ -32,10 +32,23 @@ function toolsForProfile(profile) {
   return [];
 }
 
+// The SDK reads ANTHROPIC_API_KEY on its own, which is the name netlify.toml documents.
+// CLAUDE_API_KEY is accepted as well because that is the name actually set in the Netlify
+// dashboard (added 2026-04-04, and until now read by nothing — this runtime looked for
+// ANTHROPIC_API_KEY, found nothing, and refused to start, which is why "Claude isn't
+// connected" despite a key being present the whole time). Same both-names-accepted
+// approach netlify.toml already documents for the GOOGLE_CALENDER_SERVICE_ACCOUNT
+// misspelling: match whatever the dashboard really has rather than requiring someone to
+// re-enter a working secret.
+function anthropicApiKey() {
+  return process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || "";
+}
+
 class ClaudeRuntime {
   constructor(model, client) {
-    if (!client && !process.env.ANTHROPIC_API_KEY) {
-      throw new ConfigurationError("ANTHROPIC_API_KEY is required for the Claude runtime.");
+    const apiKey = anthropicApiKey();
+    if (!client && !apiKey) {
+      throw new ConfigurationError("ANTHROPIC_API_KEY (or CLAUDE_API_KEY) is required for the Claude runtime.");
     }
     // `client` is an injection point for tests — production code always takes the
     // default branch and constructs a real SDK client.
@@ -43,7 +56,7 @@ class ClaudeRuntime {
       this.client = client;
     } else {
       const Anthropic = require("@anthropic-ai/sdk");
-      this.client = new Anthropic();
+      this.client = new Anthropic({ apiKey });
     }
     this.model = model || process.env.STRATEGY_CLAUDE_MODEL || "claude-opus-5";
   }
