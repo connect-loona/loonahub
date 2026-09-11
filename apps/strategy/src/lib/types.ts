@@ -246,6 +246,11 @@ export interface BrandLibraryStatus {
   unreadFiles?: { name: string; reason: string }[];
   filesReadThisIndex?: number;
   filesFromMemory?: number;
+  // Set while a scan is in flight (see strategy-brand-library-scan.js). The library doc is
+  // replaced wholesale when the scan finishes, so these simply disappear on success.
+  scanning?: boolean;
+  scanStartedAt?: string | null;
+  scanError?: string | null;
   truncated?: boolean;
   stale?: boolean;
   refreshError?: string;

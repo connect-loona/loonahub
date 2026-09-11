@@ -41,6 +41,13 @@ export function startRun(args: {
   return post("strategy-run-start", args) as Promise<{ runId: string }>;
 }
 
+// Re-reads a brand's Drive folder now, instead of waiting for the next strategy run to do it
+// as a side effect. Returns as soon as the scan is queued — the work happens in a background
+// function and progress shows up on the strategy_brand_library/<brandId> listener.
+export function scanBrandLibrary(args: { brandId: string; actor: string }): Promise<{ ok: true; brandId: string }> {
+  return post("strategy-brand-library-scan", args) as Promise<{ ok: true; brandId: string }>;
+}
+
 export function archiveRun(args: { runId: string; actor: string; reason?: string }): Promise<{ ok: true }> {
   return post("strategy-run-archive", { ...args, action: "archive" }) as Promise<{ ok: true }>;
 }
