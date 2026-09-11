@@ -84,12 +84,18 @@ function downloadableText(mimeType) {
   return mimeType.startsWith("text/") || ["application/json", "application/csv", "application/xml"].includes(mimeType);
 }
 
+// Every call that names a specific file needs supportsAllDrives too, not just the folder
+// listing: Drive v3 returns 404 for a shared-drive file when the flag is missing, and Loona's
+// Brands folder lives in a shared drive. Without it the failure is near-invisible rather than
+// loud — extractText() swallows the error per file, so the library still indexes every file
+// by NAME with no text in any of them. "20 files indexed" while the agents actually receive
+// nothing but filenames.
 async function extractText(file) {
   try {
     const exported = exportMime(file.mimeType);
     let response;
-    if (exported) response = await driveFetch(`/files/${file.id}/export?mimeType=${encodeURIComponent(exported)}`);
-    else if (downloadableText(file.mimeType) && Number(file.size || 0) <= 2 * 1024 * 1024) response = await driveFetch(`/files/${file.id}?alt=media`);
+    if (exported) response = await driveFetch(`/files/${file.id}/export?mimeType=${encodeURIComponent(exported)}&supportsAllDrives=true`);
+    else if (downloadableText(file.mimeType) && Number(file.size || 0) <= 2 * 1024 * 1024) response = await driveFetch(`/files/${file.id}?alt=media&supportsAllDrives=true`);
     else return null;
     const text = (await response.text()).replace(/\u0000/g, "").trim();
     return text ? text.slice(0, MAX_FILE_CHARS) : null;

@@ -21,9 +21,25 @@ function DriveLibraryStatus({ brandId }: { brandId?: string }) {
       </div>
     );
   }
+  // A folder can index perfectly and still hand the agents nothing: files whose text
+  // couldn't be read are counted but contribute no content. Saying only "20 files indexed"
+  // makes that look like success, so when nothing was readable, say so instead.
+  // Only on an explicit zero — a doc that carries no textFileCount at all says nothing about
+  // readability, and treating a missing field as "none readable" would cry wolf.
+  const fileCount = library.fileCount ?? 0;
+  const textFileCount = library.textFileCount;
+  if (fileCount > 0 && textFileCount === 0) {
+    return (
+      <div className="st-memory-value" style={{ color: "var(--red)", fontSize: 12, marginTop: 6 }}>
+        ⚠️ {fileCount} file{fileCount === 1 ? "" : "s"} found in {library.folderName || "Drive"}, but none could be read —
+        the agents are getting filenames only. Check that the service account has access to the files themselves.
+      </div>
+    );
+  }
   return (
     <div className="st-memory-value" style={{ color: "var(--green)", fontSize: 12, marginTop: 6 }}>
-      📁 {library.fileCount ?? 0} file{library.fileCount === 1 ? "" : "s"} indexed from {library.folderName || "Drive"}
+      📁 {fileCount} file{fileCount === 1 ? "" : "s"} indexed from {library.folderName || "Drive"}
+      {typeof textFileCount === "number" && textFileCount < fileCount ? ` · ${textFileCount} readable` : ""}
       {library.indexedAt ? ` · ${fmtDateTime(library.indexedAt)}` : ""}
     </div>
   );

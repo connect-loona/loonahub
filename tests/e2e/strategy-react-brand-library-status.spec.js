@@ -82,6 +82,34 @@ function seedRun(runId) {
   await waitFor(async () => (await page.locator("text=last successful read").count()) > 0 || null, { label: "stale status renders" });
   check("stale status is labelled as showing the last successful read", true);
 
+  // ---- 5. Indexed, but nothing readable — the silent failure mode. A shared-drive
+  // permission or flag problem lets every file be LISTED while none of their contents can be
+  // fetched, so the agents receive filenames and nothing else. Counting only files would
+  // report that as success. ----
+  await req("PUT", `${RTDB_URL}/strategy_brand_library/rro.json`, {
+    brandId: "rro", folderId: "abc123", folderName: "RRO Foods",
+    indexedAt: "2026-09-11T06:00:00.000Z", fileCount: 20, textFileCount: 0, truncated: false,
+  });
+  await waitFor(async () => (await page.locator("text=none could be read").count()) > 0 || null, { label: "unreadable-library warning renders" });
+  check("a library with files but no readable text is flagged, not reported as success", (await page.locator(".st-workspace-side").textContent()).includes("filenames only"));
+
+  // ---- 6. A partial read says how many actually carry content ----
+  await req("PUT", `${RTDB_URL}/strategy_brand_library/rro.json`, {
+    brandId: "rro", folderId: "abc123", folderName: "RRO Foods",
+    indexedAt: "2026-09-11T06:00:00.000Z", fileCount: 12, textFileCount: 9, truncated: false,
+  });
+  await waitFor(async () => (await page.locator("text=9 readable").count()) > 0 || null, { label: "partial-read count renders" });
+  check("a partial read reports the readable count alongside the file count", true);
+
+  // A doc with no textFileCount field at all must NOT be reported as unreadable — absence of
+  // the field says nothing about readability.
+  await req("PUT", `${RTDB_URL}/strategy_brand_library/rro.json`, {
+    brandId: "rro", folderId: "abc123", folderName: "RRO Foods",
+    indexedAt: "2026-09-11T06:00:00.000Z", fileCount: 7, truncated: false,
+  });
+  await waitFor(async () => (await page.locator("text=7 files indexed from RRO Foods").count()) > 0 || null, { label: "library without textFileCount renders" });
+  check("a library doc with no textFileCount is not falsely flagged as unreadable", await page.locator("text=none could be read").count() === 0);
+
   check("no page errors", errors.length === 0, errors);
 
   console.log(allPass ? "\n✅ ALL CHECKS PASSED" : "\n❌ SOME CHECKS FAILED");
