@@ -44,6 +44,17 @@ export const STAGE_AGENT_EMOJI: Record<string, string> = {
   research: "👨🏻‍✈️", strategy: "🧕🏻", copy: "👩‍🎨",
   "creative-direction": "👩🏼‍🎤", "deck-builder": "👷🏾",
 };
+
+// The same five specialists as STAGE_AGENT_EMOJI, with names — mirrors pipeline.js's own
+// STAGE_AGENTS on the backend (and agent-registry.js's fuller version). Used by
+// AgentGreeting.tsx's "we're here to help" lineup on the run list.
+export const AGENT_LINEUP: { stage: string; emoji: string; name: string }[] = [
+  { stage: "research", emoji: "👨🏻‍✈️", name: "Columbus" },
+  { stage: "strategy", emoji: "🧕🏻", name: "Dora" },
+  { stage: "copy", emoji: "👩‍🎨", name: "Matilda" },
+  { stage: "creative-direction", emoji: "👩🏼‍🎤", name: "Barbie" },
+  { stage: "deck-builder", emoji: "👷🏾", name: "Bob" },
+];
 export function plainActionPhrase(stage: string, status?: string | null): string {
   if (status === "running") return PLAIN_RUNNING_LABELS[stage] || "Working";
   if (status === "repairing") return `${PLAIN_RUNNING_LABELS[stage] || "Working"} — fixing an issue`;

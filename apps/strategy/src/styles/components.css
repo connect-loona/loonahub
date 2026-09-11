@@ -112,6 +112,37 @@ body {
 .st-working span:nth-child(3) { animation-delay: .3s; }
 @keyframes st-bounce { 0%, 80%, 100% { transform: translateY(0); opacity: .4; } 40% { transform: translateY(-4px); opacity: 1; } }
 
+/* ---- Agent lineup greeting (AgentGreeting.tsx) — shown once per session on the run list ---- */
+.st-agent-greeting { position: relative; text-align: center; }
+.st-agent-greeting-close {
+  position: absolute; top: 10px; right: 12px; background: none; border: none; color: var(--muted);
+  font-size: 13px; cursor: pointer; padding: 4px 6px; line-height: 1;
+}
+.st-agent-greeting-close:hover { color: var(--text); }
+.st-agent-greeting-text { font-size: var(--text-lg, 16px); font-weight: 650; margin-bottom: var(--space-lg); }
+.st-agent-greeting-row { display: flex; justify-content: center; flex-wrap: wrap; gap: var(--space-lg); }
+.st-agent-chip {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 64px;
+  animation: st-agent-chip-in .5s ease-out backwards;
+}
+.st-agent-chip-emoji {
+  font-size: 32px; display: inline-block; transform-origin: 70% 70%;
+  animation: st-agent-wiggle 2.2s ease-in-out infinite;
+}
+.st-agent-chip-name { font-size: var(--text-sm); color: var(--muted); font-weight: 600; }
+@keyframes st-agent-chip-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes st-agent-wiggle {
+  0%, 60%, 100% { transform: rotate(0deg); }
+  10% { transform: rotate(-14deg); }
+  20% { transform: rotate(12deg); }
+  30% { transform: rotate(-8deg); }
+  40% { transform: rotate(4deg); }
+  50% { transform: rotate(0deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .st-agent-chip, .st-agent-chip-emoji { animation: none; }
+}
+
 /* ---- Gate / claim status chips (legacy: gateChip()/claimStatusChip()) ---- */
 .st-chip { display: inline-block; margin: 2px 6px 2px 0; padding: 2px 9px; border-radius: 6px; font-size: 10.5px; font-weight: 700; }
 .st-chip-pass { background: #12291d; border: 1px solid #2a5a3a; color: var(--green); }
