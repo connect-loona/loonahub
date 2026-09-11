@@ -124,6 +124,22 @@ async function loginAsFakeUser(page) {
   // navigation needed, just wait for RRO's own listener update to land on the page
   // that's already showing.
   await waitFor(async () => (await page.locator("text=RRO Foods").count()) > 0 || null, { label: "RRO appears in the brand list once seeded" });
+  // App.tsx and BrandList.tsx each hold their OWN independent useBrands() Firebase
+  // listener (two separate subscriptions to the same path) — BrandForm.tsx only reads
+  // its `initialBrand` prop once at mount, by design (see its own header comment: it
+  // never re-syncs from a live listener mid-edit, so a concurrent edit elsewhere can't
+  // blow away in-progress work). That combination is a real, if narrow, race: if "Edit"
+  // is clicked in the window where BrandList's own listener already has RRO but App's
+  // separate listener hasn't caught up yet, BrandForm mounts with `initialBrand`
+  // undefined and — since useState's initializer only runs once — never recovers, so the
+  // name field silently stays blank forever (a genuine 15s timeout, not a transient
+  // flake that would pass on the next poll tick). Reloading before editing forces every
+  // component, App's included, to mount fresh against RRO's by-then-fully-persisted
+  // Firebase state, closing that window entirely.
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitFor(async () => (await page.locator("text=Strategy OS").count()) > 0 || null, { label: "run list re-renders after reload" });
+  await page.locator("button", { hasText: "Manage brands" }).click();
+  await waitFor(async () => (await page.locator(".pf-absrow", { hasText: "RRO" }).count()) > 0 || null, { label: "RRO still listed after reload" });
   await page.locator(".pf-absrow", { hasText: "RRO" }).locator("button", { hasText: "Edit" }).click();
   await waitFor(async () => (await page.locator(".st-board").filter({ hasText: "Basics" }).locator("input").nth(1).inputValue()) === "RRO Foods" || null, { label: "edit form populates RRO's existing name" });
   check("editing RRO loads its existing name into the form", true);
