@@ -5,15 +5,12 @@
 import { useState } from "react";
 import { currentStageOf, STAGE_LABELS, type StageState, type StrategyRun } from "../lib/types";
 import { plainActionPhrase, STAGE_AGENT_EMOJI } from "../lib/format";
-import { createTeamTasks, decideStage, retryStage } from "../lib/api";
+import { createTeamTasks, decideStage, downloadDeck, retryStage } from "../lib/api";
 
-// Shown once the deck stage is approved — ported from strategy-app.js's
-// deckCompleteActionsHtml(). Canva's own status can still be not_configured/failed even
-// here (deck content itself doesn't depend on Canva succeeding).
-function DeckCompleteActions({ run, actor, stageState }: { run: StrategyRun; actor: string; stageState: StageState }) {
-  const canva = stageState.canva;
+function DeckCompleteActions({ run, actor }: { run: StrategyRun; actor: string }) {
   const tasksCreated = !!run.teamTasksCreatedAt;
   const [creating, setCreating] = useState(false);
+  const [exporting, setExporting] = useState<"json" | "pptx" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function handleCreateTasks() {
@@ -28,27 +25,21 @@ function DeckCompleteActions({ run, actor, stageState }: { run: StrategyRun; act
     }
   }
 
+  async function handleExport(format: "json" | "pptx") {
+    setExporting(format);
+    setError(null);
+    try { await downloadDeck(run.runId, format); }
+    catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setExporting(null); }
+  }
+
   return (
     <div style={{ marginTop: 10 }}>
       {error && <div className="st-error-text">{error}</div>}
-      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <a
-          className="st-btn st-btn-primary"
-          style={{ flex: 1, textAlign: "center", textDecoration: "none" }}
-          href={`/.netlify/functions/strategy-deck-download?runId=${encodeURIComponent(run.runId)}`}
-        >
-          Download deck (.pptx)
-        </a>
-        {canva?.status === "published" && canva.url ? (
-          <a className="st-btn st-btn-primary" style={{ flex: 1, textAlign: "center", textDecoration: "none" }} href={canva.url} target="_blank" rel="noopener noreferrer">
-            Open Canva deck
-          </a>
-        ) : canva?.status === "failed" ? (
-          <div className="st-note" style={{ color: "var(--red)", flex: 1 }}>Canva publish failed: {canva.detail || "Unknown error"}</div>
-        ) : (
-          <div className="st-note" style={{ flex: 1 }}>{canva?.detail || "Canva isn't connected for this brand yet — the deck content is ready above."}</div>
-        )}
-        <button className={`st-btn ${tasksCreated ? "st-btn-ghost" : "st-btn-primary"}`} style={{ flex: 1 }} disabled={tasksCreated || creating} onClick={handleCreateTasks}>
+      <div className="st-deck-actions">
+        <button className="st-btn st-btn-primary" disabled={exporting !== null} onClick={() => handleExport("pptx")}>{exporting === "pptx" ? "Exporting…" : "Download PPTX"}</button>
+        <button className="st-btn st-btn-ghost" disabled={exporting !== null} onClick={() => handleExport("json")}>{exporting === "json" ? "Exporting…" : "Download JSON"}</button>
+        <button className={`st-btn ${tasksCreated ? "st-btn-ghost" : "st-btn-primary"}`} disabled={tasksCreated || creating} onClick={handleCreateTasks}>
           {tasksCreated ? "Team tasks created ✓" : creating ? "Creating…" : "Create team tasks"}
         </button>
       </div>
@@ -135,7 +126,7 @@ export function NextActionCard({ run, actor }: { run: StrategyRun; actor: string
             onChange={(e) => setNotes(e.target.value)}
           />
           {error && <div className="st-error-text">{error}</div>}
-          <div style={{ display: "flex", gap: 8 }}>
+          <div className="st-review-actions">
             <button className="st-btn st-btn-ghost" style={{ flex: 1 }} disabled={busy !== null} onClick={() => handleDecide("changes_requested")}>
               {busy === "notes" ? <>Sending… <span className="st-working" aria-hidden><span /><span /><span /></span></> : "Send back with notes"}
             </button>
@@ -170,7 +161,7 @@ export function NextActionCard({ run, actor }: { run: StrategyRun; actor: string
       )}
 
       {stage === "deck-builder" && st.status === "approved" && (
-        <DeckCompleteActions run={run} actor={actor} stageState={st} />
+        <DeckCompleteActions run={run} actor={actor} />
       )}
     </div>
   );

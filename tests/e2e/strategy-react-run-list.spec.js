@@ -38,10 +38,8 @@ async function loginAsFakeUser(page) {
 
   const browser = await chromium.launch(chromiumLaunchOptions());
   const context = await browser.newContext({ viewport: { width: 1300, height: 900 } });
-  // The backend endpoints (strategy-run-start, strategy-run-archive) still only verify
-  // the legacy loona_auth cookie today — see api.ts's own comment on why sending the ID
-  // token from day one doesn't make this cookie optional yet. Frontend auth is faked
-  // separately, via loginAsFakeUser() below.
+  // The backend verifies the Hub perimeter cookie and the fake Firebase bearer generated
+  // by firebase.fake.ts. Frontend auth is seeded separately below.
   await context.addCookies([authCookie()]);
   const page = await context.newPage();
   const errors = [];

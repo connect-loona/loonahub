@@ -20,7 +20,7 @@ function check(name, cond, extra) {
 const token = crypto.createHash("sha256").update("gokul:supersecret").digest("hex");
 const authCookie = `loona_auth=${token}`;
 function call(fn, body) {
-  return fn.handler({ httpMethod: "POST", headers: { cookie: authCookie }, body: JSON.stringify(body) });
+  return fn.handler({ httpMethod: "POST", headers: { cookie: authCookie, authorization: "Bearer test:gokul%40loona.in:Gokul:gokul-fake-uid" }, body: JSON.stringify(body) });
 }
 
 (async () => {

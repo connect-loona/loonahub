@@ -6,9 +6,12 @@
 // package), which is exactly why the Hub UI has to watch strategy_runs/<runId> live
 // instead of waiting on this call.
 "use strict";
+const { verifyInternalRequest } = require("./lib/strategy/internal-auth");
 const { runResearchStage } = require("./lib/strategy/pipeline");
 
 exports.handler = async (event) => {
+  const auth = verifyInternalRequest(event);
+  if (!auth.ok) return { statusCode: 401, body: auth.reason };
   let body;
   try { body = JSON.parse(event.body || "{}"); } catch { return { statusCode: 400, body: "Invalid JSON" }; }
   const { runId } = body;

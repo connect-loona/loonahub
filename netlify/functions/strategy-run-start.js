@@ -17,12 +17,12 @@
 // basic-auth.ts's edge gate lets ALL /.netlify/functions/* requests through unchecked
 // (unlike most of Hub's other functions, this one shouldn't skip auth entirely — it can
 // kick off billed AI runs and touch a client's live strategy), so this function checks the
-// same site cookie itself — see ./lib/strategy/auth.js.
+// perimeter cookie and the caller's Firebase team session — see ./lib/strategy/auth.js.
 "use strict";
 const { fbGet, fbSet } = require("./lib/strategy/firebase");
 const { loadBrandConfig, loadMonthInput } = require("./lib/strategy/store");
 const { checkAuthorization } = require("./lib/strategy/auth");
-const { siteBaseUrl } = require("./lib/site-base-url");
+const { triggerBackground } = require("./lib/strategy/background-trigger");
 
 // A run only stops being "active" once its very last stage (deck-builder) has been
 // approved — everything before that, including "failed", is still active: a failed run
@@ -38,7 +38,7 @@ function isActiveRun(run) {
 function cors() {
   return {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Content-Type": "application/json",
   };
@@ -51,7 +51,7 @@ function runId(brandId, month) {
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: cors(), body: "" };
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: cors(), body: "Method not allowed" };
-  const auth = checkAuthorization(event);
+  const auth = await checkAuthorization(event);
   if (!auth.ok) return { statusCode: 401, headers: cors(), body: JSON.stringify({ error: "Unauthorized", reason: auth.reason }) };
 
   let body;
@@ -59,7 +59,7 @@ exports.handler = async (event) => {
 
   const brandId = String(body.brandId || "").trim();
   const month = String(body.month || "").trim();
-  const actor = String(body.actor || "Unknown").trim();
+  const actor = auth.actor;
   if (!/^[a-z0-9-]+$/.test(brandId)) return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "brandId must be lowercase letters, numbers or hyphens." }) };
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "month must be YYYY-MM." }) };
 
@@ -135,13 +135,8 @@ exports.handler = async (event) => {
       approvals: {},
     });
 
-    const base = siteBaseUrl(event);
     try {
-      await fetch(`${base}/.netlify/functions/strategy-research-background`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ runId: id }),
-      });
+      await triggerBackground(event, "strategy-research-background", { runId: id });
     } catch (e) {
       // Write the failure into the run doc itself — previously this was only
       // console.error'd, which left the run silently stuck showing "queued" forever with

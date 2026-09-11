@@ -14,6 +14,7 @@ const { fbGet, fbSet, fbUpdate } = require("./lib/strategy/firebase");
 const { logActivity } = require("./lib/strategy/pipeline");
 const { checkAuthorization } = require("./lib/strategy/auth");
 const { saveStageVersion, saveFeedbackEvent } = require("./lib/strategy/observability");
+const { triggerBackground } = require("./lib/strategy/background-trigger");
 
 const NEXT_STAGE = {
   research: "strategy",
@@ -23,21 +24,10 @@ const NEXT_STAGE = {
 };
 const STAGE_ORDER = ["research", "strategy", "copy", "creative-direction", "deck-builder"];
 
-// See strategy-run-start.js's siteBaseUrl() — process.env.URL/DEPLOY_URL aren't reliably
-// present at Function runtime (confirmed live: a fetch using them failed silently and left
-// a run stuck showing "queued" forever), so build the base URL from the incoming request's
-// own Host header instead, which is always present.
-function siteBaseUrl(event) {
-  const host = (event.headers && (event.headers.host || event.headers.Host || event.headers["x-forwarded-host"])) || "";
-  if (!host) return process.env.URL || process.env.DEPLOY_URL || "";
-  const proto = (event.headers && event.headers["x-forwarded-proto"]) || "https";
-  return `${proto}://${host}`;
-}
-
 function cors() {
   return {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Content-Type": "application/json",
   };
@@ -46,14 +36,14 @@ function cors() {
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: cors(), body: "" };
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: cors(), body: "Method not allowed" };
-  const auth = checkAuthorization(event);
+  const auth = await checkAuthorization(event);
   if (!auth.ok) return { statusCode: 401, headers: cors(), body: JSON.stringify({ error: "Unauthorized", reason: auth.reason }) };
 
   let body;
   try { body = JSON.parse(event.body || "{}"); } catch { return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "Invalid JSON" }) }; }
 
   const { runId, stage, decision, notes } = body;
-  const actor = String(body.actor || "Unknown").trim();
+  const actor = auth.actor;
   if (!runId || !STAGE_ORDER.includes(stage)) return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "runId and a valid stage are required." }) };
   if (decision !== "approved" && decision !== "changes_requested") {
     return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: 'decision must be "approved" or "changes_requested".' }) };
@@ -92,13 +82,8 @@ exports.handler = async (event) => {
     await fbUpdate(`strategy_runs/${runId}/stages/${nextStage}`, { status: "queued", updatedAt: now });
     await fbUpdate(`strategy_runs/${runId}`, { status: `${stage}_approved`, updatedAt: now });
 
-    const base = siteBaseUrl(event);
     try {
-      await fetch(`${base}/.netlify/functions/strategy-${nextStage}-background`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ runId }),
-      });
+      await triggerBackground(event, `strategy-${nextStage}-background`, { runId });
     } catch (e) {
       console.error(`Failed to trigger ${nextStage} background function:`, e);
       await fbSet(`strategy_runs/${runId}/stages/${nextStage}`, { status: "failed", detail: `Could not start the ${nextStage} stage: ${e.message || e}` });

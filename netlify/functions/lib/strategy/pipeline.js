@@ -314,7 +314,7 @@ async function runDeckStage(runId) {
     sourceContext: run.sourceContext || [],
     currentDate: new Date().toISOString(),
   };
-  const result = await executeStage(runId, run, {
+  return executeStage(runId, run, {
     stage: "deck-builder",
     agentName: "👷🏾 Bob — Deck Builder",
     promptFile: "05-deck-builder.md",
@@ -332,26 +332,6 @@ async function runDeckStage(runId) {
       pages: deck.pages.map((page) => Object.assign({ owner: null, productionStatus: "not_started" }, page)),
     }),
   });
-
-  // Canva publish is attempted automatically once the deck spec itself is valid — there's
-  // no separate approval gate for it (nothing further is being decided; it's assembly of
-  // already-approved content). If Canva isn't configured for this brand, this stays a
-  // clean, visible "not configured" state rather than a failure — the brief's own fallback
-  // is to ship the review stages and keep deck assembly manual until Canva's ready.
-  const config2 = await loadBrandConfig(run.brandId);
-  if (config2.canva && config2.canva.enabled) {
-    try {
-      const { CanvaPublisher } = require("./canva");
-      const canvaResult = await new CanvaPublisher().publish(config2, result);
-      await fbSet(`strategy_runs/${runId}/stages/deck-builder/canva`, { status: "published", url: canvaResult.designUrl, publishedAt: new Date().toISOString() });
-    } catch (error) {
-      await fbSet(`strategy_runs/${runId}/stages/deck-builder/canva`, { status: "failed", detail: error.message || String(error) });
-    }
-  } else {
-    await fbSet(`strategy_runs/${runId}/stages/deck-builder/canva`, { status: "not_configured", detail: "Canva isn't enabled for this brand yet — the deck content above is ready; publishing to an actual Canva deck needs Canva credentials and a tagged template configured first." });
-  }
-
-  return result;
 }
 
 // ---------- Per-concept refine / suggest-similar / discard ----------
@@ -609,4 +589,3 @@ module.exports = {
   proposeAssetCandidate, acceptAssetCandidate, replaceAsset, reopenStage,
   logActivity, buildStrategyResearchBrief,
 };
-

@@ -63,15 +63,15 @@ function check(name, cond, extra) {
   }, { label: "creative-direction needs_review" });
   check("creative-direction reached needs_review after approving copy", true);
 
-  // 7. Approve creative-direction -> deck-builder, including Canva "not_configured" fallback.
+  // 7. Approve creative-direction -> deck-builder with a self-contained checkpoint.
   await apiReq("POST", `${DEV_LITE_URL}/.netlify/functions/strategy-stage-approve`, { runId, stage: "creative-direction", decision: "approved", actor: "Test" });
   await waitFor(async () => {
     const r = (await req("GET", `${RTDB_URL}/strategy_runs/${runId}.json`)).body;
     return r && r.stages["deck-builder"].status === "needs_review" ? r : null;
   }, { label: "deck-builder needs_review" });
   check("deck-builder reached needs_review after approving creative-direction", true);
-  const canvaStatus = (await req("GET", `${RTDB_URL}/strategy_runs/${runId}/stages/deck-builder/canva.json`)).body;
-  check("Canva reports not_configured (expected — no credentials in this environment)", canvaStatus && canvaStatus.status === "not_configured", canvaStatus);
+  const deckState = (await req("GET", `${RTDB_URL}/strategy_runs/${runId}/stages/deck-builder.json`)).body;
+  check("deck state contains no retired publisher metadata", !Object.prototype.hasOwnProperty.call(deckState, "canva"), deckState);
 
   // 8. Approve deck-builder -> final state, and confirm it's no longer "active" (a new
   // run-start for the same brand+month should now be allowed).

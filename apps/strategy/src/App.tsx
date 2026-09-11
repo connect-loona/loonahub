@@ -36,12 +36,12 @@ export default function App() {
   }, []);
 
   if (authStatus === "checking") {
-    return <div style={{ padding: 32, color: "var(--muted)" }}>Checking your Hub session…</div>;
+    return <div className="st-app-shell" style={{ color: "var(--muted)" }}>Checking your Hub session…</div>;
   }
 
   if (authStatus === "signed-out") {
     return (
-      <div style={{ padding: 32, color: "var(--text)" }}>
+      <div className="st-app-shell" style={{ color: "var(--text)" }}>
         <h1>Strategy OS</h1>
         <p style={{ color: "var(--muted)" }}>
           You're not signed into Hub on this device/browser yet. Log into Hub at the root of
@@ -95,7 +95,7 @@ export default function App() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)", padding: 32 }}>
+    <div className="st-app-shell">
       {body}
     </div>
   );

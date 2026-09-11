@@ -104,7 +104,7 @@ async function loginAsFakeUser(page) {
   check("the brand was actually written to Firebase", savedDoc && savedDoc.name === "Acme Co", savedDoc);
 
   // ---- Edit an existing, richly-configured brand (RRO) and confirm the Advanced JSON
-  // round-trips its portfolios/claim rules/Canva config untouched ----
+  // round-trips its portfolios/claim rules untouched ----
   // Seeded the same way the legacy strategy-brand-ui.spec.js does: starting a real run
   // against RRO's own fixture auto-populates strategy_brands/rro as a side effect, with a
   // fully schema-valid config (hand-rolling a minimal {id:...}-only portfolios/claimRules
@@ -113,7 +113,7 @@ async function loginAsFakeUser(page) {
   const fixtureDir = path.join(HUB, "netlify/functions/lib/strategy/fixtures/rro-2026-10");
   const rroRunStartStatus = await page.evaluate(async (fixtureDir) => {
     const res = await fetch("/.netlify/functions/strategy-run-start", {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer test:gokul%40loona.in:Gokul:gokul-fake-uid" },
       body: JSON.stringify({ brandId: "rro", month: "2026-11", actor: "Gokul", runtime: "fixture", fixtureDir }),
     });
     return res.status;

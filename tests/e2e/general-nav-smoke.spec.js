@@ -56,7 +56,7 @@ function check(name, cond, extra) {
   await loginAsGokul(page);
   await page.waitForTimeout(500);
 
-  const tabs = ["Overview", "Task Board", "Monthly Plan", "Team", "Brands", "Strategy OS", "Calendar", "Loona Code", "Loonaverse"];
+  const tabs = ["Overview", "Task Board", "Monthly Plan", "Team", "Brands", "Calendar", "Loona Code", "Loonaverse"];
   for (const tab of tabs) {
     await page.locator(".nav-btn", { hasText: tab }).click();
     await page.waitForTimeout(300);
@@ -64,10 +64,9 @@ function check(name, cond, extra) {
     check(`clicking "${tab}" activates its page`, !!activePage, activePage);
   }
 
-  // The Strategy OS tab is still on screen from the loop above — check its new link into
-  // the rebuilt React app (see strategy-app.js's soRenderRunList()).
-  const newAppLink = page.locator("#page-strategy a", { hasText: "try the new Strategy OS" });
-  check("Strategy OS tab links to the rebuilt /strategy/ app", await newAppLink.getAttribute("href") === "/strategy/", await newAppLink.getAttribute("href"));
+  await page.locator(".nav-btn", { hasText: "Strategy OS" }).click();
+  await page.waitForURL("**/strategy/");
+  check("Strategy OS navigation opens the canonical /strategy/ app", new URL(page.url()).pathname === "/strategy/", page.url());
 
   check("no uncaught page errors across all tab navigation", errors.length === 0, JSON.stringify(errors));
   console.log(allPass ? "\n✅ ALL CHECKS PASSED" : "\n❌ SOME CHECKS FAILED");

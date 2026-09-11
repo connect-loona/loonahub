@@ -25,7 +25,7 @@ function startRun() {
   const runStart = require(path.join(HUB, "netlify/functions/strategy-run-start.js"));
   return runStart.handler({
     httpMethod: "POST",
-    headers: { cookie: authCookie },
+    headers: { cookie: authCookie, authorization: "Bearer test:gokul%40loona.in:Gokul:gokul-fake-uid" },
     body: JSON.stringify({ brandId: "rro", month: "2026-10", actor: "Gokul", runtime: "fixture", fixtureDir }),
   });
 }

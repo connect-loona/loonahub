@@ -1,22 +1,68 @@
-// Plain REST access to the same Firebase Realtime Database every other Netlify Function
-// in this repo uses (see petpooja-sync.js's req() for the original pattern) — no
-// firebase-admin, no service-account credential, just unauthenticated PUT/PATCH/GET
-// against <databaseURL>/<path>.json, matching how the rest of Hub already writes to
-// Firebase from server-side functions. Strategy OS data lives under its own top-level
-// keys (strategy_brands, strategy_months, strategy_learnings, strategy_runs,
-// strategy_activity) so it never collides with the app's existing collections.
+// Authenticated REST access for Strategy OS. Real Firebase traffic is signed with a
+// service account; only the local HTTP test database is allowed to run without one.
 "use strict";
 const https = require("https");
 const http = require("http");
+const crypto = require("crypto");
 const { URL } = require("url");
 
 const FB = (process.env.FIREBASE_DB_URL || "https://loona-hub-c85d7-default-rtdb.firebaseio.com").replace(/\/+$/, "");
 
-function req(method, urlStr, bodyObj) {
+let cachedAccessToken = "";
+let cachedAccessTokenUntil = 0;
+
+function serviceAccount() {
+  const raw = process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT;
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed.client_email || !parsed.private_key) throw new Error("client_email/private_key missing");
+    return parsed;
+  } catch (error) {
+    throw new Error(`FIREBASE_ADMIN_SERVICE_ACCOUNT is malformed: ${error.message}`);
+  }
+}
+
+async function firebaseAuthorizationHeader() {
+  const account = serviceAccount();
+  const isLocalTestDatabase = new URL(FB).protocol === "http:";
+  if (!account) {
+    if (isLocalTestDatabase) return null;
+    throw new Error("Authenticated Firebase access requires FIREBASE_ADMIN_SERVICE_ACCOUNT.");
+  }
+  if (cachedAccessToken && Date.now() < cachedAccessTokenUntil) return `Bearer ${cachedAccessToken}`;
+  const base64url = (value) => Buffer.from(value).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const now = Math.floor(Date.now() / 1000);
+  const header = base64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const claims = base64url(JSON.stringify({
+    iss: account.client_email,
+    scope: "https://www.googleapis.com/auth/firebase.database https://www.googleapis.com/auth/userinfo.email",
+    aud: "https://oauth2.googleapis.com/token",
+    iat: now,
+    exp: now + 3600,
+  }));
+  const signingInput = `${header}.${claims}`;
+  const signature = crypto.createSign("RSA-SHA256").update(signingInput).sign(account.private_key);
+  const assertion = `${signingInput}.${base64url(signature)}`;
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `grant_type=${encodeURIComponent("urn:ietf:params:oauth:grant-type:jwt-bearer")}&assertion=${encodeURIComponent(assertion)}`,
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.access_token) throw new Error("Firebase service-account authentication failed.");
+  cachedAccessToken = data.access_token;
+  cachedAccessTokenUntil = Date.now() + Math.max(60, Number(data.expires_in || 3600) - 60) * 1000;
+  return `Bearer ${cachedAccessToken}`;
+}
+
+async function req(method, urlStr, bodyObj) {
+  const authorization = await firebaseAuthorizationHeader();
   return new Promise((resolve, reject) => {
     const u = new URL(urlStr);
     const data = bodyObj !== undefined ? JSON.stringify(bodyObj) : null;
     const headers = { Accept: "application/json" };
+    if (authorization) headers.Authorization = authorization;
     if (data) { headers["Content-Type"] = "application/json"; headers["Content-Length"] = Buffer.byteLength(data); }
     // Real Firebase is always https; a local fake RTDB used for testing (see
     // scratchpad/fake-rtdb-server.js) is plain http — pick the transport by the URL's own

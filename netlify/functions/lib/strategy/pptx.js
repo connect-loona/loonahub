@@ -2,11 +2,8 @@
 // — one slide per deck page, containing exactly what the brief asked for: the concept, the
 // copy, the creative direction, the reference credit, the owner, and production status.
 //
-// This exists as the deck deliverable that works without any external service: no Canva
-// API credentials, no OAuth, nothing that can expire or need reconnecting — pptxgenjs runs
-// entirely inside this function and hands back a file. Canva publish (canva.js) still runs
-// in parallel when a brand has it configured; this doesn't replace that, it's the path that
-// works today for every brand regardless of whether Canva's ever set up.
+// This deck export is self-contained: pptxgenjs turns the validated checkpoint into a
+// file without an external publishing service, expiring OAuth connection or template.
 "use strict";
 const PptxGenJS = require("pptxgenjs");
 

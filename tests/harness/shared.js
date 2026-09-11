@@ -16,10 +16,12 @@ const HUB = path.join(__dirname, "..", "..");
 // here is enough to make every one of them hang until Playwright's own action timeout.
 const RTDB_URL = process.env.FIREBASE_DB_URL || "http://127.0.0.1:9030";
 const DEV_LITE_URL = process.env.DEV_LITE_URL || "http://127.0.0.1:9020";
+process.env.STRATEGY_INTERNAL_SECRET = process.env.STRATEGY_INTERNAL_SECRET || "local-test-background-secret";
 
 // Matches netlify-dev-lite.js's own default BASIC_AUTH_CREDENTIALS — every test
 // authenticates as this same fake team login.
 const AUTH_TOKEN = crypto.createHash("sha256").update("gokul:supersecret").digest("hex");
+const TEST_BEARER = "test:gokul%40loona.in:Gokul:gokul-fake-uid";
 
 // Plain HTTP request helper (Node's http module, no fetch dependency) — used both for
 // talking to the fake RTDB directly and for calling netlify-dev-lite's function routes
@@ -30,7 +32,11 @@ function req(method, url, body, { auth = false } = {}) {
     const u = new URL(url);
     const data = body !== undefined ? JSON.stringify(body) : null;
     const headers = data ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(data) } : {};
-    if (auth) { headers.Cookie = `loona_auth=${AUTH_TOKEN}`; headers["X-Forwarded-Proto"] = "http"; }
+    if (auth) {
+      headers.Cookie = `loona_auth=${AUTH_TOKEN}`;
+      headers.Authorization = `Bearer ${TEST_BEARER}`;
+      headers["X-Forwarded-Proto"] = "http";
+    }
     const r = http.request({ method, hostname: u.hostname, port: u.port, path: u.pathname + u.search, headers }, (res) => {
       let buf = "";
       res.on("data", (c) => (buf += c));
@@ -70,7 +76,7 @@ async function waitFor(fn, { label = "condition", timeoutMs = 15000, intervalMs 
 const ALL_STRATEGY_PATHS = [
   "strategy_runs", "strategy_brands", "strategy_months", "strategy_learning_events",
   "strategy_learnings", "strategy_activity", "strategy_stage_versions", "strategy_brand_library",
-  "tasks",
+  "strategy_feedback", "tasks",
 ];
 async function wipeFirebase(paths = ALL_STRATEGY_PATHS) {
   for (const p of paths) await req("PUT", `${RTDB_URL}/${p}.json`, null);
@@ -191,7 +197,7 @@ function finish() {
 }
 
 module.exports = {
-  HUB, RTDB_URL, DEV_LITE_URL, AUTH_TOKEN, FIXED_NOW,
+  HUB, RTDB_URL, DEV_LITE_URL, AUTH_TOKEN, TEST_BEARER, FIXED_NOW,
   req, sleep, waitFor, wipeFirebase,
   chromiumLaunchOptions, combinedInit, blockRealFirebaseSdk, authCookie, loginAsGokul,
   check, resetCheckState, allChecksPassed, finish,

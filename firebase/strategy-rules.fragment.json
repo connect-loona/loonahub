@@ -1,0 +1,11 @@
+{
+  "strategy_activity": { ".read": "auth != null", ".write": false },
+  "strategy_brand_library": { ".read": "auth != null", ".write": false },
+  "strategy_brands": { ".read": "auth != null", ".write": false },
+  "strategy_feedback": { ".read": "auth != null", ".write": false },
+  "strategy_learning_events": { ".read": "auth != null", ".write": false },
+  "strategy_learnings": { ".read": "auth != null", ".write": false },
+  "strategy_months": { ".read": "auth != null", ".write": false },
+  "strategy_runs": { ".read": "auth != null", ".write": false },
+  "strategy_stage_versions": { ".read": "auth != null", ".write": false }
+}

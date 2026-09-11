@@ -85,7 +85,7 @@ export function DeckReview({ run, stage }: { run: StrategyRun; stage: StageState
       </div>
 
       {readOnly ? (
-        // The Open Canva deck / Download deck / Create team tasks actions live in the
+        // The JSON/PPTX download and Create team tasks actions live in the
         // "Your next action" card once the deck is approved — not duplicated here.
         <div className="st-note">Deck approved {fmtDateTime(approval?.decidedAt)} by {approval?.decidedBy}.</div>
       ) : (

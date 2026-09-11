@@ -31,21 +31,26 @@ const authCookie = `loona_auth=${token}`;
   check("rejects an unauthenticated request", noAuth.statusCode === 401);
 
   // ---- brandId/config.id mismatch rejected ----
-  const mismatch = await brandSave.handler({ httpMethod: "POST", headers: { cookie: authCookie }, body: JSON.stringify({ brandId: "test-brand", config: Object.assign({}, newBrand, { id: "other-id" }) }) });
+  const mismatch = await brandSave.handler({ httpMethod: "POST", headers: { cookie: authCookie, authorization: "Bearer test:gokul%40loona.in:Gokul:gokul-fake-uid" }, body: JSON.stringify({ brandId: "test-brand", config: Object.assign({}, newBrand, { id: "other-id" }) }) });
   check("rejects a brandId/config.id mismatch", mismatch.statusCode === 400, mismatch.body);
 
   // ---- Valid config saves successfully ----
-  const ok = await brandSave.handler({ httpMethod: "POST", headers: { cookie: authCookie }, body: JSON.stringify({ brandId: "test-brand", config: newBrand }) });
+  const ok = await brandSave.handler({ httpMethod: "POST", headers: { cookie: authCookie, authorization: "Bearer test:gokul%40loona.in:Gokul:gokul-fake-uid" }, body: JSON.stringify({ brandId: "test-brand", config: newBrand }) });
   check("a valid config saves successfully", ok.statusCode === 200, ok.body);
   const saved = await fbGet("strategy_brands/test-brand");
   check("the config actually landed in Firebase", saved && saved.name === "Test Brand");
+
+  const staleClientConfig = { ...newBrand, canva: { enabled: true, token: "must-not-survive" } };
+  const staleSave = await brandSave.handler({ httpMethod: "POST", headers: { cookie: authCookie, authorization: "Bearer test:gokul%40loona.in:Gokul:gokul-fake-uid" }, body: JSON.stringify({ brandId: "test-brand", config: staleClientConfig }) });
+  check("one stale client can save during rollout", staleSave.statusCode === 200, staleSave.body);
+  check("retired publisher configuration is never persisted", !Object.prototype.hasOwnProperty.call(await fbGet("strategy_brands/test-brand"), "canva"));
 
   // ---- Missing required min-length fields get a clear, specific error ----
   const broken = JSON.parse(JSON.stringify(newBrand));
   broken.market = []; // min 1 required
   broken.voice.descriptors = ["only-one"]; // min 3 required
   broken.pillars = []; // min 1 required
-  const bad = await brandSave.handler({ httpMethod: "POST", headers: { cookie: authCookie }, body: JSON.stringify({ brandId: "test-brand", config: broken }) });
+  const bad = await brandSave.handler({ httpMethod: "POST", headers: { cookie: authCookie, authorization: "Bearer test:gokul%40loona.in:Gokul:gokul-fake-uid" }, body: JSON.stringify({ brandId: "test-brand", config: broken }) });
   const badBody = JSON.parse(bad.body);
   check("an invalid config (too-short required arrays) is rejected with 422", bad.statusCode === 422);
   check("the response lists specific per-field issues, not just a generic message", Array.isArray(badBody.issues) && badBody.issues.some((i) => i.path === "market") && badBody.issues.some((i) => i.path === "pillars"), badBody.issues && badBody.issues.map((i) => i.path));
@@ -53,7 +58,7 @@ const authCookie = `loona_auth=${token}`;
   // ---- Extra/unknown fields rejected (schema is .strict() at every level) ----
   const withExtra = JSON.parse(JSON.stringify(newBrand));
   withExtra.notARealField = "oops";
-  const extraRes = await brandSave.handler({ httpMethod: "POST", headers: { cookie: authCookie }, body: JSON.stringify({ brandId: "test-brand", config: withExtra }) });
+  const extraRes = await brandSave.handler({ httpMethod: "POST", headers: { cookie: authCookie, authorization: "Bearer test:gokul%40loona.in:Gokul:gokul-fake-uid" }, body: JSON.stringify({ brandId: "test-brand", config: withExtra }) });
   check("rejects an unknown top-level field (strict schema)", extraRes.statusCode === 422);
 
   console.log(allPass ? "\n✅ ALL CHECKS PASSED" : "\n❌ SOME CHECKS FAILED");

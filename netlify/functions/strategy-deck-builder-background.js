@@ -1,11 +1,14 @@
 // Same shape as strategy-research-background.js / strategy-strategy-background.js, for the
 // Deck Builder stage. Triggered by strategy-stage-approve.js once a human approves the
-// Creative Direction stage's checkpoint. This is also the stage that attempts a Canva
-// publish once its own JSON output validates — see pipeline.js's runDeckStage().
+// Creative Direction stage's checkpoint. JSON and PPTX exports are requested separately
+// from the finished, validated checkpoint.
 "use strict";
+const { verifyInternalRequest } = require("./lib/strategy/internal-auth");
 const { runDeckStage } = require("./lib/strategy/pipeline");
 
 exports.handler = async (event) => {
+  const auth = verifyInternalRequest(event);
+  if (!auth.ok) return { statusCode: 401, body: auth.reason };
   let body;
   try { body = JSON.parse(event.body || "{}"); } catch { return { statusCode: 400, body: "Invalid JSON" }; }
   const { runId } = body;

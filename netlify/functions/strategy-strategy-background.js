@@ -1,9 +1,12 @@
 // Same shape as strategy-research-background.js, for the Strategy stage. Triggered by
 // strategy-stage-approve.js once a human approves the Research stage's checkpoint.
 "use strict";
+const { verifyInternalRequest } = require("./lib/strategy/internal-auth");
 const { runStrategyStage } = require("./lib/strategy/pipeline");
 
 exports.handler = async (event) => {
+  const auth = verifyInternalRequest(event);
+  if (!auth.ok) return { statusCode: 401, body: auth.reason };
   let body;
   try { body = JSON.parse(event.body || "{}"); } catch { return { statusCode: 400, body: "Invalid JSON" }; }
   const { runId } = body;

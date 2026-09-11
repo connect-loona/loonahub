@@ -28,6 +28,28 @@ check("creative-direction.json parses against CreativeDirectionSchema", true);
 const directionIssues = validateDirection(directionParsed, config, strategy, "2026-10");
 check("creative-direction.json passes validateDirection with zero issues", directionIssues.length === 0, directionIssues);
 
+const placeholderReference = structuredClone(directionParsed);
+placeholderReference.assets[0].references[0] = {
+  url: "https://support.microsoft.com/en-us/office/paste-data-into-filtered-columns-abc123",
+  title: "Paste Data into Filtered Columns",
+  source: "Microsoft Support",
+  useFor: "none",
+  rightsNote: "Reference only",
+};
+const placeholderIssues = validateDirection(placeholderReference, config, strategy, "2026-10");
+check("reference validation rejects an unrelated source with placeholder useFor", placeholderIssues.some((issue) => /must explain exactly|not visibly relevant/.test(issue)), placeholderIssues);
+
+const searchReference = structuredClone(directionParsed);
+searchReference.assets[0].references[0] = {
+  url: "https://www.google.com/search?q=Sharad+Purnima+food+photography",
+  title: "Sharad Purnima food photography",
+  source: "Google",
+  useFor: "Food photography composition and lighting reference",
+  rightsNote: "Reference only",
+};
+const searchIssues = validateDirection(searchReference, config, strategy, "2026-10");
+check("reference validation rejects search-result pages", searchIssues.some((issue) => /search results/.test(issue)), searchIssues);
+
 const deckRaw = require(path.join(FIX_DIR, "deck-builder.json"));
 const deckParsed = DeckSpecSchema.parse(deckRaw);
 check("deck-builder.json parses against DeckSpecSchema", true);

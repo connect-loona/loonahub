@@ -15,7 +15,7 @@ process.env.BASIC_AUTH_CREDENTIALS = "gokul:supersecret";
 const token = crypto.createHash("sha256").update("gokul:supersecret").digest("hex");
 const authCookie = `loona_auth=${token}`;
 function call(body) {
-  return runStart.handler({ httpMethod: "POST", headers: { cookie: authCookie, host: "127.0.0.1:9020", "x-forwarded-proto": "http" }, body: JSON.stringify(body) });
+  return runStart.handler({ httpMethod: "POST", headers: { cookie: authCookie, authorization: "Bearer test:gokul%40loona.in:Gokul:gokul-fake-uid", host: "127.0.0.1:9020", "x-forwarded-proto": "http" }, body: JSON.stringify(body) });
 }
 
 (async () => {

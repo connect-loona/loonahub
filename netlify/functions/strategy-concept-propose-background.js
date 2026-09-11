@@ -3,9 +3,12 @@
 // strategy_runs/<runId>/stages/<stage>/candidates/<assetId>, so there's nothing more to do
 // here on failure than log it (matching every other -background function's shape).
 "use strict";
+const { verifyInternalRequest } = require("./lib/strategy/internal-auth");
 const { proposeAssetCandidate } = require("./lib/strategy/pipeline");
 
 exports.handler = async (event) => {
+  const auth = verifyInternalRequest(event);
+  if (!auth.ok) return { statusCode: 401, body: auth.reason };
   let body;
   try { body = JSON.parse(event.body || "{}"); } catch { return { statusCode: 400, body: "Invalid JSON" }; }
   const { runId, assetId, action, notes, focus } = body;

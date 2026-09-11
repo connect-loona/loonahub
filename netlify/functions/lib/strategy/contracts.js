@@ -81,33 +81,6 @@ const CopyStructureSchema = z
   })
   .strict();
 
-const CanvaConfigSchema = z
-  .object({
-    enabled: z.boolean(),
-    mode: z.enum(["brand_template", "design"]),
-    templateIdEnv: NonEmpty,
-    sourceDesignIdEnv: NonEmpty,
-    fieldPrefix: NonEmpty,
-    indexWidth: z.number().int().min(1).max(4),
-    fields: z
-      .object({
-        format: NonEmpty,
-        portfolio: NonEmpty,
-        idea: NonEmpty,
-        hook: NonEmpty,
-        creativeCopy: NonEmpty,
-        direction: NonEmpty,
-        shotList: NonEmpty,
-        captionOne: NonEmpty,
-        captionTwo: NonEmpty,
-        captionThree: NonEmpty,
-        referenceImage: NonEmpty,
-        referenceCredit: NonEmpty,
-      })
-      .strict(),
-  })
-  .strict();
-
 const BrandConfigSchema = z
   .object({
     schemaVersion: z.literal("1.0"),
@@ -186,7 +159,6 @@ const BrandConfigSchema = z
     copyStructure: CopyStructureSchema.nullable(),
     knownUnknowns: z.array(NonEmpty),
     sourceVectorStoreIds: z.array(NonEmpty),
-    canva: CanvaConfigSchema,
   })
   .strict();
 

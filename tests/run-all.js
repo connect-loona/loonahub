@@ -25,7 +25,7 @@ const DEV_LITE_PORT = process.env.DEV_LITE_PORT || 9020;
 const ALL_STRATEGY_PATHS = [
   "strategy_runs", "strategy_brands", "strategy_months", "strategy_learning_events",
   "strategy_learnings", "strategy_activity", "strategy_stage_versions", "strategy_brand_library",
-  "tasks",
+  "strategy_feedback", "tasks",
 ];
 function wipeAll(rtdbUrl) {
   return Promise.all(ALL_STRATEGY_PATHS.map((p) => new Promise((resolve) => {

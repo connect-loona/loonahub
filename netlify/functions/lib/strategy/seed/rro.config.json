@@ -328,27 +328,5 @@
     "Complete internal SKU catalogue, pack sizes, ingredients and approved claims",
     "The twentieth dairy SKU reported by the live collection"
   ],
-  "sourceVectorStoreIds": [],
-  "canva": {
-    "enabled": false,
-    "mode": "brand_template",
-    "templateIdEnv": "CANVA_BRAND_TEMPLATE_ID",
-    "sourceDesignIdEnv": "CANVA_SOURCE_DESIGN_ID",
-    "fieldPrefix": "ASSET",
-    "indexWidth": 2,
-    "fields": {
-      "format": "FORMAT",
-      "portfolio": "PORTFOLIO_SKU",
-      "idea": "IDEA",
-      "hook": "HOOK",
-      "creativeCopy": "CREATIVE_COPY",
-      "direction": "DIRECTION",
-      "shotList": "SHOT_LIST",
-      "captionOne": "CAPTION_A",
-      "captionTwo": "CAPTION_B",
-      "captionThree": "CAPTION_C",
-      "referenceImage": "REFERENCE_IMAGE",
-      "referenceCredit": "REFERENCE_CREDIT"
-    }
-  }
+  "sourceVectorStoreIds": []
 }

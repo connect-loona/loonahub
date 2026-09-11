@@ -14,6 +14,7 @@ process.env.FIREBASE_DB_URL = process.env.FIREBASE_DB_URL || "http://127.0.0.1:9
 // in the browser context (see the addCookies() call in each Playwright test), matching this
 // same credentials value's SHA-256 hash.
 process.env.BASIC_AUTH_CREDENTIALS = process.env.BASIC_AUTH_CREDENTIALS || "gokul:supersecret";
+process.env.STRATEGY_INTERNAL_SECRET = process.env.STRATEGY_INTERNAL_SECRET || "local-test-background-secret";
 process.env.URL = process.env.URL || "http://127.0.0.1:9020";
 
 const http = require("http");

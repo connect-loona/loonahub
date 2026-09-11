@@ -23,6 +23,18 @@
 # its index.html instead of 404ing — everything else on this site keeps resolving to real
 # files exactly as it does today.
 [[redirects]]
+  from = "/strategy-old/*"
+  to = "/strategy/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/strategy-old"
+  to = "/strategy/"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/strategy/*"
   to = "/strategy/index.html"
   status = 200

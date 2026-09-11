@@ -1,5 +1,5 @@
 // e2e test for the research/copy/creative-direction/deck-builder review boards and the
-// deck-complete actions (download/Canva/create team tasks) — the remaining Step 4 review
+// deck-complete actions (JSON/PPTX export/create team tasks) — the remaining Step 4 review
 // screens ported from strategy-app.js's researchReviewHtml/copyReviewHtml/
 // directionReviewHtml/deckReviewHtml/deckCompleteActionsHtml. Each stage gets its own run
 // (distinguished by month) since a run's review body only ever shows its single most
@@ -206,9 +206,8 @@ async function backToList(page) {
 
   // ---- Deck-complete actions ----
   await openRunByMonth(page, "March 2027");
-  const reviewPanelText = await page.locator(".st-review-panel").textContent();
-  check("deck-complete: offers a download link", await page.locator(".st-review-panel a", { hasText: "Download deck" }).count() > 0);
-  check("deck-complete: shows the Canva not-connected note", reviewPanelText.includes("Canva isn't connected"));
+  check("deck-complete: offers a PPTX export", await page.locator(".st-review-panel button", { hasText: "Download PPTX" }).count() > 0);
+  check("deck-complete: offers a JSON export", await page.locator(".st-review-panel button", { hasText: "Download JSON" }).count() > 0);
   check("deck-complete: offers Create team tasks", await page.locator(".st-review-panel button", { hasText: "Create team tasks" }).count() > 0);
   await page.locator(".st-review-panel button", { hasText: "Create team tasks" }).click();
   await waitFor(async () => (await page.locator(".st-review-panel button", { hasText: "Team tasks created" }).count()) > 0 || null, { label: "team tasks button shows created state" });

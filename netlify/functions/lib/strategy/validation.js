@@ -343,11 +343,45 @@ function validateDirection(output, config, strategy, month) {
     if (!sameStringSet(asset.skuIds, strategyAsset.skuIds)) issues.push(`${asset.assetId} changed SKU set in direction.`);
     if (asset.format === "reel" && safeArray(asset.shotList).length < 3) issues.push(`${asset.assetId} reel needs at least 3 shots.`);
     for (const reference of safeArray(asset.references)) {
+      const useFor = normalise(reference.useFor || "");
+      if (!useFor || /^(none|na|n a|not applicable|unknown|tbd|placeholder)$/.test(useFor)) {
+        issues.push(`${asset.assetId} reference "${reference.title}" must explain exactly what the team should use it for.`);
+      } else if (useFor.split(/\s+/).length < 4) {
+        issues.push(`${asset.assetId} reference "${reference.title}" has a useFor note that is too vague.`);
+      }
       try {
         const url = new URL(reference.url);
         if (!/^https?:$/.test(url.protocol)) throw new Error("unsupported protocol");
+        const host = url.hostname.replace(/^www\./, "");
+        const isSearchResult =
+          ((host === "google.com" || host.endsWith(".google.com")) && url.pathname === "/search") ||
+          ((host === "bing.com" || host.endsWith(".bing.com")) && url.pathname.startsWith("/search")) ||
+          ((host === "youtube.com" || host.endsWith(".youtube.com")) && url.pathname.startsWith("/results")) ||
+          ((host === "pinterest.com" || host.endsWith(".pinterest.com")) && url.pathname.startsWith("/search"));
+        if (isSearchResult) issues.push(`${asset.assetId} reference "${reference.title}" points to search results, not a stable source.`);
       } catch {
         issues.push(`${asset.assetId} contains an invalid reference URL.`);
+      }
+
+      // A reference can come from another category when the art-direction lesson is clear,
+      // but its title/use note still needs a concrete connection to this asset. Requiring
+      // one non-generic shared term catches unrelated links without banning legitimate
+      // cross-category visual inspiration.
+      const generic = new Set(["reference", "visual", "style", "image", "video", "reel", "post", "look", "feel", "shot", "frame", "use", "for", "the", "and", "with", "from", "this", "that"]);
+      const words = (value) => new Set(normalise(value).split(/\s+/).filter((word) => word.length >= 4 && !generic.has(word)));
+      const referenceWords = words(`${reference.title} ${reference.useFor || ""}`);
+      const assetWords = words([
+        strategyAsset.hook,
+        strategyAsset.concept,
+        asset.visualConcept,
+        asset.artDirection,
+        asset.composition,
+        ...safeArray(asset.designNotes),
+        ...safeArray(asset.referenceQueries),
+        ...safeArray(asset.shotList).flatMap((shot) => [shot.action, shot.framing, shot.onScreenText || ""]),
+      ].join(" "));
+      if (![...referenceWords].some((word) => assetWords.has(word))) {
+        issues.push(`${asset.assetId} reference "${reference.title}" is not visibly relevant to this asset's direction.`);
       }
     }
   }

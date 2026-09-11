@@ -27,7 +27,7 @@ export function onAuthChange(cb: (user: CurrentUser | null) => void): () => void
 
 export async function getIdTokenOrNull(): Promise<string | null> {
   const user = readFakeUser();
-  return user ? `fake-id-token-${user.uid}` : null;
+  return user ? `test:${encodeURIComponent(user.email)}:${encodeURIComponent(user.displayName || user.uid)}:${user.uid}` : null;
 }
 
 export function listenPath<T>(path: string, cb: (value: T | null) => void): () => void {

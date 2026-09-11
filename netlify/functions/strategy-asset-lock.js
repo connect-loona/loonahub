@@ -14,7 +14,7 @@ const { checkAuthorization } = require("./lib/strategy/auth");
 function cors() {
   return {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Content-Type": "application/json",
   };
@@ -23,7 +23,7 @@ function cors() {
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: cors(), body: "" };
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: cors(), body: "Method not allowed" };
-  const auth = checkAuthorization(event);
+  const auth = await checkAuthorization(event);
   if (!auth.ok) return { statusCode: 401, headers: cors(), body: JSON.stringify({ error: "Unauthorized", reason: auth.reason }) };
 
   let body;
@@ -31,7 +31,7 @@ exports.handler = async (event) => {
   const runId = String(body.runId || "").trim();
   const stage = String(body.stage || "").trim();
   const assetId = String(body.assetId || "").trim();
-  const actor = String(body.actor || "Unknown").trim();
+  const actor = auth.actor;
   const locked = !!body.locked;
   if (!runId || !stage || !assetId) return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "runId, stage, and assetId are required." }) };
 

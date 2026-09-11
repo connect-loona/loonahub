@@ -32,7 +32,7 @@ const authCookie = `loona_auth=${token}`;
 
   const res1 = await runStart.handler({
     httpMethod: "POST",
-    headers: { cookie: authCookie }, // deliberately no host header
+    headers: { cookie: authCookie, authorization: "Bearer test:gokul%40loona.in:Gokul:gokul-fake-uid" }, // deliberately no host header
     body: JSON.stringify({ brandId: "rro", month: "2026-10", actor: "Gokul", runtime: "fixture", fixtureDir: path.join(HUB, "netlify/functions/lib/strategy/fixtures/rro-2026-10") }),
   });
   check("run-start still succeeds even if the trigger call itself fails", res1.statusCode === 200, res1);
@@ -53,7 +53,7 @@ const authCookie = `loona_auth=${token}`;
   await fbSet("strategy_runs", null);
   const res2 = await runStart.handler({
     httpMethod: "POST",
-    headers: { cookie: authCookie, host: "localhost:9999" }, // nothing listening here either, but it IS a valid absolute URL now
+    headers: { cookie: authCookie, authorization: "Bearer test:gokul%40loona.in:Gokul:gokul-fake-uid", host: "localhost:9999" }, // nothing listening here either, but it IS a valid absolute URL now
     body: JSON.stringify({ brandId: "rro", month: "2026-10", actor: "Gokul", runtime: "fixture", fixtureDir: path.join(HUB, "netlify/functions/lib/strategy/fixtures/rro-2026-10") }),
   });
   check("run-start (with Host header) succeeds", res2.statusCode === 200, res2);

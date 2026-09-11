@@ -46,12 +46,3 @@ if (!response.ok) {
     addChatMessage('Sorry, I encountered an error. Please check your Claude API key and try again.');
   }
 }
-
-// Keep Strategy OS presentation changes isolated from the agent pipeline in index.html.
-(function () {
-  var script = document.createElement('script');
-  script.src = '/strategy-ui.js';
-  script.defer = true;
-  document.head.appendChild(script);
-})();
-

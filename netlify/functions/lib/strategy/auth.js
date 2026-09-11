@@ -29,34 +29,77 @@ function parseCookies(header) {
   return out;
 }
 
-// Returns { ok: true } or { ok: false, reason }. The reason is safe to show the caller —
-// it never includes the actual credential value, only which check failed — and exists
-// specifically to tell apart three failure modes that a bare "Unauthorized" can't
-// distinguish from the outside: the env var not being visible to this function at all
-// (e.g. scoped to Edge Functions only in Netlify's dashboard, so a regular Function's
-// process.env never sees it), the browser not sending a cookie, or a cookie that doesn't
-// match. Temporary/diagnostic — safe to leave in, but the goal is to delete this level of
-// detail once the real cause is confirmed and fixed.
-function checkAuthorization(event) {
+const { fbGet, FB } = require("./firebase");
+const FIREBASE_WEB_API_KEY = process.env.FIREBASE_WEB_API_KEY || "AIzaSyBnESbCpAiVcSPHOZk4ANFwlIqw7DhB4A0";
+
+function bearerToken(event) {
+  const headers = (event && event.headers) || {};
+  const key = Object.keys(headers).find((candidate) => candidate.toLowerCase() === "authorization");
+  const match = key && String(headers[key]).match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : "";
+}
+
+function deriveEmail(member) {
+  return String(member.email || `${String(member.name || "").toLowerCase().replace(/\s+/g, "")}@loona.in`).toLowerCase();
+}
+
+function localTestCaller(token) {
+  if (!/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/i.test(FB)) return null;
+  const parts = token.split(":");
+  if (parts.length !== 4 || parts[0] !== "test") return null;
+  try {
+    return { email: decodeURIComponent(parts[1]).toLowerCase(), actor: decodeURIComponent(parts[2]), uid: parts[3] };
+  } catch {
+    return null;
+  }
+}
+
+async function resolveFirebaseCaller(token) {
+  const testCaller = localTestCaller(token);
+  if (testCaller) return testCaller;
+  const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${FIREBASE_WEB_API_KEY}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ idToken: token }),
+  });
+  const data = await response.json().catch(() => null);
+  const user = response.ok && data && data.users && data.users[0];
+  if (!user || !user.email) return null;
+  const email = String(user.email).toLowerCase();
+  const members = Object.values((await fbGet("members")) || {}).filter((member) => member && member.name);
+  const match = members.find((member) => deriveEmail(member) === email);
+  return match ? { email, actor: match.name, uid: user.localId } : null;
+}
+
+// Strategy actions require both the Hub perimeter cookie and a current Firebase team
+// session. The actor is resolved server-side and never trusted from the request body.
+async function checkAuthorization(event) {
   const credentials = process.env.BASIC_AUTH_CREDENTIALS;
   const sepIndex = credentials ? credentials.indexOf(":") : -1;
   if (!credentials || sepIndex <= 0 || sepIndex === credentials.length - 1) {
-    return { ok: false, reason: "BASIC_AUTH_CREDENTIALS is not visible to this function (missing, empty, or malformed) — check its scope in Netlify's environment variable settings includes Functions, not just Edge Functions." };
+    return { ok: false, reason: "Strategy authentication is unavailable." };
   }
   const cookieHeader = (event.headers && (event.headers.cookie || event.headers.Cookie)) || "";
   const cookies = parseCookies(cookieHeader);
   if (!cookies[COOKIE_NAME]) {
-    return { ok: false, reason: "No loona_auth cookie was sent with this request." };
+    return { ok: false, reason: "Hub sign-in is required." };
   }
   if (cookies[COOKIE_NAME] !== sha256Hex(credentials)) {
-    return { ok: false, reason: "The loona_auth cookie doesn't match this function's BASIC_AUTH_CREDENTIALS value — possibly a stale cookie, or the value differs from what basic-auth.ts is using." };
+    return { ok: false, reason: "Hub sign-in has expired." };
   }
-  return { ok: true };
+  const token = bearerToken(event);
+  if (!token) return { ok: false, reason: "Firebase sign-in is required." };
+  try {
+    const caller = await resolveFirebaseCaller(token);
+    return caller ? { ok: true, ...caller } : { ok: false, reason: "Firebase session is invalid or is not a Hub team member." };
+  } catch (error) {
+    console.error("Strategy Firebase authentication failed:", error);
+    return { ok: false, reason: "Firebase authentication could not be verified." };
+  }
 }
 
-// Kept for compatibility with anything calling the plain boolean check.
-function isAuthorized(event) {
-  return checkAuthorization(event).ok;
+async function isAuthorized(event) {
+  return (await checkAuthorization(event)).ok;
 }
 
 module.exports = { isAuthorized, checkAuthorization };

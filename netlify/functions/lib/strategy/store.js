@@ -62,8 +62,14 @@ async function loadBrandConfig(brandId) {
   const key = fbSafeKey(brandId);
   const raw = await fbGet(`strategy_brands/${key}`);
   if (raw) {
-    const result = BrandConfigSchema.safeParse(raw);
-    if (result.success) return result.data;
+    // Canva is intentionally retired from the active product. Strip its legacy config
+    // once on read so brands saved before this release migrate without being re-seeded.
+    const { canva: _retiredCanva, ...current } = raw;
+    const result = BrandConfigSchema.safeParse(current);
+    if (result.success) {
+      if (Object.prototype.hasOwnProperty.call(raw, "canva")) await fbSet(`strategy_brands/${key}`, result.data);
+      return result.data;
+    }
     console.error(`strategy_brands/${key} in Firebase failed validation — re-seeding from source. Issues:`, JSON.stringify(result.error.issues).slice(0, 500));
   }
   const seed = SEED_BRAND_CONFIGS[brandId];
@@ -134,4 +140,3 @@ async function loadBrandLibrary(config, options) {
 }
 
 module.exports = { loadBrandConfig, loadMonthInput, loadLearnings, loadBrandLibrary, loadPrompt };
-

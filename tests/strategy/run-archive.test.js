@@ -18,7 +18,7 @@ function check(name, cond, extra) {
 const token = crypto.createHash("sha256").update("gokul:supersecret").digest("hex");
 const authCookie = `loona_auth=${token}`;
 function call(body) {
-  return runArchive.handler({ httpMethod: "POST", headers: { cookie: authCookie }, body: JSON.stringify(body) });
+  return runArchive.handler({ httpMethod: "POST", headers: { cookie: authCookie, authorization: "Bearer test:gokul%40loona.in:Gokul:gokul-fake-uid" }, body: JSON.stringify(body) });
 }
 
 (async () => {
@@ -40,11 +40,11 @@ function call(body) {
   check("rejects an invalid action", badAction.statusCode === 400, JSON.parse(badAction.body));
 
   // ---- Archive ----
-  const archiveRes = await call({ runId, action: "archive", actor: "Gokul", reason: "Duplicate test run." });
+  const archiveRes = await call({ runId, action: "archive", actor: "Mallory", reason: "Duplicate test run." });
   check("archive succeeds", archiveRes.statusCode === 200, JSON.parse(archiveRes.body));
   const afterArchive = await fbGet(`strategy_runs/${runId}`);
   check("archivedAt is set", !!afterArchive.archivedAt, afterArchive.archivedAt);
-  check("archivedBy is set to the actor", afterArchive.archivedBy === "Gokul");
+  check("archivedBy comes from the verified Firebase user, not the spoofed body actor", afterArchive.archivedBy === "Gokul");
   check("archiveReason is set", afterArchive.archiveReason === "Duplicate test run.");
   check("archiving does NOT touch the run's own status field", afterArchive.status === "failed", afterArchive.status);
 
@@ -56,10 +56,18 @@ function call(body) {
   check("restoring does NOT touch the run's own status field either", afterRestore.status === "failed");
 
   // ---- Purge ----
+  await fbSet(`strategy_activity/${runId}`, { event: { action: "research.completed" } });
+  await fbSet(`strategy_stage_versions/${runId}`, { research: { version: 1 } });
+  await fbSet(`strategy_feedback/${runId}`, { note: { decision: "changes_requested" } });
+  await fbSet("strategy_learning_events/rro/durable", { runId, decision: "asset_discard", notes: "Never repeat it." });
   const purgeRes = await call({ runId, action: "purge", actor: "Gokul" });
   check("purge succeeds", purgeRes.statusCode === 200);
   const afterPurge = await fbGet(`strategy_runs/${runId}`);
   check("the run is actually gone after purge", afterPurge === null, afterPurge);
+  check("run-scoped activity is removed after purge", (await fbGet(`strategy_activity/${runId}`)) === null);
+  check("run-scoped stage versions are removed after purge", (await fbGet(`strategy_stage_versions/${runId}`)) === null);
+  check("run-scoped feedback is removed after purge", (await fbGet(`strategy_feedback/${runId}`)) === null);
+  check("durable brand learning survives purge", (await fbGet("strategy_learning_events/rro/durable")).notes === "Never repeat it.");
 
   console.log(allPass ? "\n✅ ALL CHECKS PASSED" : "\n❌ SOME CHECKS FAILED");
   process.exit(allPass ? 0 : 1);

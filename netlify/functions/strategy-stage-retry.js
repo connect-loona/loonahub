@@ -13,23 +13,14 @@
 const { fbGet, fbSet, fbUpdate } = require("./lib/strategy/firebase");
 const { logActivity } = require("./lib/strategy/pipeline");
 const { checkAuthorization } = require("./lib/strategy/auth");
+const { triggerBackground } = require("./lib/strategy/background-trigger");
 
 const STAGE_ORDER = ["research", "strategy", "copy", "creative-direction", "deck-builder"];
-
-// See strategy-run-start.js's siteBaseUrl() — process.env.URL/DEPLOY_URL aren't reliably
-// present at Function runtime, so build the base URL from the incoming request's own Host
-// header instead.
-function siteBaseUrl(event) {
-  const host = (event.headers && (event.headers.host || event.headers.Host || event.headers["x-forwarded-host"])) || "";
-  if (!host) return process.env.URL || process.env.DEPLOY_URL || "";
-  const proto = (event.headers && event.headers["x-forwarded-proto"]) || "https";
-  return `${proto}://${host}`;
-}
 
 function cors() {
   return {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Content-Type": "application/json",
   };
@@ -38,14 +29,14 @@ function cors() {
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: cors(), body: "" };
   if (event.httpMethod !== "POST") return { statusCode: 405, headers: cors(), body: "Method not allowed" };
-  const auth = checkAuthorization(event);
+  const auth = await checkAuthorization(event);
   if (!auth.ok) return { statusCode: 401, headers: cors(), body: JSON.stringify({ error: "Unauthorized", reason: auth.reason }) };
 
   let body;
   try { body = JSON.parse(event.body || "{}"); } catch { return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "Invalid JSON" }) }; }
 
   const { runId, stage } = body;
-  const actor = String(body.actor || "Unknown").trim();
+  const actor = auth.actor;
   if (!runId || !STAGE_ORDER.includes(stage)) return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "runId and a valid stage are required." }) };
 
   try {
@@ -63,13 +54,8 @@ exports.handler = async (event) => {
     await fbUpdate(`strategy_runs/${runId}`, { status: "draft", updatedAt: now });
     await logActivity(runId, actor, `${stage}.retry`, null);
 
-    const base = siteBaseUrl(event);
     try {
-      await fetch(`${base}/.netlify/functions/strategy-${stage}-background`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ runId }),
-      });
+      await triggerBackground(event, `strategy-${stage}-background`, { runId });
     } catch (e) {
       console.error(`Failed to trigger ${stage} retry background function:`, e);
       await fbSet(`strategy_runs/${runId}/stages/${stage}`, { status: "failed", detail: `Could not restart the ${stage} stage: ${e.message || e}` });

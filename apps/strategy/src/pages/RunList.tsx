@@ -76,7 +76,7 @@ export function RunList({ actor, onOpenRun, onManageBrands, onStartNewRun }: {
     <div>
       <div className="st-section-header">
         <div className="st-section-title">Strategy OS</div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="st-header-actions">
           <button className="st-btn st-btn-ghost" onClick={onManageBrands}>Manage brands</button>
           <button className="st-btn st-btn-primary" onClick={onStartNewRun}>+ New strategy run</button>
         </div>
