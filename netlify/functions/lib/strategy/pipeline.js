@@ -395,6 +395,11 @@ const ASSET_STAGE_CONFIG = {
     // See checkNoteObedience in validation.js — the plain text a refine's notes are
     // checked against.
     noteText: (candidate) => [candidate.conceptName, candidate.concept, candidate.hook, candidate.tension].filter(Boolean).join(" \n "),
+    // A short line representing this candidate in the refine chat thread (see the
+    // "history" comment on proposeAssetCandidate below) — just enough for a reviewer to
+    // recognize which round of the conversation produced what, without repeating the full
+    // concept card that's already shown above the chat.
+    summarize: (candidate) => `${candidate.conceptName} — "${candidate.hook}"`,
   },
   copy: {
     label: "Copy",
@@ -414,6 +419,7 @@ const ASSET_STAGE_CONFIG = {
     describeChange: (oldAsset, newAsset) =>
       `Refreshed the copy for ${oldAsset.assetId} (hook: "${oldAsset.hook}").`,
     noteText: (candidate) => allCopyText(candidate),
+    summarize: (candidate) => candidate.captions?.[0]?.copy || candidate.hook,
   },
 };
 
@@ -432,6 +438,25 @@ async function proposeAssetCandidate(runId, stage, assetId, requestType, notes, 
   if (targetIndex === -1) throw new Error(`Asset ${assetId} not found in this run's ${stage}.`);
   const targetAsset = checkpoint.assets[targetIndex];
 
+  const candidatePath = `strategy_runs/${runId}/stages/${stage}/candidates/${assetId}`;
+  const existingCandidate = await fbGet(candidatePath);
+  // "refine" is the one request type meant to be a running conversation — sending a second
+  // refine while a "ready" candidate is already sitting there builds on THAT candidate (so
+  // "make it warmer" then "now add a CTA" compounds onto the same concept), instead of
+  // restarting from the last-approved checkpoint every time and silently losing whatever
+  // the first round changed. "similar"/"discard"/"replace" always restart fresh from the
+  // checkpoint — they're a deliberately clean alternative, not a continuation of whatever's
+  // currently on the table.
+  const chaining = requestType === "refine" && existingCandidate && existingCandidate.status === "ready" && existingCandidate.candidate;
+  const baseAsset = chaining ? existingCandidate.candidate : targetAsset;
+  // The running chat thread for this candidate (see ConceptChatPanel.tsx) — a user turn is
+  // appended immediately below; the matching assistant turn (cfg.summarize's short line for
+  // whatever this round produced) is appended once generation actually succeeds, further
+  // down. Starting fresh (not chaining) means starting a new thread, same as starting a new
+  // candidate.
+  const history = (chaining && Array.isArray(existingCandidate.history)) ? existingCandidate.history.slice() : [];
+  history.push({ role: "user", notes: notes || null, focus: focus || null, requestType, at: new Date().toISOString() });
+
   const config = await loadBrandConfig(run.brandId);
   const [monthInput, learnings, brandLibrary, context] = await Promise.all([
     loadMonthInput(run.brandId, run.month),
@@ -447,7 +472,7 @@ async function proposeAssetCandidate(runId, stage, assetId, requestType, notes, 
     learnings,
     brandLibrary,
     currentAssetPlan: checkpoint.assets,
-    targetAsset,
+    targetAsset: baseAsset,
     // focus: an optional pointer at the specific part of targetAsset the reviewer means
     // (e.g. "Caption B", "Script") — see strategy-concept-propose.js's own header comment.
     request: { type: requestType, notes: notes || null, focus: focus || null },
@@ -457,12 +482,11 @@ async function proposeAssetCandidate(runId, stage, assetId, requestType, notes, 
   // lock now (at the moment the request is actually sent) rather than waiting for the
   // candidate to be accepted, so the "N locked" count in the UI reflects reality the
   // instant a person starts changing something, not a few seconds later.
-  const candidatePath = `strategy_runs/${runId}/stages/${stage}/candidates/${assetId}`;
   const agent = stageAgent(stage);
   await Promise.all([
     fbSet(`strategy_runs/${runId}/stages/${stage}/locks/${assetId}`, null),
     fbSet(candidatePath, {
-      status: "running", requestType, notes: notes || null, focus: focus || null, updatedAt: new Date().toISOString(),
+      status: "running", requestType, notes: notes || null, focus: focus || null, history, updatedAt: new Date().toISOString(),
       detail: `${agent.emoji} ${agent.name} is sketching a replacement.`,
     }),
   ]);
@@ -486,12 +510,13 @@ async function proposeAssetCandidate(runId, stage, assetId, requestType, notes, 
         repairIssues,
       });
       const parsed = cfg.schema.parse(raw);
-      const candidate = Object.assign({}, parsed, cfg.lockedFields(targetAsset));
+      const candidate = Object.assign({}, parsed, cfg.lockedFields(baseAsset));
       const swappedAssets = checkpoint.assets.map((asset, i) => (i === targetIndex ? candidate : asset));
       const issues = cfg.callValidate(Object.assign({}, checkpoint, { assets: swappedAssets }), config, context, learnings, run.month)
         .concat(checkNoteObedience(requestType, notes, cfg.noteText(candidate)));
       if (issues.length === 0) {
-        await fbSet(candidatePath, { status: "ready", requestType, notes: notes || null, focus: focus || null, candidate, updatedAt: new Date().toISOString() });
+        const readyHistory = history.concat([{ role: "assistant", summary: cfg.summarize(candidate), at: new Date().toISOString() }]);
+        await fbSet(candidatePath, { status: "ready", requestType, notes: notes || null, focus: focus || null, history: readyHistory, candidate, updatedAt: new Date().toISOString() });
         return candidate;
       }
       repairIssues = issues;
@@ -502,7 +527,7 @@ async function proposeAssetCandidate(runId, stage, assetId, requestType, notes, 
     }
   }
   const message = lastError && lastError.message ? lastError.message : String(lastError);
-  await fbSet(candidatePath, { status: "failed", requestType, notes: notes || null, focus: focus || null, detail: message, updatedAt: new Date().toISOString() });
+  await fbSet(candidatePath, { status: "failed", requestType, notes: notes || null, focus: focus || null, history, detail: message, updatedAt: new Date().toISOString() });
   throw lastError;
 }
 
