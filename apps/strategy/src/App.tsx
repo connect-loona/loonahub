@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { onAuthChange, type CurrentUser } from "./lib/firebase";
 import { useBrands } from "./lib/useRuns";
+import type { StrategyBrand } from "./lib/types";
 import { RunList } from "./pages/RunList";
 import { RunDetail } from "./pages/RunDetail";
 import { BrandList } from "./pages/BrandList";
@@ -18,7 +19,10 @@ type View =
   | { kind: "new-run" }
   | { kind: "run"; runId: string }
   | { kind: "brands" }
-  | { kind: "brand-form"; brandId: string };
+  // `seed` carries a Drive-drafted config into the form for a NEW brand. BrandForm reads
+  // its initialBrand once at mount by design, so the seed has to arrive with the view
+  // change rather than turning up afterwards.
+  | { kind: "brand-form"; brandId: string; seed?: StrategyBrand };
 
 export default function App() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>("checking");
@@ -72,13 +76,16 @@ export default function App() {
         onBack={() => setView({ kind: "runs" })}
         onEditBrand={(brandId) => setView({ kind: "brand-form", brandId })}
         onAddBrand={() => setView({ kind: "brand-form", brandId: "__new__" })}
+        onUseDraft={(brandId, seed) => setView({ kind: "brand-form", brandId, seed })}
       />
     );
   } else if (view.kind === "brand-form") {
     body = (
       <BrandForm
         brandId={view.brandId}
-        initialBrand={brands.find((b) => b.id === view.brandId)}
+        // A Drive draft wins when one was carried in; otherwise this is an ordinary edit of
+        // an existing brand.
+        initialBrand={view.seed || brands.find((b) => b.id === view.brandId)}
         onCancel={() => setView({ kind: "brands" })}
         onSaved={() => setView({ kind: "brands" })}
       />
