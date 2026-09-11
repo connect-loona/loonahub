@@ -135,9 +135,20 @@ Write the exact opening words. “Frying oil education” is not a hook. “Two 
 
 When the brand has \`portfolios[]\`, every concept must carry exactly one valid \`portfolioId\` and at least one valid \`skuId\` from that portfolio. Read that portfolio's naming, voice and visual rules before developing the idea. Never collapse a sub-brand into the parent.
 
+## Deliverable formats
+
+The brand config's \`deliverables\` names an exact count per format. \`reel\`, \`carousel\` and
+\`static\` are the original three; \`story\` is a newer fourth option some brands now configure
+— a short, single-idea vertical execution for the Stories/Status placement, built for a
+24-hour ephemeral slot rather than the main feed or grid. Treat it structurally like
+\`static\` (no script, no shot-list minimum) but write and design it for that ephemeral,
+casual, often single-tap-through context, not as a resized static. Whatever formats the
+brand's \`deliverables\` actually lists, meet every one of their counts exactly — do not
+substitute one format for another to make a total add up.
+
 ## Balance
 
-Meet the requested reel, carousel and static totals exactly. Spread the month intentionally across pillars, audience tensions and portfolios. Do not use weak filler to satisfy a pillar target; explain a justified imbalance in \`balanceRationale\`.
+Meet every contracted format's count exactly (see above). Spread the month intentionally across pillars, audience tensions and portfolios. Do not use weak filler to satisfy a pillar target; explain a justified imbalance in \`balanceRationale\`.
 
 Keep the concept and hook independent of production polish. The creative-direction agent will decide how it looks.
 `;
@@ -157,7 +168,7 @@ Return JSON matching this shape exactly.
   "assets": [
     {
       "assetId": "same id as the strategy asset",
-      "format": "reel | carousel | static",
+      "format": "reel | carousel | static | story",
       "portfolioId": "same portfolioId as the strategy asset, or null",
       "portfolioName": "the exact configured portfolio name, or null",
       "skuIds": ["same skuIds as the strategy asset"],
@@ -189,7 +200,7 @@ Return JSON matching this shape exactly.
 }
 \`\`\`
 
-\`onCreative.frames\` is only used by carousels — leave it an empty array for reels and statics. For a **static**, \`script\` must be empty (\`durationSeconds: 0\`, \`scenes: []\`) — there is nothing to script. For a **reel**, \`script\` is the opening hook beat through to the close: give it a real duration and at least two scenes; the first scene's \`voiceover\`/\`onScreenText\` is where the reel's hook actually lands in the first two seconds.
+\`onCreative.frames\` is only used by carousels — leave it an empty array for reels, statics and stories. For a **static** or a **story**, \`script\` must be empty (\`durationSeconds: 0\`, \`scenes: []\`) — a story is treated the same as a static here, one frame and one caption, not a mini-reel. For a **reel**, \`script\` is the opening hook beat through to the close: give it a real duration and at least two scenes; the first scene's \`voiceover\`/\`onScreenText\` is where the reel's hook actually lands in the first two seconds.
 
 ## The three captions
 
@@ -236,7 +247,7 @@ Return JSON matching this shape exactly.
   "assets": [
     {
       "assetId": "same id as the strategy/copy asset",
-      "format": "reel | carousel | static",
+      "format": "reel | carousel | static | story",
       "portfolioId": "same portfolioId as the strategy asset, or null",
       "skuIds": ["same skuIds as the strategy asset"],
       "visualConcept": "one paragraph — what the viewer actually sees, concretely",
@@ -260,7 +271,7 @@ Return JSON matching this shape exactly.
 }
 \`\`\`
 
-\`shotList\` is required for every reel (minimum 3 shots — enough to actually block a shoot) and optional for carousels/statics where a single composition note may be enough.
+\`shotList\` is required for every reel (minimum 3 shots — enough to actually block a shoot) and optional for carousels/statics/stories where a single composition note may be enough.
 
 ## References are sourced, not invented
 
@@ -299,7 +310,7 @@ Return JSON matching this shape exactly.
     {
       "pageNumber": 1,
       "assetId": "same id as the strategy/copy/direction asset",
-      "format": "reel | carousel | static",
+      "format": "reel | carousel | static | story",
       "portfolioAndSku": "portfolio name + SKU name(s), or the brand name if there is no portfolio",
       "idea": "copied exactly from the strategy asset's concept field — do not paraphrase",
       "hook": "copied exactly from the copy asset's hook field",
@@ -345,6 +356,12 @@ describing what's being asked:
 - \`request.type: "discard"\` — \`targetAsset\` is dead; \`request.notes\` explains why. Do not
   preserve any part of it — the concept, hook and tension must all be genuinely new.
 
+**\`request.notes\` is a mandatory instruction, not a suggestion.** If the notes name a
+specific, concrete element the concept should include or change, that element must be
+literally present in the \`concept\` or \`hook\` you return — not merely implied. Before
+returning, re-read \`request.notes\` and check that each specific thing it asked for actually
+shows up in what you're returning.
+
 Keep \`assetId\`, \`sequence\`, \`format\`, \`portfolioId\` and \`skuIds\` exactly as given on
 \`targetAsset\` — you are not choosing a new slot, only new content for this one. Return
 exactly one asset object, in the same shape as every other entry in \`currentAssetPlan\`.
@@ -388,12 +405,43 @@ being asked:
 - \`request.type: "refine"\` — a human reviewer sent this copy back with notes in
   \`request.notes\`. Address the notes directly, in the copy itself, not in a rationale
   field.
+- \`request.type: "similar"\` — generate an alternative take on \`targetAsset\`'s copy: same
+  hook, same underlying concept, a genuinely different execution (different angle per
+  caption, different script beats, different on-creative lines) — not a reworded
+  paraphrase of what's already there.
 - \`request.type: "replace"\` — \`targetAsset\`'s copy isn't working; \`request.notes\` may
   explain why. Write a genuinely new take on the same hook and concept — new on-creative
   lines, a new script (if a reel), new captions — not a light edit of what's there.
 
+\`request.focus\`, when present, names the one specific part of \`targetAsset\` the reviewer
+actually flagged — e.g. \`"Caption B"\`, \`"Captions"\` (all three together, as a group), or
+\`"Script"\`. When it's set:
+- Only rewrite the named part(s). Everything else — the other caption(s), the on-creative
+  lines, and the script (whichever \`focus\` doesn't name) should carry over from
+  \`targetAsset\` unchanged, unless a change there is strictly required for consistency (e.g.
+  a claim rewrite cascading into every caption). This is enforced on the response even if
+  you don't get it exactly right — every field outside what \`focus\` names is force-restored
+  to \`targetAsset\`'s own value — but the notes and request are always clearer, and your
+  attempt at everything else is simply discarded, when you actually only touch what was
+  asked.
+- When \`focus\` is \`"Captions"\`, write three genuinely different new takes (same rule as a
+  \`"similar"\` request without notes — different angles, not synonym-swapped rewrites of
+  each other), or address \`request.notes\` across the three if notes are given.
+- \`request.notes\` still applies specifically to that named part — see the mandatory-notes
+  rule below.
+
+**\`request.notes\` is a mandatory instruction, not a suggestion or a tone note.** If the
+notes name a specific, concrete element — a CTA, a price, a claim, a specific word or
+phrase to use or drop — that exact element must end up literally present in the copy you
+return (the caption text itself, the script's final voiceover line, or the \`endFrame\`,
+whichever fits the format and what \`focus\` names), not merely implied or gestured at. A
+refinement that reads as "similar but nicer" without that concrete element actually visible
+is not a valid response to the notes. Before returning, re-read \`request.notes\` line by
+line and check that each specific thing it asked for is findable, in plain text, somewhere
+in what you're returning.
+
 Keep \`assetId\`, \`format\`, \`portfolioId\`, \`portfolioName\`, \`skuIds\`, \`skuNames\` and \`hook\`
-exactly as given on \`targetAsset\` on either request type — the hook is inherited from the
+exactly as given on \`targetAsset\` on every request type — the hook is inherited from the
 approved strategy concept and is never reworded here. Return exactly one asset object, in
 the same shape as every other entry in \`currentAssetPlan\`.
 

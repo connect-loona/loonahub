@@ -4,10 +4,10 @@
 //    sidebar column next to it (see RunDetail.tsx).
 // 2. Approving Strategy/Copy while assets are still unlocked now confirms first — dismissing
 //    leaves the stage untouched, accepting proceeds (see NextActionCard.tsx's unlockedCount()).
-// 3. The Copy stage's per-asset actions: a "Suggest another" button (mirrors Strategy's
-//    "Suggest similar"), a "Captions" subheading, and per-caption/script "Refine this" links
-//    that target one specific part of the asset (see CopyReview.tsx / strategy-concept-
-//    propose.js's `focus` field).
+// 3. The Copy stage's per-section review: captions render as a row of three cards with one
+//    shared, always-visible chat/refine box below (plus "Get 3 variations"), and the script
+//    gets its own always-visible chat box — each section independently refinable and
+//    lockable (see CopyReview.tsx / pipeline.js's ASSET_STAGE_CONFIG.copy.sections).
 //
 // Requires `npx vite build --mode test` to have been run in apps/strategy/ first (see
 // tests/run-all.js).
@@ -96,7 +96,7 @@ async function loginAsFakeUser(page) {
   }, { label: "strategy approved after accepting the confirm" });
   check("accepting the confirm proceeds to approve", approvedRun.stages.strategy.status === "approved");
 
-  // ---- 3. Copy stage: "Suggest another", "Captions" subheading, targeted "Refine this" ----
+  // ---- 3. Copy stage: card-row captions, independent per-section chat + lock ----
   // Approving strategy above already queued the copy stage and fired its background
   // function for real (same fixture runtime/fixtureDir) — wait for that to land rather
   // than writing over it directly, which would race the in-flight generation.
@@ -112,27 +112,39 @@ async function loginAsFakeUser(page) {
   await page.locator("tr", { hasText: "RRO Foods" }).click();
   await waitFor(async () => (await page.locator("text=Captions").count()) > 0 || null, { label: "copy review renders with the Captions subheading" });
   check('"Captions" subheading renders on each copy card', await page.locator("text=Captions").count() > 0);
-  check('"Suggest another" button is offered on copy cards', await page.locator("button", { hasText: "Suggest another" }).count() > 0);
 
   const rro01Row = page.locator(".st-concept-row", { hasText: "RRO-01" });
-  await rro01Row.locator('a[aria-label="Refine Caption A"]').click();
-  await waitFor(async () => (await rro01Row.locator("text=Focused on:").count()) > 0 || null, { label: "refine box shows what it's focused on" });
-  check("targeted refine box names the focused caption", (await rro01Row.locator("text=Focused on:").textContent()).includes("Caption A"));
+  const captionsSection = rro01Row.locator(".st-copy-section-captions");
+  const scriptSection = rro01Row.locator(".st-copy-section-script");
+  check("captions render as three cards in one row", await captionsSection.locator(".st-caption-card").count() === 3);
+  check('captions section offers "Get 3 variations"', await captionsSection.locator("button", { hasText: "Get 3 variations" }).count() > 0);
+  check("script section has its own always-visible chat box (a textarea, no click needed to open it)", await scriptSection.locator("textarea").count() > 0);
+
   // A generic note, deliberately not a concrete/checkable ask (a CTA request or a quoted
-  // phrase) — this test is proving the "focus" targeting mechanism reaches the backend, not
+  // phrase) — this test is proving the section targeting mechanism reaches the backend, not
   // exercising checkNoteObedience (see tests/strategy/note-obedience.test.js for that),
   // and copy-asset-refine.json's canned output has no CTA-shaped language in it.
-  await rro01Row.locator("textarea").fill("Make this caption a bit punchier.");
-  await rro01Row.locator("button", { hasText: "Send" }).click();
+  await captionsSection.locator("textarea").fill("Make caption A a bit punchier.");
+  await captionsSection.locator("button", { hasText: "Send" }).click();
 
   const candidate = await waitFor(async () => {
-    const c = (await req("GET", `${RTDB_URL}/strategy_runs/${runId}/stages/copy/candidates/RRO-01.json`)).body;
+    const c = (await req("GET", `${RTDB_URL}/strategy_runs/${runId}/stages/copy/candidates/RRO-01::captions.json`)).body;
     return c && c.status !== "running" ? c : null;
-  }, { label: "targeted refine candidate ready" });
-  check("targeted refine reached the backend with the right focus", candidate.focus === "Caption A", candidate.focus);
-  check("targeted refine candidate is ready", candidate.status === "ready", candidate);
-  await waitFor(async () => (await page.locator("text=Proposed replacement").count()) > 0 || null, { label: "candidate preview shows up in the UI" });
-  check("candidate preview names the focus", (await page.locator(".st-candidate-box").first().textContent()).includes("Caption A"));
+  }, { label: "captions-section refine candidate ready" });
+  check("the refine reached the backend scoped to the captions section", candidate.section === "captions", candidate.section);
+  check("captions-section refine candidate is ready", candidate.status === "ready", candidate);
+  await waitFor(async () => (await captionsSection.locator("text=Proposed replacement").count()) > 0 || null, { label: "candidate preview shows up in the captions section" });
+  check("candidate preview names the section", (await captionsSection.locator(".st-candidate-box").first().textContent()).includes("Captions"));
+  check("the script section's own chat is untouched by the captions refine (no candidate preview there)", await scriptSection.locator(".st-candidate-box").count() === 0);
+
+  // ---- Independent per-section locks ----
+  await captionsSection.locator("button", { hasText: "Discard suggestion" }).click();
+  await waitFor(async () => (await captionsSection.locator(".st-candidate-box").count()) === 0 || null, { label: "captions candidate cleared" });
+  await captionsSection.locator("button", { hasText: "Lock" }).click();
+  const captionsLock = await waitFor(async () => (await req("GET", `${RTDB_URL}/strategy_runs/${runId}/stages/copy/locks/RRO-01::captions.json`)).body || null, { label: "captions lock recorded" });
+  check("captions section locked independently", !!captionsLock, captionsLock);
+  const scriptLockStillNull = (await req("GET", `${RTDB_URL}/strategy_runs/${runId}/stages/copy/locks/RRO-01::script.json`)).body;
+  check("locking captions did NOT lock the script section too", scriptLockStillNull === null, scriptLockStillNull);
 
   check("no page errors", errors.length === 0, errors);
 

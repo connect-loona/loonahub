@@ -73,7 +73,9 @@ async function backToList(page) {
             captions: [{ version: 1, angle: "Nostalgia", copy: "Some things you inherit.", hashtags: ["#RRO"] }],
           }],
         },
-        candidates: { "RRO-01": { status: "ready", requestType: "refine", candidate: { hook: "New hook", captions: [{ version: 2, angle: "Bold", copy: "New copy line." }], claimAudit: { status: "ready" } } } },
+        // Keyed by section (see pipeline.js's ASSET_STAGE_CONFIG.copy.sections /
+        // CopyReview.tsx) — captions and script are now independently refinable threads.
+        candidates: { "RRO-01::captions": { status: "ready", requestType: "refine", section: "captions", candidate: { hook: "New hook", captions: [{ version: 2, angle: "Bold", copy: "New copy line." }], claimAudit: { status: "ready" } } } },
         locks: {},
       },
     },

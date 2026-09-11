@@ -31,10 +31,11 @@ exports.handler = async (event) => {
   const runId = String(body.runId || "").trim();
   const stage = String(body.stage || "").trim();
   const assetId = String(body.assetId || "").trim();
+  const section = String(body.section || "").trim() || null;
   if (!runId || !stage || !assetId) return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "runId, stage, and assetId are required." }) };
 
   try {
-    await fbSet(`strategy_runs/${runId}/stages/${stage}/candidates/${assetId}`, null);
+    await fbSet(`strategy_runs/${runId}/stages/${stage}/candidates/${section ? `${assetId}::${section}` : assetId}`, null);
     return { statusCode: 200, headers: cors(), body: JSON.stringify({ ok: true }) };
   } catch (error) {
     return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: error.message }) };

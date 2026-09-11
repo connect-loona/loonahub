@@ -7,6 +7,14 @@
 // into the checkpoint (acceptCandidate) and Discard suggestion abandons the whole thread
 // (rejectCandidate) — both close the chat.
 //
+// `section`, when set ("captions" | "script"), scopes the WHOLE panel to just that part of
+// a copy asset — its own independent thread, candidate and lock (see CopyReview.tsx and
+// pipeline.js's ASSET_STAGE_CONFIG.copy.sections), so refining captions and refining the
+// script can run at the same time without one clobbering the other. `variationsCount`, when
+// set, adds a one-click "Get N variations" button next to Send (maps to the existing
+// "similar" request type, scoped to this section — a fresh alternative take, not a
+// continuation of the chat).
+//
 // Supersedes ConceptCandidatePreview.tsx: same running/failed/ready rendering, but always
 // alongside the transcript and always with a way to send the next message rather than a
 // one-off textarea that got thrown away after each round.
@@ -21,13 +29,68 @@ function claimChipStyle(status?: string) {
   return { color, background: bg };
 }
 
-export function ConceptChatPanel({ runId, stage, assetId, candidate, actor, open, onOpenChange, focus, onFocusClear, onError }: {
+function ReadyPreview({ stage, section, c }: { stage: "strategy" | "copy"; section?: "captions" | "script"; c: NonNullable<ConceptCandidate["candidate"]> }) {
+  if (stage === "copy" && section === "captions") {
+    return (
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 8 }}>
+        {(c.captions || []).map((cap, i) => (
+          <div key={i} style={{ fontSize: 12 }}>
+            <div style={{ color: "var(--muted)", textTransform: "uppercase", fontSize: 10 }}>{cap.version} &middot; {cap.angle}</div>
+            <div style={{ whiteSpace: "pre-wrap" }}>{cap.copy}</div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (stage === "copy" && section === "script") {
+    const script = c.script as { durationSeconds?: number; scenes?: { timing: string; visual: string; voiceover: string }[] } | undefined;
+    return (
+      <div style={{ fontSize: 12 }}>
+        {(script?.scenes || []).map((sc, i) => (
+          <div key={i} style={{ color: "var(--muted)", marginTop: i ? 4 : 0 }}>{sc.timing} — {sc.visual} &middot; VO: "{sc.voiceover}"</div>
+        ))}
+      </div>
+    );
+  }
+  if (stage === "copy") {
+    return (
+      <>
+        <div style={{ margin: "4px 0", fontStyle: "italic" }}>&ldquo;{c.hook}&rdquo;</div>
+        <div style={{ fontSize: 12, color: "var(--muted)" }}>{c.captions?.[0]?.copy || ""}</div>
+        {c.claimAudit?.status && (
+          <div style={{ marginTop: 4 }}><span className="st-chip" style={claimChipStyle(c.claimAudit.status)}>{c.claimAudit.status}</span></div>
+        )}
+      </>
+    );
+  }
+  return (
+    <>
+      <div style={{ fontWeight: 700 }}>{c.conceptName}</div>
+      <div style={{ margin: "4px 0", fontStyle: "italic" }}>&ldquo;{c.hook}&rdquo;</div>
+      <div style={{ fontSize: 12, color: "var(--muted)" }}><b>Tension:</b> {c.tension}</div>
+    </>
+  );
+}
+
+export function ConceptChatPanel({ runId, stage, assetId, section, candidate, actor, open, onOpenChange, focus, onFocusClear, variationsCount, showCancel = true, onError }: {
   runId: string; stage: "strategy" | "copy"; assetId: string; candidate: ConceptCandidate | undefined; actor: string;
   // `open`: the reviewer clicked "Refine" and wants to start a first message. Once a
   // candidate/thread already exists the panel shows regardless of `open` — there's already
-  // something to look at.
+  // something to look at. A caller can also pass `open` permanently true (with a no-op
+  // onOpenChange) for an always-visible chat box — see CopyReview.tsx's captions/script
+  // sections — in which case pass `showCancel={false}` too, since there's nothing to
+  // cancel back to.
   open: boolean; onOpenChange: (open: boolean) => void;
+  // Scopes this panel to one independently-refinable part of a copy asset — see the
+  // header comment. Omit for strategy (no sections) or a whole-asset copy action.
+  section?: "captions" | "script";
   focus?: string | null; onFocusClear?: () => void;
+  // Adds a "Get N variations" button (a fresh "similar" take, scoped to `section`) — used
+  // by the captions block; script has no equivalent today.
+  variationsCount?: number;
+  // Hide the "Cancel" button on an empty compose box — for a permanently-open panel
+  // (see `open` above) there's no toggle to cancel back to.
+  showCancel?: boolean;
   onError: (msg: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -58,18 +121,22 @@ export function ConceptChatPanel({ runId, stage, assetId, candidate, actor, open
     const trimmed = notes.trim();
     if (!trimmed) { alert("Say what should change first."); return; }
     await withBusy(async () => {
-      await proposeConcept({ runId, stage, assetId, action: "refine", notes: trimmed, focus: focus || undefined });
+      await proposeConcept({ runId, stage, assetId, action: "refine", notes: trimmed, focus: focus || undefined, section });
       setNotes("");
     });
   }
 
+  async function handleVariations() {
+    await withBusy(() => proposeConcept({ runId, stage, assetId, action: "similar", focus: focus || undefined, section }));
+  }
+
   async function handleFinalize() {
-    await withBusy(() => acceptCandidate({ runId, stage, assetId, actor }));
+    await withBusy(() => acceptCandidate({ runId, stage, assetId, actor, section }));
     onOpenChange(false);
   }
 
   async function handleDiscardSuggestion() {
-    await withBusy(() => rejectCandidate({ runId, stage, assetId }));
+    await withBusy(() => rejectCandidate({ runId, stage, assetId, section }));
     onOpenChange(false);
   }
 
@@ -77,7 +144,7 @@ export function ConceptChatPanel({ runId, stage, assetId, candidate, actor, open
     if (!candidate) return;
     await withBusy(() => (candidate.requestType === "discard" || candidate.requestType === "replace")
       ? discardConcept({ runId, stage, assetId, notes: candidate.notes, actor })
-      : proposeConcept({ runId, stage, assetId, action: (candidate.requestType as "refine" | "similar") || "refine", notes: candidate.notes, focus: candidate.focus || undefined }));
+      : proposeConcept({ runId, stage, assetId, action: (candidate.requestType as "refine" | "similar") || "refine", notes: candidate.notes, focus: candidate.focus || undefined, section }));
   }
 
   return (
@@ -118,21 +185,7 @@ export function ConceptChatPanel({ runId, stage, assetId, candidate, actor, open
       {ready && c && (
         <div className="st-candidate-box">
           <div className="st-candidate-label">Proposed replacement{focus ? ` — ${focus}` : ""}</div>
-          {stage === "copy" ? (
-            <>
-              <div style={{ margin: "4px 0", fontStyle: "italic" }}>&ldquo;{c.hook}&rdquo;</div>
-              <div style={{ fontSize: 12, color: "var(--muted)" }}>{c.captions?.[0]?.copy || ""}</div>
-              {c.claimAudit?.status && (
-                <div style={{ marginTop: 4 }}><span className="st-chip" style={claimChipStyle(c.claimAudit.status)}>{c.claimAudit.status}</span></div>
-              )}
-            </>
-          ) : (
-            <>
-              <div style={{ fontWeight: 700 }}>{c.conceptName}</div>
-              <div style={{ margin: "4px 0", fontStyle: "italic" }}>&ldquo;{c.hook}&rdquo;</div>
-              <div style={{ fontSize: 12, color: "var(--muted)" }}><b>Tension:</b> {c.tension}</div>
-            </>
-          )}
+          <ReadyPreview stage={stage} section={section} c={c} />
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
             <button className="st-btn st-btn-ghost" style={{ flex: 1 }} disabled={busy} onClick={handleDiscardSuggestion}>Discard suggestion</button>
             <button className="st-btn st-btn-primary" style={{ flex: 1 }} disabled={busy} onClick={handleFinalize}>Finalize</button>
@@ -151,7 +204,10 @@ export function ConceptChatPanel({ runId, stage, assetId, candidate, actor, open
           />
           <div style={{ display: "flex", gap: 6 }}>
             <button className="st-btn st-btn-primary st-btn-sm" disabled={busy} onClick={handleSend}>Send</button>
-            {!candidate && (
+            {!!variationsCount && (
+              <button className="st-btn st-btn-ghost st-btn-sm" disabled={busy} onClick={handleVariations}>Get {variationsCount} variations</button>
+            )}
+            {!candidate && showCancel && (
               <button className="st-btn st-btn-ghost st-btn-sm" disabled={busy} onClick={() => onOpenChange(false)}>Cancel</button>
             )}
           </div>

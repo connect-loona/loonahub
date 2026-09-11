@@ -64,25 +64,28 @@ export function reopenStage(args: { runId: string; stage: string; notes?: string
 // candidate replacement for one concept/copy card, reviewed before it's committed (see
 // conceptCandidateHtml in the legacy app). `focus` optionally points at the specific part
 // of the asset being refined (e.g. "Caption B", "Script" — copy only, see CopyReview.tsx).
-export function proposeConcept(args: { runId: string; stage: string; assetId: string; action: "refine" | "similar"; notes?: string; focus?: string }): Promise<{ ok: true }> {
+// `section` ("captions" | "script", copy only) scopes this to a fully independent thread —
+// see ConceptChatPanel.tsx's own header comment.
+export function proposeConcept(args: { runId: string; stage: string; assetId: string; action: "refine" | "similar"; notes?: string; focus?: string; section?: string }): Promise<{ ok: true }> {
   return post("strategy-concept-propose", args) as Promise<{ ok: true }>;
 }
 
 // "discard"/"replace" — each stage's own "kill it, no review needed" type; auto-accepts,
-// so there's no separate accept step for this one.
+// so there's no separate accept step for this one. Always whole-asset (no `section`) —
+// it's a deliberate "throw it all out" action, not a scoped continuation.
 export function discardConcept(args: { runId: string; stage: string; assetId: string; notes?: string; actor: string }): Promise<{ ok: true }> {
   return post("strategy-concept-discard", args) as Promise<{ ok: true }>;
 }
 
-export function acceptCandidate(args: { runId: string; stage: string; assetId: string; actor: string }): Promise<{ ok: true }> {
+export function acceptCandidate(args: { runId: string; stage: string; assetId: string; actor: string; section?: string }): Promise<{ ok: true }> {
   return post("strategy-concept-accept", args) as Promise<{ ok: true }>;
 }
 
-export function rejectCandidate(args: { runId: string; stage: string; assetId: string }): Promise<{ ok: true }> {
+export function rejectCandidate(args: { runId: string; stage: string; assetId: string; section?: string }): Promise<{ ok: true }> {
   return post("strategy-concept-candidate-reject", args) as Promise<{ ok: true }>;
 }
 
-export function toggleAssetLock(args: { runId: string; stage: string; assetId: string; actor: string; locked: boolean }): Promise<{ ok: true; locked: boolean }> {
+export function toggleAssetLock(args: { runId: string; stage: string; assetId: string; actor: string; locked: boolean; section?: string }): Promise<{ ok: true; locked: boolean }> {
   return post("strategy-asset-lock", args) as Promise<{ ok: true; locked: boolean }>;
 }
 

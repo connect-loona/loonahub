@@ -81,6 +81,19 @@ async function setStageStatus(runId, stage, patch) {
   await fbUpdate(`strategy_runs/${runId}/stages/${stage}`, Object.assign({ updatedAt: new Date().toISOString() }, patch));
 }
 
+// Small object helpers used by the section-scoped asset refine flow (see
+// ASSET_STAGE_CONFIG.copy.sections, proposeAssetCandidate and acceptAssetCandidate).
+function omit(obj, keys) {
+  const result = {};
+  for (const key of Object.keys(obj || {})) if (!keys.includes(key)) result[key] = obj[key];
+  return result;
+}
+function pick(obj, keys) {
+  const result = {};
+  for (const key of keys) if (obj && Object.prototype.hasOwnProperty.call(obj, key)) result[key] = obj[key];
+  return result;
+}
+
 // Shared by both stage runners — identical shape to the original executeStage(), just
 // backed by Firebase instead of a local checkpoint file.
 async function executeStage(runId, run, def) {
@@ -420,12 +433,37 @@ const ASSET_STAGE_CONFIG = {
       `Refreshed the copy for ${oldAsset.assetId} (hook: "${oldAsset.hook}").`,
     noteText: (candidate) => allCopyText(candidate),
     summarize: (candidate) => candidate.captions?.[0]?.copy || candidate.hook,
+    // Captions and script can each be refined/locked completely independently (see
+    // proposeAssetCandidate's `section` param and CopyReview.tsx) — every field NOT listed
+    // here for the section being edited is force-restored from the current asset
+    // regardless of what the model returned, the same hard-enforcement lockedFields
+    // already does for identity fields. `fields` includes claimAudit on both since either
+    // section's rewrite can legitimately change the claim assessment for the asset as a
+    // whole.
+    sections: {
+      captions: {
+        label: "Captions",
+        fields: ["captions", "claimAudit"],
+        noteText: (candidate) => (candidate.captions || []).map((cap) => cap.copy).join(" \n "),
+        summarize: (candidate) => candidate.captions?.[0]?.copy || "Captions updated.",
+        describeChange: (oldAsset) => `Refreshed the captions for ${oldAsset.assetId}.`,
+      },
+      script: {
+        label: "Script",
+        fields: ["script", "claimAudit"],
+        noteText: (candidate) => (candidate.script?.scenes || []).map((scene) => scene.voiceover).join(" \n "),
+        summarize: (candidate) => candidate.script?.scenes?.[0]?.voiceover || "Script updated.",
+        describeChange: (oldAsset) => `Refreshed the script for ${oldAsset.assetId}.`,
+      },
+    },
   },
 };
 
-async function proposeAssetCandidate(runId, stage, assetId, requestType, notes, focus) {
+async function proposeAssetCandidate(runId, stage, assetId, requestType, notes, focus, section) {
   const cfg = ASSET_STAGE_CONFIG[stage];
   if (!cfg) throw new Error(`Asset refinement isn't supported for stage "${stage}".`);
+  const sectionCfg = section ? cfg.sections && cfg.sections[section] : null;
+  if (section && !sectionCfg) throw new Error(`"${section}" isn't a refinable section of ${cfg.label}.`);
   const run = await fbGet(`strategy_runs/${runId}`);
   if (!run) throw new Error(`Run ${runId} not found.`);
   const targetStage = run.stages && run.stages[stage];
@@ -438,7 +476,12 @@ async function proposeAssetCandidate(runId, stage, assetId, requestType, notes, 
   if (targetIndex === -1) throw new Error(`Asset ${assetId} not found in this run's ${stage}.`);
   const targetAsset = checkpoint.assets[targetIndex];
 
-  const candidatePath = `strategy_runs/${runId}/stages/${stage}/candidates/${assetId}`;
+  // A section-scoped request (captions vs script) gets its own Firebase key, so the two
+  // run as fully independent threads — refining captions and refining the script at the
+  // same time never fight over the same "running" candidate or clobber each other's ready
+  // result. See ASSET_STAGE_CONFIG.copy.sections and CopyReview.tsx.
+  const candidateKey = section ? `${assetId}::${section}` : assetId;
+  const candidatePath = `strategy_runs/${runId}/stages/${stage}/candidates/${candidateKey}`;
   const existingCandidate = await fbGet(candidatePath);
   // "refine" is the one request type meant to be a running conversation — sending a second
   // refine while a "ready" candidate is already sitting there builds on THAT candidate (so
@@ -478,15 +521,16 @@ async function proposeAssetCandidate(runId, stage, assetId, requestType, notes, 
     request: { type: requestType, notes: notes || null, focus: focus || null },
   }, context);
 
-  // Clicking Refine/Replace on an already-locked asset means it's back in play — clear the
-  // lock now (at the moment the request is actually sent) rather than waiting for the
-  // candidate to be accepted, so the "N locked" count in the UI reflects reality the
-  // instant a person starts changing something, not a few seconds later.
+  // Clicking Refine/Replace on an already-locked asset (or section) means it's back in
+  // play — clear the lock now (at the moment the request is actually sent) rather than
+  // waiting for the candidate to be accepted, so the "N locked" count in the UI reflects
+  // reality the instant a person starts changing something, not a few seconds later.
+  const lockKey = candidateKey;
   const agent = stageAgent(stage);
   await Promise.all([
-    fbSet(`strategy_runs/${runId}/stages/${stage}/locks/${assetId}`, null),
+    fbSet(`strategy_runs/${runId}/stages/${stage}/locks/${lockKey}`, null),
     fbSet(candidatePath, {
-      status: "running", requestType, notes: notes || null, focus: focus || null, history, updatedAt: new Date().toISOString(),
+      status: "running", requestType, notes: notes || null, focus: focus || null, section: section || null, history, updatedAt: new Date().toISOString(),
       detail: `${agent.emoji} ${agent.name} is sketching a replacement.`,
     }),
   ]);
@@ -510,13 +554,23 @@ async function proposeAssetCandidate(runId, stage, assetId, requestType, notes, 
         repairIssues,
       });
       const parsed = cfg.schema.parse(raw);
-      const candidate = Object.assign({}, parsed, cfg.lockedFields(baseAsset));
+      // Sectioned requests get a much stronger lock than the identity-only one below: every
+      // field EXCEPT the section's own (sectionCfg.fields) is forced back to baseAsset,
+      // regardless of what the model returned — hard enforcement, not just prompt
+      // compliance, that a captions-scoped refine can't silently touch the script and
+      // vice versa.
+      const forcedFields = sectionCfg
+        ? omit(baseAsset, sectionCfg.fields)
+        : cfg.lockedFields(baseAsset);
+      const candidate = Object.assign({}, parsed, forcedFields);
       const swappedAssets = checkpoint.assets.map((asset, i) => (i === targetIndex ? candidate : asset));
+      const noteText = sectionCfg ? sectionCfg.noteText(candidate) : cfg.noteText(candidate);
       const issues = cfg.callValidate(Object.assign({}, checkpoint, { assets: swappedAssets }), config, context, learnings, run.month)
-        .concat(checkNoteObedience(requestType, notes, cfg.noteText(candidate)));
+        .concat(checkNoteObedience(requestType, notes, noteText));
       if (issues.length === 0) {
-        const readyHistory = history.concat([{ role: "assistant", summary: cfg.summarize(candidate), at: new Date().toISOString() }]);
-        await fbSet(candidatePath, { status: "ready", requestType, notes: notes || null, focus: focus || null, history: readyHistory, candidate, updatedAt: new Date().toISOString() });
+        const summary = sectionCfg ? sectionCfg.summarize(candidate) : cfg.summarize(candidate);
+        const readyHistory = history.concat([{ role: "assistant", summary, at: new Date().toISOString() }]);
+        await fbSet(candidatePath, { status: "ready", requestType, notes: notes || null, focus: focus || null, section: section || null, history: readyHistory, candidate, updatedAt: new Date().toISOString() });
         return candidate;
       }
       repairIssues = issues;
@@ -527,7 +581,7 @@ async function proposeAssetCandidate(runId, stage, assetId, requestType, notes, 
     }
   }
   const message = lastError && lastError.message ? lastError.message : String(lastError);
-  await fbSet(candidatePath, { status: "failed", requestType, notes: notes || null, focus: focus || null, history, detail: message, updatedAt: new Date().toISOString() });
+  await fbSet(candidatePath, { status: "failed", requestType, notes: notes || null, focus: focus || null, section: section || null, history, detail: message, updatedAt: new Date().toISOString() });
   throw lastError;
 }
 
@@ -536,22 +590,32 @@ async function proposeAssetCandidate(runId, stage, assetId, requestType, notes, 
 // and accepting, records a stage-version snapshot before and after the swap (matching
 // strategy-stage-approve.js's own versioning), and folds the supersession into the brand's
 // learnings so future months don't repeat the killed concept/copy.
-async function acceptAssetCandidate(runId, stage, assetId, actor) {
+async function acceptAssetCandidate(runId, stage, assetId, actor, section) {
   const cfg = ASSET_STAGE_CONFIG[stage];
   if (!cfg) throw new Error(`Asset refinement isn't supported for stage "${stage}".`);
+  const sectionCfg = section ? cfg.sections && cfg.sections[section] : null;
+  if (section && !sectionCfg) throw new Error(`"${section}" isn't a refinable section of ${cfg.label}.`);
   const run = await fbGet(`strategy_runs/${runId}`);
   if (!run) throw new Error(`Run ${runId} not found.`);
   const checkpoint = run.stages && run.stages[stage] && run.stages[stage].checkpoint;
   if (!checkpoint) throw new Error(`Run ${runId} has no ${stage} checkpoint yet.`);
-  const candidatePath = `strategy_runs/${runId}/stages/${stage}/candidates/${assetId}`;
+  const candidateKey = section ? `${assetId}::${section}` : assetId;
+  const candidatePath = `strategy_runs/${runId}/stages/${stage}/candidates/${candidateKey}`;
   const candidateDoc = await fbGet(candidatePath);
   if (!candidateDoc || candidateDoc.status !== "ready" || !candidateDoc.candidate) {
-    throw new Error(`No ready candidate for ${assetId}.`);
+    throw new Error(`No ready candidate for ${assetId}${section ? ` (${section})` : ""}.`);
   }
   const targetIndex = checkpoint.assets.findIndex((asset) => asset.assetId === assetId);
   if (targetIndex === -1) throw new Error(`Asset ${assetId} not found in this run's ${stage}.`);
   const oldAsset = checkpoint.assets[targetIndex];
-  const newAssets = checkpoint.assets.map((asset, i) => (i === targetIndex ? candidateDoc.candidate : asset));
+  // A sectioned candidate only ever overlays its OWN fields (captions, or script) onto
+  // whatever the checkpoint asset looks like RIGHT NOW — not the candidate's own baseAsset
+  // snapshot for the untouched parts. Captions and script now run as fully independent
+  // threads, so if the other section was accepted in between this candidate being
+  // generated and now, using the candidate's stale copy of it here would silently revert
+  // that other, unrelated change.
+  const newAsset = sectionCfg ? Object.assign({}, oldAsset, pick(candidateDoc.candidate, sectionCfg.fields)) : candidateDoc.candidate;
+  const newAssets = checkpoint.assets.map((asset, i) => (i === targetIndex ? newAsset : asset));
   const newCheckpoint = Object.assign({}, checkpoint, { assets: newAssets });
 
   const [config, learnings, context] = await Promise.all([loadBrandConfig(run.brandId), loadLearnings(run.brandId), cfg.loadContext(run)]);
@@ -566,7 +630,7 @@ async function acceptAssetCandidate(runId, stage, assetId, actor) {
     run,
     stage,
     `asset_${candidateDoc.requestType}`,
-    cfg.describeChange(oldAsset, candidateDoc.candidate) + (candidateDoc.notes ? ` Notes: ${candidateDoc.notes}` : ""),
+    (sectionCfg ? sectionCfg.describeChange(oldAsset, newAsset) : cfg.describeChange(oldAsset, newAsset)) + (candidateDoc.notes ? ` Notes: ${candidateDoc.notes}` : ""),
     actor || "system",
   );
   await logActivity(runId, actor || "system", `${stage}.asset_${candidateDoc.requestType}`, oldAsset.assetId);

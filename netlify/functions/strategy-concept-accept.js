@@ -1,6 +1,8 @@
-// POST { runId, stage, assetId, actor } — commits a "ready" candidate (see
-// strategy-concept-propose.js) into the given stage's checkpoint. No model call here, so
-// this runs synchronously in the foreground rather than needing a -background counterpart.
+// POST { runId, stage, assetId, actor, section? } — commits a "ready" candidate (see
+// strategy-concept-propose.js) into the given stage's checkpoint. `section` accepts just
+// that section's own ready candidate (see pipeline.js's acceptAssetCandidate). No model
+// call here, so this runs synchronously in the foreground rather than needing a
+// -background counterpart.
 "use strict";
 const { acceptAssetCandidate } = require("./lib/strategy/pipeline");
 const { checkAuthorization } = require("./lib/strategy/auth");
@@ -25,10 +27,11 @@ exports.handler = async (event) => {
   const { runId, assetId } = body;
   const stage = body.stage || "strategy";
   const actor = String(body.actor || "Unknown").trim();
+  const section = String(body.section || "").trim() || null;
   if (!runId || !assetId) return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "runId and assetId are required." }) };
 
   try {
-    await acceptAssetCandidate(runId, stage, assetId, actor);
+    await acceptAssetCandidate(runId, stage, assetId, actor, section);
     return { statusCode: 200, headers: cors(), body: JSON.stringify({ ok: true }) };
   } catch (error) {
     return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: error.message }) };

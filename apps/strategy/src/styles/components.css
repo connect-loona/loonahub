@@ -166,3 +166,14 @@ body {
 .st-chat-turn { font-size: var(--text-sm); line-height: 1.45; padding: 6px 10px; border-radius: var(--radius-md); }
 .st-chat-turn-user { background: var(--surface2); border: 1px solid var(--border); align-self: flex-end; max-width: 92%; }
 .st-chat-turn-assistant { border-left: 2px solid var(--accent); padding-left: 8px; color: var(--muted); align-self: flex-start; max-width: 92%; }
+
+/* ---- Caption cards (CopyReview.tsx) — the three captions (A/B/C) rendered side by side in
+   one row instead of stacked, with the shared refine/chat box for the whole group below. ---- */
+.st-caption-card-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-sm); margin-top: 6px; }
+.st-caption-card { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px; background: var(--surface2); }
+.st-caption-card-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 4px; }
+.st-caption-card-copy { font-size: 13px; white-space: pre-wrap; }
+.st-caption-card-tags { font-size: 11px; color: var(--accent); margin-top: 4px; }
+@media (max-width: 640px) {
+  .st-caption-card-row { grid-template-columns: 1fr; }
+}
