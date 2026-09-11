@@ -219,5 +219,22 @@ async function loadBrandLibrary(config, options = {}) {
   }
 }
 
-module.exports = { loadBrandLibrary, refreshBrandLibrary, buildLibrary };
+// The brand folders sitting under the Brands root — the list the "which brands exist?"
+// screen is built from. Metadata only: no file contents, no model calls.
+async function listBrandFolders(fetcher = driveFetch) {
+  const rootId = process.env.GOOGLE_DRIVE_BRANDS_FOLDER_ID;
+  if (!rootId) throw new Error("GOOGLE_DRIVE_BRANDS_FOLDER_ID is not configured.");
+  return (await listChildren(rootId, fetcher))
+    .filter((file) => file.mimeType === FOLDER_MIME)
+    .map((file) => ({ id: file.id, name: file.name }));
+}
+
+module.exports = {
+  loadBrandLibrary, refreshBrandLibrary, buildLibrary,
+  listBrandFolders,
+  // Exported so the discovery endpoint pairs folders to brands using exactly the same slug
+  // rule findBrandFolder() matches on — otherwise a brand could show as "not set up" here
+  // while the pipeline finds its folder perfectly well.
+  slugForFolder: slug,
+};
 

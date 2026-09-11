@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { listenPath } from "./firebase";
-import type { BrandLibraryStatus, StrategyBrand, StrategyRun } from "./types";
+import type { BrandDraftRecord, BrandLibraryStatus, StrategyBrand, StrategyRun } from "./types";
 
 // React equivalents of strategy-app.js's soListenRuns()/soListenBrands() — a live
 // Firebase Realtime Database listener kept as component state, instead of the legacy
@@ -70,4 +70,18 @@ export function useBrandLibrary(brandId: string | undefined): { library: BrandLi
   }, [brandId]);
 
   return { library, loading };
+}
+
+// Watches one brand's Drive draft as it's prepared (see strategy-brand-draft.js). The
+// drafting itself runs in a background function, so the app follows it the same way it
+// follows a run: a live listener on the record, not a polled request.
+export function useBrandDraft(brandId: string | undefined): BrandDraftRecord | null {
+  const [draft, setDraft] = useState<BrandDraftRecord | null>(null);
+
+  useEffect(() => {
+    if (!brandId) { setDraft(null); return; }
+    return listenPath<BrandDraftRecord>(`strategy_brand_drafts/${brandId}`, (val) => setDraft(val));
+  }, [brandId]);
+
+  return draft;
 }

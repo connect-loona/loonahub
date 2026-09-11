@@ -7,7 +7,7 @@
 // so calls succeed either way), but sending the token now means nothing here needs to
 // change when server-side ID-token verification is added as its own follow-up.
 import { getIdTokenOrNull } from "./firebase";
-import type { DeliverablesCount } from "./types";
+import type { DeliverablesCount, DriveBrandFolder } from "./types";
 
 async function post(path: string, body: unknown): Promise<unknown> {
   const token = await getIdTokenOrNull();
@@ -46,6 +46,20 @@ export function startRun(args: {
 // function and progress shows up on the strategy_brand_library/<brandId> listener.
 export function scanBrandLibrary(args: { brandId: string; actor: string }): Promise<{ ok: true; brandId: string }> {
   return post("strategy-brand-library-scan", args) as Promise<{ ok: true; brandId: string }>;
+}
+
+// The brand folders sitting in Drive, and whether each already has a brand in Hub. The Drive
+// folder is where a new client actually starts, so this is what "which brands exist?" should
+// be answered from.
+export function discoverBrandFolders(): Promise<{ folders: DriveBrandFolder[] }> {
+  return post("strategy-brand-discover", {}) as Promise<{ folders: DriveBrandFolder[] }>;
+}
+
+// Drafts a brand config from its Drive folder. Returns once drafting has been queued — the
+// work runs in a background function and the result lands on
+// strategy_brand_drafts/<brandId>, which useBrandDraft watches.
+export function draftBrandFromDrive(args: { brandId: string; name: string; folderId: string }): Promise<{ ok: true }> {
+  return post("strategy-brand-draft", args) as Promise<{ ok: true }>;
 }
 
 export function archiveRun(args: { runId: string; actor: string; reason?: string }): Promise<{ ok: true }> {

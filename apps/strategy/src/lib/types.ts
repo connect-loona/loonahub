@@ -233,6 +233,29 @@ export interface StrategyBrand {
 // run. `refreshError` is set whenever the read failed — missing env vars, no matching
 // folder, or a permissions error — and, if a PREVIOUS successful read exists, the stale
 // copy is kept (with `stale: true`) rather than thrown away. See BrandMemory.tsx.
+// A brand folder found in Drive. `configured` is false when no brand in Hub matches it —
+// those are the ones that can be drafted from their own guidelines.
+export interface DriveBrandFolder {
+  name: string;
+  id: string;
+  folderUrl: string;
+  brandId: string;
+  configured: boolean;
+}
+
+// What a Drive-drafted brand config looks like while it's being prepared and reviewed. It is
+// never a brand until a human saves it through the normal form — see brand-draft.js.
+export interface BrandDraftRecord {
+  brandId?: string;
+  name?: string;
+  folderId?: string;
+  status?: "drafting" | "ready" | "failed";
+  error?: string | null;
+  draft?: Record<string, unknown> | null;
+  readFrom?: { fileCount?: number; textFileCount?: number; unreadFiles?: { name: string; reason: string }[] };
+  servedBy?: string | null;
+}
+
 export interface BrandLibraryStatus {
   brandId?: string;
   folderName?: string;
