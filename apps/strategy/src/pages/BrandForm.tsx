@@ -187,7 +187,11 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
         <label className="st-field-label">Website</label>
         <input className="st-form-control" style={{ marginBottom: 10 }} value={website} onChange={(e) => setWebsite(e.target.value)} />
         <label className="st-field-label">Google Drive folder link</label>
-        <input className="st-form-control" style={{ marginBottom: 10 }} value={drive} placeholder="Not read by Research yet — see the integration notes" onChange={(e) => setDrive(e.target.value)} />
+        <input className="st-form-control" style={{ marginBottom: 10 }} value={drive} placeholder="Every stage reads this folder as reference material — paste the brand's Drive folder link" onChange={(e) => setDrive(e.target.value)} />
+        <div className="st-note" style={{ fontSize: 11, marginTop: -6, marginBottom: 10 }}>
+          Leave blank and it falls back to matching a subfolder by this brand's name under the shared Brands folder, if one is configured.
+          Check "Brand memory" on any of this brand's runs to see whether it's actually connecting.
+        </div>
         <label className="st-field-label">One-line truth (what this brand actually is)</label>
         <textarea className="st-form-control" style={{ minHeight: 50 }} value={truth} onChange={(e) => setTruth(e.target.value)} />
       </div>

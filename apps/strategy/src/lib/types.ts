@@ -222,6 +222,25 @@ export interface StrategyBrand {
   [key: string]: unknown;
 }
 
+// The cached result of the last attempt to read a brand's Google Drive folder — written by
+// loadBrandLibrary() (google-drive.js/store.js) to strategy_brand_library/<brandId> every
+// time any stage runs for that brand (research forces a fresh check; every other stage
+// reuses a 6-hour cache). Absent entirely until the first stage for that brand has ever
+// run. `refreshError` is set whenever the read failed — missing env vars, no matching
+// folder, or a permissions error — and, if a PREVIOUS successful read exists, the stale
+// copy is kept (with `stale: true`) rather than thrown away. See BrandMemory.tsx.
+export interface BrandLibraryStatus {
+  brandId?: string;
+  folderName?: string;
+  folderUrl?: string;
+  indexedAt?: string | null;
+  fileCount?: number;
+  textFileCount?: number;
+  truncated?: boolean;
+  stale?: boolean;
+  refreshError?: string;
+}
+
 export function isArchived(run: StrategyRun): boolean {
   return !!run.archivedAt;
 }
