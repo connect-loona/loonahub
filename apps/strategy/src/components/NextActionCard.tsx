@@ -67,26 +67,36 @@ export function NextActionCard({ run, actor }: { run: StrategyRun; actor: string
   const [busy, setBusy] = useState<"approve" | "notes" | "retry" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Strategy and Copy are the two stages with a per-asset lock ("this one's done, don't
-  // touch it again") — approving either of them is what actually kicks off the next stage
-  // (Copy, then Creative direction), so this is the point that matters: catch it before
-  // moving on with concepts/copy still unlocked, rather than silently carrying whatever's
-  // there forward. Research/creative-direction/deck-builder have no lock concept, so this
-  // never applies to them.
-  function unlockedCount(): number {
-    if (stage !== "strategy" && stage !== "copy") return 0;
-    const checkpoint = st.checkpoint as { assets?: unknown[] } | undefined;
-    const total = checkpoint?.assets?.length || 0;
-    const locked = Object.keys(st.locks || {}).length;
-    return Math.max(0, total - locked);
+  // Strategy, Copy and Creative direction each have a per-asset lock — and approving any
+  // of them now has a real, load-bearing effect (see strategy-stage-approve.js's own
+  // comment): with anything locked, ONLY the locked subset moves to the next stage and
+  // everything else is dropped from the run entirely. Locking is opt-in — approve with
+  // NOTHING locked and everything still advances exactly as before — so this only needs to
+  // warn about the one case that actually loses work: some, but not all, locked. Research
+  // and deck-builder have no lock concept, so this never applies to them.
+  function isAssetLocked(assetId: string, locks: Record<string, unknown>): boolean {
+    if (stage === "copy") return !!locks[`${assetId}::captions`] && !!locks[`${assetId}::script`];
+    return !!locks[assetId];
+  }
+
+  function lockSummary(): { total: number; locked: number } {
+    if (stage !== "strategy" && stage !== "copy" && stage !== "creative-direction") return { total: 0, locked: 0 };
+    const checkpoint = st.checkpoint as { assets?: { assetId: string }[] } | undefined;
+    const assets = checkpoint?.assets || [];
+    const locks = st.locks || {};
+    return { total: assets.length, locked: assets.filter((a) => isAssetLocked(a.assetId, locks)).length };
   }
 
   async function handleDecide(decision: "approved" | "changes_requested") {
     if (decision === "approved") {
-      const left = unlockedCount();
-      if (left > 0) {
-        const noun = left === 1 ? "asset is" : "assets are";
-        const ok = confirm(`${left} ${noun} still not locked. Continue to the next stage anyway?`);
+      const { total, locked } = lockSummary();
+      if (locked > 0 && locked < total) {
+        const dropped = total - locked;
+        const keptNoun = locked === 1 ? "asset" : "assets";
+        const droppedNoun = dropped === 1 ? "concept" : "concepts";
+        const ok = confirm(
+          `Only the ${locked} locked ${keptNoun} will move to the next stage — the other ${dropped} unlocked ${droppedNoun} will be dropped from this run. This can't be undone. Continue?`,
+        );
         if (!ok) return;
       }
     }

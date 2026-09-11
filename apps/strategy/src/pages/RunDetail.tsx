@@ -36,7 +36,7 @@ function ReviewBody({ run, reviewStage }: { run: StrategyRun; reviewStage: Retur
     case "research": return <ResearchReview run={run} stage={stage} />;
     case "strategy": return <StrategyReview run={run} stage={stage} actor={run.owner} />;
     case "copy": return <CopyReview run={run} stage={stage} actor={run.owner} />;
-    case "creative-direction": return <CreativeDirectionReview run={run} stage={stage} />;
+    case "creative-direction": return <CreativeDirectionReview run={run} stage={stage} actor={run.owner} />;
     case "deck-builder": return <DeckReview run={run} stage={stage} />;
   }
 }

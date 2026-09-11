@@ -140,7 +140,8 @@ function gate(pass) { return { logoSwapPass: pass, killListPass: true, tensionPa
   check("concept row shows the locked button label", true);
   check("lock summary reflects 1 of 3 locked", (await page.locator(".st-lock-summary").textContent()).includes("1 of 3 locked"));
 
-  // ---- Approve the strategy stage ----
+  // ---- Approve the strategy stage — only RRO-02 (the one locked above) should advance;
+  // see pipeline.js's applyLockFilterOnApprove ----
   await page.locator(".st-review-panel button", { hasText: "Approve" }).click();
   const approvedRun = await waitFor(async () => {
     const r = (await req("GET", `${RTDB_URL}/strategy_runs/${runId}.json`)).body;
@@ -148,6 +149,7 @@ function gate(pass) { return { logoSwapPass: pass, killListPass: true, tensionPa
   }, { label: "strategy stage approved via the new endpoint" });
   check("strategy stage is approved", approvedRun.stages.strategy.status === "approved");
   check("approval recorded the actor", approvedRun.approvals.strategy.decidedBy === "Gokul", approvedRun.approvals.strategy);
+  check("only the locked asset (RRO-02) survived the approve — the other 2 were dropped", approvedRun.stages.strategy.checkpoint.assets.length === 1 && approvedRun.stages.strategy.checkpoint.assets[0].assetId === "RRO-02", approvedRun.stages.strategy.checkpoint.assets);
 
   check("no page errors", errors.length === 0, errors);
 

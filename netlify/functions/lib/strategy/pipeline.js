@@ -693,9 +693,96 @@ async function reopenStage(runId, stage, actor, notes) {
   return { stage, resetDownstream: downstream };
 }
 
+// Stages whose checkpoint holds a flat, lockable `.assets` array — deck-builder's own
+// `.pages` array is trimmed too (see applyLockFilterOnApprove below), but deck-builder is
+// never itself the stage BEING approved into a next stage (there is none), so it never
+// determines a surviving-ids set of its own.
+const LOCKABLE_STAGES = ["strategy", "copy", "creative-direction"];
+
+// Which assetIds are "locked" for the given stage. Copy's captions and script are locked
+// independently (see ASSET_STAGE_CONFIG.copy.sections / CopyReview.tsx) — an asset only
+// counts as locked here once BOTH sections are; every other lockable stage is a single
+// flat lock per asset.
+function lockedAssetIds(stage, locksMap, allAssetIds) {
+  const locks = locksMap || {};
+  if (stage === "copy") {
+    return allAssetIds.filter((id) => !!locks[`${id}::captions`] && !!locks[`${id}::script`]);
+  }
+  return allAssetIds.filter((id) => !!locks[id]);
+}
+
+// Drops entries for any assetId not in `survivors` — keys may be a plain assetId or a
+// compound `<assetId>::<section>` one (copy's locks/candidates).
+function filterMapByAssetId(map, survivors) {
+  if (!map) return map;
+  const result = {};
+  for (const key of Object.keys(map)) {
+    if (survivors.has(key.split("::")[0])) result[key] = map[key];
+  }
+  return result;
+}
+
+// "Only the stuff you lock should go to the next stage": approving a stage with ANYTHING
+// locked carries forward only the locked subset — every other concept is cut from the run
+// entirely. Approving with NOTHING locked advances everything unchanged (today's
+// behavior — a team that never uses locks sees no difference at all). Applies at every
+// handoff with a lockable `.assets` array: Strategy→Copy, Copy→Creative-Direction,
+// Creative-Direction→Deck-builder.
+//
+// Cutting an asset means cutting it from the WHOLE run, not just the stage being approved:
+// every downstream validator (validateCopy/validateDirection/validateDeck) checks its own
+// asset count against the STRATEGY checkpoint's count specifically, so strategy's own
+// `.assets` (and copy's, if creative-direction is what's being approved) gets
+// cascade-trimmed to the same surviving set too, keeping every stage's asset list — and
+// count — mutually consistent no matter which stage the trim actually happened at.
+//
+// Pure function (no I/O) — strategy-stage-approve.js is responsible for snapshotting and
+// persisting whatever `updatedStages` comes back.
+function applyLockFilterOnApprove(run, stage) {
+  const stageState = run.stages && run.stages[stage];
+  const checkpoint = stageState && stageState.checkpoint;
+  const noop = {
+    droppedAssetIds: [],
+    survivingIds: checkpoint && Array.isArray(checkpoint.assets) ? checkpoint.assets.map((a) => a.assetId) : [],
+    totalCount: checkpoint && Array.isArray(checkpoint.assets) ? checkpoint.assets.length : 0,
+    updatedStages: {},
+  };
+  if (!checkpoint || !Array.isArray(checkpoint.assets) || !LOCKABLE_STAGES.includes(stage)) return noop;
+
+  const allIds = checkpoint.assets.map((a) => a.assetId);
+  const locked = lockedAssetIds(stage, stageState.locks, allIds);
+  if (locked.length === 0) return noop; // opt-in: nothing locked, nothing dropped
+
+  const survivors = new Set(locked);
+  const droppedAssetIds = allIds.filter((id) => !survivors.has(id));
+  const updatedStages = {};
+  for (const s of LOCKABLE_STAGES) {
+    const st = run.stages && run.stages[s];
+    if (!st || !st.checkpoint || !Array.isArray(st.checkpoint.assets)) continue;
+    const keptAssets = st.checkpoint.assets.filter((a) => survivors.has(a.assetId));
+    if (keptAssets.length === st.checkpoint.assets.length) continue; // nothing to trim here
+    updatedStages[s] = {
+      checkpoint: Object.assign({}, st.checkpoint, { assets: keptAssets }),
+      locks: filterMapByAssetId(st.locks, survivors),
+      candidates: filterMapByAssetId(st.candidates, survivors),
+    };
+  }
+  const deck = run.stages && run.stages["deck-builder"];
+  if (deck && deck.checkpoint && Array.isArray(deck.checkpoint.pages)) {
+    const keptPages = deck.checkpoint.pages
+      .filter((p) => survivors.has(p.assetId))
+      .map((p, i) => Object.assign({}, p, { pageNumber: i + 1 }));
+    if (keptPages.length !== deck.checkpoint.pages.length) {
+      updatedStages["deck-builder"] = { checkpoint: Object.assign({}, deck.checkpoint, { pages: keptPages }) };
+    }
+  }
+  return { droppedAssetIds, survivingIds: locked, totalCount: allIds.length, updatedStages };
+}
+
 module.exports = {
   runResearchStage, runStrategyStage, runCopyStage, runDirectionStage, runDeckStage,
   proposeAssetCandidate, acceptAssetCandidate, replaceAsset, reopenStage,
+  applyLockFilterOnApprove,
   logActivity, buildStrategyResearchBrief,
 };
 

@@ -72,29 +72,28 @@ async function loginAsFakeUser(page) {
   check("\"Your next action\" renders above the stage rail", actionTop && railTop && actionTop.y < railTop.y, { actionTop, railTop });
   check("\"Your next action\" spans (roughly) the full width, not a narrow sidebar column", actionTop && railTop && actionTop.width > railTop.width * 0.9, { actionWidth: actionTop && actionTop.width, railWidth: railTop && railTop.width });
 
-  // ---- 2. Approving with assets still unlocked confirms first ----
+  // ---- 2. Approving with NOTHING locked no longer confirms at all — locking is opt-in
+  // for the "only locked advances" filter (see NextActionCard.tsx / strategy-stage-
+  // approve.js): with zero locked, nothing is dropped, so there's nothing to warn about.
+  // (The "some, but not all, locked" warning is covered by
+  // strategy-react-lock-gating-drop.spec.js, which doesn't need the rest of this file's
+  // full-fixture copy generation to stay intact afterward.) ----
   let dialogLog = [];
-  let dismissNextConfirm = true;
   page.on("dialog", async (dialog) => {
     dialogLog.push({ type: dialog.type(), message: dialog.message() });
-    if (dialog.type() === "confirm" && dismissNextConfirm) { dismissNextConfirm = false; await dialog.dismiss(); }
-    else if (dialog.type() === "confirm") await dialog.accept();
+    if (dialog.type() === "confirm") await dialog.accept();
     else if (dialog.type() === "prompt") await dialog.accept("Test note.");
     else await dialog.dismiss();
   });
 
   await page.locator(".st-review-panel button", { hasText: "Approve" }).click();
-  await page.waitForTimeout(300); // dialog handling is async; give the dismiss a moment to land
-  check("confirm dialog fired warning about unlocked assets", dialogLog.some((d) => d.type === "confirm" && d.message.includes(String(assetCount)) && d.message.toLowerCase().includes("not locked")), dialogLog);
-  const runAfterDismiss = (await req("GET", `${RTDB_URL}/strategy_runs/${runId}.json`)).body;
-  check("dismissing the confirm leaves the stage untouched (still needs_review)", runAfterDismiss.stages.strategy.status === "needs_review", runAfterDismiss.stages.strategy.status);
-
-  await page.locator(".st-review-panel button", { hasText: "Approve" }).click();
   const approvedRun = await waitFor(async () => {
     const r = (await req("GET", `${RTDB_URL}/strategy_runs/${runId}.json`)).body;
     return r && r.stages.strategy.status === "approved" ? r : null;
-  }, { label: "strategy approved after accepting the confirm" });
-  check("accepting the confirm proceeds to approve", approvedRun.stages.strategy.status === "approved");
+  }, { label: "strategy approved" });
+  check("no confirm dialog fires when nothing is locked (opt-in filter, nothing to drop)", !dialogLog.some((d) => d.type === "confirm"), dialogLog);
+  check("approval proceeds straight through", approvedRun.stages.strategy.status === "approved");
+  check("nothing was locked, so all assets survived the approve", approvedRun.stages.strategy.checkpoint.assets.length === assetCount, approvedRun.stages.strategy.checkpoint.assets.length);
 
   // ---- 3. Copy stage: card-row captions, independent per-section chat + lock ----
   // Approving strategy above already queued the copy stage and fired its background

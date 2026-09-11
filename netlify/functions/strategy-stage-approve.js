@@ -4,6 +4,10 @@
 // and timestamp (brief section 20: "All mutations must record the acting user and
 // timestamp") into strategy_runs/<runId>/approvals/<stage> and the activity log.
 //
+// Approving with anything locked now carries forward ONLY the locked subset — see
+// pipeline.js's applyLockFilterOnApprove for the full rule (short version: locking is
+// opt-in — approve with nothing locked and everything still advances, exactly as before).
+//
 // Killing an individual concept (brief section 9's "Kill + add to learnings", replacing
 // just that one asset while keeping the rest) is NOT implemented yet — this endpoint only
 // approves or flags the whole stage. Re-running a stage after "changes_requested" is also
@@ -11,7 +15,7 @@
 // automatic. Both are natural fast-follows once this slice is confirmed working.
 "use strict";
 const { fbGet, fbSet, fbUpdate } = require("./lib/strategy/firebase");
-const { logActivity } = require("./lib/strategy/pipeline");
+const { logActivity, applyLockFilterOnApprove } = require("./lib/strategy/pipeline");
 const { checkAuthorization } = require("./lib/strategy/auth");
 const { saveStageVersion, saveFeedbackEvent } = require("./lib/strategy/observability");
 
@@ -81,7 +85,25 @@ exports.handler = async (event) => {
 
     // Approved.
     if (stageState.checkpoint) await saveStageVersion(runId, stage, stageState.checkpoint, "approved", actor);
-    await fbUpdate(`strategy_runs/${runId}/stages/${stage}`, { status: "approved", updatedAt: now });
+
+    // "Only the stuff you lock should go to the next stage" (see pipeline.js's own
+    // comment). A no-op (updatedStages: {}) when nothing is locked. Snapshot every OTHER
+    // stage this cascades into before trimming it — `stage` itself already got a full,
+    // pre-trim snapshot immediately above under the "approved" label.
+    const trim = applyLockFilterOnApprove(run, stage);
+    const trimPatches = Object.assign({}, trim.updatedStages);
+    const ownTrimPatch = trimPatches[stage];
+    delete trimPatches[stage];
+    for (const [otherStage, patch] of Object.entries(trimPatches)) {
+      const otherState = run.stages && run.stages[otherStage];
+      if (otherState && otherState.checkpoint) await saveStageVersion(runId, otherStage, otherState.checkpoint, "locked_subset_before", actor);
+      await fbUpdate(`strategy_runs/${runId}/stages/${otherStage}`, patch);
+    }
+    if (trim.droppedAssetIds.length) {
+      await logActivity(runId, actor, `${stage}.approved_locked_subset`, `Kept ${trim.survivingIds.length} of ${trim.totalCount} — dropped ${trim.droppedAssetIds.join(", ")} (not locked).`);
+    }
+
+    await fbUpdate(`strategy_runs/${runId}/stages/${stage}`, Object.assign({}, ownTrimPatch, { status: "approved", updatedAt: now }));
     const nextStage = NEXT_STAGE[stage];
     if (!nextStage) {
       // Last stage in this slice (strategy) — nothing further to trigger yet.
