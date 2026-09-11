@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { listenPath } from "./firebase";
-import type { StrategyBrand, StrategyRun } from "./types";
+import type { BrandLibraryStatus, StrategyBrand, StrategyRun } from "./types";
 
 // React equivalents of strategy-app.js's soListenRuns()/soListenBrands() — a live
 // Firebase Realtime Database listener kept as component state, instead of the legacy
@@ -50,4 +50,24 @@ export function useBrands(): { brands: StrategyBrand[]; loading: boolean } {
   }, []);
 
   return { brands, loading };
+}
+
+// Live status of a brand's Drive folder read — see BrandLibraryStatus's own comment
+// (types.ts) and BrandMemory.tsx, which is what actually shows this to a reviewer instead
+// of leaving "is it reading our brand folder?" as a question only Netlify's function logs
+// or the Firebase console could answer.
+export function useBrandLibrary(brandId: string | undefined): { library: BrandLibraryStatus | null; loading: boolean } {
+  const [library, setLibrary] = useState<BrandLibraryStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!brandId) { setLibrary(null); setLoading(false); return; }
+    setLoading(true);
+    return listenPath<BrandLibraryStatus>(`strategy_brand_library/${brandId}`, (val) => {
+      setLibrary(val);
+      setLoading(false);
+    });
+  }, [brandId]);
+
+  return { library, loading };
 }
