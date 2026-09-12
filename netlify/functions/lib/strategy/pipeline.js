@@ -467,7 +467,11 @@ async function executeCompetitiveStage(runId, run, def) {
       servedBy: competitionInfo.servedBy, tier,
       extraMetrics: {
         competition: competitionInfo,
-        criticScores: finalVerdict ? finalVerdict.assets.map((a2) => ({ assetId: a2.assetId, score: a2.score })) : null,
+        // The full per-asset verdict, not just the score — a review screen showing "6/10"
+        // with no reasoning tells a human nothing they can act on. This is exactly what the
+        // critic itself produced (see AssetVerdictSchema in critic.js), stored verbatim so
+        // the UI can show WHY, not just a number.
+        criticVerdicts: finalVerdict ? finalVerdict.assets : null,
         criticPortfolioNotes: finalVerdict ? finalVerdict.portfolioNotes : [],
         // Non-null only when the critic still objected but the hybrid gate let it through
         // anyway — the trace of "this shipped over an unresolved objection," for review.

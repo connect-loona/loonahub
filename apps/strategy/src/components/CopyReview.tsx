@@ -9,10 +9,11 @@
 // script gets its own always-visible chat box below it. Each has its own Lock button; an
 // asset only counts as "locked" for the stage-wide summary once BOTH are locked.
 import { useState } from "react";
-import type { ConceptCandidate, CopyAsset, CopyCheckpoint, StageState, StrategyRun } from "../lib/types";
+import type { ConceptCandidate, CopyAsset, CopyCheckpoint, StageMetrics, StageState, StrategyRun } from "../lib/types";
 import { fmtDateTime } from "../lib/format";
 import { discardConcept, toggleAssetLock } from "../lib/api";
 import { ConceptChatPanel } from "./ConceptChatPanel";
+import { CompetitionSummary, CriticNote, criticVerdictFor } from "./CriticSummary";
 
 function claimChipStyle(status?: string) {
   const color = status === "ready" ? "var(--green)" : status === "flagged" ? "var(--yellow)" : "var(--red)";
@@ -28,10 +29,10 @@ function SectionLockButton({ locked, disabled, onClick }: { locked: boolean; dis
   );
 }
 
-function CopyAssetRow({ run, stage, actor, asset, captionsCandidate, scriptCandidate, captionsLocked, scriptLocked, onError }: {
+function CopyAssetRow({ run, stage, actor, asset, captionsCandidate, scriptCandidate, captionsLocked, scriptLocked, metrics, onError }: {
   run: StrategyRun; stage: StageState; actor: string; asset: CopyAsset;
   captionsCandidate: ConceptCandidate | undefined; scriptCandidate: ConceptCandidate | undefined;
-  captionsLocked: boolean; scriptLocked: boolean; onError: (msg: string) => void;
+  captionsLocked: boolean; scriptLocked: boolean; metrics: StageMetrics | undefined; onError: (msg: string) => void;
 }) {
   const readOnly = stage.status === "approved";
   const [busy, setBusy] = useState(false);
@@ -59,6 +60,7 @@ function CopyAssetRow({ run, stage, actor, asset, captionsCandidate, scriptCandi
   const busyScript = scriptCandidate?.status === "running";
   const disabled = busy || busyCaptions || busyScript;
   const audit = asset.claimAudit || {};
+  const verdict = criticVerdictFor(metrics, assetId);
   const label = (asset.skuNames && asset.skuNames.join(", ")) || asset.portfolioName || "—";
 
   return (
@@ -78,6 +80,7 @@ function CopyAssetRow({ run, stage, actor, asset, captionsCandidate, scriptCandi
       {asset.onCreative?.endFrame && <div style={{ fontSize: 12, color: "var(--muted)" }}><b>End frame:</b> {asset.onCreative.endFrame}</div>}
       {!!audit.rewrittenClaims?.length && <div style={{ fontSize: 12, color: "#e0a53a", marginTop: 6 }}><b>Rewritten claims:</b> {audit.rewrittenClaims.join("; ")}</div>}
       {!!audit.verificationFlags?.length && <div style={{ fontSize: 12, color: "var(--red)", marginTop: 4 }}><b>Needs verification:</b> {audit.verificationFlags.join("; ")}</div>}
+      <CriticNote verdict={verdict} />
 
       {/* ---- Captions: a row of three cards, one shared chat/refine box below ---- */}
       {!!asset.captions?.length && (
@@ -146,6 +149,7 @@ export function CopyReview({ run, stage, actor }: { run: StrategyRun; stage: Sta
   const lockedCount = (c.assets || []).filter((a) => isLocked(a.assetId)).length;
   const left = Math.max(0, total - lockedCount);
   const approval = run.approvals?.copy;
+  const metrics = run.metrics?.copy;
 
   return (
     <>
@@ -159,6 +163,7 @@ export function CopyReview({ run, stage, actor }: { run: StrategyRun; stage: Sta
           )}
         </div>
         {error && <div className="st-error-text">{error}</div>}
+        <CompetitionSummary metrics={metrics} />
         {(c.assets || []).map((asset) => (
           <CopyAssetRow
             key={asset.assetId}
@@ -170,6 +175,7 @@ export function CopyReview({ run, stage, actor }: { run: StrategyRun; stage: Sta
             scriptCandidate={candidates[`${asset.assetId}::script`]}
             captionsLocked={!!locks[`${asset.assetId}::captions`]}
             scriptLocked={!!locks[`${asset.assetId}::script`]}
+            metrics={metrics}
             onError={setError}
           />
         ))}

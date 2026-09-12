@@ -130,6 +130,69 @@ export interface StrategyRun {
   runType?: "monthly" | "campaign";
   deliverablesOverride?: DeliverablesCount | null;
   sourceContext?: string[];
+  metrics?: Partial<Record<StageKey, StageMetrics>>;
+}
+
+// Written by saveStageMetrics() (observability.js) each time a stage finishes — see
+// pipeline.js's finalizeStage()/failStage(). The `competition`/`critic*` fields only exist
+// on strategy and copy (the two stages executeCompetitiveStage runs — see its own header
+// comment for why research/creative-direction/deck-builder are excluded), and only once a
+// run has actually gone through it; a run whose stage completed before this feature shipped
+// simply won't carry them.
+export interface CompetitionInfo {
+  // Who actually produced the checkpoint. A single provider name ("openai") when only one
+  // model's output was usable that round; "providerA+providerB" when both were and a merge
+  // happened — see basedOn for which one anchored the merge.
+  servedBy?: string;
+  // False when only one provider produced a usable result this round (the other was down,
+  // or its output didn't validate) — there was nothing to compare, so no merge happened.
+  contested?: boolean;
+  basedOn?: string;
+  swapsFromChallenger?: number;
+  swaps?: { assetId: string; from: number; to: number }[];
+  // True when a merge was attempted but failed its own re-validation against the full
+  // stage's whole-portfolio rules, so the higher-scored side's own unmerged output shipped
+  // instead — see executeCompetitiveStage's own comment on why that check exists.
+  mergeRejected?: boolean;
+  mergeIssues?: string[];
+  // True when only one provider was ever configured/reachable — there was no second model
+  // to compete against in the first place, not merely a losing one.
+  criticUnavailable?: boolean;
+}
+
+export interface CriticAssetVerdict {
+  assetId: string;
+  logoSwapPass: boolean;
+  killListPass: boolean;
+  tensionPass: boolean;
+  overheardPass: boolean;
+  score: number; // 0-10, independent of the four gates above — see critic.js
+  reasoning: string;
+  fixes: string[];
+}
+
+export interface StageMetrics {
+  durationMs?: number;
+  attempts?: number;
+  repairs?: number;
+  outcome?: "needs_review" | "failed";
+  servedBy?: string | null;
+  modelTier?: string | null;
+  escalated?: boolean;
+  competition?: CompetitionInfo;
+  // The independent critic's full verdict per asset, exactly as it graded whichever version
+  // of that asset actually shipped — null when no independent critic was available this
+  // round (see criticSkippedReason), not merely empty.
+  criticVerdicts?: CriticAssetVerdict[] | null;
+  criticPortfolioNotes?: string[];
+  // Non-null only when the critic still objected to something but the hybrid gate had
+  // already used its one blocking repair round and let the stage finish anyway — an
+  // unresolved disagreement between two models, surfaced rather than hidden.
+  gateWarnings?: string[] | null;
+  // Set when no genuinely independent provider was reachable to review this stage's output
+  // — the stage still finished, just without a second opinion. Distinct from a clean pass:
+  // this means "we don't actually know," not "everything checked out."
+  criticSkippedReason?: string | null;
 }
 
 // ---- Research checkpoint (see strategy-app.js's researchReviewHtml) ----
