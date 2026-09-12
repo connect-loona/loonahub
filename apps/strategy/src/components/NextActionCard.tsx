@@ -3,15 +3,16 @@
 // there is to do about it right now. Lands in the review sidebar of the run-detail
 // workspace (see strategy-ui.js's buildWorkspace, which moves this specific card there).
 import { useState } from "react";
-import { currentStageOf, STAGE_LABELS, type StageState, type StrategyRun } from "../lib/types";
+import { currentStageOf, STAGE_LABELS, type StrategyRun } from "../lib/types";
 import { plainActionPhrase, STAGE_AGENT_EMOJI } from "../lib/format";
 import { createTeamTasks, decideStage, retryStage } from "../lib/api";
 
 // Shown once the deck stage is approved — ported from strategy-app.js's
-// deckCompleteActionsHtml(). Canva's own status can still be not_configured/failed even
-// here (deck content itself doesn't depend on Canva succeeding).
-function DeckCompleteActions({ run, actor, stageState }: { run: StrategyRun; actor: string; stageState: StageState }) {
-  const canva = stageState.canva;
+// deckCompleteActionsHtml(). Canva publishing was retired (pipeline.js no longer attempts
+// it) — deck output ships as a downloadable .pptx instead, so that's the only deck action
+// here now. `stageState` is still accepted for a run whose deck predates the retirement
+// and may carry a stale `canva` object; nothing reads it any more.
+function DeckCompleteActions({ run, actor }: { run: StrategyRun; actor: string }) {
   const tasksCreated = !!run.teamTasksCreatedAt;
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,15 +40,6 @@ function DeckCompleteActions({ run, actor, stageState }: { run: StrategyRun; act
         >
           Download deck (.pptx)
         </a>
-        {canva?.status === "published" && canva.url ? (
-          <a className="st-btn st-btn-primary" style={{ flex: 1, textAlign: "center", textDecoration: "none" }} href={canva.url} target="_blank" rel="noopener noreferrer">
-            Open Canva deck
-          </a>
-        ) : canva?.status === "failed" ? (
-          <div className="st-note" style={{ color: "var(--red)", flex: 1 }}>Canva publish failed: {canva.detail || "Unknown error"}</div>
-        ) : (
-          <div className="st-note" style={{ flex: 1 }}>{canva?.detail || "Canva isn't connected for this brand yet — the deck content is ready above."}</div>
-        )}
         <button className={`st-btn ${tasksCreated ? "st-btn-ghost" : "st-btn-primary"}`} style={{ flex: 1 }} disabled={tasksCreated || creating} onClick={handleCreateTasks}>
           {tasksCreated ? "Team tasks created ✓" : creating ? "Creating…" : "Create team tasks"}
         </button>
@@ -180,7 +172,7 @@ export function NextActionCard({ run, actor }: { run: StrategyRun; actor: string
       )}
 
       {stage === "deck-builder" && st.status === "approved" && (
-        <DeckCompleteActions run={run} actor={actor} stageState={st} />
+        <DeckCompleteActions run={run} actor={actor} />
       )}
     </div>
   );

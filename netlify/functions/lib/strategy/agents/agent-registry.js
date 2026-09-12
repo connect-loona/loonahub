@@ -144,16 +144,15 @@ const AGENT_REGISTRY = {
       "Export errors and slide-density lessons.",
       "Missing-handoff patterns from past production work.",
     ],
-    tools: ["generateJson", "generatePptx", "downloadReferences", "canvaPublisherWhenEnabled"],
+    tools: ["generateJson", "generatePptx", "downloadReferences"],
     guardrails: [
       "Never invent missing content.",
       "Every approved asset appears exactly once.",
       "Preserve approved words, references and order.",
       "Keep claims-to-verify and dependencies visible.",
       "Drop or mark weak references instead of passing bad links into the deck.",
-      "Canva failure must never block JSON or PPTX.",
     ],
-    qualityChecks: ["page-count", "field-preservation", "json-export", "pptx-export", "canva-gate", "reference-sanity"],
+    qualityChecks: ["page-count", "field-preservation", "json-export", "pptx-export", "reference-sanity"],
   },
   "concept-refinement": {
     id: "concept-refinement",

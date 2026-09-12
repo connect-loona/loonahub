@@ -1,7 +1,5 @@
 // Runs the entire 5-stage pipeline end to end with the fixture runtime: research -> approve
-// -> strategy -> approve -> copy -> approve -> creative-direction -> approve -> deck-builder
-// (which also attempts a Canva publish — expected to land in "not_configured" since no
-// Canva credentials exist in this environment, which is the correct, non-broken outcome).
+// -> strategy -> approve -> copy -> approve -> creative-direction -> approve -> deck-builder.
 process.env.FIREBASE_DB_URL = require("../harness/shared").RTDB_URL;
 const path = require("path");
 const { HUB, wipeFirebase, check, finish } = require("../harness/shared");
@@ -53,9 +51,6 @@ function approve(runId, stage, nextStage) {
 
   const finalRun = await fbGet(`strategy_runs/${runId}`);
   check("final run status reflects the deck stage", finalRun.status === "deck-builder_needs_review", finalRun.status);
-
-  const canvaStatus = await fbGet(`strategy_runs/${runId}/stages/deck-builder/canva`);
-  check('Canva publish correctly reports "not_configured" (no Canva credentials in this environment — expected, not a bug)', canvaStatus && canvaStatus.status === "not_configured", canvaStatus);
 
   // Activity log should show every stage's completion, in order.
   const activity = await fbGet(`strategy_activity/${runId}`);

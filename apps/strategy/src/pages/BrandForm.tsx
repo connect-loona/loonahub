@@ -17,28 +17,22 @@ function linesText(arr?: string[]): string { return (arr || []).join("\n"); }
 function splitCsv(s: string): string[] { return s.split(",").map((x) => x.trim()).filter(Boolean); }
 function splitLines(s: string): string[] { return s.split("\n").map((x) => x.trim()).filter(Boolean); }
 
-function defaultCanva() {
-  return {
-    enabled: false, mode: "brand_template",
-    templateIdEnv: "CANVA_BRAND_TEMPLATE_ID", sourceDesignIdEnv: "CANVA_SOURCE_DESIGN_ID",
-    fieldPrefix: "ASSET", indexWidth: 2,
-    fields: {
-      format: "FORMAT", portfolio: "PORTFOLIO_SKU", idea: "IDEA", hook: "HOOK", creativeCopy: "CREATIVE_COPY",
-      direction: "DIRECTION", shotList: "SHOT_LIST", captionOne: "CAPTION_A", captionTwo: "CAPTION_B",
-      captionThree: "CAPTION_C", referenceImage: "REFERENCE_IMAGE", referenceCredit: "REFERENCE_CREDIT",
-    },
-  };
-}
-
 // Everything strategy-brand-save.js validates but this form doesn't expose its own
 // fields for — round-tripped untouched through the Advanced JSON textarea, same as the
-// legacy app (portfolios/claimRules/copyStructure/sourceVectorStoreIds/canva).
+// legacy app (portfolios/claimRules/copyStructure/sourceVectorStoreIds).
+//
+// `canva` used to round-trip here too, defaulted to a disabled config so the (then-required)
+// schema field was always satisfied. Canva publishing has been retired — deck output ships
+// as a downloadable .pptx instead — and the schema field is now optional (contracts.js), so
+// there's nothing left to default or carry through: saving a brand through this form now
+// simply omits `canva` from what's sent, even for a brand whose stored config still has one
+// from before. That's fine — nothing reads the field any more either way, and this is how
+// it quietly falls out of every brand's config the next time someone edits it.
 interface AdvancedFields {
   portfolios?: unknown[];
   claimRules?: unknown[];
   copyStructure?: unknown;
   sourceVectorStoreIds?: string[];
-  canva?: unknown;
 }
 
 export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
@@ -83,7 +77,7 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
   const [knownUnknowns, setKnownUnknowns] = useState(linesText(b?.knownUnknowns));
 
   const [advanced, setAdvanced] = useState(() => JSON.stringify(
-    { portfolios: b?.portfolios || [], claimRules: b?.claimRules || [], copyStructure: b?.copyStructure ?? null, sourceVectorStoreIds: b?.sourceVectorStoreIds || [], canva: b?.canva || defaultCanva() },
+    { portfolios: b?.portfolios || [], claimRules: b?.claimRules || [], copyStructure: b?.copyStructure ?? null, sourceVectorStoreIds: b?.sourceVectorStoreIds || [] },
     null, 2,
   ));
 
@@ -149,7 +143,6 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
       claimRules: parsedAdvanced.claimRules || [],
       copyStructure: parsedAdvanced.copyStructure || null,
       sourceVectorStoreIds: parsedAdvanced.sourceVectorStoreIds || [],
-      canva: parsedAdvanced.canva || defaultCanva(),
     };
 
     setSaving(true);
@@ -277,7 +270,7 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
       </div>
 
       <details className="st-board">
-        <summary className="st-board-header" style={{ cursor: "pointer", listStyle: "none", display: "block" }}>Advanced (portfolios, claim rules, copy structure, Canva) &#9662;</summary>
+        <summary className="st-board-header" style={{ cursor: "pointer", listStyle: "none", display: "block" }}>Advanced (portfolios, claim rules, copy structure) &#9662;</summary>
         <div className="st-note" style={{ margin: "8px 0" }}>Most brands don't need this — RRO is the one that does. Edit as JSON; it's validated the same as everything else on save.</div>
         <textarea className="st-form-control" style={{ minHeight: 220, fontFamily: "monospace", fontSize: 12 }} value={advanced} onChange={(e) => setAdvanced(e.target.value)} />
       </details>
