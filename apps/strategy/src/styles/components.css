@@ -184,3 +184,341 @@ body {
 @media (max-width: 640px) {
   .st-caption-card-row { grid-template-columns: 1fr; }
 }
+
+/* ============================================================================
+ * Refined Hub-scale shell + persona stage rail + one-concept review bar
+ * (strategy-os-refined-demo.html / Gokul product direction 2026-09-12)
+ * ============================================================================ */
+
+.st-app {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-size: var(--text-base);
+}
+.st-app-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(10, 5, 3, .88);
+  backdrop-filter: blur(8px);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  font-size: var(--text-sm);
+}
+.st-app-logo {
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--text);
+  text-decoration: none;
+  margin-right: 4px;
+}
+.st-app-bar a {
+  color: var(--muted);
+  text-decoration: none;
+  padding: 4px 8px;
+  border-radius: 999px;
+}
+.st-app-bar a:hover { color: var(--text); }
+.st-app-nav-active {
+  background: var(--accent);
+  color: #111;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: var(--text-sm);
+}
+.st-app-spacer { flex: 1; }
+.st-app-legacy {
+  font-size: var(--text-xs) !important;
+  opacity: .7;
+}
+.st-app-actor {
+  font-size: var(--text-xs);
+  color: var(--muted);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.st-app-body {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 16px 16px 96px;
+}
+
+/* ---- Persona stage rail (replaces numbered circles; keeps .st-stage-* hooks) ---- */
+.st-stage-rail {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 4px;
+  margin: var(--space-md) 0 var(--space-lg);
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow-x: auto;
+}
+.st-stage-step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  position: relative;
+  white-space: normal;
+}
+.st-stage-step::after {
+  content: "";
+  position: absolute;
+  top: 16px;
+  left: calc(50% + 18px);
+  width: calc(100% - 36px);
+  height: 1px;
+  background: var(--border);
+  margin-left: 0;
+}
+.st-stage-step:last-child::after { display: none; }
+.st-stage-step.is-done:not(:last-child)::after { background: var(--green); opacity: .55; }
+.st-stage-step.is-active:not(:last-child)::after {
+  background: linear-gradient(90deg, var(--accent), var(--border));
+}
+.st-stage-num.st-stage-agent,
+.st-stage-agent {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  flex-shrink: 0;
+  position: relative;
+  line-height: 1;
+}
+.st-stage-badge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  font-size: 8px;
+  display: grid;
+  place-items: center;
+  background: var(--green);
+  color: #041;
+  border: 1px solid var(--bg);
+}
+.st-stage-badge.is-lock { background: #444; color: #bbb; }
+.st-stage-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  width: 100%;
+}
+.st-stage-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.st-stage-role {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 500;
+}
+.st-stage-status {
+  font-size: 10px;
+  margin-top: 1px;
+  min-height: 14px;
+  color: var(--muted);
+  font-weight: 500;
+}
+.st-stage-e2e-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+.st-stage-step.is-active { color: var(--accent); }
+.st-stage-step.is-active .st-stage-agent {
+  border-color: var(--accent);
+  background: var(--surface2);
+  color: inherit;
+}
+.st-stage-step.is-active .st-stage-status { color: var(--accent); }
+.st-stage-step.is-done { color: var(--green); }
+.st-stage-step.is-done .st-stage-agent { border-color: var(--green); background: var(--surface2); color: inherit; }
+.st-stage-step.is-done .st-stage-status { color: var(--green); }
+.st-stage-step.is-locked .st-stage-agent { filter: grayscale(.85); opacity: .55; }
+.st-stage-step.is-working .st-stage-agent {
+  box-shadow: 0 0 0 0 rgba(255, 109, 41, .55);
+  animation: st-agent-pulse 1.6s ease-out infinite;
+}
+.st-stage-step.is-clickable { cursor: pointer; }
+.st-stage-step.is-clickable:hover { color: var(--text); }
+.st-stage-step.is-clickable:hover .st-stage-agent {
+  background: var(--surface2);
+  border-color: var(--red);
+}
+.st-working-sm span { width: 3px; height: 3px; margin: 0 1px; }
+@keyframes st-agent-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(255, 109, 41, .5); }
+  70% { box-shadow: 0 0 0 8px rgba(255, 109, 41, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 109, 41, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .st-stage-step.is-working .st-stage-agent { animation: none; }
+}
+
+/* ---- One-concept review ---- */
+.st-concept-board { position: relative; }
+.st-concept-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.st-concept-pills { display: flex; gap: 4px; flex-wrap: wrap; margin-left: auto; }
+.st-concept-pill {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  padding: 0;
+}
+.st-concept-pill.is-active { background: var(--accent); color: #111; border-color: var(--accent); }
+.st-concept-pill.is-locked { box-shadow: inset 0 0 0 1px var(--green); }
+.st-concept-focus-meta {
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-bottom: 6px;
+}
+.st-concept-title { font-size: 15px; font-weight: 650; line-height: 1.35; }
+.st-concept-hook { color: var(--muted); font-size: 12px; margin: 6px 0 10px; font-style: italic; }
+.st-concept-meta { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+.st-concept-carousel {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  gap: 0;
+  scrollbar-width: none;
+  margin: 0 -4px;
+  padding-bottom: 4px;
+}
+.st-concept-carousel::-webkit-scrollbar { display: none; }
+.st-concept-carousel .st-concept-slide {
+  min-width: 100%;
+  max-width: 100%;
+  scroll-snap-align: start;
+  flex-shrink: 0;
+  padding: 0 4px;
+  box-sizing: border-box;
+}
+.st-concept-list .st-concept-slide { min-width: 0; }
+.st-concept-list .st-concept-row { border-bottom: 1px solid var(--border); }
+
+.st-review-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 15;
+  margin: 12px -16px -16px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  background: rgba(10, 5, 3, .92);
+  backdrop-filter: blur(8px);
+}
+.st-run-detail .st-review-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+}
+.st-review-bar-inner {
+  max-width: 920px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.st-btn-approve {
+  background: rgba(76, 175, 125, .15);
+  border: 1px solid rgba(76, 175, 125, .4);
+  color: var(--green);
+  padding: 7px 12px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+.st-btn-tweak {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #111;
+  padding: 7px 12px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+.st-btn-skip {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 7px 12px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+.st-review-prog {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.st-review-prog-bar {
+  width: 72px;
+  height: 3px;
+  background: #222;
+  border-radius: 99px;
+  overflow: hidden;
+  display: inline-block;
+}
+.st-review-prog-bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+/* Slightly tighter Hub-scale buttons inside Strategy OS */
+.st-app .st-btn { padding: 7px 14px; font-size: 12px; }
+.st-app .st-btn-sm { padding: 4px 10px; font-size: 11px; }
+.st-app .st-section-title { font-size: 18px; font-weight: 650; }
+.st-app .st-board { padding: 14px 16px; border-radius: 12px; }
+.st-app .st-workspace { grid-template-columns: minmax(160px, 200px) minmax(0, 1fr); gap: 10px; }
