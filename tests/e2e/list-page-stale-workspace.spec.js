@@ -50,7 +50,7 @@ function check(name, cond, extra) {
   await page.waitForTimeout(500);
   await loginAsGokul(page);
   await page.waitForTimeout(500);
-  await page.locator(".nav-btn", { hasText: "Strategy OS" }).click();
+  await page.locator(".nav-btn", { hasText: "Strategy legacy" }).click(); // Strategy OS itself is now a real link to /strategy/; this legacy embedded flow uses the rollback button
   await page.waitForTimeout(400);
 
   // Confirm the plain list page has NO workspace furniture before touching any run.

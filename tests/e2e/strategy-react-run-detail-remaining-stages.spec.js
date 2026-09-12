@@ -23,8 +23,8 @@ async function loginAsFakeUser(page) {
 
 async function openRunByMonth(page, monthLabel) {
   await page.locator("button", { hasText: /^Active/ }).click().catch(() => {});
-  await waitFor(async () => (await page.locator("tr", { hasText: monthLabel }).count()) > 0 || null, { label: `run row for ${monthLabel} renders` });
-  await page.locator("tr", { hasText: monthLabel }).click();
+  await waitFor(async () => (await page.locator(".st-run-card", { hasText: monthLabel }).count()) > 0 || null, { label: `run row for ${monthLabel} renders` });
+  await page.locator(".st-run-card", { hasText: monthLabel }).click();
   await waitFor(async () => (await page.locator(".st-stage-rail").count()) > 0 || null, { label: `run detail opens for ${monthLabel}` });
 }
 
