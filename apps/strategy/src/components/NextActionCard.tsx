@@ -7,6 +7,44 @@ import { currentStageOf, STAGE_LABELS, type StrategyRun } from "../lib/types";
 import { plainActionPhrase, STAGE_AGENT_EMOJI } from "../lib/format";
 import { createTeamTasks, decideStage, retryStage } from "../lib/api";
 
+
+function FriendlyError({ message, onRetry, retryBusy, retryLabel = "Retry" }: {
+  message: string;
+  onRetry?: () => void;
+  retryBusy?: boolean;
+  retryLabel?: string;
+}) {
+  const raw = (message || "").trim();
+  if (!raw) return null;
+  let title = "Something went wrong.";
+  if (/timed?\s*out|ETIMEDOUT|deadline/i.test(raw)) title = "That took too long — try again.";
+  else if (/failed to fetch|network|ECONN|ENOTFOUND|offline/i.test(raw)) title = "Couldn't reach the server.";
+  else if (/401|unauth|not signed|session/i.test(raw)) title = "Session expired — sign back into Hub.";
+  else if (/403|forbidden|permission/i.test(raw)) title = "You don't have permission for that.";
+  else if (/404|not found/i.test(raw)) title = "We couldn't find that run or stage.";
+  else if (/5\d\d|internal server|server error/i.test(raw)) title = "Something broke on our side.";
+  else if (raw.length <= 90 && !/[{}\[\]<>]|stack|at\s+\w+\s*\(/i.test(raw)) title = raw;
+  const showDetail = title !== raw;
+  return (
+    <div className="st-friendly-error">
+      <div className="st-friendly-error-title">{title}</div>
+      <div className="st-friendly-error-actions">
+        {onRetry && (
+          <button type="button" className="st-btn st-btn-primary st-btn-sm" disabled={!!retryBusy} onClick={onRetry}>
+            {retryBusy ? "Retrying…" : retryLabel}
+          </button>
+        )}
+        {showDetail && (
+          <details className="st-friendly-error-detail">
+            <summary>Technical detail</summary>
+            <pre>{raw}</pre>
+          </details>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Shown once the deck stage is approved — ported from strategy-app.js's
 // deckCompleteActionsHtml(). Canva publishing was retired (pipeline.js no longer attempts
 // it) — deck output ships as a downloadable .pptx instead, so that's the only deck action
@@ -31,7 +69,7 @@ function DeckCompleteActions({ run, actor }: { run: StrategyRun; actor: string }
 
   return (
     <div style={{ marginTop: 10 }}>
-      {error && <div className="st-error-text">{error}</div>}
+      {error && <FriendlyError message={error} />}
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <a
           className="st-btn st-btn-primary"
@@ -136,7 +174,7 @@ export function NextActionCard({ run, actor }: { run: StrategyRun; actor: string
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
-          {error && <div className="st-error-text">{error}</div>}
+          {error && <FriendlyError message={error} />}
           <div style={{ display: "flex", gap: 8 }}>
             <button className="st-btn st-btn-ghost" style={{ flex: 1 }} disabled={busy !== null} onClick={() => handleDecide("changes_requested")}>
               {busy === "notes" ? <>Sending… <span className="st-working" aria-hidden><span /><span /><span /></span></> : "Send back with notes"}
@@ -150,11 +188,11 @@ export function NextActionCard({ run, actor }: { run: StrategyRun; actor: string
 
       {st.status === "failed" && (
         <>
-          <div className="st-note" style={{ color: "var(--red)", margin: "8px 0" }}>{st.detail || "No details recorded."}</div>
-          {error && <div className="st-error-text">{error}</div>}
-          <button className="st-btn st-btn-primary" disabled={busy !== null} onClick={handleRetry}>
-            {busy === "retry" ? <>Retrying… <span className="st-working" aria-hidden><span /><span /><span /></span></> : "Retry"}
-          </button>
+          <FriendlyError
+            message={error || st.detail || "Something went wrong on this stage."}
+            onRetry={handleRetry}
+            retryBusy={busy === "retry"}
+          />
         </>
       )}
 

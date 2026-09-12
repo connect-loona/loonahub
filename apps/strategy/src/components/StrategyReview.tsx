@@ -52,13 +52,10 @@ function ConceptRow({ run, stage, actor, assetId, asset, candidate, locked, metr
 
   return (
     <div className={`st-concept-row ${locked ? "is-locked" : ""}`} data-asset-id={assetId}>
-      <div className="st-concept-meta">{asset.format} concept{locked ? " · locked" : ""}</div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
-        <div className="st-concept-title">
-          {asset.assetId} &middot; {asset.format} &middot; {asset.conceptName}
-          {locked && <span style={{ color: "var(--green)", fontSize: 11 }}> 🔒</span>}
-        </div>
-        <div style={{ fontSize: 11, color: "var(--muted)" }}>{asset.portfolioId || "—"}</div>
+      <div className="st-concept-meta">{asset.format} concept · {asset.assetId}{locked ? " · locked" : ""}{asset.portfolioId ? ` · ${asset.portfolioId}` : ""}</div>
+      <div className="st-concept-title">
+        {asset.conceptName}
+        {locked && <span style={{ color: "var(--green)", fontSize: 11 }}> 🔒</span>}
       </div>
       <p className="st-concept-hook">&ldquo;{asset.hook}&rdquo;</p>
       <div style={{ fontSize: 12, color: "var(--muted)" }}><b>Tension:</b> {asset.tension}</div>

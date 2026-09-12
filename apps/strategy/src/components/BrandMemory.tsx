@@ -136,9 +136,21 @@ export function BrandMemory({ brand }: { brand: StrategyBrand | undefined }) {
   const b = (brand || {}) as StrategyBrand & { oneLineTruth?: string; audiences?: { description: string }[]; approvedWork?: ApprovedWork[]; driveFolderUrl?: string };
   const works = (b.approvedWork || []).slice().sort((a, b2) => (b2.month || "").localeCompare(a.month || "")).slice(0, 4);
   const audienceLine = (b.audiences || []).map((a) => a.description).slice(0, 2).join(" · ") || "Not configured";
+  const [open, setOpen] = useState(false);
 
   return (
-    <aside className="st-workspace-side">
+    <aside className={`st-workspace-side st-memory-drawer ${open ? "is-open" : "is-collapsed"}`}>
+      <button
+        type="button"
+        className="st-memory-drawer-tab"
+        aria-expanded={open}
+        aria-controls="st-brand-memory-panel"
+        onClick={() => setOpen((v) => !v)}
+        title={open ? "Hide Brand Memory" : "Show Brand Memory"}
+      >
+        Brand Memory
+      </button>
+      <div id="st-brand-memory-panel" className="st-memory-drawer-panel">
       <div className="st-board-header" style={{ marginBottom: 0 }}>Brand memory</div>
       <div className="st-memory-label">Brand truth</div>
       <div className="st-memory-value">{b.oneLineTruth || "Add the brand truth in Manage brands."}</div>
@@ -161,6 +173,7 @@ export function BrandMemory({ brand }: { brand: StrategyBrand | undefined }) {
           Open brand folder
         </a>
       )}
+      </div>
     </aside>
   );
 }
