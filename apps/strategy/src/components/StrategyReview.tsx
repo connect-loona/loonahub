@@ -4,19 +4,31 @@
 // (Refine/Suggest similar), regeneratable with a stated reason (Discard), or locked as a
 // human checkpoint.
 import { useState } from "react";
-import type { ConceptCandidate, StageState, StrategyCheckpoint, StrategyRun } from "../lib/types";
+import type { ConceptCandidate, StageMetrics, StageState, StrategyCheckpoint, StrategyRun } from "../lib/types";
 import { fmtDateTime } from "../lib/format";
 import { discardConcept, proposeConcept, toggleAssetLock } from "../lib/api";
 import { ConceptChatPanel } from "./ConceptChatPanel";
+import { CompetitionSummary, CriticNote, criticVerdictFor } from "./CriticSummary";
 
-function GateChip({ pass, label }: { pass: boolean; label: string }) {
-  return <span className={`st-chip ${pass ? "st-chip-pass" : "st-chip-fail"}`}>{pass ? "✓ " : "✗ "}{label}</span>;
+// `disputed` marks a gate where the writing model's own self-report and the independent
+// critic's fresh judgement disagree — the exact failure mode this whole feature exists to
+// catch (see validation.js:166's comment), so it's worth calling out visually rather than
+// just quietly trusting whichever number happened to be shown.
+function GateChip({ pass, label, disputed }: { pass: boolean; label: string; disputed?: boolean }) {
+  return (
+    <span
+      className={`st-chip ${pass ? "st-chip-pass" : "st-chip-fail"}`}
+      title={disputed ? "The writer's own self-report disagreed with independent review on this gate." : undefined}
+    >
+      {pass ? "✓ " : "✗ "}{label}{disputed ? " ⚠" : ""}
+    </span>
+  );
 }
 
-function ConceptRow({ run, stage, actor, assetId, asset, candidate, locked, onError }: {
+function ConceptRow({ run, stage, actor, assetId, asset, candidate, locked, metrics, onError }: {
   run: StrategyRun; stage: StageState; actor: string; assetId: string;
   asset: StrategyCheckpoint["assets"][number]; candidate: ConceptCandidate | undefined; locked: boolean;
-  onError: (msg: string) => void;
+  metrics: StageMetrics | undefined; onError: (msg: string) => void;
 }) {
   const readOnly = stage.status === "approved";
   const busyCandidate = candidate?.status === "running";
@@ -41,6 +53,7 @@ function ConceptRow({ run, stage, actor, assetId, asset, candidate, locked, onEr
   }
 
   const disabled = busy || busyCandidate;
+  const verdict = criticVerdictFor(metrics, assetId);
 
   return (
     <div className={`st-concept-row ${locked ? "is-locked" : ""}`}>
@@ -55,11 +68,12 @@ function ConceptRow({ run, stage, actor, assetId, asset, candidate, locked, onEr
       <div style={{ fontSize: 12, color: "var(--muted)" }}><b>Tension:</b> {asset.tension}</div>
       <div style={{ fontSize: 12, color: "var(--muted)" }}><b>Send to:</b> {asset.sendTo}</div>
       <div style={{ marginTop: 8 }}>
-        <GateChip pass={asset.gate.logoSwapPass} label="Logo-swap" />
-        <GateChip pass={asset.gate.killListPass} label="Kill list" />
-        <GateChip pass={asset.gate.tensionPass} label="Tension" />
-        <GateChip pass={asset.gate.overheardPass} label="Overheard" />
+        <GateChip pass={asset.gate.logoSwapPass} label="Logo-swap" disputed={verdict && verdict.logoSwapPass !== asset.gate.logoSwapPass} />
+        <GateChip pass={asset.gate.killListPass} label="Kill list" disputed={verdict && verdict.killListPass !== asset.gate.killListPass} />
+        <GateChip pass={asset.gate.tensionPass} label="Tension" disputed={verdict && verdict.tensionPass !== asset.gate.tensionPass} />
+        <GateChip pass={asset.gate.overheardPass} label="Overheard" disputed={verdict && verdict.overheardPass !== asset.gate.overheardPass} />
       </div>
+      <CriticNote verdict={verdict} />
 
       {!readOnly && (
         <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -95,6 +109,7 @@ export function StrategyReview({ run, stage, actor }: { run: StrategyRun; stage:
   const total = (s.assets || []).length;
   const left = Math.max(0, total - lockedCount);
   const approval = run.approvals?.strategy;
+  const metrics = run.metrics?.strategy;
 
   return (
     <>
@@ -116,6 +131,7 @@ export function StrategyReview({ run, stage, actor }: { run: StrategyRun; stage:
           )}
         </div>
         {error && <div className="st-error-text">{error}</div>}
+        <CompetitionSummary metrics={metrics} />
         {(s.assets || []).map((asset) => (
           <ConceptRow
             key={asset.assetId}
@@ -126,6 +142,7 @@ export function StrategyReview({ run, stage, actor }: { run: StrategyRun; stage:
             asset={asset}
             candidate={candidates[asset.assetId]}
             locked={!!locks[asset.assetId]}
+            metrics={metrics}
             onError={setError}
           />
         ))}

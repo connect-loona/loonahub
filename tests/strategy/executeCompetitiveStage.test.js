@@ -105,7 +105,7 @@ async function seedRun(runId) {
     const metrics = run.metrics.strategy;
     check("metrics record a contested (both-usable) outcome", metrics.competition.contested === true, metrics.competition);
     check("metrics record exactly one swap", metrics.competition.swapsFromChallenger === 1, metrics.competition);
-    check("metrics carry per-asset critic scores", metrics.criticScores.length === 2, metrics.criticScores);
+    check("metrics carry the full per-asset critic verdict, not just a score", metrics.criticVerdicts.length === 2 && metrics.criticVerdicts.every((v) => typeof v.reasoning === "string" && v.reasoning.length > 0), metrics.criticVerdicts);
     check("no gate warnings when everything passed", metrics.gateWarnings === null, metrics.gateWarnings);
     restore();
   }
@@ -122,7 +122,7 @@ async function seedRun(runId) {
     const run = await fbGet(`strategy_runs/${runId}`);
     check("still reaches needs_review with only one provider alive", run.status === "strategy_needs_review", run.status);
     check("metrics say the critic was unavailable, not silently skipped", typeof run.metrics.strategy.criticSkippedReason === "string" && run.metrics.strategy.criticSkippedReason.length > 0, run.metrics.strategy.criticSkippedReason);
-    check("no critic scores when no independent critic could run", run.metrics.strategy.criticScores === null, run.metrics.strategy.criticScores);
+    check("no critic verdicts when no independent critic could run", run.metrics.strategy.criticVerdicts === null, run.metrics.strategy.criticVerdicts);
     check("servedBy names the one provider that actually wrote it", run.metrics.strategy.servedBy === "openai", run.metrics.strategy.servedBy);
     restore();
   }
