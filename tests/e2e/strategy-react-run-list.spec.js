@@ -1,5 +1,5 @@
 // The first e2e test for the new React Strategy OS app at /strategy/ — faithfully checks
-// the run list screen (Active/Archived tabs, table, New Run modal, archive/restore/purge)
+// the run list screen (Active/Archived pills, run cards, New Run wizard, archive/restore/purge)
 // against the same fixtures the legacy tests use, so this is a genuine like-for-like
 // comparison of the port's fidelity, not a fresh design being tested in isolation.
 //
@@ -56,7 +56,7 @@ async function loginAsFakeUser(page) {
   await page.reload({ waitUntil: "domcontentloaded" });
 
   await waitFor(async () => (await page.locator("text=RRO Foods").count()) > 0 || null, { label: "run list renders with seeded data" });
-  check("Active tab shows the seeded run by default", await page.locator("table", { hasText: "RRO Foods" }).count() > 0);
+  check("Active tab shows the seeded run by default", await page.locator(".st-run-card", { hasText: "RRO Foods" }).count() > 0);
   check("the row offers Archive", await page.locator("button", { hasText: /^Archive$/ }).count() > 0);
 
   await page.locator("button", { hasText: /^Archived/ }).click();
@@ -85,9 +85,9 @@ async function loginAsFakeUser(page) {
   check("archivedBy recorded as the actor", archived.archivedBy === "Gokul", archived.archivedBy);
   check("archiving didn't touch the run's own status", archived.status === "failed");
 
-  await waitFor(async () => (await page.locator("table", { hasText: "RRO Foods" }).count()) === 0 || null, { label: "run leaves active list" });
+  await waitFor(async () => (await page.locator(".st-run-card", { hasText: "RRO Foods" }).count()) === 0 || null, { label: "run leaves active list" });
   await page.locator("button", { hasText: /^Archived/ }).click();
-  await waitFor(async () => (await page.locator("table", { hasText: "RRO Foods" }).count()) > 0 || null, { label: "run appears in archived list" });
+  await waitFor(async () => (await page.locator(".st-run-card", { hasText: "RRO Foods" }).count()) > 0 || null, { label: "run appears in archived list" });
   check("run now listed under Archived", true);
   check("archived row offers Restore", await page.locator("button", { hasText: "Restore" }).count() > 0);
   check("archived row offers Purge permanently", await page.locator("text=Purge permanently").count() > 0);
