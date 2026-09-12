@@ -20,8 +20,6 @@ export interface StageState {
   detail?: string;
   candidates?: Record<string, ConceptCandidate>;
   locks?: Record<string, { lockedAt: string; lockedBy: string }>;
-  // Deck-builder only — see strategy-app.js's deckCompleteActionsHtml().
-  canva?: { status: string; url?: string; detail?: string };
 }
 
 // The strategy stage's own checkpoint shape — the "thirteen concept cards" the

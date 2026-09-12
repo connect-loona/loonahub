@@ -81,6 +81,12 @@ const CopyStructureSchema = z
   })
   .strict();
 
+// Canva publishing was retired — deck output ships as a downloadable .pptx instead (see
+// strategy-deck-download.js/pptx.js), and it never had real credentials configured for any
+// brand. This schema stays, and the field below stays OPTIONAL rather than removed, purely
+// so a brand config already saved with a `canva: {...}` object (BrandConfigSchema.strict()
+// rejects unrecognized keys) keeps parsing exactly as it did — nothing here reads `.canva`
+// any more, so its presence or absence has no effect either way.
 const CanvaConfigSchema = z
   .object({
     enabled: z.boolean(),
@@ -186,7 +192,7 @@ const BrandConfigSchema = z
     copyStructure: CopyStructureSchema.nullable(),
     knownUnknowns: z.array(NonEmpty),
     sourceVectorStoreIds: z.array(NonEmpty),
-    canva: CanvaConfigSchema,
+    canva: CanvaConfigSchema.optional(),
   })
   .strict();
 
