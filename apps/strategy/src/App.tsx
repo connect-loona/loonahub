@@ -40,18 +40,20 @@ export default function App() {
   }, []);
 
   if (authStatus === "checking") {
-    return <div style={{ padding: 32, color: "var(--muted)" }}>Checking your Hub session…</div>;
+    return <div className="st-app"><div className="st-app-body st-note">Checking your Hub session…</div></div>;
   }
 
   if (authStatus === "signed-out") {
     return (
-      <div style={{ padding: 32, color: "var(--text)" }}>
-        <h1>Strategy OS</h1>
-        <p style={{ color: "var(--muted)" }}>
-          You're not signed into Hub on this device/browser yet. Log into Hub at the root of
-          this site first, then come back to this page.
-        </p>
-        <a href="/" style={{ color: "var(--accent)" }}>Go to Hub</a>
+      <div className="st-app">
+        <div className="st-app-body">
+          <h1 className="st-section-title">Strategy OS</h1>
+          <p className="st-note">
+            You're not signed into Hub on this device/browser yet. Log into Hub at the root of
+            this site first, then come back to this page.
+          </p>
+          <a href="/" style={{ color: "var(--accent)" }}>Go to Hub</a>
+        </div>
       </div>
     );
   }
@@ -102,8 +104,17 @@ export default function App() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)", padding: 32 }}>
-      {body}
+    <div className="st-app">
+      <div className="st-app-bar">
+        <a className="st-app-logo" href="/">LOONA</a>
+        <a href="/">Overview</a>
+        <a href="/">Task Board</a>
+        <span className="st-app-nav-active">Strategy OS</span>
+        <div className="st-app-spacer" />
+        <a className="st-app-legacy" href="/?so=legacy" title="Open legacy Strategy OS tab in Hub">Legacy UI</a>
+        <span className="st-app-actor" title={user?.email || ""}>{actor}</span>
+      </div>
+      <div className="st-app-body">{body}</div>
     </div>
   );
 }
