@@ -87,6 +87,17 @@ export function NewRunWizard({
   }
 
   async function handleSubmit() {
+    // A campaign has no brief the way a monthly plan does (that comes from the brand's own
+    // month calendar/deliverables) — the details box IS the only place its objective (a
+    // festival, a launch, an event) gets written down anywhere. Leave it blank and the run
+    // still starts, just with nothing for Research to actually build the campaign around —
+    // a real person hit exactly this by forgetting to fill it in before submitting. The
+    // monthly path doesn't need this: its notes box is optional context on top of an
+    // otherwise well-defined monthly brief, not the run's only stated purpose.
+    if (isCampaign && !notes.trim()) {
+      setError("Explain what this campaign is for before starting it — that's the only place its objective (a festival, a launch, an event) gets recorded for Research to build on.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -178,7 +189,7 @@ export function NewRunWizard({
       <div className="st-board" style={{ marginTop: 0 }}>
         {isCampaign ? (
           <>
-            <label className="st-field-label">Explain the details of this campaign</label>
+            <label className="st-field-label">Explain the details of this campaign (required)</label>
             <textarea
               className="st-form-control"
               aria-label="Notes"

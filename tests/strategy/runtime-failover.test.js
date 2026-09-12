@@ -33,6 +33,15 @@ function provider(name, behaviour) {
   check("503 is a provider error", isProviderError(httpError(503, "Service Unavailable")));
   check("a missing API key (ConfigurationError) is a provider error", isProviderError(new ConfigurationError("ANTHROPIC_API_KEY is required for the Claude runtime.")));
 
+  // The exact error a real production run just died on: Anthropic's out-of-credits
+  // response is a plain 400, not 429, and says "credit balance" rather than "no credits" —
+  // neither the old status check nor the old phrase list caught it, so FailoverRuntime
+  // never tried OpenAI and the run died on Anthropic's raw JSON error instead.
+  check(
+    "Anthropic's 400 low-credit-balance error is a provider error, not a plain bad request",
+    isProviderError(httpError(400, '{"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."}}')),
+  );
+
   const networkError = new Error("fetch failed");
   networkError.cause = Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" });
   check("a network failure is a provider error", isProviderError(networkError));

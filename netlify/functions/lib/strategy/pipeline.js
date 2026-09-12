@@ -359,7 +359,20 @@ async function executeCompetitiveStage(runId, run, def) {
     }
 
     if (usable.length === 0) {
-      if (!lastError) lastError = new StageValidationError(def.stage, ["Neither model produced a usable result this round."]);
+      // Surface what actually happened to EACH provider, not a generic "neither worked" —
+      // that was the failure a human actually saw on strategy-run-start.js's very first
+      // real (non-fixture) competitive run: a top-level "Neither model produced a usable
+      // result this round." with zero indication of whether it was a repeatable content
+      // problem or (as runtime-failover.js's own history shows has happened before) one
+      // provider being out of credits — and, without failover on this path, that alone is
+      // enough to explain it if the OTHER provider also stumbled that round. Always
+      // overwrite with the LATEST round's reasons (not just the first) — a later round is
+      // what actually decided the stage's fate.
+      const perProviderDetail = PROVIDER_NAMES.map((name) => {
+        const issues = providerState[name].repairIssues;
+        return `${name}: ${issues.length ? issues.join("; ") : "no result"}`;
+      });
+      lastError = new StageValidationError(def.stage, perProviderDetail);
       continue;
     }
 
