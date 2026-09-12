@@ -210,5 +210,29 @@ async function seedRun(runId) {
     restore();
   }
 
+  // ---- G. Both providers error out at the runtime level every round — the failure message
+  // must name what actually went wrong with EACH one, not a generic "neither worked". This
+  // is the exact gap a real production run hit: soloRuntime never fails over, so if both
+  // providers stumble in the same round (e.g. one out of credits, the other overloaded) the
+  // person looking at "Something went wrong" needs to see that, not a blank summary. ----
+  {
+    const runId = "compete-g";
+    await seedRun(runId);
+    PROVIDER_FACTORIES.openai = () => ({ async runStage() { throw new Error("openai: no credits remaining"); } });
+    PROVIDER_FACTORIES.claude = () => ({ async runStage() { throw new Error("claude: overloaded_error"); } });
+
+    let threw = null;
+    try {
+      await executeCompetitiveStage(runId, { runId, runtime: "openai" }, baseDef());
+    } catch (e) { threw = e; }
+    check("the stage still throws once every attempt is exhausted", threw instanceof StageValidationError, threw && threw.name);
+    check("the failure names openai's actual error", threw && threw.message.includes("no credits remaining"), threw && threw.message);
+    check("the failure names claude's actual error", threw && threw.message.includes("overloaded_error"), threw && threw.message);
+    check("it does NOT fall back to the old opaque generic message", threw && !threw.message.includes("Neither model produced a usable result"), threw && threw.message);
+    const run = await fbGet(`strategy_runs/${runId}`);
+    check("the run is marked failed with the same per-provider detail visible on the stage", run.stages.strategy.detail.includes("no credits remaining") && run.stages.strategy.detail.includes("overloaded_error"), run.stages.strategy.detail);
+    restore();
+  }
+
   finish();
 })().catch((e) => { console.error("FATAL:", e, e.stack); process.exit(1); });

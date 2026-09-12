@@ -114,6 +114,15 @@ async function runFor(month) {
   await waitFor(async () => (await page.locator("text=Campaign details").count()) > 0 || null, { label: "campaign details screen renders" });
 
   check("campaign screen still offers the deliverables picker", await page.locator('input[aria-label="Count — Reels"]').count() > 0);
+
+  // ---- Campaign details are required — a real person hit exactly this by forgetting to
+  // fill it in and submitting with only deliverables set. ----
+  await page.locator("button", { hasText: "Submit & start research" }).click();
+  await waitFor(async () => (await page.locator(".st-error-text").count()) > 0 || null, { label: "error shows for empty campaign details" });
+  check("submitting a campaign with no details set is rejected client-side", (await page.locator(".st-error-text").textContent() || "").includes("Explain what this campaign is for"));
+  check("it did NOT navigate away — still on the campaign details screen", await page.locator("text=Campaign details").count() > 0);
+  check("no run was created for this rejected submit", (await runFor("2026-12")) === null);
+
   await page.locator('textarea[aria-label="Notes"]').fill("Diwali gifting push across RRO's oil range.");
   await page.locator('input[aria-label="Count — Carousels"]').fill("2");
   await page.locator("button", { hasText: "Submit & start research" }).click();
