@@ -1,76 +1,98 @@
-# Strategy OS UI refinements — rollback
+# Strategy OS UI redesign — rollback
 
 **Date:** 2026-09-12  
-**Base (previous main SHA to restore):** `e6b1386a56fbc27a4af5427e0c56eebb224548ac` (`e6b1386`)  
+**Live main tip before this ship (rollback target):** `9bf8253061653075034caa2913b4d3f9cbe768a4` (`9bf8253`) — “Try refined Strategy OS UI…” (still table home; under-shipped).  
+**Deeper known-good:** `e6b1386a56fbc27a4af5427e0c56eebb224548ac` (`e6b1386`)  
+**Note:** `29d4d8d` on main (failover/production fixes) may sit above `9bf8253`; prefer reverting *this* UI commit, or resetting only listed files, rather than hard-resetting past unrelated fixes.  
 **Working copy:** `/workspace/loona-hub-previews/loonahub-deploy/`  
 **Do not push from this box** — commit via GitHub browser / parent agent.
 
-## What this change does
+## What this change does (must look different at a glance)
 
-Visible UI refinements in the React Strategy app (`apps/strategy/`) plus Hub nav cutover:
-
-1. **Persona stage rail** — fixed agent emoji/name/role on every stage (Columbus / Dora / Matilda / Barbie / Bob); pulse + working dots while a stage is running/repairing.
-2. **One-concept review** — Strategy concepts in a scroll-snap carousel with **Approve / Tweak / Skip** Hub-scale bar (Approve = lock + next; Tweak = open refine; Skip = next). “Show all” toggle available. All rows stay mounted for e2e.
-3. **Hub-scale shell** — max-width ~920px, tighter padding/type, sticky mini nav in `/strategy/`.
-4. **Actor fix (P0)** — `RunDetail` passes session `actor` into Strategy/Copy/Creative reviews (was `run.owner`).
-5. **Nav cutover** — Hub “Strategy OS” → `/strategy/`; “Strategy legacy” + React “Legacy UI” (`/?so=legacy`) keep the old Hub tab reachable.
+1. **Home / runs list** — dense `<table>` replaced with Hub-scale **run cards** (logo/initials, brand, month, stage + agent emoji, status pill, Open). Active / Archived **pills**.
+2. **Stage rail** — persona emoji + name + role; **stronger** pulse + working dots while running/repairing.
+3. **Strategy review** — one concept dominant at a time; Approve / Tweak / Skip bar; optional Show all; concept name as title.
+4. **Brand Memory** — slim vertical **drawer tab** (expand to panel); `.st-workspace-side` + “Brand memory” kept for e2e.
+5. **Friendly next-action errors** — short human copy + Retry; technical detail collapsed.
+6. Hub-scale shell (~13px body, ~32px agents, max-width ~920px). `/strategy/` stays primary; **Strategy legacy** / `/?so=legacy` / `/strategy-old/` unchanged.
 
 Pipeline / Netlify functions / backend behavior unchanged.
 
 ## Files changed (commit these)
 
 ```
-apps/strategy/src/App.tsx
-apps/strategy/src/components/StageRail.tsx
-apps/strategy/src/components/StrategyReview.tsx
+apps/strategy/src/pages/RunList.tsx
 apps/strategy/src/pages/RunDetail.tsx
+apps/strategy/src/components/BrandMemory.tsx
+apps/strategy/src/components/StrategyReview.tsx
+apps/strategy/src/components/NextActionCard.tsx
 apps/strategy/src/styles/components.css
-index.html
+tests/e2e/strategy-react-run-list.spec.js
+docs/strategy-os-ui-ROLLBACK.md
 ```
 
-(No backend / `netlify/functions` edits.)
+(No backend / `netlify/functions` edits. StageRail.tsx already had persona markup from `9bf8253`.)
 
 ## How to revert
 
-### Option A — restore previous main tip (full revert of this UI commit)
-
-If this UI work lands as one commit on top of `e6b1386`:
+### Option A — restore tip `9bf8253` files (undo this visual redesign)
 
 ```bash
-git revert <this-commit-sha>
-# or reset hard only if the commit was never shared:
-git reset --hard e6b1386a56fbc27a4af5427e0c56eebb224548ac
+git checkout 9bf8253061653075034caa2913b4d3f9cbe768a4 -- \
+  apps/strategy/src/pages/RunList.tsx \
+  apps/strategy/src/pages/RunDetail.tsx \
+  apps/strategy/src/components/BrandMemory.tsx \
+  apps/strategy/src/components/StrategyReview.tsx \
+  apps/strategy/src/components/NextActionCard.tsx \
+  apps/strategy/src/styles/components.css \
+  tests/e2e/strategy-react-run-list.spec.js \
+  docs/strategy-os-ui-ROLLBACK.md
 ```
 
-### Option B — restore only listed files from previous main
+Then rebuild / redeploy (`cd apps/strategy && npm ci && npm run build`).
+
+### Option B — deeper rollback to `e6b1386`
 
 ```bash
 git checkout e6b1386a56fbc27a4af5427e0c56eebb224548ac -- \
   apps/strategy/src/App.tsx \
   apps/strategy/src/components/StageRail.tsx \
   apps/strategy/src/components/StrategyReview.tsx \
+  apps/strategy/src/components/BrandMemory.tsx \
+  apps/strategy/src/components/NextActionCard.tsx \
   apps/strategy/src/pages/RunDetail.tsx \
+  apps/strategy/src/pages/RunList.tsx \
   apps/strategy/src/styles/components.css \
-  index.html
+  index.html \
+  tests/e2e/strategy-react-run-list.spec.js \
+  docs/strategy-os-ui-ROLLBACK.md
 ```
 
-Then rebuild / redeploy (`npm run build` → Netlify).
+Or full tip reset only if safe (never if shared history includes unrelated fixes after `e6b1386`):
+
+```bash
+git reset --hard e6b1386a56fbc27a4af5427e0c56eebb224548ac
+```
 
 ### Option C — runtime rollback without redeploying Hub statics
 
-- Use Hub nav **“Strategy legacy”** or open `https://<host>/?so=legacy` for the old `#page-strategy` UI.
-- Or open frozen snapshot at `/strategy-old/` if that deploy path is still published.
-- React app at `/strategy/` will keep serving whatever was last built until you redeploy Option A/B.
+- Hub nav **“Strategy legacy”** or `https://<host>/?so=legacy` for old `#page-strategy`.
+- Frozen snapshot at `/strategy-old/` if still published.
+- React `/strategy/` keeps last built assets until you redeploy A/B.
 
-## Build check (already run here)
+## Build check
 
 ```bash
 cd apps/strategy && npm ci && npm run build
-# → tsc -b && vite build succeeded (dist/strategy/)
+# → tsc -b && vite build must succeed (dist/strategy/)
 ```
+
+## Success criteria
+
+Someone opening `/strategy/` immediately sees **cards**, not a spreadsheet table; run view shows **persona rail** + **one-concept** review (Brand Memory as slim tab).
 
 ## Not in this change
 
-- `changes_requested` → Retry (needs `strategy-stage-retry` to accept that status; today only `failed`).
-- Copy / Creative one-at-a-time bars (Strategy stage only for now).
+- `changes_requested` → Retry (backend still limited).
+- Copy / Creative one-at-a-time bars (Strategy stage only).
 - Month ops board / deep links / duplicate-run guard.
