@@ -82,7 +82,7 @@ export function RunDetail({ runId, actor, onBack }: { runId: string; actor: stri
 
       <StageRail run={run} onReopen={handleReopen} />
 
-      <div className="st-workspace">
+      <div className="st-workspace st-workspace-drawer">
         <BrandMemory brand={brand} />
         <main className="st-workspace-main">
           <ReviewBody run={run} reviewStage={reviewStage} actor={actor} />
