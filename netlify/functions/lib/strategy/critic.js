@@ -53,7 +53,7 @@ const STRATEGY_CRITIC_INSTRUCTIONS = [
   "Apply the four non-negotiable gates honestly and independently. Be strict: your job is to catch what the writer let through, not to agree with them.",
   "",
   "1. LOGO SWAP — could a competitor publish this unchanged after swapping the logo? If yes, it fails. The concept must rest on at least two concrete anchors specific to THIS brand.",
-  "2. KILL LIST — does it repeat exhausted territory, a previously killed concept, or something the client already rejected? Those are supplied to you. If it does, it fails.",
+  "2. KILL LIST — does it repeat exhausted territory (given to you as a structured list), or a previously killed concept or client rejection recorded in the brand's learnings notes (given to you as free text)? If it does, it fails.",
   "3. TENSION — is there a real human friction stated in one sentence? \"It teaches something useful\", \"people want quality\" and other category truisms are failures.",
   "4. OVERHEARD — is there a specific person or relationship who would send this to someone? A vague audience is a failure.",
   "",
@@ -68,7 +68,7 @@ const COPY_CRITIC_INSTRUCTIONS = [
   "Judge each asset's copy against the same four gates the concept had to pass, as they apply to the words actually on the page:",
   "",
   "1. LOGO SWAP — could a competitor run this caption unchanged? Generic copy fails however good the concept behind it was.",
-  "2. KILL LIST — does it use banned words, prohibited claims, or exhausted territory? Those are supplied to you. Any use is a failure.",
+  "2. KILL LIST — does it use banned words or prohibited claims from the brand config, repeat exhausted territory (a structured list), or repeat something the brand's learnings notes record as already killed or rejected? Any of those is a failure.",
   "3. TENSION — does the hook open a real human friction in its first line, or does it describe a product benefit?",
   "4. OVERHEARD — would a person send this to someone specific? If it reads like an advertisement talking at everyone, it fails.",
   "",
@@ -99,8 +99,12 @@ function buildCriticInput(stage, output, context) {
       products: context.brandConfig.products,
     } : null,
     exhaustedTerritory: (context.research && context.research.exhaustedTerritory) || [],
-    pastKilledConcepts: (context.learnings && context.learnings.killedConcepts) || [],
-    clientRejections: (context.learnings && context.learnings.clientRejections) || [],
+    // loadLearnings() (store.js) returns free-form markdown — the brand's seed learnings
+    // plus an appended "Recent human review feedback" log of past kills/rejections/
+    // corrections — not a structured killedConcepts/clientRejections array. That's the same
+    // text the writer itself was given, so the critic is checking against the same record
+    // of "don't repeat this" the writer was supposed to have already honoured.
+    learnings: context.learnings || null,
     monthThesis: output.monthThesis || null,
     assets,
   };

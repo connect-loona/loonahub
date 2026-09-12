@@ -125,10 +125,24 @@ const verdict = (scores) => ({
     const input = buildCriticInput("strategy", {
       monthThesis: "T",
       assets: [{ assetId: "R-01", conceptName: "X", gate: { logoSwapPass: true, killListPass: true, tensionPass: true, overheardPass: true, rationale: "I think it's great" } }],
-    }, { research: { exhaustedTerritory: [{ territory: "recipe reels" }] } });
+    }, {
+      research: { exhaustedTerritory: [{ territory: "recipe reels" }] },
+      // loadLearnings() (store.js) returns free-form markdown, not a structured object —
+      // this pins that buildCriticInput passes that string straight through rather than
+      // reaching for object fields (killedConcepts/clientRejections) that don't exist on it.
+      learnings: "# Brand learnings\n\n- 2026-08 · strategy · changes_requested: Don't reuse the oil-swap concept again.",
+    });
     check("the writer's own gate verdict is stripped before review", !input.assets[0].gate, input.assets[0]);
     check("the concept itself is still shown", input.assets[0].conceptName === "X", input.assets[0]);
-    check("the kill list reaches the critic so it can check it", input.exhaustedTerritory.length === 1, input.exhaustedTerritory);
+    check("the structured exhausted-territory list reaches the critic", input.exhaustedTerritory.length === 1, input.exhaustedTerritory);
+    check("the free-text learnings reach the critic as-is, not as an object lookup", input.learnings.includes("oil-swap concept"), input.learnings);
+  }
+
+  // ---- Missing context degrades gracefully rather than throwing ----
+  {
+    const input = buildCriticInput("copy", { assets: [] }, {});
+    check("no research context still produces an empty (not crashing) exhausted-territory list", Array.isArray(input.exhaustedTerritory) && input.exhaustedTerritory.length === 0);
+    check("no learnings context is passed through as null, not undefined or a crash", input.learnings === null, input.learnings);
   }
 
   // ---- Schema demands a usable verdict ----
