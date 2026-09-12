@@ -89,24 +89,37 @@ exports.handler = async (event) => {
     await loadBrandConfig(brandId);
     await loadMonthInput(brandId, month);
 
-    // Prevent duplicate active runs for the same brand + month (brief: "Prevent duplicate
-    // active runs for the same brand and month"). There's no indexed query support in the
-    // plain-REST firebase.js helper, so this reads the whole strategy_runs node and filters
-    // in memory — fine at Loona's actual run volume, and matches the same "read the whole
-    // node" pattern the Hub UI's own listeners already use for this data.
-    const allRuns = (await fbGet("strategy_runs")) || {};
-    const existing = Object.values(allRuns).find(
-      (r) => r && r.brandId === brandId && r.month === month && isActiveRun(r)
-    );
-    if (existing) {
-      return {
-        statusCode: 409,
-        headers: cors(),
-        body: JSON.stringify({
-          error: `There's already an active run for this brand and month (status: ${existing.status}). Open it instead of starting a new one.`,
-          existingRunId: existing.runId,
-        }),
-      };
+    // Prevent duplicate active MONTHLY runs for the same brand + month (brief: "Prevent
+    // duplicate active runs for the same brand and month" — written before campaign runs
+    // existed as their own runType). A monthly plan really is one-per-brand-per-month, so
+    // that check stays. A campaign is scoped to its own objective (a festival, a launch, an
+    // event), not to "the plan for this month" — a brand can run several campaigns at once,
+    // and a campaign alongside that month's ordinary plan is the normal case, not a
+    // collision. So this only ever matches against EXISTING monthly runs, and only ever
+    // runs the check at all when the INCOMING request is itself monthly: a campaign never
+    // triggers it and never blocks anything else, in either direction. Old run docs from
+    // before runType existed have no field at all, so they default to "monthly" here too —
+    // the same fallback strategy-run-start.js has always used for a genuinely missing value.
+    //
+    // There's no indexed query support in the plain-REST firebase.js helper, so this reads
+    // the whole strategy_runs node and filters in memory — fine at Loona's actual run
+    // volume, and matches the same "read the whole node" pattern the Hub UI's own listeners
+    // already use for this data.
+    if (runType === "monthly") {
+      const allRuns = (await fbGet("strategy_runs")) || {};
+      const existing = Object.values(allRuns).find(
+        (r) => r && r.brandId === brandId && r.month === month && (r.runType || "monthly") === "monthly" && isActiveRun(r)
+      );
+      if (existing) {
+        return {
+          statusCode: 409,
+          headers: cors(),
+          body: JSON.stringify({
+            error: `There's already an active monthly run for this brand and month (status: ${existing.status}). Open it instead of starting a new one.`,
+            existingRunId: existing.runId,
+          }),
+        };
+      }
     }
 
     const id = runId(brandId, month);
