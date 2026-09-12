@@ -100,7 +100,7 @@ function CopyAssetRow({ run, stage, actor, asset, captionsCandidate, scriptCandi
           </div>
           {!readOnly && (
             <ConceptChatPanel
-              runId={run.runId} stage="copy" assetId={assetId} section="captions" focus="Captions" variationsCount={3}
+              runId={run.runId} stage="copy" assetId={assetId} section="captions" focus="Captions" showVariations
               candidate={captionsCandidate} actor={actor} open onOpenChange={() => {}} showCancel={false} onError={onError}
             />
           )}

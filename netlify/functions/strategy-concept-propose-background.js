@@ -3,7 +3,7 @@
 // strategy_runs/<runId>/stages/<stage>/candidates/<assetId>, so there's nothing more to do
 // here on failure than log it (matching every other -background function's shape).
 "use strict";
-const { proposeAssetCandidate } = require("./lib/strategy/pipeline");
+const { proposeAssetCandidate, proposeAssetVariations } = require("./lib/strategy/pipeline");
 
 exports.handler = async (event) => {
   let body;
@@ -13,7 +13,8 @@ exports.handler = async (event) => {
   if (!runId || !assetId || !action) return { statusCode: 400, body: "runId, assetId and action are required" };
 
   try {
-    await proposeAssetCandidate(runId, stage, assetId, action, notes, focus, section);
+    if (action === "variations") await proposeAssetVariations(runId, stage, assetId, focus, section);
+    else await proposeAssetCandidate(runId, stage, assetId, action, notes, focus, section);
   } catch (error) {
     console.error(`strategy-concept-propose-background failed for run ${runId}, stage ${stage}, asset ${assetId}:`, error);
   }

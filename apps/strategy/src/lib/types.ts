@@ -95,6 +95,12 @@ export interface ConceptCandidate {
     claimAudit?: ClaimAudit;
     [key: string]: unknown;
   };
+  // Set only when requestType is "variations" — up to four fresh takes (two per configured
+  // model provider) instead of the single alternative `candidate` above holds for every
+  // other request type. Accepting one is by index (see acceptCandidate's `variationIndex`),
+  // since there's no single obvious candidate to resolve automatically. See
+  // pipeline.js's proposeAssetVariations.
+  variations?: { provider: string; candidate: NonNullable<ConceptCandidate["candidate"]> }[];
 }
 
 // An open map of {deliverableName: count} — reel/carousel/static/story are the ones the

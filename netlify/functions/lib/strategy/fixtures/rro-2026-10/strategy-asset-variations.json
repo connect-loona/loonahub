@@ -1,0 +1,23 @@
+{
+  "assetId": "RRO-01",
+  "sequence": 1,
+  "format": "reel",
+  "pillarId": "recipes-serving",
+  "portfolioId": "rro-oil",
+  "skuIds": ["filtered-groundnut-oil"],
+  "conceptName": "The bottle that outlasts the recipe",
+  "concept": "A recipe gets handed down and rewritten across generations, but the oil in the kitchen cupboard is the one thing that never actually changed — Filtered Groundnut Oil is what stayed constant while everything else drifted.",
+  "hook": "Three generations rewrote the recipe. Nobody ever changed the oil.",
+  "tension": "A family argues about how the dish should be made while never noticing what's stayed exactly the same the whole time.",
+  "sendTo": "The grandmother who insists her version is the only correct one",
+  "brandAnchors": ["RRO Oil", "Filtered Groundnut Oil"],
+  "researchIds": ["ARG-01", "UB-01"],
+  "strategicRole": "Turn recipes-serving into a brand-owned argument.",
+  "gate": {
+    "logoSwapPass": true,
+    "killListPass": true,
+    "tensionPass": true,
+    "overheardPass": true,
+    "rationale": "Uses exact RRO portfolio and SKU context, names a specific family friction and a specific recipient distinct from the 'similar' fixture's own concept."
+  }
+}

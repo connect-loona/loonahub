@@ -10,10 +10,13 @@
 // `section`, when set ("captions" | "script"), scopes the WHOLE panel to just that part of
 // a copy asset — its own independent thread, candidate and lock (see CopyReview.tsx and
 // pipeline.js's ASSET_STAGE_CONFIG.copy.sections), so refining captions and refining the
-// script can run at the same time without one clobbering the other. `variationsCount`, when
-// set, adds a one-click "Get N variations" button next to Send (maps to the existing
-// "similar" request type, scoped to this section — a fresh alternative take, not a
-// continuation of the chat).
+// script can run at the same time without one clobbering the other. `showVariations`, when
+// set, adds a "Get variations" button next to Send — up to four fresh takes at once, two
+// from each configured model provider (the "variations" request type; see pipeline.js's
+// proposeAssetVariations), scoped to this section. Distinct from Send/"similar": those
+// produce ONE alternative to review and finalize; variations produces several to pick
+// between (VariationsPicker below), and a provider that's down just means fewer than four
+// rather than a failure.
 //
 // Supersedes ConceptCandidatePreview.tsx: same running/failed/ready rendering, but always
 // alongside the transcript and always with a way to send the next message rather than a
@@ -22,6 +25,10 @@ import { useState } from "react";
 import type { ConceptCandidate } from "../lib/types";
 import { AGENT_LINEUP, STAGE_AGENT_EMOJI } from "../lib/format";
 import { acceptCandidate, discardConcept, proposeConcept, rejectCandidate } from "../lib/api";
+
+function providerLabel(name: string): string {
+  return name === "openai" ? "ChatGPT" : name === "claude" ? "Claude" : name;
+}
 
 function claimChipStyle(status?: string) {
   const color = status === "ready" ? "var(--green)" : status === "flagged" ? "var(--yellow)" : "var(--red)";
@@ -72,7 +79,36 @@ function ReadyPreview({ stage, section, c }: { stage: "strategy" | "copy"; secti
   );
 }
 
-export function ConceptChatPanel({ runId, stage, assetId, section, candidate, actor, open, onOpenChange, focus, onFocusClear, variationsCount, showCancel = true, onError }: {
+// Side-by-side cards for a "variations" candidate — up to four, each tagged with the model
+// that wrote it, each independently accepted. Distinct from ReadyPreview's single
+// candidate + Finalize/Discard: there's no one obvious "the" replacement here, so every
+// card gets its own "Use this one" rather than one shared accept action.
+function VariationsPicker({ stage, section, variations, busy, onUse, onDiscardAll }: {
+  stage: "strategy" | "copy"; section?: "captions" | "script";
+  variations: NonNullable<ConceptCandidate["variations"]>;
+  busy: boolean; onUse: (index: number) => void; onDiscardAll: () => void;
+}) {
+  return (
+    <div className="st-candidate-box">
+      <div className="st-candidate-label">
+        {variations.length} variation{variations.length === 1 ? "" : "s"} ready
+        {variations.length < 4 ? " (one model wasn't available, so fewer than four this time)" : ""}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8, marginTop: 6 }}>
+        {variations.map((v, i) => (
+          <div key={i} style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 8 }}>
+            <div style={{ fontSize: 10, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 4 }}>{providerLabel(v.provider)}</div>
+            <ReadyPreview stage={stage} section={section} c={v.candidate} />
+            <button className="st-btn st-btn-primary st-btn-sm" style={{ width: "100%", marginTop: 8 }} disabled={busy} onClick={() => onUse(i)}>Use this one</button>
+          </div>
+        ))}
+      </div>
+      <button className="st-btn st-btn-ghost" style={{ width: "100%", marginTop: 8 }} disabled={busy} onClick={onDiscardAll}>Discard all</button>
+    </div>
+  );
+}
+
+export function ConceptChatPanel({ runId, stage, assetId, section, candidate, actor, open, onOpenChange, focus, onFocusClear, showVariations, showCancel = true, onError }: {
   runId: string; stage: "strategy" | "copy"; assetId: string; candidate: ConceptCandidate | undefined; actor: string;
   // `open`: the reviewer clicked "Refine" and wants to start a first message. Once a
   // candidate/thread already exists the panel shows regardless of `open` — there's already
@@ -85,9 +121,9 @@ export function ConceptChatPanel({ runId, stage, assetId, section, candidate, ac
   // header comment. Omit for strategy (no sections) or a whole-asset copy action.
   section?: "captions" | "script";
   focus?: string | null; onFocusClear?: () => void;
-  // Adds a "Get N variations" button (a fresh "similar" take, scoped to `section`) — used
-  // by the captions block; script has no equivalent today.
-  variationsCount?: number;
+  // Adds a "Get variations" button (up to four fresh takes, scoped to `section`) — used by
+  // the captions block; script has no equivalent today.
+  showVariations?: boolean;
   // Hide the "Cancel" button on an empty compose box — for a permanently-open panel
   // (see `open` above) there's no toggle to cancel back to.
   showCancel?: boolean;
@@ -103,8 +139,10 @@ export function ConceptChatPanel({ runId, stage, assetId, section, candidate, ac
   const agentEmoji = STAGE_AGENT_EMOJI[stage] || "🤖";
   const history = candidate?.history || [];
   const running = candidate?.status === "running";
+  const isVariations = candidate?.requestType === "variations";
   const ready = candidate?.status === "ready" && !!candidate.candidate;
   const c = ready ? candidate!.candidate! : null;
+  const variationsReady = isVariations && candidate?.status === "ready" && !!candidate.variations?.length;
 
   async function withBusy(fn: () => Promise<unknown>) {
     setBusy(true);
@@ -127,11 +165,16 @@ export function ConceptChatPanel({ runId, stage, assetId, section, candidate, ac
   }
 
   async function handleVariations() {
-    await withBusy(() => proposeConcept({ runId, stage, assetId, action: "similar", focus: focus || undefined, section }));
+    await withBusy(() => proposeConcept({ runId, stage, assetId, action: "variations", focus: focus || undefined, section }));
   }
 
   async function handleFinalize() {
     await withBusy(() => acceptCandidate({ runId, stage, assetId, actor, section }));
+    onOpenChange(false);
+  }
+
+  async function handleUseVariation(variationIndex: number) {
+    await withBusy(() => acceptCandidate({ runId, stage, assetId, actor, section, variationIndex }));
     onOpenChange(false);
   }
 
@@ -144,7 +187,7 @@ export function ConceptChatPanel({ runId, stage, assetId, section, candidate, ac
     if (!candidate) return;
     await withBusy(() => (candidate.requestType === "discard" || candidate.requestType === "replace")
       ? discardConcept({ runId, stage, assetId, notes: candidate.notes, actor })
-      : proposeConcept({ runId, stage, assetId, action: (candidate.requestType as "refine" | "similar") || "refine", notes: candidate.notes, focus: candidate.focus || undefined, section }));
+      : proposeConcept({ runId, stage, assetId, action: (candidate.requestType as "refine" | "similar" | "variations") || "refine", notes: candidate.notes, focus: candidate.focus || undefined, section }));
   }
 
   return (
@@ -193,6 +236,13 @@ export function ConceptChatPanel({ runId, stage, assetId, section, candidate, ac
         </div>
       )}
 
+      {variationsReady && candidate!.variations && (
+        <VariationsPicker
+          stage={stage} section={section} variations={candidate!.variations}
+          busy={busy} onUse={handleUseVariation} onDiscardAll={handleDiscardSuggestion}
+        />
+      )}
+
       {!running && (
         <div style={{ marginTop: 8 }}>
           <textarea
@@ -204,8 +254,8 @@ export function ConceptChatPanel({ runId, stage, assetId, section, candidate, ac
           />
           <div style={{ display: "flex", gap: 6 }}>
             <button className="st-btn st-btn-primary st-btn-sm" disabled={busy} onClick={handleSend}>Send</button>
-            {!!variationsCount && (
-              <button className="st-btn st-btn-ghost st-btn-sm" disabled={busy} onClick={handleVariations}>Get {variationsCount} variations</button>
+            {!!showVariations && (
+              <button className="st-btn st-btn-ghost st-btn-sm" disabled={busy} onClick={handleVariations}>Get variations</button>
             )}
             {!candidate && showCancel && (
               <button className="st-btn st-btn-ghost st-btn-sm" disabled={busy} onClick={() => onOpenChange(false)}>Cancel</button>

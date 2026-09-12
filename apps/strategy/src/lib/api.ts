@@ -86,13 +86,14 @@ export function reopenStage(args: { runId: string; stage: string; notes?: string
   return post("strategy-stage-reopen", args) as Promise<{ ok: true }>;
 }
 
-// "refine" (with notes) or "similar"/"suggest another" (strategy and copy) — kicks off a
-// candidate replacement for one concept/copy card, reviewed before it's committed (see
-// conceptCandidateHtml in the legacy app). `focus` optionally points at the specific part
-// of the asset being refined (e.g. "Caption B", "Script" — copy only, see CopyReview.tsx).
-// `section` ("captions" | "script", copy only) scopes this to a fully independent thread —
-// see ConceptChatPanel.tsx's own header comment.
-export function proposeConcept(args: { runId: string; stage: string; assetId: string; action: "refine" | "similar"; notes?: string; focus?: string; section?: string }): Promise<{ ok: true }> {
+// "refine" (with notes), "similar"/"suggest another" (one alternative), or "variations"
+// (up to four at once — two per configured model provider, see pipeline.js's
+// proposeAssetVariations) — kicks off a candidate replacement for one concept/copy card,
+// reviewed before it's committed (see conceptCandidateHtml in the legacy app). `focus`
+// optionally points at the specific part of the asset being refined (e.g. "Caption B",
+// "Script" — copy only, see CopyReview.tsx). `section` ("captions" | "script", copy only)
+// scopes this to a fully independent thread — see ConceptChatPanel.tsx's own header comment.
+export function proposeConcept(args: { runId: string; stage: string; assetId: string; action: "refine" | "similar" | "variations"; notes?: string; focus?: string; section?: string }): Promise<{ ok: true }> {
   return post("strategy-concept-propose", args) as Promise<{ ok: true }>;
 }
 
@@ -103,7 +104,10 @@ export function discardConcept(args: { runId: string; stage: string; assetId: st
   return post("strategy-concept-discard", args) as Promise<{ ok: true }>;
 }
 
-export function acceptCandidate(args: { runId: string; stage: string; assetId: string; actor: string; section?: string }): Promise<{ ok: true }> {
+// `variationIndex` picks which of a "variations" request's (up to four) options to commit —
+// required for that request type, ignored for every other one (see
+// pipeline.js's acceptAssetCandidate).
+export function acceptCandidate(args: { runId: string; stage: string; assetId: string; actor: string; section?: string; variationIndex?: number }): Promise<{ ok: true }> {
   return post("strategy-concept-accept", args) as Promise<{ ok: true }>;
 }
 
