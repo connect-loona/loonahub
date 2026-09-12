@@ -77,7 +77,7 @@ function gate(pass) { return { logoSwapPass: pass, killListPass: true, tensionPa
   await page.evaluate(() => localStorage.setItem("__fakeAuthUser", JSON.stringify({ uid: "u", email: "gokul@loona.in", displayName: "Gokul" })));
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitFor(async () => (await page.locator("text=RRO Foods").count()) > 0 || null, { label: "run list renders" });
-  await page.locator("tr", { hasText: "RRO Foods" }).click();
+  await page.locator(".st-run-card", { hasText: "RRO Foods" }).click();
   await waitFor(async () => (await page.locator("text=Concepts").count()) > 0 || null, { label: "strategy review renders" });
 
   const panelText = await page.locator(".st-workspace-main").textContent();

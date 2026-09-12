@@ -56,7 +56,7 @@ async function loginAsFakeUser(page) {
   await loginAsFakeUser(page);
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitFor(async () => (await page.locator("text=RRO Foods").count()) > 0 || null, { label: "run list renders" });
-  await page.locator("tr", { hasText: "RRO Foods" }).click();
+  await page.locator(".st-run-card", { hasText: "RRO Foods" }).click();
   await waitFor(async () => (await page.locator(".st-review-panel").count()) > 0 || null, { label: "run detail renders" });
 
   // ---- 1. Dismissing the warning leaves everything untouched ----

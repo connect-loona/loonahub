@@ -54,7 +54,7 @@ function seedRun(runId) {
   await loginAsFakeUser(page);
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitFor(async () => (await page.locator("text=RRO Foods").count()) > 0 || null, { label: "run list renders" });
-  await page.locator("tr", { hasText: "RRO Foods" }).click();
+  await page.locator(".st-run-card", { hasText: "RRO Foods" }).click();
   await waitFor(async () => (await page.locator(".st-workspace-side").count()) > 0 || null, { label: "brand memory sidebar renders" });
   check("no Drive status shown when nothing has ever been indexed", await page.locator("text=file indexed from").count() + await page.locator("text=files indexed from").count() + await page.locator("text=Drive folder not connected").count() === 0);
 
@@ -121,6 +121,12 @@ function seedRun(runId) {
     ],
   });
   await waitFor(async () => (await page.locator("text=the agents can't read").count()) > 0 || null, { label: "unread list renders" });
+  // Brand Memory is now a collapsed-by-default drawer (see BrandMemory.tsx) — its text stays
+  // in the DOM while collapsed (checks 1-6 above only ever read .textContent(), which works
+  // either way), but the nested "unreadable files" <summary> is a real click target and
+  // can't be interacted with until the drawer itself is actually open.
+  await page.locator(".st-memory-drawer-tab", { hasText: "Brand Memory" }).click();
+  await waitFor(async () => (await page.locator(".st-memory-drawer.is-open").count()) > 0 || null, { label: "Brand Memory drawer opens" });
   await page.locator("summary", { hasText: "the agents can't read" }).click();
   const sideText = await page.locator(".st-workspace-side").textContent();
   check("the oversized file is named", sideText.includes("New RRO  JanFeb Plan.pdf"), sideText.slice(0, 200));
