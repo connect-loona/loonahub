@@ -39,7 +39,12 @@ const SEED_LEARNINGS = {
 };
 // Decision types that represent a durable "don't repeat this" signal — see loadLearnings'
 // own comment on why these get a much larger retention window than routine feedback.
-const PERMANENT_LEARNING_DECISIONS = new Set(["changes_requested", "reopened", "asset_discard", "asset_replace"]);
+// "critic_objection" joins this set even though nobody typed it — an independent critic
+// flagging a real problem (a weak brand anchor, repeated exhausted territory) that
+// survived to the human-visible gateWarnings is exactly as load-bearing a "don't repeat
+// this" signal as a human's own changes_requested. See executeCompetitiveStage's
+// saveSystemLearningEvent call.
+const PERMANENT_LEARNING_DECISIONS = new Set(["changes_requested", "reopened", "asset_discard", "asset_replace", "critic_objection"]);
 const PROMPT_BY_FILE = {
   "01-research.md": RESEARCH_PROMPT,
   "02-strategy.md": STRATEGY_PROMPT,
@@ -106,17 +111,33 @@ async function loadLearnings(brandId) {
   const sortedEvents = Object.values(eventsRaw || {})
     .filter((event) => event && event.notes)
     .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+  // "stage_failed" (see saveSystemLearningEvent) is an operational note — a provider
+  // outage or a billing lapse says nothing about brand voice or content, so it's kept in
+  // its own clearly-labeled section below rather than mixed into the content feedback a
+  // writing model might otherwise mistake for a style instruction.
+  const operational = sortedEvents.filter((event) => event.decision === "stage_failed").slice(-15);
+  const contentEvents = sortedEvents.filter((event) => event.decision !== "stage_failed");
   // A flat "last 30" cutoff quietly drops exactly the events most worth keeping — a
   // "changes_requested"/"reopened"/kill decision is a durable "don't repeat this" signal,
   // not routine chatter, and a brand with a long history could lose its oldest, most
   // load-bearing corrections to nothing more than newer minor refinements piling up after
   // them. PERMANENT_DECISIONS gets a much larger cap of its own instead; only the lower-
-  // stakes routine adjustments (a plain refine/similar/approval) stay capped at 30.
-  const permanent = sortedEvents.filter((event) => PERMANENT_LEARNING_DECISIONS.has(event.decision)).slice(-200);
-  const routine = sortedEvents.filter((event) => !PERMANENT_LEARNING_DECISIONS.has(event.decision)).slice(-30);
+  // stakes routine adjustments (a plain refine/similar/approval, or a competition_outcome
+  // score comparison — see saveSystemLearningEvent) stay capped at 30.
+  const permanent = contentEvents.filter((event) => PERMANENT_LEARNING_DECISIONS.has(event.decision)).slice(-200);
+  const routine = contentEvents.filter((event) => !PERMANENT_LEARNING_DECISIONS.has(event.decision)).slice(-30);
   const events = [...permanent, ...routine].sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
   if (events.length) {
-    text += "\n\n# Recent human review feedback\n" + events.map((event) =>
+    // Not JUST human feedback any more — a critic's own objection and a competitive
+    // round's outcome (see saveSystemLearningEvent) share this same section, since both
+    // are genuine "here's what happened last time" content signals; the "actor" field on
+    // each event (a real name, vs "system") is what tells them apart if it matters.
+    text += "\n\n# Recent review feedback (human decisions and the pipeline's own findings)\n" + events.map((event) =>
+      `- ${event.month || "unknown month"} · ${event.stage} · ${event.decision}: ${event.notes}`
+    ).join("\n");
+  }
+  if (operational.length) {
+    text += "\n\n# Recent stage failures — operational only, not a content note\n" + operational.map((event) =>
       `- ${event.month || "unknown month"} · ${event.stage} · ${event.decision}: ${event.notes}`
     ).join("\n");
   }

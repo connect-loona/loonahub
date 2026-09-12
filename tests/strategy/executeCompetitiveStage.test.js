@@ -34,6 +34,15 @@ const StageSchema = z.object({
 function scoreOf(value) { return Number(/:(\d+)/.exec(value)[1]); }
 function badGate(value) { return value.endsWith(":BADGATE"); }
 
+// Every scenario below shares brandId "test" (see seedRun), so strategy_learning_events/test
+// accumulates across the whole file rather than resetting per scenario — sorted by
+// createdAt so "does the event I expect exist by now" reads the same regardless of
+// Firebase's own key ordering.
+async function learningEvents(brandId) {
+  const raw = await fbGet(`strategy_learning_events/${brandId}`);
+  return Object.values(raw || {}).sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+}
+
 function fakeCritique(request) {
   const assets = request.input.assets.map((a) => ({
     assetId: a.assetId,
@@ -95,7 +104,7 @@ async function seedRun(runId) {
       { assetId: "A-01", value: "claude:5" }, { assetId: "A-02", value: "claude:9" },
     ] }));
 
-    const result = await executeCompetitiveStage(runId, { runId, runtime: "openai" }, baseDef());
+    const result = await executeCompetitiveStage(runId, { runId, brandId: "test", runtime: "openai" }, baseDef());
     check("A-01 (openai scored higher, 9 vs 5) is openai's version", result.assets.find((a) => a.assetId === "A-01").value === "openai:9", result.assets);
     check("A-02 (claude scored higher, 9 vs 3) stays claude's version", result.assets.find((a) => a.assetId === "A-02").value === "claude:9", result.assets);
 
@@ -107,6 +116,12 @@ async function seedRun(runId) {
     check("metrics record exactly one swap", metrics.competition.swapsFromChallenger === 1, metrics.competition);
     check("metrics carry the full per-asset critic verdict, not just a score", metrics.criticVerdicts.length === 2 && metrics.criticVerdicts.every((v) => typeof v.reasoning === "string" && v.reasoning.length > 0), metrics.criticVerdicts);
     check("no gate warnings when everything passed", metrics.gateWarnings === null, metrics.gateWarnings);
+    const eventsAfterA = await learningEvents("test");
+    check(
+      "a contested round with a real swap is auto-recorded as a learning signal, with no human note involved",
+      eventsAfterA.some((e) => e.decision === "competition_outcome" && e.actor === "system" && e.notes.includes("swapped in from the challenger")),
+      eventsAfterA,
+    );
     restore();
   }
 
@@ -117,13 +132,19 @@ async function seedRun(runId) {
     PROVIDER_FACTORIES.openai = fakeProvider("openai", () => ({ assets: [{ assetId: "A-01", value: "openai:7", gate: { logoSwapPass: true, killListPass: true, tensionPass: true, overheardPass: true } }] }));
     PROVIDER_FACTORIES.claude = () => { throw new ConfigurationError("ANTHROPIC_API_KEY is required for the Claude runtime."); };
 
-    const result = await executeCompetitiveStage(runId, { runId, runtime: "openai" }, baseDef());
+    const result = await executeCompetitiveStage(runId, { runId, brandId: "test", runtime: "openai" }, baseDef());
     check("the lone healthy provider's output is used", result.assets[0].value === "openai:7", result.assets);
     const run = await fbGet(`strategy_runs/${runId}`);
     check("still reaches needs_review with only one provider alive", run.status === "strategy_needs_review", run.status);
     check("metrics say the critic was unavailable, not silently skipped", typeof run.metrics.strategy.criticSkippedReason === "string" && run.metrics.strategy.criticSkippedReason.length > 0, run.metrics.strategy.criticSkippedReason);
     check("no critic verdicts when no independent critic could run", run.metrics.strategy.criticVerdicts === null, run.metrics.strategy.criticVerdicts);
     check("servedBy names the one provider that actually wrote it", run.metrics.strategy.servedBy === "openai", run.metrics.strategy.servedBy);
+    const eventsAfterB = await learningEvents("test");
+    check(
+      "a solo win (nothing to compare) does NOT log a competition_outcome — there was no real contest",
+      !eventsAfterB.some((e) => e.decision === "competition_outcome" && e.notes.includes("self-report only")),
+      eventsAfterB,
+    );
     restore();
   }
 
@@ -138,13 +159,24 @@ async function seedRun(runId) {
       assets: [{ assetId: "A-01", value: request.repairIssues.length ? "claude:6" : "claude:6:BADGATE" }],
     }));
 
-    const result = await executeCompetitiveStage(runId, { runId, runtime: "openai" }, baseDef());
+    const result = await executeCompetitiveStage(runId, { runId, brandId: "test", runtime: "openai" }, baseDef());
     check("the fixed version is what ships", result.assets[0].value === "openai:9", result.assets);
     const run = await fbGet(`strategy_runs/${runId}`);
     check("it took the one critic-driven repair round", run.metrics.strategy.attempts === 2, run.metrics.strategy.attempts);
     check("nothing is left to warn about once fixed", run.metrics.strategy.gateWarnings === null, run.metrics.strategy.gateWarnings);
     const criticAttempt = await fbGet(`strategy_runs/${runId}/attempts/strategy/1/critic`);
     check("the critic's objection on attempt 1 was persisted", criticAttempt && criticAttempt.issues.length === 1, criticAttempt);
+    const eventsAfterC = await learningEvents("test");
+    check(
+      "once the repair actually fixed it, no critic_objection is recorded — nothing left to remember as a problem",
+      !eventsAfterC.some((e) => e.decision === "critic_objection"),
+      eventsAfterC,
+    );
+    check(
+      "the contested (if now clean) round still records who won, for the model-preference signal",
+      eventsAfterC.some((e) => e.decision === "competition_outcome" && e.notes.includes("won every contested")),
+      eventsAfterC,
+    );
     restore();
   }
 
@@ -155,12 +187,18 @@ async function seedRun(runId) {
     PROVIDER_FACTORIES.openai = fakeProvider("openai", () => ({ assets: [{ assetId: "A-01", value: "openai:9:BADGATE" }] }));
     PROVIDER_FACTORIES.claude = fakeProvider("claude", () => ({ assets: [{ assetId: "A-01", value: "claude:6:BADGATE" }] }));
 
-    const result = await executeCompetitiveStage(runId, { runId, runtime: "openai" }, baseDef());
+    const result = await executeCompetitiveStage(runId, { runId, brandId: "test", runtime: "openai" }, baseDef());
     check("the stage still finishes rather than looping forever", result.assets[0].assetId === "A-01");
     const run = await fbGet(`strategy_runs/${runId}`);
     check("it reaches needs_review, not failed", run.status === "strategy_needs_review", run.status);
     check("it used exactly its one critic repair round, no more", run.metrics.strategy.attempts === 2, run.metrics.strategy.attempts);
     check("the unresolved objection is attached for human review", Array.isArray(run.metrics.strategy.gateWarnings) && run.metrics.strategy.gateWarnings.length === 1, run.metrics.strategy.gateWarnings);
+    const eventsAfterD = await learningEvents("test");
+    check(
+      "an unresolved critic objection IS auto-recorded as a durable learning signal, whether or not a human ever types a note",
+      eventsAfterD.some((e) => e.decision === "critic_objection" && e.actor === "system" && e.notes === run.metrics.strategy.gateWarnings.join(" | ")),
+      eventsAfterD,
+    );
     restore();
   }
 
@@ -173,12 +211,18 @@ async function seedRun(runId) {
 
     let threw = null;
     try {
-      await executeCompetitiveStage(runId, { runId, runtime: "openai" }, baseDef({ validate: () => ["Always wrong, on purpose."] }));
+      await executeCompetitiveStage(runId, { runId, brandId: "test", runtime: "openai" }, baseDef({ validate: () => ["Always wrong, on purpose."] }));
     } catch (e) { threw = e; }
     check("the stage throws once every attempt is exhausted", threw instanceof StageValidationError, threw && threw.name);
     const run = await fbGet(`strategy_runs/${runId}`);
     check("the run is marked failed", run.status === "failed", run.status);
     check("all attempts (1 + MAX_REPAIRS) were spent", run.metrics.strategy.attempts === 3, run.metrics.strategy.attempts);
+    const eventsAfterE = await learningEvents("test");
+    check(
+      "a genuinely failed stage is recorded too — an attempt that produces nothing shouldn't vanish without a trace",
+      eventsAfterE.some((e) => e.decision === "stage_failed" && e.actor === "system" && e.notes.includes("Always wrong, on purpose.")),
+      eventsAfterE,
+    );
     restore();
   }
 
@@ -202,11 +246,17 @@ async function seedRun(runId) {
       return (isPureOpenai || isPureClaude) ? [] : ["Mixed-provider portfolio violates a whole-set rule this test is standing in for."];
     };
 
-    const result = await executeCompetitiveStage(runId, { runId, runtime: "openai" }, baseDef({ validate }));
+    const result = await executeCompetitiveStage(runId, { runId, brandId: "test", runtime: "openai" }, baseDef({ validate }));
     const values = result.assets.map((a) => a.value);
     check("the merge was rejected and a single provider's own valid output shipped instead", values.every((v) => v.startsWith("openai:")) || values.every((v) => v.startsWith("claude:")), values);
     const run = await fbGet(`strategy_runs/${runId}`);
     check("metrics record that the merge was rejected", run.metrics.strategy.competition.mergeRejected === true, run.metrics.strategy.competition);
+    const eventsAfterF = await learningEvents("test");
+    check(
+      "a rejected merge still records what actually shipped and why, as a learning signal",
+      eventsAfterF.some((e) => e.decision === "competition_outcome" && e.notes.includes("failed whole-portfolio validation")),
+      eventsAfterF,
+    );
     restore();
   }
 
@@ -223,7 +273,7 @@ async function seedRun(runId) {
 
     let threw = null;
     try {
-      await executeCompetitiveStage(runId, { runId, runtime: "openai" }, baseDef());
+      await executeCompetitiveStage(runId, { runId, brandId: "test", runtime: "openai" }, baseDef());
     } catch (e) { threw = e; }
     check("the stage still throws once every attempt is exhausted", threw instanceof StageValidationError, threw && threw.name);
     check("the failure names openai's actual error", threw && threw.message.includes("no credits remaining"), threw && threw.message);

@@ -38,5 +38,32 @@ const { loadLearnings } = require(path.join(HUB, "netlify/functions/lib/strategy
   check("the oldest routine events beyond the 30-cap are dropped", !text.includes("ROUTINE-MARKER-0") && !text.includes("ROUTINE-MARKER-4"));
   check("exactly 30 routine events plus the 1 durable one are included", (text.match(/ROUTINE-MARKER-/g) || []).length === 30);
 
+  // "critic_objection" and "stage_failed" (see saveSystemLearningEvent in pipeline.js) are
+  // system-generated, not human-typed — critic_objection is a second, separately-tested
+  // durable decision type; stage_failed is operational and belongs in its own section, not
+  // mixed into content feedback a writing model might mistake for a style note.
+  const brandId2 = "learnings-retention-test-brand-2";
+  await fbSet(`strategy_learning_events/${brandId2}`, {
+    "evt-critic": {
+      runId: "r0", month: "2026-01", stage: "copy", decision: "critic_objection",
+      notes: "CRITIC-MARKER: repeats exhausted territory.", actor: "system", createdAt: "2026-01-01T00:00:00.000Z",
+    },
+    "evt-failure": {
+      runId: "r1", month: "2026-02", stage: "research", decision: "stage_failed",
+      notes: "FAILURE-MARKER: every model provider failed.", actor: "system", createdAt: "2026-02-01T00:00:00.000Z",
+    },
+    ...Object.fromEntries(Array.from({ length: 35 }, (_, i) => [`evt-routine2-${i}`, {
+      runId: `r${i + 2}`, month: "2026-03", stage: "strategy", decision: "asset_refine",
+      notes: `ROUTINE2-MARKER-${i}: minor wording tweak.`,
+      actor: "Gokul", createdAt: `2026-03-01T00:${String(i).padStart(2, "0")}:00.000Z`,
+    }])),
+  });
+  const text2 = await loadLearnings(brandId2);
+  check("a critic objection is a durable signal too, surviving past 30 newer routine events", text2.includes("CRITIC-MARKER"));
+  check("a stage failure is recorded, but in its own operational section", text2.includes("FAILURE-MARKER") && text2.includes("Recent stage failures"));
+  check("the operational section is clearly marked as not a content note", /Recent stage failures.*not a content note/.test(text2));
+  const criticSection = text2.slice(0, text2.indexOf("Recent stage failures"));
+  check("the stage failure does NOT appear in the main feedback section above it", !criticSection.includes("FAILURE-MARKER"), criticSection);
+
   finish();
 })().catch((e) => { console.error("FATAL:", e, e.stack); process.exit(1); });

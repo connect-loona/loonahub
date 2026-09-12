@@ -63,6 +63,15 @@ async function seedCopyRun(runId) {
     check("accepting index 0 commits that variation into the checkpoint", checkpoint.assets.find((a) => a.assetId === "RRO-01").conceptName === variations[0].candidate.conceptName);
     const clearedDoc = await fbGet(`strategy_runs/${runId}/stages/strategy/candidates/RRO-01`);
     check("the candidate is cleared after accepting", clearedDoc === null, clearedDoc);
+
+    // Which provider's take a human actually picked is now part of the recorded learning
+    // event — a direct model-preference signal a chat window could never produce.
+    const events = Object.values((await fbGet(`strategy_learning_events/rro`)) || {});
+    check(
+      "accepting a variation records which provider's take was chosen",
+      events.some((e) => e.decision === "asset_variations" && e.notes.includes("Chose fixture's take over 0 other generated option(s).")),
+      events,
+    );
   }
 
   // ---- Real providers: two per provider, tagged correctly ----

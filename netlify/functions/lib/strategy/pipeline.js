@@ -16,7 +16,7 @@ const { ClaudeRuntime } = require("./runtime-claude");
 const { FixtureRuntime } = require("./runtime-fixture");
 const { FailoverRuntime, isProviderError } = require("./runtime-failover");
 const { StageValidationError } = require("./errors");
-const { saveStageVersion, saveStageMetrics, saveFeedbackEvent } = require("./observability");
+const { saveStageVersion, saveStageMetrics, saveFeedbackEvent, saveSystemLearningEvent } = require("./observability");
 const { reviewStage, verdictToIssues, averageScore } = require("./critic");
 const { mergeByScore } = require("./competition");
 
@@ -241,7 +241,7 @@ async function finalizeStage(runId, def, { parsed, attempt, escalated, servedBy,
   return finalOutput;
 }
 
-async function failStage(runId, def, { lastError, attempts, startedAt }) {
+async function failStage(runId, def, { run, lastError, attempts, startedAt }) {
   const message = lastError && lastError.message ? lastError.message : String(lastError);
   await saveStageMetrics(runId, def.stage, {
     durationMs: Date.now() - startedAt,
@@ -252,6 +252,13 @@ async function failStage(runId, def, { lastError, attempts, startedAt }) {
   await setStageStatus(runId, def.stage, { status: "failed", detail: message });
   await fbUpdate(`strategy_runs/${runId}`, { status: "failed", coordinator: { name: "BB Loona", currentStage: def.stage, specialist: def.agentName, status: "blocked" }, updatedAt: new Date().toISOString() });
   await logActivity(runId, "system", `${def.stage}.failed`, message);
+  // A dead run used to just vanish into "failed" with nothing to show for the attempt — no
+  // trace of why once the run itself got retried or archived. This is the one exception to
+  // "operational, not content" living outside the brand's actual learnings text: it's kept
+  // there anyway (own section — see loadLearnings) purely so a REPEATING failure pattern
+  // for this brand becomes visible to a person, not because the writing models should act
+  // on it.
+  if (run) await saveSystemLearningEvent(run, def.stage, "stage_failed", message);
   throw lastError;
 }
 
@@ -292,6 +299,28 @@ async function reviewWithCritic(stage, output, writerProvider, criticContext, ti
 // creative-direction aren't judged against a self-reported gate the way concepts and copy
 // are, and deck-builder is assembly of already-approved decisions, not judgement — doubling
 // its cost would buy nothing. Fixture runs never reach this function (see executeStage).
+//
+// A one-line summary of who won a contested round, purely from the already-computed
+// `competitionInfo` (see the finalize call below) — no extra state to thread through. This
+// is the "which model tends to do better here" signal that used to disappear the moment a
+// run finished: recorded via saveSystemLearningEvent so it accumulates in the brand's own
+// learnings over many runs, not just this one review screen.
+function describeCompetitionOutcome(stage, competitionInfo) {
+  if (!competitionInfo || !competitionInfo.contested) return null; // one provider, nothing to compare
+  if (competitionInfo.criticUnavailable) {
+    return `Only one independent critic was available for ${stage} — ${competitionInfo.servedBy} won by self-report only, not a real comparison.`;
+  }
+  if (competitionInfo.mergeRejected) {
+    return `${competitionInfo.servedBy}'s ${stage} output shipped as-is — a merge with the challenger scored better in places but failed whole-portfolio validation (${(competitionInfo.mergeIssues || []).join("; ")}).`;
+  }
+  if (typeof competitionInfo.swapsFromChallenger === "number") {
+    return competitionInfo.swapsFromChallenger > 0
+      ? `${competitionInfo.basedOn}'s version served as the base for ${stage}, with ${competitionInfo.swapsFromChallenger} slot(s) swapped in from the challenger where the critic scored it higher.`
+      : `${competitionInfo.basedOn}'s version won every contested ${stage} slot outright — the challenger's version never out-scored it.`;
+  }
+  return null;
+}
+
 async function executeCompetitiveStage(runId, run, def) {
   const startedAt = Date.now();
   const instructions = def.fixedInstructions || loadPrompt(def.promptFile);
@@ -475,6 +504,17 @@ async function executeCompetitiveStage(runId, run, def) {
     // Either clean, or the critic already used its one blocking round and still objects —
     // hybrid's advisory half: finish anyway, with whatever's left attached as review notes
     // rather than deadlocking the stage over two models' disagreement.
+    //
+    // Neither of these is gated on a human typing anything — see saveSystemLearningEvent's
+    // own comment on why that used to mean most runs taught the brand's learnings nothing
+    // at all, good or bad.
+    if (gateIssues.length) {
+      await saveSystemLearningEvent(run, def.stage, "critic_objection", gateIssues.join(" | "));
+    }
+    const competitionOutcome = describeCompetitionOutcome(def.stage, competitionInfo);
+    if (competitionOutcome) {
+      await saveSystemLearningEvent(run, def.stage, "competition_outcome", competitionOutcome);
+    }
     return finalizeStage(runId, def, {
       parsed: finalParsed, attempt, escalated: false, startedAt,
       servedBy: competitionInfo.servedBy, tier,
@@ -494,7 +534,7 @@ async function executeCompetitiveStage(runId, run, def) {
     });
   }
 
-  return failStage(runId, def, { lastError, attempts: MAX_REPAIRS + 1, startedAt });
+  return failStage(runId, def, { run, lastError, attempts: MAX_REPAIRS + 1, startedAt });
 }
 
 // Shared by both stage runners — identical shape to the original executeStage(), just
@@ -565,7 +605,7 @@ async function executeStage(runId, run, def) {
     }
   }
 
-  return failStage(runId, def, { lastError, attempts: MAX_REPAIRS + 1, startedAt });
+  return failStage(runId, def, { run, lastError, attempts: MAX_REPAIRS + 1, startedAt });
 }
 
 async function runResearchStage(runId) {
@@ -1159,11 +1199,20 @@ async function acceptAssetCandidate(runId, stage, assetId, actor, section, varia
   await fbSet(`strategy_runs/${runId}/stages/${stage}/checkpoint`, newCheckpoint);
   await saveStageVersion(runId, stage, newCheckpoint, `asset_${candidateDoc.requestType}`, actor || "system");
   await fbSet(candidatePath, null);
+  // Which provider's take actually got picked, when there was a real choice — the
+  // variations flow is the one place a human directly compares full outputs from both
+  // models side by side and picks a winner, which is exactly the kind of "learn something
+  // from this" signal saveSystemLearningEvent's siblings exist to stop discarding. This
+  // rides the existing human-attributed saveFeedbackEvent below rather than a separate
+  // system event, since it's the actor's own choice, not the pipeline noticing something.
+  const variationChoiceNote = isVariations
+    ? ` Chose ${candidateDoc.variations[variationIndex].provider}'s take over ${candidateDoc.variations.length - 1} other generated option(s).`
+    : "";
   await saveFeedbackEvent(
     run,
     stage,
     `asset_${candidateDoc.requestType}`,
-    (sectionCfg ? sectionCfg.describeChange(oldAsset, newAsset) : cfg.describeChange(oldAsset, newAsset)) + (candidateDoc.notes ? ` Notes: ${candidateDoc.notes}` : ""),
+    (sectionCfg ? sectionCfg.describeChange(oldAsset, newAsset) : cfg.describeChange(oldAsset, newAsset)) + (candidateDoc.notes ? ` Notes: ${candidateDoc.notes}` : "") + variationChoiceNote,
     actor || "system",
   );
   await logActivity(runId, actor || "system", `${stage}.asset_${candidateDoc.requestType}`, oldAsset.assetId);
