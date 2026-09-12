@@ -4467,7 +4467,8 @@
         <button class="nav-btn" onclick="showPage('monthly',this)">Monthly Plan</button>
         <button class="nav-btn" onclick="showPage('team',this)">Team</button>
         <button class="nav-btn" onclick="showPage('brands',this)">Brands</button>
-        <button class="nav-btn" onclick="showPage('strategy',this)">Strategy OS</button>
+        <a class="nav-btn" href="/strategy/" style="text-decoration:none">Strategy OS</a>
+        <button class="nav-btn" onclick="showPage('strategy',this)" title="Legacy Strategy OS (rollback)" style="opacity:.55;font-size:11px;padding:4px 8px">Strategy legacy</button>
         <button class="nav-btn" onclick="showPage('calendar',this)">📅 Calendar</button>
         <button class="nav-btn" onclick="showPage('loonacode',this)">Loona Code</button>
         <!-- AI Chat, Loona Radio, and Independence Day moved into the
@@ -6035,9 +6036,9 @@
       </div>
     </div>
 
-    <!-- ======= STRATEGY OS ======= -->
-    <!-- RRO vertical slice only (Research -> Strategy). Copy/Direction/Deck/Canva
-         stages come in later phases — see the Strategy OS integration report. -->
+    <!-- ======= STRATEGY OS (legacy Hub tab) ======= -->
+    <!-- Full five-stage pipeline. Primary entry is now /strategy/ (React app).
+         This page remains as rollback via the "Strategy legacy" nav button. -->
     <div class="page" id="page-strategy">
       <div id="so-root"></div>
     </div>
@@ -19432,6 +19433,21 @@
         inactiveCache.forEach(n => INACTIVE_MEMBERS.add(n));
       } catch(e) {}
     })();
+
+    // Strategy OS primary entry is /strategy/. ?so=legacy opens the Hub legacy tab
+    // for rollback during the cutover window (see Strategy OS nav + React "Legacy UI").
+    (function openLegacyStrategyIfRequested() {
+      try {
+        if (new URLSearchParams(location.search).get('so') !== 'legacy') return;
+        const go = () => {
+          const btn = document.querySelector('.nav-btn[onclick*="strategy"]');
+          if (typeof showPage === 'function') showPage('strategy', btn || undefined);
+        };
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go);
+        else go();
+      } catch (e) { /* ignore */ }
+    })();
+
     document.addEventListener('DOMContentLoaded', initLogin);
     document.getElementById('add-task-modal').addEventListener('click', function (e) {
       if (e.target === this) closeAddTask();
