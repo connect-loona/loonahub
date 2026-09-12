@@ -35,6 +35,44 @@ function call(body) {
   const campaignRun = await fbGet(`strategy_runs/${JSON.parse(campaignRes.body).runId}`);
   check("runType is stored as campaign", campaignRun.runType === "campaign", campaignRun.runType);
 
+  // ---- A monthly plan and a campaign are different things — the duplicate-run guard must
+  // not conflate them. Only "one active MONTHLY run per brand+month" is a real constraint;
+  // a campaign is scoped to its own objective (a festival, a launch), not to "the plan for
+  // this month," so a brand can run several at once, and a campaign alongside that month's
+  // ordinary plan is the normal case, not a collision. ----
+  await req("PUT", `${RTDB_URL}/strategy_runs.json`, null);
+  const fixtureDir = path.join(HUB, "netlify/functions/lib/strategy/fixtures/rro-2026-10");
+  const firstMonthly = await call({ brandId: "rro", month: "2026-11", actor: "Gokul", runtime: "fixture", fixtureDir });
+  check("the first monthly run for this brand+month succeeds", firstMonthly.statusCode === 200, firstMonthly.body);
+
+  const secondMonthly = await call({ brandId: "rro", month: "2026-11", actor: "Gokul", runtime: "fixture", fixtureDir });
+  check("a second monthly run for the SAME brand+month is still rejected as a duplicate", secondMonthly.statusCode === 409, secondMonthly.body);
+
+  const diwaliCampaign = await call({ brandId: "rro", month: "2026-11", actor: "Gokul", runType: "campaign", runtime: "fixture", fixtureDir });
+  check("a campaign for the same brand+month as an active monthly run is NOT blocked", diwaliCampaign.statusCode === 200, diwaliCampaign.body);
+
+  const flashSaleCampaign = await call({ brandId: "rro", month: "2026-11", actor: "Gokul", runType: "campaign", runtime: "fixture", fixtureDir });
+  check("a SECOND campaign for the same brand+month is also not blocked — campaigns aren't one-per-month", flashSaleCampaign.statusCode === 200, flashSaleCampaign.body);
+
+  const monthlyAfterCampaigns = await call({ brandId: "rro", month: "2026-11", actor: "Gokul", runtime: "fixture", fixtureDir });
+  check("a new monthly run is still blocked by the earlier ACTIVE monthly run, unaffected by the campaigns", monthlyAfterCampaigns.statusCode === 409, monthlyAfterCampaigns.body);
+
+  // A run doc from before runType existed has no field at all — must still count as
+  // "monthly" for the purposes of this guard, not silently stop blocking duplicates.
+  await req("PUT", `${RTDB_URL}/strategy_runs.json`, null);
+  const legacyRunId = "rro_2026-11_legacy-no-runtype";
+  await fbSet(`strategy_runs/${legacyRunId}`, {
+    runId: legacyRunId, brandId: "rro", month: "2026-11", runtime: "fixture", fixtureDir,
+    owner: "Gokul", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    status: "research_running", // active; deliberately no runType field at all
+    stages: { research: { status: "queued" }, strategy: { status: "locked" }, copy: { status: "locked" }, "creative-direction": { status: "locked" }, "deck-builder": { status: "locked" } },
+    approvals: {},
+  });
+  const blockedByLegacy = await call({ brandId: "rro", month: "2026-11", actor: "Gokul", runtime: "fixture", fixtureDir });
+  check("a run doc with no runType at all still defaults to monthly for this guard", blockedByLegacy.statusCode === 409, blockedByLegacy.body);
+  const legacyCampaign = await call({ brandId: "rro", month: "2026-11", actor: "Gokul", runType: "campaign", runtime: "fixture", fixtureDir });
+  check("a campaign is still unaffected by that legacy (implicitly monthly) run", legacyCampaign.statusCode === 200, legacyCampaign.body);
+
   // ---- strategy-run-start.js: deliverablesOverride validation ----
   const badOverride = await call({ brandId: "rro", month: "2026-12", actor: "Gokul", deliverablesOverride: { reel: -1, carousel: 4, static: 3 } });
   check("rejects a negative deliverablesOverride value", badOverride.statusCode === 400, badOverride.body);
