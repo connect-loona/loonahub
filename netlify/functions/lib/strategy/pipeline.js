@@ -17,6 +17,8 @@ const { FixtureRuntime } = require("./runtime-fixture");
 const { FailoverRuntime, isProviderError } = require("./runtime-failover");
 const { StageValidationError } = require("./errors");
 const { saveStageVersion, saveStageMetrics, saveFeedbackEvent } = require("./observability");
+const { reviewStage, verdictToIssues, averageScore } = require("./critic");
+const { mergeByScore } = require("./competition");
 
 const MAX_REPAIRS = 2;
 
@@ -94,6 +96,31 @@ const PROVIDER_FACTORIES = {
   openai: (tier) => new OpenAIAgentsRuntime(modelFor("openai", tier)),
   claude: (tier) => new ClaudeRuntime(modelFor("claude", tier)),
 };
+const PROVIDER_NAMES = Object.keys(PROVIDER_FACTORIES);
+
+function otherProvider(name) {
+  return PROVIDER_NAMES.find((p) => p !== name) || null;
+}
+
+// A single named provider, deliberately WITHOUT FailoverRuntime — used only by the
+// competitive stage runner (executeCompetitiveStage, below), where knowing exactly which
+// provider produced (or failed to produce) each entry is the whole point. createRuntime()'s
+// ordinary failover would blur that: a "claude" slot that silently failed over to openai
+// would make the two entries indistinguishable, and worse, could hand the critic step a
+// runtime that's actually the SAME model that wrote the thing it's reviewing. If a solo
+// runtime can't be constructed (missing key) or fails at call time, that's surfaced as a
+// normal rejection — Promise.allSettled in the caller treats it exactly like "this provider
+// didn't produce anything this round," the same outcome FailoverRuntime would reach by
+// moving on, just without the moving-on.
+function soloRuntime(providerName, tier) {
+  return {
+    name: providerName,
+    async runStage(request) {
+      const runtime = PROVIDER_FACTORIES[providerName](tier);
+      return runtime.runStage(request);
+    },
+  };
+}
 
 // Which provider a given stage prefers. `run.runtimes` is an optional per-stage map
 // ({ research: "openai", copy: "claude", ... }) — set it and that stage runs on that
@@ -175,9 +202,292 @@ function pick(obj, keys) {
   return result;
 }
 
+// The two ways a stage's attempt loop can end, factored out so the competitive path
+// (executeCompetitiveStage, below) can share them byte-for-byte with the solo path rather
+// than keeping two copies of "how a stage finishes" that could quietly drift apart.
+//
+// `extraMetrics` lets a caller attach fields the solo path has no concept of (which
+// provider's entry won, the critic's scores, whether a slot got swapped) without either
+// path needing to know about the other's bookkeeping.
+async function finalizeStage(runId, def, { parsed, attempt, escalated, servedBy, tier, startedAt, extraMetrics }) {
+  // enrich() adds fields the model has no way to know (e.g. deck page owner/status) AFTER
+  // validation passes — never asked of the model itself, so it can't fabricate a
+  // plausible-looking owner or status. See contracts.js's DeckPageSchema comment.
+  const finalOutput = def.enrich ? def.enrich(parsed) : parsed;
+  await saveStageVersion(runId, def.stage, finalOutput, "generated", "system");
+  await saveStageMetrics(runId, def.stage, Object.assign(
+    {
+      durationMs: Date.now() - startedAt,
+      attempts: attempt + 1,
+      repairs: attempt,
+      outcome: "needs_review",
+      // Which provider actually produced this checkpoint — not necessarily the one the run
+      // asked for, since FailoverRuntime may have moved on after an outage (solo path), or
+      // either provider may have won the slot (competitive path). Worth recording: it's the
+      // only way to tell after the fact whether a month's work came from the model the team
+      // picked.
+      servedBy: servedBy || null,
+      // Which price tier actually produced it, and whether a cheap stage had to be
+      // escalated — the only way to tell later whether the saving is real or whether this
+      // stage is paying for two calls every month and should go back to standard.
+      modelTier: tier || null,
+      escalated,
+    },
+    extraMetrics || {}
+  ));
+  await setStageStatus(runId, def.stage, { status: "needs_review", detail: "Validated. Awaiting review.", checkpoint: finalOutput, error: null });
+  await fbUpdate(`strategy_runs/${runId}`, { status: def.reviewStatus, coordinator: { name: "BB Loona", currentStage: def.stage, specialist: def.agentName, status: "awaiting_human_review" }, updatedAt: new Date().toISOString() });
+  await logActivity(runId, "system", `${def.stage}.completed`, `Passed on attempt ${attempt + 1}.`);
+  return finalOutput;
+}
+
+async function failStage(runId, def, { lastError, attempts, startedAt }) {
+  const message = lastError && lastError.message ? lastError.message : String(lastError);
+  await saveStageMetrics(runId, def.stage, {
+    durationMs: Date.now() - startedAt,
+    attempts,
+    repairs: attempts - 1,
+    outcome: "failed",
+  });
+  await setStageStatus(runId, def.stage, { status: "failed", detail: message });
+  await fbUpdate(`strategy_runs/${runId}`, { status: "failed", coordinator: { name: "BB Loona", currentStage: def.stage, specialist: def.agentName, status: "blocked" }, updatedAt: new Date().toISOString() });
+  await logActivity(runId, "system", `${def.stage}.failed`, message);
+  throw lastError;
+}
+
+// Independent gate review for one already-schema-valid output, by whichever provider did
+// NOT write it. Returns { verdict: null, skippedReason } rather than throwing when no
+// genuinely different provider is available or reachable — a missing critic degrades the
+// stage back to today's self-report-only behaviour, it never blocks the stage outright.
+async function reviewWithCritic(stage, output, writerProvider, criticContext, tier) {
+  const other = otherProvider(writerProvider);
+  if (!other) return { verdict: null, criticProvider: null, skippedReason: "Only one model provider is configured." };
+  try {
+    const verdict = await reviewStage(soloRuntime(other, tier), stage, output, criticContext || {});
+    return { verdict, criticProvider: other, skippedReason: null };
+  } catch (error) {
+    console.warn(`[${stage}] independent critic review unavailable (asked ${other}): ${error.message || error}`);
+    return { verdict: null, criticProvider: other, skippedReason: error.message || String(error) };
+  }
+}
+
+// Both providers write this stage; an independent critic scores both, and the better
+// concept wins each slot. Exists for two reasons at once:
+//
+// 1. validation.js's concept-gate check (`if (!asset.gate.logoSwapPass || ...)`) reads
+//    booleans the WRITING model fills in about its own work — every other check in that
+//    file is real, but those four are pure self-report. An independent critic re-derives
+//    them without being shown what the writer claimed (see critic.js).
+// 2. "Both models write, the best options win" — see competition.js for why a slot is only
+//    contested when both sides agree on its shape, so a merge can't silently break the
+//    exact per-format counts validateStrategy/validateCopy enforce.
+//
+// Gate enforcement is hybrid, by design: a critic objection blocks and triggers ONE repair
+// round (`criticRepairUsed`). If the critic still objects after that, the stage finishes
+// anyway with the objections attached as review notes rather than deadlocking a run over an
+// unresolved disagreement between two models — a human sees exactly what was flagged and
+// decides, the same way they already decide everything else in this pipeline.
+//
+// Deliberately NOT used for research, creative-direction or deck-builder: research and
+// creative-direction aren't judged against a self-reported gate the way concepts and copy
+// are, and deck-builder is assembly of already-approved decisions, not judgement — doubling
+// its cost would buy nothing. Fixture runs never reach this function (see executeStage).
+async function executeCompetitiveStage(runId, run, def) {
+  const startedAt = Date.now();
+  const instructions = def.fixedInstructions || loadPrompt(def.promptFile);
+  const agent = stageAgent(def.stage);
+  const tier = "standard"; // every stage this applies to is judgement, never the cheap tier
+
+  await fbUpdate(`strategy_runs/${runId}`, { status: def.runningStatus, coordinator: { name: "BB Loona", currentStage: def.stage, specialist: def.agentName, status: "working" }, updatedAt: new Date().toISOString() });
+
+  // Each provider keeps its OWN prior output and repair issues across rounds — a fix one
+  // model needs may be irrelevant to the other, and feeding a provider someone else's
+  // complaint about someone else's output would just confuse it.
+  const providerState = {};
+  for (const name of PROVIDER_NAMES) providerState[name] = { previousOutput: null, repairIssues: [] };
+
+  let criticRepairUsed = false;
+  let lastError = null;
+
+  for (let attempt = 0; attempt <= MAX_REPAIRS; attempt += 1) {
+    await setStageStatus(runId, def.stage, {
+      status: attempt === 0 ? "running" : "repairing",
+      detail: attempt === 0
+        ? `${agent.emoji} ${agent.name} is on it — two models are drafting this stage, and the stronger concept in each slot wins.`
+        : `${agent.emoji} ${agent.name} is fixing an issue — attempt ${attempt} of ${MAX_REPAIRS}.`,
+    });
+
+    // Each provider gets its own request (its own repairIssues/previousOutput), so this
+    // can't reuse competition.js's generateBoth() as-is — that assumes one shared request.
+    const settled = await Promise.allSettled(PROVIDER_NAMES.map((name) => {
+      const state = providerState[name];
+      const input = state.previousOutput ? { originalInput: def.input, previousOutput: state.previousOutput } : def.input;
+      return soloRuntime(name, tier).runStage({
+        stage: def.stage, agentName: def.agentName, instructions, input,
+        outputSchema: def.schema, toolProfile: def.toolProfile, repairIssues: state.repairIssues,
+      });
+    }));
+
+    const usable = [];
+    for (let i = 0; i < PROVIDER_NAMES.length; i += 1) {
+      const name = PROVIDER_NAMES[i];
+      const result = settled[i];
+      if (result.status === "rejected") {
+        const error = result.reason;
+        providerState[name] = { previousOutput: null, repairIssues: [`Schema or runtime failure: ${error && error.message ? error.message : String(error)}`] };
+        await fbSet(`strategy_runs/${runId}/attempts/${def.stage}/${attempt + 1}/${name}`, { issues: providerState[name].repairIssues, error: true });
+        continue;
+      }
+      let parsed;
+      let issues;
+      try {
+        parsed = def.schema.parse(result.value);
+        issues = def.validate(parsed);
+      } catch (error) {
+        providerState[name] = { previousOutput: null, repairIssues: [`Schema or runtime failure: ${error && error.message ? error.message : String(error)}`] };
+        await fbSet(`strategy_runs/${runId}/attempts/${def.stage}/${attempt + 1}/${name}`, { issues: providerState[name].repairIssues, error: true });
+        continue;
+      }
+      await fbSet(`strategy_runs/${runId}/attempts/${def.stage}/${attempt + 1}/${name}`, { issues, output: parsed });
+      if (issues.length) {
+        providerState[name] = { previousOutput: parsed, repairIssues: issues };
+        lastError = new StageValidationError(def.stage, issues);
+        continue;
+      }
+      providerState[name] = { previousOutput: null, repairIssues: [] };
+      usable.push({ provider: name, parsed });
+    }
+
+    if (usable.length === 0) {
+      if (!lastError) lastError = new StageValidationError(def.stage, ["Neither model produced a usable result this round."]);
+      continue;
+    }
+
+    let finalParsed;
+    let finalVerdict = null;
+    let criticSkippedReason = null;
+    let competitionInfo;
+
+    if (usable.length === 1) {
+      const winner = usable[0];
+      finalParsed = winner.parsed;
+      const review = await reviewWithCritic(def.stage, finalParsed, winner.provider, def.criticContext, tier);
+      finalVerdict = review.verdict;
+      criticSkippedReason = review.skippedReason;
+      competitionInfo = { servedBy: winner.provider, contested: false, criticProvider: review.criticProvider };
+    } else {
+      // Both usable, and — because soloRuntime never fails over — always the two genuinely
+      // distinct PROVIDER_NAMES. Review each independently, as if it were the sole
+      // submission, before comparing: a joint review would anchor on whichever one the
+      // critic saw first.
+      const [a, b] = usable;
+      const reviewA = await reviewWithCritic(def.stage, a.parsed, a.provider, def.criticContext, tier);
+      const reviewB = await reviewWithCritic(def.stage, b.parsed, b.provider, def.criticContext, tier);
+
+      if (reviewA.verdict && reviewB.verdict) {
+        const avgA = averageScore(reviewA.verdict);
+        const avgB = averageScore(reviewB.verdict);
+        // An exact tie goes to whichever provider the run/brand is actually configured to
+        // prefer for this stage, rather than an arbitrary array-order pick.
+        const preferred = providerForStage(run, def.stage);
+        const aWins = avgA > avgB || (avgA === avgB && a.provider === preferred);
+        const base = aWins ? a : b;
+        const baseVerdict = aWins ? reviewA.verdict : reviewB.verdict;
+        const challenger = aWins ? b : a;
+        const challengerVerdict = aWins ? reviewB.verdict : reviewA.verdict;
+
+        const { merged, swaps } = mergeByScore(base.parsed, challenger.parsed, baseVerdict, challengerVerdict);
+        // mergeByScore only swaps same-shape slots, which keeps exact per-format counts
+        // intact — but a recombination is still new enough to re-check against every OTHER
+        // whole-portfolio rule (research-id references, deliverable totals, pillar spread)
+        // that a same-shape swap doesn't touch. Never ship a merge that broke one of those
+        // on the strength of an assumption; fall back to the known-valid base instead.
+        const mergeIssues = def.validate(merged);
+        if (mergeIssues.length) {
+          console.warn(`[${def.stage}] merged output failed whole-portfolio validation (${mergeIssues.join(" | ")}) — using ${base.provider}'s own output instead of the merge.`);
+          finalParsed = base.parsed;
+          finalVerdict = baseVerdict;
+          competitionInfo = { servedBy: base.provider, contested: true, mergeRejected: true, mergeIssues };
+        } else {
+          finalParsed = merged;
+          const swappedIds = new Set(swaps.map((s) => s.assetId));
+          // The merged output's own verdict is reconstructed rather than re-derived with a
+          // third critic call: every surviving asset's content is byte-for-byte whichever
+          // side it was already scored as, so that score and those gates still describe it
+          // exactly.
+          finalVerdict = {
+            assets: (merged.assets || []).map((asset) => {
+              const source = swappedIds.has(asset.assetId) ? challengerVerdict : baseVerdict;
+              return (source.assets || []).find((a2) => a2.assetId === asset.assetId) || null;
+            }).filter(Boolean),
+            portfolioNotes: [...(baseVerdict.portfolioNotes || []), ...(challengerVerdict.portfolioNotes || [])],
+          };
+          competitionInfo = { servedBy: `${base.provider}+${challenger.provider}`, contested: true, basedOn: base.provider, swapsFromChallenger: swaps.length, swaps };
+        }
+      } else {
+        // No independent critic available for at least one side — nothing to score or
+        // merge with. Fall back entirely to the pre-critic mechanism: whichever entry the
+        // model itself claims passed more of its own gates wins, exactly like every run
+        // before this feature existed. No critic-driven repair round happens in this
+        // branch — there's no genuinely independent verdict to trust.
+        const selfGateFailures = (entry) => (entry.parsed.assets || []).filter((asset) => (
+          asset.gate && (!asset.gate.logoSwapPass || !asset.gate.killListPass || !asset.gate.tensionPass || !asset.gate.overheardPass)
+        )).length;
+        const winner = selfGateFailures(a) <= selfGateFailures(b) ? a : b;
+        finalParsed = winner.parsed;
+        finalVerdict = null;
+        criticSkippedReason = reviewA.skippedReason || reviewB.skippedReason || "Independent critic unavailable.";
+        competitionInfo = { servedBy: winner.provider, contested: true, criticUnavailable: true };
+      }
+    }
+
+    const gateIssues = finalVerdict ? verdictToIssues(finalVerdict) : [];
+
+    if (gateIssues.length && !criticRepairUsed) {
+      // Hybrid enforcement, blocking half: one repair round. Feed the SAME issues to
+      // whichever provider(s) validated cleanly this round (their own repairIssues are
+      // empty, so they'd otherwise just repeat themselves) — a provider that already had
+      // real schema/business issues keeps fixing those first; a quality note comes second.
+      criticRepairUsed = true;
+      for (const name of PROVIDER_NAMES) {
+        if (!providerState[name].repairIssues.length) {
+          providerState[name] = { previousOutput: finalParsed, repairIssues: gateIssues };
+        }
+      }
+      lastError = new StageValidationError(def.stage, gateIssues);
+      await fbSet(`strategy_runs/${runId}/attempts/${def.stage}/${attempt + 1}/critic`, { issues: gateIssues });
+      continue;
+    }
+
+    // Either clean, or the critic already used its one blocking round and still objects —
+    // hybrid's advisory half: finish anyway, with whatever's left attached as review notes
+    // rather than deadlocking the stage over two models' disagreement.
+    return finalizeStage(runId, def, {
+      parsed: finalParsed, attempt, escalated: false, startedAt,
+      servedBy: competitionInfo.servedBy, tier,
+      extraMetrics: {
+        competition: competitionInfo,
+        criticScores: finalVerdict ? finalVerdict.assets.map((a2) => ({ assetId: a2.assetId, score: a2.score })) : null,
+        criticPortfolioNotes: finalVerdict ? finalVerdict.portfolioNotes : [],
+        // Non-null only when the critic still objected but the hybrid gate let it through
+        // anyway — the trace of "this shipped over an unresolved objection," for review.
+        gateWarnings: gateIssues.length ? gateIssues : null,
+        criticSkippedReason,
+      },
+    });
+  }
+
+  return failStage(runId, def, { lastError, attempts: MAX_REPAIRS + 1, startedAt });
+}
+
 // Shared by both stage runners — identical shape to the original executeStage(), just
 // backed by Firebase instead of a local checkpoint file.
 async function executeStage(runId, run, def) {
+  // Fixture runs stay on the solo path even for a def.compete stage: tests depend on one
+  // deterministic source of output, and there's nothing to compete against a fixed JSON
+  // file with. Every existing fixture-based test can stay exactly as it is.
+  if (def.compete && run.runtime !== "fixture") return executeCompetitiveStage(runId, run, def);
+
   const startedAt = Date.now();
   let runtime = createRuntime(run, def.stage);
   const instructions = def.fixedInstructions || loadPrompt(def.promptFile);
@@ -223,31 +533,10 @@ async function executeStage(runId, run, def) {
       const issues = def.validate(parsed);
       await fbSet(`strategy_runs/${runId}/attempts/${def.stage}/${attempt + 1}`, { issues, output: parsed });
       if (issues.length === 0) {
-        // enrich() adds fields the model has no way to know (e.g. deck page owner/status)
-        // AFTER validation passes — never asked of the model itself, so it can't fabricate
-        // a plausible-looking owner or status. See contracts.js's DeckPageSchema comment.
-        const finalOutput = def.enrich ? def.enrich(parsed) : parsed;
-        await saveStageVersion(runId, def.stage, finalOutput, "generated", "system");
-        await saveStageMetrics(runId, def.stage, {
-          durationMs: Date.now() - startedAt,
-          attempts: attempt + 1,
-          repairs: attempt,
-          outcome: "needs_review",
-          // Which provider actually produced this checkpoint — not necessarily the one the
-          // run asked for, since FailoverRuntime may have moved on after an outage. Worth
-          // recording: it's the only way to tell after the fact whether a month's work came
-          // from the model the team picked.
-          servedBy: runtime.servedBy || null,
-          // Which price tier actually produced it, and whether a cheap stage had to be
-          // escalated — the only way to tell later whether the saving is real or whether
-          // this stage is paying for two calls every month and should go back to standard.
-          modelTier: runtime.tier || null,
-          escalated,
+        return finalizeStage(runId, def, {
+          parsed, attempt, escalated, startedAt,
+          servedBy: runtime.servedBy, tier: runtime.tier,
         });
-        await setStageStatus(runId, def.stage, { status: "needs_review", detail: "Validated. Awaiting review.", checkpoint: finalOutput, error: null });
-        await fbUpdate(`strategy_runs/${runId}`, { status: def.reviewStatus, coordinator: { name: "BB Loona", currentStage: def.stage, specialist: def.agentName, status: "awaiting_human_review" }, updatedAt: new Date().toISOString() });
-        await logActivity(runId, "system", `${def.stage}.completed`, `Passed on attempt ${attempt + 1}.`);
-        return finalOutput;
       }
       previousOutput = parsed;
       repairIssues = issues;
@@ -259,17 +548,7 @@ async function executeStage(runId, run, def) {
     }
   }
 
-  const message = lastError && lastError.message ? lastError.message : String(lastError);
-  await saveStageMetrics(runId, def.stage, {
-    durationMs: Date.now() - startedAt,
-    attempts: MAX_REPAIRS + 1,
-    repairs: MAX_REPAIRS,
-    outcome: "failed",
-  });
-  await setStageStatus(runId, def.stage, { status: "failed", detail: message });
-  await fbUpdate(`strategy_runs/${runId}`, { status: "failed", coordinator: { name: "BB Loona", currentStage: def.stage, specialist: def.agentName, status: "blocked" }, updatedAt: new Date().toISOString() });
-  await logActivity(runId, "system", `${def.stage}.failed`, message);
-  throw lastError;
+  return failStage(runId, def, { lastError, attempts: MAX_REPAIRS + 1, startedAt });
 }
 
 async function runResearchStage(runId) {
@@ -338,6 +617,11 @@ async function runStrategyStage(runId) {
     validate: (output) => validateStrategy(output, effectiveConfig, research, learnings, run.month),
     runningStatus: "strategy_running",
     reviewStatus: "strategy_needs_review",
+    // Both models draft the month's concepts, an independent critic re-applies the four
+    // concept gates instead of trusting the writer's own self-report, and the stronger
+    // concept in each slot wins — see executeCompetitiveStage's own header comment.
+    compete: true,
+    criticContext: { brandConfig: effectiveConfig, research, learnings },
   });
 }
 
@@ -370,6 +654,15 @@ async function runCopyStage(runId) {
     validate: (output) => validateCopy(output, config, strategy, run.month),
     runningStatus: "copy_running",
     reviewStatus: "copy_needs_review",
+    // Same reasoning as the strategy stage above: both models draft the copy, an
+    // independent critic re-applies the four gates to the actual words on the page, and
+    // the stronger version of each asset's copy wins.
+    compete: true,
+    // Copy's own input doesn't need the research checkpoint (it works from the strategy
+    // handoff), but the critic can still usefully cross-check a caption against exhausted
+    // territory — it's already sitting on `run` from earlier in the pipeline, so this costs
+    // nothing extra to pass through.
+    criticContext: { brandConfig: config, research: run.stages && run.stages.research && run.stages.research.checkpoint, learnings },
   });
 }
 
@@ -873,5 +1166,11 @@ module.exports = {
   // Exported for tests only — FailoverRuntime builds its providers lazily, so the returned
   // runtime can be inspected for provider ORDER without any key being configured.
   createRuntime, providerForStage, tierForStage, modelFor, shouldEscalateTier,
+  // Exported for tests only — the competitive strategy/copy path's building blocks, each
+  // small and pure enough to verify without a real model call. PROVIDER_FACTORIES is the
+  // live object (not a copy): a test substitutes .openai/.claude with fakes and
+  // executeCompetitiveStage picks them up immediately, since soloRuntime reads from this
+  // object at call time rather than capturing it at module load.
+  soloRuntime, otherProvider, reviewWithCritic, executeCompetitiveStage, PROVIDER_FACTORIES,
 };
 
