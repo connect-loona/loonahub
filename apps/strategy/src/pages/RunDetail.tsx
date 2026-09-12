@@ -1,14 +1,6 @@
 // The run detail / review-gate screen — ported from strategy-app.js's soRenderRunDetail()
-// plus strategy-ui.js's buildWorkspace() decorator (the numbered rail + Brand memory +
-// review-panel three-column layout that's actually live on Hub today, not just the plainer
-// layout strategy-app.js renders on its own — see docs/strategy-os-touchpoints.md).
-//
-// The working-instructions doc calls this "the interface that matters most": thirteen
-// concept cards, each editable, regeneratable with a stated reason, or killable with a
-// stated reason (the strategy stage's own review board). All five stages' review boards
-// are ported now — research/creative-direction are read-only content, copy shares the
-// same refine/replace/lock action set as strategy, and deck adds the per-page Owner/
-// Production status fields.
+// plus strategy-ui.js's buildWorkspace() decorator. Actor for concept/copy/direction actions
+// is the logged-in session user (not run.owner) so refine/lock attribution is correct.
 import { latestReviewableStage, STAGE_LABELS, type StrategyRun } from "../lib/types";
 import { monthLabel } from "../lib/format";
 import { useBrands, useRun } from "../lib/useRuns";
@@ -22,7 +14,7 @@ import { CopyReview } from "../components/CopyReview";
 import { CreativeDirectionReview } from "../components/CreativeDirectionReview";
 import { DeckReview } from "../components/DeckReview";
 
-function ReviewBody({ run, reviewStage }: { run: StrategyRun; reviewStage: ReturnType<typeof latestReviewableStage> }) {
+function ReviewBody({ run, reviewStage, actor }: { run: StrategyRun; reviewStage: ReturnType<typeof latestReviewableStage>; actor: string }) {
   if (!reviewStage) {
     return (
       <div className="st-board" style={{ marginTop: 0 }}>
@@ -34,9 +26,9 @@ function ReviewBody({ run, reviewStage }: { run: StrategyRun; reviewStage: Retur
   const stage = run.stages[reviewStage]!;
   switch (reviewStage) {
     case "research": return <ResearchReview run={run} stage={stage} />;
-    case "strategy": return <StrategyReview run={run} stage={stage} actor={run.owner} />;
-    case "copy": return <CopyReview run={run} stage={stage} actor={run.owner} />;
-    case "creative-direction": return <CreativeDirectionReview run={run} stage={stage} actor={run.owner} />;
+    case "strategy": return <StrategyReview run={run} stage={stage} actor={actor} />;
+    case "copy": return <CopyReview run={run} stage={stage} actor={actor} />;
+    case "creative-direction": return <CreativeDirectionReview run={run} stage={stage} actor={actor} />;
     case "deck-builder": return <DeckReview run={run} stage={stage} />;
   }
 }
@@ -76,7 +68,7 @@ export function RunDetail({ runId, actor, onBack }: { runId: string; actor: stri
   }
 
   return (
-    <div>
+    <div className="st-run-detail">
       <div className="st-section-header" style={{ marginTop: 0 }}>
         <div>
           <button className="st-btn st-btn-ghost st-btn-sm" style={{ marginBottom: 8 }} onClick={onBack}>&larr; All runs</button>
@@ -84,10 +76,6 @@ export function RunDetail({ runId, actor, onBack }: { runId: string; actor: stri
         </div>
       </div>
 
-      {/* Full-width and first thing on the page — the "Your next action" card was
-          previously the third column of the workspace grid below, off to the side of the
-          numbered stage rail; it now leads, since it's the one thing that always says what
-          to do right now. */}
       <div className="st-review-panel">
         <NextActionCard run={run} actor={actor} />
       </div>
@@ -97,7 +85,7 @@ export function RunDetail({ runId, actor, onBack }: { runId: string; actor: stri
       <div className="st-workspace">
         <BrandMemory brand={brand} />
         <main className="st-workspace-main">
-          <ReviewBody run={run} reviewStage={reviewStage} />
+          <ReviewBody run={run} reviewStage={reviewStage} actor={actor} />
         </main>
       </div>
     </div>
