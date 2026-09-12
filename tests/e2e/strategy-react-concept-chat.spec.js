@@ -60,7 +60,7 @@ async function loginAsFakeUser(page) {
   await loginAsFakeUser(page);
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitFor(async () => (await page.locator("text=RRO Foods").count()) > 0 || null, { label: "run list renders" });
-  await page.locator("tr", { hasText: "RRO Foods" }).click();
+  await page.locator(".st-run-card", { hasText: "RRO Foods" }).click();
   await waitFor(async () => (await page.locator(".st-stage-rail").count()) > 0 || null, { label: "run detail renders" });
 
   const rro01Row = page.locator(".st-concept-row", { hasText: "RRO-01" });

@@ -85,7 +85,7 @@ function gate(pass) { return { logoSwapPass: pass, killListPass: true, tensionPa
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitFor(async () => (await page.locator("text=RRO Foods").count()) > 0 || null, { label: "run list renders" });
 
-  await page.locator("tr", { hasText: "RRO Foods" }).click();
+  await page.locator(".st-run-card", { hasText: "RRO Foods" }).click();
   await waitFor(async () => (await page.locator(".st-stage-rail").count()) > 0 || null, { label: "run detail renders with stage rail" });
 
   // ---- Stage rail ----

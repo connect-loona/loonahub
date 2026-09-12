@@ -48,7 +48,7 @@ function check(name, cond, extra) {
   await page.waitForTimeout(500);
   await loginAsGokul(page);
   await page.waitForTimeout(500);
-  await page.locator(".nav-btn", { hasText: "Strategy OS" }).click();
+  await page.locator(".nav-btn", { hasText: "Strategy legacy" }).click(); // Strategy OS itself is now a real link to /strategy/; this legacy embedded flow uses the rollback button
   await waitFor(async () => (await page.locator("#so-root table", { hasText: "RRO Foods" }).count()) > 0 || null,
     { label: "initial run list renders" });
 

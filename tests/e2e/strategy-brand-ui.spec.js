@@ -46,7 +46,7 @@ function waitForCond(fn, label, timeoutMs = 15000) {
   await waitForCond(async () => (await page.evaluate(() => typeof window.login === "function")) || null, "index.html's own script has executed (window.login exists)");
   await loginAsGokul(page);
   await waitForCond(async () => (await page.locator(".nav-btn").count()) > 0 || null, "login renders the authenticated nav");
-  await page.locator(".nav-btn", { hasText: "Strategy OS" }).click();
+  await page.locator(".nav-btn", { hasText: "Strategy legacy" }).click(); // Strategy OS itself is now a real link to /strategy/; this legacy embedded flow uses the rollback button
   await waitForCond(async () => (await page.locator("button", { hasText: "+ New monthly strategy" }).count()) > 0 || null, "Strategy OS page renders");
 
   // ---- Empty state: New Run modal offers no brand picker, points to "add one" ----

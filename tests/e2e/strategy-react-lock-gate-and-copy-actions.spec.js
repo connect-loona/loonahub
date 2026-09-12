@@ -63,7 +63,7 @@ async function loginAsFakeUser(page) {
   await loginAsFakeUser(page);
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitFor(async () => (await page.locator("text=RRO Foods").count()) > 0 || null, { label: "run list renders" });
-  await page.locator("tr", { hasText: "RRO Foods" }).click();
+  await page.locator(".st-run-card", { hasText: "RRO Foods" }).click();
   await waitFor(async () => (await page.locator(".st-stage-rail").count()) > 0 || null, { label: "run detail renders" });
 
   // ---- 1. Layout: "Your next action" sits above the numbered stage rail ----
@@ -108,7 +108,7 @@ async function loginAsFakeUser(page) {
   // land back on its detail view.
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitFor(async () => (await page.locator("text=RRO Foods").count()) > 0 || null, { label: "back on the run list after reload" });
-  await page.locator("tr", { hasText: "RRO Foods" }).click();
+  await page.locator(".st-run-card", { hasText: "RRO Foods" }).click();
   await waitFor(async () => (await page.locator("text=Captions").count()) > 0 || null, { label: "copy review renders with the Captions subheading" });
   check('"Captions" subheading renders on each copy card', await page.locator("text=Captions").count() > 0);
 

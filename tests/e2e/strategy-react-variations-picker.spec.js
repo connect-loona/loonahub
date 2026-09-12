@@ -62,7 +62,7 @@ function check(name, cond, extra) {
   await page.evaluate(() => localStorage.setItem("__fakeAuthUser", JSON.stringify({ uid: "u", email: "gokul@loona.in", displayName: "Gokul" })));
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitFor(async () => (await page.locator("text=RRO Foods").count()) > 0 || null, { label: "run list renders" });
-  await page.locator("tr", { hasText: "RRO Foods" }).click();
+  await page.locator(".st-run-card", { hasText: "RRO Foods" }).click();
   await waitFor(async () => (await page.locator("text=Captions").count()) > 0 || null, { label: "copy review renders" });
 
   const row = page.locator(".st-concept-row", { hasText: "RRO-01" }).first();

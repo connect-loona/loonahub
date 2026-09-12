@@ -56,7 +56,12 @@ function check(name, cond, extra) {
   await loginAsGokul(page);
   await page.waitForTimeout(500);
 
-  const tabs = ["Overview", "Task Board", "Monthly Plan", "Team", "Brands", "Strategy OS", "Calendar", "Loona Code", "Loonaverse"];
+  // "Strategy OS" itself is now a real link straight into the rebuilt /strategy/ app (see
+  // below), not a showPage() tab — clicking it here would navigate the whole page away from
+  // the Hub SPA and break every check after it. "Strategy legacy" is the rollback button
+  // that still activates the in-Hub #page-strategy panel the rest of this loop's pattern
+  // expects.
+  const tabs = ["Overview", "Task Board", "Monthly Plan", "Team", "Brands", "Strategy legacy", "Calendar", "Loona Code", "Loonaverse"];
   for (const tab of tabs) {
     await page.locator(".nav-btn", { hasText: tab }).click();
     await page.waitForTimeout(300);
@@ -64,13 +69,13 @@ function check(name, cond, extra) {
     check(`clicking "${tab}" activates its page`, !!activePage, activePage);
   }
 
-  // The Strategy OS tab is still on screen from the loop above — check its new link into
-  // the rebuilt React app (see strategy-app.js's soRenderRunList()).
-  const newAppLink = page.locator("#page-strategy a", { hasText: "try the new Strategy OS" });
-  check("Strategy OS tab links to the rebuilt /strategy/ app", await newAppLink.getAttribute("href") === "/strategy/", await newAppLink.getAttribute("href"));
+  // "Strategy OS" is the real nav link, not a showPage() tab — check it points straight at
+  // the rebuilt React app rather than the legacy in-Hub page.
+  const newAppLink = page.locator("a.nav-btn", { hasText: "Strategy OS" });
+  check("the Strategy OS nav item links straight to the rebuilt /strategy/ app", await newAppLink.getAttribute("href") === "/strategy/", await newAppLink.getAttribute("href"));
 
   check("no uncaught page errors across all tab navigation", errors.length === 0, JSON.stringify(errors));
   console.log(allPass ? "\n✅ ALL CHECKS PASSED" : "\n❌ SOME CHECKS FAILED");
   await browser.close();
   process.exit(allPass ? 0 : 1);
-})();
+})().catch((e) => { console.error("FATAL:", e, e.stack); process.exit(1); });
