@@ -968,12 +968,136 @@ async function proposeAssetCandidate(runId, stage, assetId, requestType, notes, 
   throw lastError;
 }
 
+// One independent attempt at a fresh variation, from a single named provider — its own
+// repair loop, its own failure, entirely unrelated to any other slot's outcome. Shares the
+// same generate → parse → force-lock-fields → validate shape proposeAssetCandidate uses
+// for a single candidate; a variation is graded no differently from an ordinary refine
+// result, just never shown as the only option.
+// `runtime`/`providerLabel` are supplied by the caller rather than looked up here, so a
+// fixture run can hand this the SAME FixtureRuntime createRuntime() would (see
+// proposeAssetVariations below) instead of ever reaching a real provider — the same
+// fixture-never-reaches-a-real-model guarantee executeStage's own fixture check gives the
+// main pipeline.
+async function generateOneVariation(providerLabel, runtime, stage, cfg, sectionCfg, baseAsset, checkpoint, targetIndex, input, config, context, learnings, run) {
+  let repairIssues = [];
+  let lastError = null;
+  for (let attempt = 0; attempt <= MAX_REPAIRS; attempt += 1) {
+    try {
+      const raw = await runtime.runStage({
+        stage: `${stage}-asset-variations`,
+        agentName: `${stageAgent(stage).emoji} ${stageAgent(stage).name} — ${cfg.label} Variation`,
+        instructions: loadPrompt(cfg.promptFile),
+        input,
+        outputSchema: cfg.schema,
+        toolProfile: "none",
+        repairIssues,
+      });
+      const parsed = cfg.schema.parse(raw);
+      const forcedFields = sectionCfg ? omit(baseAsset, sectionCfg.fields) : cfg.lockedFields(baseAsset);
+      const candidate = Object.assign({}, parsed, forcedFields);
+      const swappedAssets = checkpoint.assets.map((asset, i) => (i === targetIndex ? candidate : asset));
+      const issues = cfg.callValidate(Object.assign({}, checkpoint, { assets: swappedAssets }), config, context, learnings, run.month);
+      if (issues.length === 0) return { provider: providerLabel, candidate };
+      repairIssues = issues;
+      lastError = new StageValidationError(`${stage}-asset-variations`, issues);
+    } catch (error) {
+      lastError = error;
+      repairIssues = [`Schema or runtime failure: ${error && error.message ? error.message : String(error)}`];
+    }
+  }
+  console.warn(`[${stage}] a ${providerLabel} variation never validated: ${lastError && lastError.message}`);
+  return null;
+}
+
+// Two variations from each configured provider (four total) instead of one from whichever
+// model the run happens to be pointed at — "let both models work and come up with the best
+// options," applied to the per-asset refine flow the same way executeCompetitiveStage
+// applies it to a whole stage. Always fresh from the checkpoint (like "similar"), never a
+// continuation of an existing chat thread — asking for four fresh takes isn't "keep
+// building on this one," it's "show me what else is possible."
+//
+// A provider that's down or unconfigured simply contributes zero variations rather than
+// failing the whole request — soloRuntime's rejection is caught per-slot inside
+// generateOneVariation, so this degrades to "2 variations instead of 4," and only throws
+// if EVERY slot from BOTH providers failed, leaving nothing to show.
+async function proposeAssetVariations(runId, stage, assetId, focus, section) {
+  const cfg = ASSET_STAGE_CONFIG[stage];
+  if (!cfg) throw new Error(`Asset refinement isn't supported for stage "${stage}".`);
+  const sectionCfg = section ? cfg.sections && cfg.sections[section] : null;
+  if (section && !sectionCfg) throw new Error(`"${section}" isn't a refinable section of ${cfg.label}.`);
+  const run = await fbGet(`strategy_runs/${runId}`);
+  if (!run) throw new Error(`Run ${runId} not found.`);
+  const targetStage = run.stages && run.stages[stage];
+  const checkpoint = targetStage && targetStage.checkpoint;
+  if (!checkpoint) throw new Error(`Run ${runId} has no ${stage} checkpoint yet.`);
+  if (!["needs_review", "changes_requested"].includes(targetStage.status)) {
+    throw new Error(`${cfg.label} is ${targetStage.status}; assets can only be refined while it's awaiting review.`);
+  }
+  const targetIndex = checkpoint.assets.findIndex((asset) => asset.assetId === assetId);
+  if (targetIndex === -1) throw new Error(`Asset ${assetId} not found in this run's ${stage}.`);
+  const targetAsset = checkpoint.assets[targetIndex];
+
+  const candidateKey = section ? `${assetId}::${section}` : assetId;
+  const candidatePath = `strategy_runs/${runId}/stages/${stage}/candidates/${candidateKey}`;
+  const history = [{ role: "user", notes: null, focus: focus || null, requestType: "variations", at: new Date().toISOString() }];
+
+  const config = await loadBrandConfig(run.brandId);
+  const [monthInput, learnings, brandLibrary, context] = await Promise.all([
+    loadMonthInput(run.brandId, run.month),
+    loadLearnings(run.brandId),
+    loadBrandLibrary(config),
+    cfg.loadContext(run),
+  ]);
+  const input = Object.assign({
+    brandConfig: config, monthInput, learnings, brandLibrary,
+    currentAssetPlan: checkpoint.assets, targetAsset,
+    request: { type: "variations", notes: null, focus: focus || null },
+  }, context);
+
+  const lockKey = candidateKey;
+  const agent = stageAgent(stage);
+  await Promise.all([
+    fbSet(`strategy_runs/${runId}/stages/${stage}/locks/${lockKey}`, null),
+    fbSet(candidatePath, {
+      status: "running", requestType: "variations", notes: null, focus: focus || null, section: section || null, history, updatedAt: new Date().toISOString(),
+      detail: `${agent.emoji} ${agent.name} is sketching four options — two per model.`,
+    }),
+  ]);
+
+  // Fixture runs need one deterministic source of output, same as everywhere else in this
+  // pipeline — a single fixture-backed attempt stands in for the whole 2-per-provider fan
+  // out below, so tests never reach a real provider through this path.
+  const jobs = run.runtime === "fixture"
+    ? [generateOneVariation("fixture", new FixtureRuntime(run.fixtureDir), stage, cfg, sectionCfg, targetAsset, checkpoint, targetIndex, input, config, context, learnings, run)]
+    : PROVIDER_NAMES.flatMap((name) => [
+        generateOneVariation(name, soloRuntime(name, "standard"), stage, cfg, sectionCfg, targetAsset, checkpoint, targetIndex, input, config, context, learnings, run),
+        generateOneVariation(name, soloRuntime(name, "standard"), stage, cfg, sectionCfg, targetAsset, checkpoint, targetIndex, input, config, context, learnings, run),
+      ]);
+  const settled = await Promise.allSettled(jobs);
+  const variations = settled
+    .filter((r) => r.status === "fulfilled" && r.value)
+    .map((r) => r.value);
+
+  if (variations.length === 0) {
+    const message = "Neither model produced a usable variation.";
+    await fbSet(candidatePath, { status: "failed", requestType: "variations", notes: null, focus: focus || null, section: section || null, history, detail: message, updatedAt: new Date().toISOString() });
+    throw new Error(message);
+  }
+
+  const byProvider = variations.reduce((acc, v) => { acc[v.provider] = (acc[v.provider] || 0) + 1; return acc; }, {});
+  const providerLabel = (p) => (p === "openai" ? "ChatGPT" : p === "claude" ? "Claude" : p);
+  const summary = `${variations.length} variation${variations.length === 1 ? "" : "s"} ready (${Object.entries(byProvider).map(([p, n]) => `${n} ${providerLabel(p)}`).join(", ")}).`;
+  const readyHistory = history.concat([{ role: "assistant", summary, at: new Date().toISOString() }]);
+  await fbSet(candidatePath, { status: "ready", requestType: "variations", notes: null, focus: focus || null, section: section || null, history: readyHistory, variations, updatedAt: new Date().toISOString() });
+  return variations;
+}
+
 // Commits a "ready" candidate into the actual checkpoint. Re-validates the WHOLE resulting
 // batch (not just the one asset) as a safety net in case anything changed between proposing
 // and accepting, records a stage-version snapshot before and after the swap (matching
 // strategy-stage-approve.js's own versioning), and folds the supersession into the brand's
 // learnings so future months don't repeat the killed concept/copy.
-async function acceptAssetCandidate(runId, stage, assetId, actor, section) {
+async function acceptAssetCandidate(runId, stage, assetId, actor, section, variationIndex) {
   const cfg = ASSET_STAGE_CONFIG[stage];
   if (!cfg) throw new Error(`Asset refinement isn't supported for stage "${stage}".`);
   const sectionCfg = section ? cfg.sections && cfg.sections[section] : null;
@@ -985,9 +1109,22 @@ async function acceptAssetCandidate(runId, stage, assetId, actor, section) {
   const candidateKey = section ? `${assetId}::${section}` : assetId;
   const candidatePath = `strategy_runs/${runId}/stages/${stage}/candidates/${candidateKey}`;
   const candidateDoc = await fbGet(candidatePath);
-  if (!candidateDoc || candidateDoc.status !== "ready" || !candidateDoc.candidate) {
+  // A "variations" candidate carries no single `.candidate` field — the reviewer picks
+  // which of the (up to four) it actually wants, by index, rather than there being one
+  // obvious thing to accept. Everything below this point operates on `chosenCandidate`
+  // exactly as it always has, whichever request type it came from.
+  const isVariations = candidateDoc && candidateDoc.requestType === "variations";
+  if (isVariations) {
+    if (!candidateDoc || candidateDoc.status !== "ready" || !Array.isArray(candidateDoc.variations) || !candidateDoc.variations.length) {
+      throw new Error(`No ready variations for ${assetId}${section ? ` (${section})` : ""}.`);
+    }
+    if (!Number.isInteger(variationIndex) || variationIndex < 0 || variationIndex >= candidateDoc.variations.length) {
+      throw new Error(`variationIndex must name one of the ${candidateDoc.variations.length} ready variations.`);
+    }
+  } else if (!candidateDoc || candidateDoc.status !== "ready" || !candidateDoc.candidate) {
     throw new Error(`No ready candidate for ${assetId}${section ? ` (${section})` : ""}.`);
   }
+  const chosenCandidate = isVariations ? candidateDoc.variations[variationIndex].candidate : candidateDoc.candidate;
   const targetIndex = checkpoint.assets.findIndex((asset) => asset.assetId === assetId);
   if (targetIndex === -1) throw new Error(`Asset ${assetId} not found in this run's ${stage}.`);
   const oldAsset = checkpoint.assets[targetIndex];
@@ -997,7 +1134,7 @@ async function acceptAssetCandidate(runId, stage, assetId, actor, section) {
   // threads, so if the other section was accepted in between this candidate being
   // generated and now, using the candidate's stale copy of it here would silently revert
   // that other, unrelated change.
-  const newAsset = sectionCfg ? Object.assign({}, oldAsset, pick(candidateDoc.candidate, sectionCfg.fields)) : candidateDoc.candidate;
+  const newAsset = sectionCfg ? Object.assign({}, oldAsset, pick(chosenCandidate, sectionCfg.fields)) : chosenCandidate;
   const newAssets = checkpoint.assets.map((asset, i) => (i === targetIndex ? newAsset : asset));
   const newCheckpoint = Object.assign({}, checkpoint, { assets: newAssets });
 
@@ -1164,7 +1301,7 @@ function applyLockFilterOnApprove(run, stage) {
 
 module.exports = {
   runResearchStage, runStrategyStage, runCopyStage, runDirectionStage, runDeckStage,
-  proposeAssetCandidate, acceptAssetCandidate, replaceAsset, reopenStage,
+  proposeAssetCandidate, proposeAssetVariations, acceptAssetCandidate, replaceAsset, reopenStage,
   applyLockFilterOnApprove,
   logActivity, buildStrategyResearchBrief,
   // Exported for tests only — FailoverRuntime builds its providers lazily, so the returned

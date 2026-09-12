@@ -5,7 +5,7 @@
 // 2. Approving Strategy/Copy while assets are still unlocked now confirms first — dismissing
 //    leaves the stage untouched, accepting proceeds (see NextActionCard.tsx's unlockedCount()).
 // 3. The Copy stage's per-section review: captions render as a row of three cards with one
-//    shared, always-visible chat/refine box below (plus "Get 3 variations"), and the script
+//    shared, always-visible chat/refine box below (plus "Get variations"), and the script
 //    gets its own always-visible chat box — each section independently refinable and
 //    lockable (see CopyReview.tsx / pipeline.js's ASSET_STAGE_CONFIG.copy.sections).
 //
@@ -116,7 +116,7 @@ async function loginAsFakeUser(page) {
   const captionsSection = rro01Row.locator(".st-copy-section-captions");
   const scriptSection = rro01Row.locator(".st-copy-section-script");
   check("captions render as three cards in one row", await captionsSection.locator(".st-caption-card").count() === 3);
-  check('captions section offers "Get 3 variations"', await captionsSection.locator("button", { hasText: "Get 3 variations" }).count() > 0);
+  check('captions section offers "Get variations"', await captionsSection.locator("button", { hasText: "Get variations" }).count() > 0);
   check("script section has its own always-visible chat box (a textarea, no click needed to open it)", await scriptSection.locator("textarea").count() > 0);
 
   // A generic note, deliberately not a concrete/checkable ask (a CTA request or a quoted

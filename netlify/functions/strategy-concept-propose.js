@@ -1,7 +1,9 @@
 // POST { runId, stage, assetId, action, notes?, focus?, section? } — kicks off a candidate
 // replacement for ONE asset in an awaiting-review stage ("refine" with notes on any
-// supported stage, or "similar"/"suggest another" for an alternative in the same spirit —
-// strategy and copy). `focus` is an optional free-text pointer at the specific part of the
+// supported stage, "similar"/"suggest another" for a single alternative in the same spirit,
+// or "variations" for up to four fresh takes at once — two from each configured model
+// provider, see pipeline.js's proposeAssetVariations — strategy and copy). `focus` is an
+// optional free-text pointer at the specific part of the
 // asset the reviewer means (e.g. "Caption B", "Script") — passed straight through to the
 // refine prompt as a hint, it doesn't change what shape the model has to return.
 //
@@ -24,8 +26,8 @@ const { checkAuthorization } = require("./lib/strategy/auth");
 // type — strategy's "discard", copy's "replace" — goes through strategy-concept-discard.js
 // instead, since that one auto-accepts).
 const VALID_ACTIONS_BY_STAGE = {
-  strategy: ["refine", "similar"],
-  copy: ["refine", "similar"],
+  strategy: ["refine", "similar", "variations"],
+  copy: ["refine", "similar", "variations"],
 };
 
 // See strategy-run-start.js's siteBaseUrl() — process.env.URL/DEPLOY_URL aren't reliably

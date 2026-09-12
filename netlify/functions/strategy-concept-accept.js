@@ -1,8 +1,9 @@
-// POST { runId, stage, assetId, actor, section? } — commits a "ready" candidate (see
-// strategy-concept-propose.js) into the given stage's checkpoint. `section` accepts just
-// that section's own ready candidate (see pipeline.js's acceptAssetCandidate). No model
-// call here, so this runs synchronously in the foreground rather than needing a
-// -background counterpart.
+// POST { runId, stage, assetId, actor, section?, variationIndex? } — commits a "ready"
+// candidate (see strategy-concept-propose.js) into the given stage's checkpoint. `section`
+// accepts just that section's own ready candidate. `variationIndex` picks which of a
+// "variations" request's (up to four) options to commit — required for that request type,
+// ignored otherwise (see pipeline.js's acceptAssetCandidate). No model call here, so this
+// runs synchronously in the foreground rather than needing a -background counterpart.
 "use strict";
 const { acceptAssetCandidate } = require("./lib/strategy/pipeline");
 const { checkAuthorization } = require("./lib/strategy/auth");
@@ -28,10 +29,13 @@ exports.handler = async (event) => {
   const stage = body.stage || "strategy";
   const actor = String(body.actor || "Unknown").trim();
   const section = String(body.section || "").trim() || null;
+  // Only meaningful for a "variations" candidate — acceptAssetCandidate ignores it entirely
+  // for every other request type, which still resolves its one obvious candidate as before.
+  const variationIndex = Number.isInteger(body.variationIndex) ? body.variationIndex : undefined;
   if (!runId || !assetId) return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "runId and assetId are required." }) };
 
   try {
-    await acceptAssetCandidate(runId, stage, assetId, actor, section);
+    await acceptAssetCandidate(runId, stage, assetId, actor, section, variationIndex);
     return { statusCode: 200, headers: cors(), body: JSON.stringify({ ok: true }) };
   } catch (error) {
     return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: error.message }) };
