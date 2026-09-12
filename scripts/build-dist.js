@@ -25,6 +25,8 @@ const LEGACY_FILES = [
   "strategy-app.js",
   "strategy-ui.js",
   "design-tokens.css",
+  "monitoring.css",
+  "monitoring.js",
   "sw.js",
   "manifest.json",
   "robots.txt",
