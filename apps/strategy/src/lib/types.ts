@@ -336,6 +336,11 @@ export interface BrandLibraryStatus {
   unreadFiles?: { name: string; reason: string }[];
   filesReadThisIndex?: number;
   filesFromMemory?: number;
+  // What kind of material the folder actually holds — brand guidelines, approved content,
+  // performance reports (see LIBRARY_CATEGORIES in google-drive.js). Each kind gets a
+  // guaranteed share of the text budget, and a kind with no files at all is the signal that a
+  // brand isn't ready for a real run yet.
+  categories?: { key: string; label: string; fileCount: number; textFileCount: number; chars: number }[];
   // Set while a scan is in flight (see strategy-brand-library-scan.js). The library doc is
   // replaced wholesale when the scan finishes, so these simply disappear on success.
   scanning?: boolean;
