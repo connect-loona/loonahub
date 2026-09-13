@@ -302,6 +302,16 @@ async function buildLibrary(config, options = {}) {
 async function refreshBrandLibrary(config, options = {}) {
   const library = await buildLibrary(config, options);
   await fbSet(`strategy_brand_library/${fbSafeKey(config.id)}`, library);
+  // Loona Brain re-distils whatever kind of material actually changed (see brand-brain.js).
+  // Deliberately after the library is already saved, and deliberately unable to fail the
+  // index: the raw library is what the agents have always read, and losing an index because a
+  // summariser had a bad minute would be a strictly worse trade than a slightly stale brief.
+  try {
+    const { refreshBrain } = require("./brand-brain");
+    await refreshBrain(library, options);
+  } catch (error) {
+    console.error(`Loona Brain refresh failed for ${config.id}:`, error.message);
+  }
   return library;
 }
 

@@ -8,7 +8,7 @@
 // the original runPipeline() has no such gate built in.
 "use strict";
 const { fbGet, fbSet, fbUpdate } = require("./firebase");
-const { loadBrandConfig, loadMonthInput, loadLearnings, loadBrandLibrary, loadPrompt } = require("./store");
+const { loadBrandConfig, loadMonthInput, loadLearnings, loadBrandLibrary, loadBrandBrain, loadPrompt } = require("./store");
 const { ResearchSchema, StrategySchema, StrategyAssetSchema, CopySchema, CopyAssetSchema, CreativeDirectionSchema, DeckSpecSchema } = require("./contracts");
 const { validateResearch, validateStrategy, validateCopy, validateDirection, validateDeck, allCopyText, checkNoteObedience } = require("./validation");
 const { OpenAIAgentsRuntime } = require("./runtime-openai");
@@ -612,16 +612,18 @@ async function runResearchStage(runId) {
   const run = await fbGet(`strategy_runs/${runId}`);
   if (!run) throw new Error(`Run ${runId} not found.`);
   const config = await loadBrandConfig(run.brandId);
-  const [monthInput, learnings, brandLibrary] = await Promise.all([
+  const [monthInput, learnings, brandLibrary, brandBrain] = await Promise.all([
     loadMonthInput(run.brandId, run.month),
     loadLearnings(run.brandId),
     loadBrandLibrary(config, { force: true }),
+    loadBrandBrain(run.brandId),
   ]);
   const common = {
     brandConfig: config,
     monthInput,
     learnings,
     brandLibrary,
+    brandBrain,
     sourceContext: run.sourceContext || [],
     currentDate: new Date().toISOString(),
   };
@@ -651,16 +653,18 @@ async function runStrategyStage(runId) {
   const effectiveConfig = run.deliverablesOverride
     ? { ...config, deliverables: { ...config.deliverables, ...run.deliverablesOverride } }
     : config;
-  const [monthInput, learnings, brandLibrary] = await Promise.all([
+  const [monthInput, learnings, brandLibrary, brandBrain] = await Promise.all([
     loadMonthInput(run.brandId, run.month),
     loadLearnings(run.brandId),
     loadBrandLibrary(config),
+    loadBrandBrain(run.brandId),
   ]);
   const common = {
     brandConfig: effectiveConfig,
     monthInput,
     learnings,
     brandLibrary,
+    brandBrain,
     sourceContext: run.sourceContext || [],
     currentDate: new Date().toISOString(),
   };
@@ -688,16 +692,18 @@ async function runCopyStage(runId) {
   const strategy = run.stages && run.stages.strategy && run.stages.strategy.checkpoint;
   if (!strategy) throw new Error(`Run ${runId} has no approved strategy checkpoint yet.`);
   const config = await loadBrandConfig(run.brandId);
-  const [monthInput, learnings, brandLibrary] = await Promise.all([
+  const [monthInput, learnings, brandLibrary, brandBrain] = await Promise.all([
     loadMonthInput(run.brandId, run.month),
     loadLearnings(run.brandId),
     loadBrandLibrary(config),
+    loadBrandBrain(run.brandId),
   ]);
   const common = {
     brandConfig: config,
     monthInput,
     learnings,
     brandLibrary,
+    brandBrain,
     sourceContext: run.sourceContext || [],
     currentDate: new Date().toISOString(),
   };
@@ -730,16 +736,18 @@ async function runDirectionStage(runId) {
   const copy = run.stages && run.stages.copy && run.stages.copy.checkpoint;
   if (!strategy || !copy) throw new Error(`Run ${runId} has no approved strategy/copy checkpoint yet.`);
   const config = await loadBrandConfig(run.brandId);
-  const [monthInput, learnings, brandLibrary] = await Promise.all([
+  const [monthInput, learnings, brandLibrary, brandBrain] = await Promise.all([
     loadMonthInput(run.brandId, run.month),
     loadLearnings(run.brandId),
     loadBrandLibrary(config),
+    loadBrandBrain(run.brandId),
   ]);
   const common = {
     brandConfig: config,
     monthInput,
     learnings,
     brandLibrary,
+    brandBrain,
     sourceContext: run.sourceContext || [],
     currentDate: new Date().toISOString(),
   };
@@ -768,16 +776,18 @@ async function runDeckStage(runId) {
   const direction = run.stages && run.stages["creative-direction"] && run.stages["creative-direction"].checkpoint;
   if (!strategy || !copy || !direction) throw new Error(`Run ${runId} has no approved strategy/copy/direction checkpoint yet.`);
   const config = await loadBrandConfig(run.brandId);
-  const [monthInput, learnings, brandLibrary] = await Promise.all([
+  const [monthInput, learnings, brandLibrary, brandBrain] = await Promise.all([
     loadMonthInput(run.brandId, run.month),
     loadLearnings(run.brandId),
     loadBrandLibrary(config),
+    loadBrandBrain(run.brandId),
   ]);
   const common = {
     brandConfig: config,
     monthInput,
     learnings,
     brandLibrary,
+    brandBrain,
     sourceContext: run.sourceContext || [],
     currentDate: new Date().toISOString(),
   };
@@ -937,16 +947,18 @@ async function proposeAssetCandidate(runId, stage, assetId, requestType, notes, 
   history.push({ role: "user", notes: notes || null, focus: focus || null, requestType, at: new Date().toISOString() });
 
   const config = await loadBrandConfig(run.brandId);
-  const [monthInput, learnings, brandLibrary, context] = await Promise.all([
+  const [monthInput, learnings, brandLibrary, brandBrain, context] = await Promise.all([
     loadMonthInput(run.brandId, run.month),
     loadLearnings(run.brandId),
     loadBrandLibrary(config),
+    loadBrandBrain(run.brandId),
     cfg.loadContext(run),
   ]);
   const runtime = createRuntime(run, stage);
   const instructions = loadPrompt(cfg.promptFile);
   const input = Object.assign({
     brandConfig: config,
+    brandBrain,
     monthInput,
     learnings,
     brandLibrary,
@@ -1095,14 +1107,15 @@ async function proposeAssetVariations(runId, stage, assetId, focus, section) {
   const history = [{ role: "user", notes: null, focus: focus || null, requestType: "variations", at: new Date().toISOString() }];
 
   const config = await loadBrandConfig(run.brandId);
-  const [monthInput, learnings, brandLibrary, context] = await Promise.all([
+  const [monthInput, learnings, brandLibrary, brandBrain, context] = await Promise.all([
     loadMonthInput(run.brandId, run.month),
     loadLearnings(run.brandId),
     loadBrandLibrary(config),
+    loadBrandBrain(run.brandId),
     cfg.loadContext(run),
   ]);
   const input = Object.assign({
-    brandConfig: config, monthInput, learnings, brandLibrary,
+    brandConfig: config, monthInput, learnings, brandLibrary, brandBrain,
     currentAssetPlan: checkpoint.assets, targetAsset,
     request: { type: "variations", notes: null, focus: focus || null },
   }, context);
