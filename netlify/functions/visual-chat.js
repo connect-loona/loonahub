@@ -1,0 +1,81 @@
+// Visual Studio's chats.
+//
+//   POST { action: "create", brandId, title?, actor? } -> { id, chat }
+//   POST { action: "list", brandId }                   -> { chats: [...] }
+//   POST { action: "history", chatId }                 -> { chat, generations: [...] }
+//
+// One function rather than three because they're all small and share the same auth and the
+// same brand-resolution rule, and every Netlify function is a separately bundled deploy
+// artifact — three files here would be three cold starts for what is one screen's worth of
+// reads.
+//
+// "create" is the only place a brandId is ever accepted from the caller: it's the moment the
+// chat's brand is decided, and it's validated against Hub before anything is written. From
+// then on the chat carries its own brand and nothing else may override it. See
+// visual-chats.js's header for why that matters.
+"use strict";
+const { fbGet, fbSafeKey } = require("./lib/strategy/firebase");
+const { checkAuthorization } = require("./lib/strategy/auth");
+const { createChat, resolveChat, listChatsForBrand } = require("./lib/strategy/visual-chats");
+const { loadVisualHistory } = require("./lib/strategy/visual-memory");
+
+function cors() {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Content-Type": "application/json",
+  };
+}
+
+function fail(statusCode, error) {
+  return { statusCode, headers: cors(), body: JSON.stringify({ error }) };
+}
+
+function ok(payload) {
+  return { statusCode: 200, headers: cors(), body: JSON.stringify(payload) };
+}
+
+async function brandExists(brandId) {
+  const [brand, strategyBrand] = await Promise.all([
+    fbGet(`brands/${fbSafeKey(brandId)}`),
+    fbGet(`strategy_brands/${fbSafeKey(brandId)}`),
+  ]);
+  return Boolean(brand || strategyBrand);
+}
+
+exports.handler = async (event) => {
+  if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: cors(), body: "" };
+  if (event.httpMethod !== "POST") return fail(405, "Method not allowed");
+  const auth = checkAuthorization(event);
+  if (!auth.ok) return { statusCode: 401, headers: cors(), body: JSON.stringify({ error: "Unauthorized", reason: auth.reason }) };
+
+  let body;
+  try { body = JSON.parse(event.body || "{}"); } catch { return fail(400, "Invalid JSON"); }
+  const action = String(body.action || "").trim();
+
+  if (action === "create" || action === "list") {
+    const brandId = String(body.brandId || "").trim();
+    if (!/^[a-z0-9-]+$/.test(brandId)) return fail(400, "brandId must be lowercase letters, numbers or hyphens.");
+    if (!(await brandExists(brandId))) return fail(404, "Brand not found in Hub.");
+
+    if (action === "list") return ok({ chats: await listChatsForBrand(brandId) });
+    const { id, record } = await createChat({ brandId, title: body.title, actor: body.actor || "Hub" });
+    return ok({ id, chat: Object.assign({ id }, record) });
+  }
+
+  if (action === "history") {
+    const chatId = String(body.chatId || "").trim();
+    if (!chatId) return fail(400, "A chatId is required.");
+    let chat;
+    try { chat = await resolveChat(chatId); }
+    catch (error) { return fail(error.notFound ? 404 : 502, error.message); }
+    // The brand comes from the chat, never from the caller — so a history request can only
+    // ever return the rounds belonging to the chat's own brand.
+    const all = await loadVisualHistory(chat.brandId);
+    const generations = all.filter((record) => record.chatId === chatId);
+    return ok({ chat: Object.assign({ id: chatId }, chat), generations });
+  }
+
+  return fail(400, 'action must be one of "create", "list" or "history".');
+};
