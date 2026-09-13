@@ -12,12 +12,12 @@
 // anybody ever picks one of the images: an abandoned round is still evidence about what this
 // brand's team tried and rejected. See visual-memory.js.
 "use strict";
-const { fbGet, fbSafeKey } = require("./lib/strategy/firebase");
 const { checkAuthorization } = require("./lib/strategy/auth");
 const { generateImages, MAX_IMAGES } = require("./lib/strategy/image-providers");
 const { recordGeneration } = require("./lib/strategy/visual-memory");
 const { resolveChat, touchChat, titleFromPrompt } = require("./lib/strategy/visual-chats");
 const { buildRulePreamble, applyRules } = require("./lib/strategy/visual-rules");
+const { hubBrandExists } = require("./lib/strategy/hub-brands");
 
 function cors() {
   return {
@@ -69,11 +69,7 @@ exports.handler = async (event) => {
     // that nothing ever reads back.
     brandId = String(body.brandId || "").trim();
     if (!/^[a-z0-9-]+$/.test(brandId)) return fail(400, "brandId must be lowercase letters, numbers or hyphens.");
-    const [brand, strategyBrand] = await Promise.all([
-      fbGet(`brands/${fbSafeKey(brandId)}`),
-      fbGet(`strategy_brands/${fbSafeKey(brandId)}`),
-    ]);
-    if (!brand && !strategyBrand) return fail(404, "Brand not found in Hub.");
+    if (!(await hubBrandExists(brandId))) return fail(404, "Brand not found in Hub.");
   }
 
   // The brand's hard rules become a real prompt preamble — see visual-rules.js for why these

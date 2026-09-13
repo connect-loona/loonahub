@@ -14,10 +14,10 @@
 // then on the chat carries its own brand and nothing else may override it. See
 // visual-chats.js's header for why that matters.
 "use strict";
-const { fbGet, fbSafeKey } = require("./lib/strategy/firebase");
 const { checkAuthorization } = require("./lib/strategy/auth");
 const { createChat, resolveChat, listChatsForBrand } = require("./lib/strategy/visual-chats");
 const { loadVisualHistory } = require("./lib/strategy/visual-memory");
+const { hubBrandExists } = require("./lib/strategy/hub-brands");
 
 function cors() {
   return {
@@ -36,14 +36,6 @@ function ok(payload) {
   return { statusCode: 200, headers: cors(), body: JSON.stringify(payload) };
 }
 
-async function brandExists(brandId) {
-  const [brand, strategyBrand] = await Promise.all([
-    fbGet(`brands/${fbSafeKey(brandId)}`),
-    fbGet(`strategy_brands/${fbSafeKey(brandId)}`),
-  ]);
-  return Boolean(brand || strategyBrand);
-}
-
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: cors(), body: "" };
   if (event.httpMethod !== "POST") return fail(405, "Method not allowed");
@@ -57,7 +49,7 @@ exports.handler = async (event) => {
   if (action === "create" || action === "list") {
     const brandId = String(body.brandId || "").trim();
     if (!/^[a-z0-9-]+$/.test(brandId)) return fail(400, "brandId must be lowercase letters, numbers or hyphens.");
-    if (!(await brandExists(brandId))) return fail(404, "Brand not found in Hub.");
+    if (!(await hubBrandExists(brandId))) return fail(404, "Brand not found in Hub.");
 
     if (action === "list") return ok({ chats: await listChatsForBrand(brandId) });
     const { id, record } = await createChat({ brandId, title: body.title, actor: body.actor || "Hub" });

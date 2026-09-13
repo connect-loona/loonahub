@@ -107,6 +107,8 @@ function listTestFiles(dir, suffix) {
     if (e2eTests.length > 0) {
       console.log("Building Strategy OS (test mode)...");
       execSync("npm ci && npm run build:test", { cwd: path.join(HUB, "apps/strategy"), stdio: "inherit" });
+      console.log("Building Visual Studio (test mode)...");
+      execSync("npm ci && npm run build:test", { cwd: path.join(HUB, "apps/visual"), stdio: "inherit" });
     }
 
     const rtdbUrl = `http://127.0.0.1:${RTDB_PORT}`;

@@ -43,7 +43,16 @@ const json = (res) => JSON.parse(res.body);
   await req("PUT", `${RTDB_URL}/visual_chats.json`, null);
   await req("PUT", `${RTDB_URL}/strategy_visual.json`, null);
   await req("PUT", `${RTDB_URL}/strategy_brain.json`, null);
-  await req("PUT", `${RTDB_URL}/brands.json`, { rro: { brand: "RRO Foods" }, casa: { brand: "Casa Waters" } });
+  // Hub keys brands by arbitrary push ids with the human name in `brand` — NOT by the slug
+  // Strategy OS and Visual Studio use. Seeding it the real way is what makes the join in
+  // hub-brands.js actually get tested rather than accidentally bypassed.
+  await req("PUT", `${RTDB_URL}/brands.json`, {
+    "-Nx1": { brand: "RRO Foods" },
+    "-Nx2": { brand: "Casa Waters" },
+  });
+  // A brand configured in Strategy OS but not present in Hub's roster still resolves — the
+  // onboarding order was the other way round before Hub became the source of truth.
+  await req("PUT", `${RTDB_URL}/strategy_brands.json`, { legacy: { id: "legacy", name: "Legacy Brand" } });
 
   // ---- Titles name themselves from the first thing typed ----
   check("a short prompt becomes the title as-is", titleFromPrompt("Royal Indian table") === "Royal Indian table");
@@ -54,9 +63,9 @@ const json = (res) => JSON.parse(res.body);
   check("an empty prompt still gets a usable title", titleFromPrompt("  ") === "Untitled visual chat");
 
   // ---- A chat carries its brand ----
-  const { id: rroChat } = await createChat({ brandId: "rro", title: "Royal Indian Table", actor: "Anjali" });
-  const { id: casaChat } = await createChat({ brandId: "casa", title: "Casa de Luxo blue hour", actor: "Gokul" });
-  check("a chat is created with its brand recorded", (await resolveChat(rroChat)).brandId === "rro");
+  const { id: rroChat } = await createChat({ brandId: "rro-foods", title: "Royal Indian Table", actor: "Anjali" });
+  const { id: casaChat } = await createChat({ brandId: "casa-waters", title: "Casa de Luxo blue hour", actor: "Gokul" });
+  check("a chat is created with its brand recorded", (await resolveChat(rroChat)).brandId === "rro-foods");
   check("who started it is recorded", (await resolveChat(rroChat)).createdBy === "Anjali");
 
   let gone = null;
@@ -64,19 +73,19 @@ const json = (res) => JSON.parse(res.body);
   check("an unknown chat is a not-found error, not a silent empty brand", gone && gone.notFound === true, gone && gone.message);
 
   // ---- Listing is filtered by the brand stored on each chat ----
-  const rroChats = await listChatsForBrand("rro");
+  const rroChats = await listChatsForBrand("rro-foods");
   check("a brand's chats are listed", rroChats.some((c) => c.id === rroChat), rroChats.map((c) => c.title));
   check("another brand's chats are NOT in that list", !rroChats.some((c) => c.id === casaChat), rroChats.map((c) => c.title));
 
   // Ordering is by real activity, so a thread someone is actually working in rises.
   await touchChat(rroChat);
-  const { id: quietChat } = await createChat({ brandId: "rro", title: "Quiet thread", actor: "Gokul" });
+  const { id: quietChat } = await createChat({ brandId: "rro-foods", title: "Quiet thread", actor: "Gokul" });
   await fbSet(`visual_chats/${quietChat}`, Object.assign({}, await fbGet(`visual_chats/${quietChat}`), { lastActivityAt: "2020-01-01T00:00:00.000Z" }));
-  const ordered = await listChatsForBrand("rro");
+  const ordered = await listChatsForBrand("rro-foods");
   check("chats are ordered by real activity, not creation", ordered[ordered.length - 1].id === quietChat, ordered.map((c) => c.title));
 
   // ---- An untitled chat is named by its first real prompt ----
-  const { id: untitled } = await createChat({ brandId: "rro", actor: "Gokul" });
+  const { id: untitled } = await createChat({ brandId: "rro-foods", actor: "Gokul" });
   await touchChat(untitled, { titleIfUnset: "Marine Drive picnic" });
   check("an untitled chat takes the name of its first prompt", (await resolveChat(untitled)).title === "Marine Drive picnic");
   await touchChat(rroChat, { titleIfUnset: "Should not rename" });
@@ -103,11 +112,11 @@ const json = (res) => JSON.parse(res.body);
   check("a requirement is lifted too", lines.some((l) => /Always write Primio/.test(l)), lines);
   check("a values paragraph is not", !lines.some((l) => /believes in warmth/.test(l)), lines);
 
-  await fbSet("strategy_brain/rro", {
-    brandId: "rro",
+  await fbSet("strategy_brain/rro-foods", {
+    brandId: "rro-foods",
     sections: { guidelines: { text: "- Never show the cap removed from the bottle.", fileCount: 1 } },
   });
-  const built = await buildRulePreamble("rro");
+  const built = await buildRulePreamble("rro-foods");
   check("the brand's own rule reaches the preamble", /Never show the cap removed/.test(built.preamble), built.preamble);
   check("the standard rules do too", /Never invent, redraw or alter text/.test(built.preamble), built.preamble.slice(0, 200));
   check("what was applied is reported, so the UI can show it rather than assert it",
@@ -119,7 +128,7 @@ const json = (res) => JSON.parse(res.body);
   check("no rules means the prompt is untouched", applyRules("", " make it warmer ") === "make it warmer");
 
   // A brand with no brain at all must still generate — standard rules only.
-  const noBrain = await buildRulePreamble("casa");
+  const noBrain = await buildRulePreamble("casa-waters");
   check("a brand with nothing distilled still gets the standard rules",
     noBrain.applied.length === STANDARD_RULES.length && noBrain.preamble.length > 0, noBrain.applied.length);
 
@@ -136,13 +145,13 @@ const json = (res) => JSON.parse(res.body);
   try {
     // The attack: a caller names Casa's chat but claims it is RRO's. The brandId in the body
     // must be ignored entirely — not merged, not preferred, not warned about.
-    const crossed = await call(generateFn, { chatId: casaChat, brandId: "rro", prompt: "a villa at blue hour" });
+    const crossed = await call(generateFn, { chatId: casaChat, brandId: "rro-foods", prompt: "a villa at blue hour" });
     check("a generation into a chat succeeds", crossed.statusCode === 200, crossed.body);
     check("the brand comes from the CHAT, not the caller's brandId",
-      json(crossed).brandId === "casa", json(crossed).brandId);
+      json(crossed).brandId === "casa-waters", json(crossed).brandId);
 
-    const rroRecords = await fbGet("strategy_visual/rro");
-    const casaRecords = await fbGet("strategy_visual/casa");
+    const rroRecords = await fbGet("strategy_visual/rro-foods");
+    const casaRecords = await fbGet("strategy_visual/casa-waters");
     check("nothing was written into the brand the caller named",
       !Object.values(rroRecords || {}).some((r) => /villa at blue hour/.test(r.prompt || "")), Object.keys(rroRecords || {}).length);
     check("it was written into the chat's real brand instead",
@@ -150,7 +159,7 @@ const json = (res) => JSON.parse(res.body);
 
     // Same rule on the read path: history is scoped by the chat's own brand.
     const hist = await call(chatFn, { action: "history", chatId: casaChat });
-    check("history resolves its brand from the chat too", json(hist).chat.brandId === "casa", json(hist).chat.brandId);
+    check("history resolves its brand from the chat too", json(hist).chat.brandId === "casa-waters", json(hist).chat.brandId);
     check("and returns only that chat's rounds",
       json(hist).generations.every((g) => g.chatId === casaChat), json(hist).generations.map((g) => g.chatId));
 
@@ -165,7 +174,7 @@ const json = (res) => JSON.parse(res.body);
       /villa at blue hour/.test(lastSent.prompt), lastSent.prompt.slice(-80));
     // The PERSON's prompt is what's remembered — the rules are identical every round, so
     // storing them would bury the one part of the record that differs.
-    const casaRow = Object.values(await fbGet("strategy_visual/casa")).find((r) => /villa/.test(r.prompt));
+    const casaRow = Object.values(await fbGet("strategy_visual/casa-waters")).find((r) => /villa/.test(r.prompt));
     check("the stored prompt is what the person wrote, not the rule-prefixed version",
       casaRow.prompt === "a villa at blue hour", casaRow.prompt);
     check("but which rules applied is stored alongside it",
@@ -176,7 +185,7 @@ const json = (res) => JSON.parse(res.body);
     check("the chat's activity moves when a round lands in it", touched.generationCount === 1, touched.generationCount);
 
     // A one-off generation with no chat still works, and still checks the brand against Hub.
-    const oneOff = await call(generateFn, { brandId: "rro", prompt: "a quick test" });
+    const oneOff = await call(generateFn, { brandId: "rro-foods", prompt: "a quick test" });
     check("a chatless generation still works", oneOff.statusCode === 200, oneOff.body);
     check("and is recorded with no chat rather than a fake one", json(oneOff).chatId === null, json(oneOff).chatId);
     const unknown = await call(generateFn, { brandId: "not-a-brand", prompt: "x" });
@@ -187,20 +196,32 @@ const json = (res) => JSON.parse(res.body);
   }
 
   // ---- The chat endpoint ----
-  const noAuth = await chatFn.handler({ httpMethod: "POST", headers: { host: "127.0.0.1:9020" }, body: JSON.stringify({ action: "list", brandId: "rro" }) });
+  const noAuth = await chatFn.handler({ httpMethod: "POST", headers: { host: "127.0.0.1:9020" }, body: JSON.stringify({ action: "list", brandId: "rro-foods" }) });
   check("the chat endpoint requires auth", noAuth.statusCode === 401, noAuth.statusCode);
 
-  const created = await call(chatFn, { action: "create", brandId: "rro", title: "New thread", actor: "Vishnu" });
-  check("a chat can be created through the endpoint", created.statusCode === 200 && json(created).chat.brandId === "rro", created.body);
+  const created = await call(chatFn, { action: "create", brandId: "rro-foods", title: "New thread", actor: "Vishnu" });
+  check("a chat can be created through the endpoint", created.statusCode === 200 && json(created).chat.brandId === "rro-foods", created.body);
 
   const badBrand = await call(chatFn, { action: "create", brandId: "not-a-brand" });
   check("a chat cannot be created for a brand Hub doesn't have", badBrand.statusCode === 404, badBrand.body);
 
-  const listed = await call(chatFn, { action: "list", brandId: "casa" });
-  check("listing returns only that brand's chats",
-    json(listed).chats.every((c) => c.brandId === "casa"), json(listed).chats.map((c) => c.brandId));
+  // Hub's roster is keyed by push id with the name in `brand`, so resolving a brand means
+  // slug-matching those names — checking `brands/<id>` by key always misses. This is the exact
+  // bug that made every chat 404 the first time the UI ran against a realistic fixture.
+  const byName = await call(chatFn, { action: "create", brandId: "casa-waters", actor: "Gokul" });
+  check("a brand is found by slugging Hub's own brand NAME, not by its storage key",
+    byName.statusCode === 200, byName.body);
 
-  const badAction = await call(chatFn, { action: "destroy", brandId: "rro" });
+  // And a brand configured in Strategy OS but missing from Hub's roster still resolves —
+  // several were onboarded that way before Hub became the source of truth.
+  const legacy = await call(chatFn, { action: "create", brandId: "legacy", actor: "Gokul" });
+  check("a Strategy-OS-only brand still resolves", legacy.statusCode === 200, legacy.body);
+
+  const listed = await call(chatFn, { action: "list", brandId: "casa-waters" });
+  check("listing returns only that brand's chats",
+    json(listed).chats.every((c) => c.brandId === "casa-waters"), json(listed).chats.map((c) => c.brandId));
+
+  const badAction = await call(chatFn, { action: "destroy", brandId: "rro-foods" });
   check("an unknown action is refused", badAction.statusCode === 400, badAction.body);
 
   finish();

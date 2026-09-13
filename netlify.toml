@@ -27,6 +27,14 @@
   to = "/strategy/index.html"
   status = 200
 
+# Visual Studio, same arrangement as Strategy OS above and for the same reason: scoped to
+# exactly /visual/* so a client-side route inside it still resolves to its index.html, while
+# every other path on this site keeps resolving to a real file.
+[[redirects]]
+  from = "/visual/*"
+  to = "/visual/index.html"
+  status = 200
+
 [functions]
   node_bundler = "esbuild"
   # Strategy OS's brand config/prompts/learnings data used to be read at runtime via

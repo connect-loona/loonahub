@@ -45,6 +45,12 @@ fs.mkdirSync(DIST, { recursive: true });
 console.log("Building Strategy OS (apps/strategy)...");
 execSync("npm ci && npm run build", { cwd: path.join(ROOT, "apps/strategy"), stdio: "inherit" });
 
+// Visual Studio, on the same footing as Strategy OS: its own Vite build, landing at
+// dist/visual/. Both run before the legacy files are copied in, so a legacy file can never
+// clobber an app's output.
+console.log("Building Visual Studio (apps/visual)...");
+execSync("npm ci && npm run build", { cwd: path.join(ROOT, "apps/visual"), stdio: "inherit" });
+
 console.log("Copying legacy Hub static files into dist/...");
 for (const file of LEGACY_FILES) {
   const src = path.join(ROOT, file);
