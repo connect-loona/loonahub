@@ -24,6 +24,7 @@ const { BrandConfigSchema, MonthInputSchema } = require("./contracts");
 const { fbGet, fbSet, fbSafeKey } = require("./firebase");
 const { loadBrandLibrary: loadDriveBrandLibrary } = require("./google-drive");
 const { loadBrain, brainToPromptText } = require("./brand-brain");
+const { loadTeamActivityText } = require("./team-activity");
 const { composeAgentInstructions } = require("./bb-loona");
 const { HOUSE_RULES, RESEARCH_PROMPT, STRATEGY_PROMPT, COPY_PROMPT, DIRECTION_PROMPT, DECK_BUILDER_PROMPT, CONCEPT_REFINE_PROMPT, COPY_REFINE_PROMPT, RRO_LEARNINGS_SEED } = require("./prompts-data");
 
@@ -156,16 +157,31 @@ async function loadBrandLibrary(config, options) {
 }
 
 // Loona Brain's brief for this brand, as a plain string for the stage prompts, or null when
-// there's nothing distilled yet. Null is a real answer: the raw brand library still reaches
-// the agents exactly as it always has, so a brand whose folder has never been distilled runs
-// precisely as it did before any of this existed.
-async function loadBrandBrain(brandId) {
-  try {
-    return brainToPromptText(await loadBrain(brandId));
-  } catch (error) {
-    console.error(`Could not load Loona Brain for ${brandId}:`, error.message);
-    return null;
-  }
+// there's nothing to say yet. Null is a real answer: the raw brand library still reaches the
+// agents exactly as it always has, so a brand with no brain runs precisely as it did before
+// any of this existed.
+//
+// Two inputs, joined here because the prompts want one block, not a growing list of fields:
+//   - the distilled Drive material (brand-brain.js), cached against a fingerprint because
+//     distilling costs a model call and unchanged files have nothing new to say;
+//   - the live task board (team-activity.js), computed fresh every time because it is state
+//     that changes whenever somebody ticks a task off, and a cached copy would be wrong.
+//
+// Either can be absent without affecting the other, and a failure in either is logged and
+// skipped rather than allowed to fail a run — this is context, not the brief itself.
+async function loadBrandBrain(brandId, brandName) {
+  const [distilled, activity] = await Promise.all([
+    (async () => {
+      try { return brainToPromptText(await loadBrain(brandId)); }
+      catch (error) { console.error(`Could not load Loona Brain for ${brandId}:`, error.message); return null; }
+    })(),
+    (async () => {
+      try { return await loadTeamActivityText(brandId, brandName); }
+      catch (error) { console.error(`Could not load team activity for ${brandId}:`, error.message); return null; }
+    })(),
+  ]);
+  const parts = [distilled, activity].filter(Boolean);
+  return parts.length ? parts.join("\n\n") : null;
 }
 
 module.exports = { loadBrandConfig, loadMonthInput, loadLearnings, loadBrandLibrary, loadBrandBrain, loadPrompt };
