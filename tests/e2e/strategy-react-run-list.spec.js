@@ -30,6 +30,9 @@ async function loginAsFakeUser(page) {
   await req("PUT", `${RTDB_URL}/strategy_brands.json`, {
     rro: { id: "rro", name: "RRO Foods" },
   });
+  // NewRunWizard's brand picker now lists Hub's own brand roster (see useAllHubBrands),
+  // not just strategy_brands — a run can't be started for a brand Hub doesn't know about.
+  await req("PUT", `${RTDB_URL}/brands.json`, { b1: { brand: "RRO Foods" } });
   await req("PUT", `${RTDB_URL}/strategy_runs/react-list-test-run.json`, {
     runId: "react-list-test-run", brandId: "rro", month: "2026-10", status: "failed",
     owner: "Gokul", createdAt: "2026-09-09T00:00:00.000Z", updatedAt: "2026-09-09T01:00:00.000Z",
