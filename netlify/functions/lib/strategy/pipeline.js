@@ -616,7 +616,7 @@ async function runResearchStage(runId) {
     loadMonthInput(run.brandId, run.month),
     loadLearnings(run.brandId),
     loadBrandLibrary(config, { force: true }),
-    loadBrandBrain(run.brandId),
+    loadBrandBrain(run.brandId, config.name),
   ]);
   const common = {
     brandConfig: config,
@@ -657,7 +657,7 @@ async function runStrategyStage(runId) {
     loadMonthInput(run.brandId, run.month),
     loadLearnings(run.brandId),
     loadBrandLibrary(config),
-    loadBrandBrain(run.brandId),
+    loadBrandBrain(run.brandId, config.name),
   ]);
   const common = {
     brandConfig: effectiveConfig,
@@ -696,7 +696,7 @@ async function runCopyStage(runId) {
     loadMonthInput(run.brandId, run.month),
     loadLearnings(run.brandId),
     loadBrandLibrary(config),
-    loadBrandBrain(run.brandId),
+    loadBrandBrain(run.brandId, config.name),
   ]);
   const common = {
     brandConfig: config,
@@ -740,7 +740,7 @@ async function runDirectionStage(runId) {
     loadMonthInput(run.brandId, run.month),
     loadLearnings(run.brandId),
     loadBrandLibrary(config),
-    loadBrandBrain(run.brandId),
+    loadBrandBrain(run.brandId, config.name),
   ]);
   const common = {
     brandConfig: config,
@@ -780,7 +780,7 @@ async function runDeckStage(runId) {
     loadMonthInput(run.brandId, run.month),
     loadLearnings(run.brandId),
     loadBrandLibrary(config),
-    loadBrandBrain(run.brandId),
+    loadBrandBrain(run.brandId, config.name),
   ]);
   const common = {
     brandConfig: config,
@@ -951,7 +951,7 @@ async function proposeAssetCandidate(runId, stage, assetId, requestType, notes, 
     loadMonthInput(run.brandId, run.month),
     loadLearnings(run.brandId),
     loadBrandLibrary(config),
-    loadBrandBrain(run.brandId),
+    loadBrandBrain(run.brandId, config.name),
     cfg.loadContext(run),
   ]);
   const runtime = createRuntime(run, stage);
@@ -1111,7 +1111,7 @@ async function proposeAssetVariations(runId, stage, assetId, focus, section) {
     loadMonthInput(run.brandId, run.month),
     loadLearnings(run.brandId),
     loadBrandLibrary(config),
-    loadBrandBrain(run.brandId),
+    loadBrandBrain(run.brandId, config.name),
     cfg.loadContext(run),
   ]);
   const input = Object.assign({
