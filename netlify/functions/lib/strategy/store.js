@@ -23,6 +23,7 @@
 const { BrandConfigSchema, MonthInputSchema } = require("./contracts");
 const { fbGet, fbSet, fbSafeKey } = require("./firebase");
 const { loadBrandLibrary: loadDriveBrandLibrary } = require("./google-drive");
+const { loadBrain, brainToPromptText } = require("./brand-brain");
 const { composeAgentInstructions } = require("./bb-loona");
 const { HOUSE_RULES, RESEARCH_PROMPT, STRATEGY_PROMPT, COPY_PROMPT, DIRECTION_PROMPT, DECK_BUILDER_PROMPT, CONCEPT_REFINE_PROMPT, COPY_REFINE_PROMPT, RRO_LEARNINGS_SEED } = require("./prompts-data");
 
@@ -154,5 +155,18 @@ async function loadBrandLibrary(config, options) {
   return loadDriveBrandLibrary(config, options);
 }
 
-module.exports = { loadBrandConfig, loadMonthInput, loadLearnings, loadBrandLibrary, loadPrompt };
+// Loona Brain's brief for this brand, as a plain string for the stage prompts, or null when
+// there's nothing distilled yet. Null is a real answer: the raw brand library still reaches
+// the agents exactly as it always has, so a brand whose folder has never been distilled runs
+// precisely as it did before any of this existed.
+async function loadBrandBrain(brandId) {
+  try {
+    return brainToPromptText(await loadBrain(brandId));
+  } catch (error) {
+    console.error(`Could not load Loona Brain for ${brandId}:`, error.message);
+    return null;
+  }
+}
+
+module.exports = { loadBrandConfig, loadMonthInput, loadLearnings, loadBrandLibrary, loadBrandBrain, loadPrompt };
 
