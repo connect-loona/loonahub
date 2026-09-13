@@ -133,6 +133,32 @@ function seedRun(runId) {
   check("and the reason says what to do about it", sideText.includes("96MB") && sideText.includes("under 20MB"));
   check("a readable-count summary still shows alongside", sideText.includes("7 readable"));
 
+  // ---- 8. Loona Brain's per-kind breakdown: which of the three kinds of material this
+  // brand's folder actually holds. A brand missing one isn't ready for a real run, and this
+  // is the only place that's visible BEFORE a run goes ahead and plans a month without it. ----
+  await req("PUT", `${RTDB_URL}/strategy_brand_library/rro.json`, {
+    brandId: "rro", folderId: "abc123", folderName: "RRO Foods",
+    indexedAt: "2026-09-11T06:00:00.000Z", fileCount: 9, textFileCount: 9, truncated: false,
+    categories: [
+      { key: "guidelines", label: "Brand guidelines", fileCount: 2, textFileCount: 2, chars: 9000 },
+      { key: "approved", label: "Approved content", fileCount: 7, textFileCount: 7, chars: 30000 },
+      { key: "performance", label: "Performance reports", fileCount: 0, textFileCount: 0, chars: 0 },
+      { key: "other", label: "Other", fileCount: 0, textFileCount: 0, chars: 0 },
+    ],
+  });
+  await waitFor(async () => (await page.locator("text=Brand guidelines").count()) > 0 || null, { label: "category breakdown renders" });
+  const catText = await page.locator(".st-library-categories").textContent();
+  check("each kind of material is listed with its count", catText.includes("Brand guidelines") && catText.includes("2 files")
+    && catText.includes("Approved content") && catText.includes("7 files"), catText);
+  check("a kind the brand doesn't have yet is called out, not hidden",
+    catText.includes("Performance reports") && catText.includes("none yet"), catText);
+  check("and it says plainly what the agents lose by it",
+    /No performance reports in this folder yet/.test(catText), catText);
+  // "Other" is a budget bucket, not something anyone needs to go and create — listing it as a
+  // missing folder would send people looking for a folder that shouldn't exist.
+  check("the internal 'Other' bucket is not shown as something to go and create",
+    !catText.includes("Other"), catText);
+
   check("no page errors", errors.length === 0, errors);
 
   console.log(allPass ? "\n✅ ALL CHECKS PASSED" : "\n❌ SOME CHECKS FAILED");

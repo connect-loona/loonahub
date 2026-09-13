@@ -12,6 +12,82 @@ const MAX_LIBRARY_CHARS = 80000;
 const CACHE_MS = 6 * 60 * 60 * 1000;
 let tokenCache = null;
 
+// Loona Brain, part one: a brand folder is not a flat pile of files.
+//
+// It has kinds. The brand guidelines say what the brand may never say. The approved content
+// shows what actually shipped and got signed off. The performance reports say what worked.
+// Each answers a different question, and the agents need all three — a month planned without
+// the performance reports is a month planned with no idea what worked last month.
+//
+// The old spend was one shared budget handed out newest-first across the whole folder. That's
+// fine until a brand outgrows it, and then it fails in the worst possible way: a fresh batch
+// of content calendars uploaded this week eats the entire budget, and the performance reports
+// — which nobody has touched since the day they were written, so they sort last — drop out
+// silently. Nothing says so; the agents simply stop knowing.
+//
+// So each kind gets a floor it cannot be pushed below, and whatever a kind doesn't use is
+// pooled and spent newest-first on everything else. A brand with no performance reports wastes
+// none of their share; a brand with plenty never loses them to newer files of another kind.
+const LIBRARY_CATEGORIES = [
+  { key: "guidelines", label: "Brand guidelines", share: 0.3, match: /guideline|brand\s*book|brand\s*bible|identity|tone\s*of\s*voice|style\s*guide/i },
+  { key: "approved", label: "Approved content", share: 0.3, match: /approved|content\s*calendar|calendar|final|published|live\s*post/i },
+  { key: "performance", label: "Performance reports", share: 0.25, match: /performance|report|analytic|insight|metric|result|recap/i },
+  { key: "other", label: "Other", share: 0.15, match: null },
+];
+const OTHER_CATEGORY = "other";
+
+// Which kind a file is, decided by the folders it sits in rather than by the file itself —
+// the folder names are the part the team actually curates, and they're stable in a way file
+// names aren't. Only when no folder in the path says anything does the file's own name get a
+// vote, so a loose "October performance report.pdf" dropped in the brand root still counts as
+// a performance report even though no folder says so.
+function categoryFor(itemPath, fileName) {
+  const folders = String(itemPath || "").split("/").slice(0, -1).join("/");
+  for (const category of LIBRARY_CATEGORIES) {
+    if (category.match && category.match.test(folders)) return category.key;
+  }
+  for (const category of LIBRARY_CATEGORIES) {
+    if (category.match && category.match.test(String(fileName || ""))) return category.key;
+  }
+  return OTHER_CATEGORY;
+}
+
+// Hands out the text budget so every kind keeps its floor, then pools what nobody needed.
+// `read` must already be in the order the library wants to spend in (newest first), because
+// that order is what decides who gets paid first both inside a category and out of the pool.
+// Returns fileId -> how many characters that file may contribute.
+function allocateTextBudget(read, total) {
+  const allowance = new Map();
+  let pool = 0;
+
+  for (const category of LIBRARY_CATEGORIES) {
+    let budget = Math.floor(total * category.share);
+    for (const item of read) {
+      if (budget <= 0) break;
+      if (item.category !== category.key || !item.entry.text) continue;
+      const take = Math.min(budget, MAX_FILE_CHARS, item.entry.text.length);
+      allowance.set(item.file.id, take);
+      budget -= take;
+    }
+    pool += budget; // an unspent floor belongs to everyone, not to the category that didn't need it
+  }
+
+  // Whatever no category needed is spent newest-first across everything still short — both a
+  // file that got nothing at all and a file that got a slice it could usefully grow past.
+  for (const item of read) {
+    if (pool <= 0) break;
+    if (!item.entry.text) continue;
+    const already = allowance.get(item.file.id) || 0;
+    const want = Math.min(MAX_FILE_CHARS, item.entry.text.length) - already;
+    if (want <= 0) continue;
+    const take = Math.min(pool, want);
+    allowance.set(item.file.id, already + take);
+    pool -= take;
+  }
+
+  return allowance;
+}
+
 function credentials() {
   const raw = process.env.GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON;
   if (!raw) throw new Error("GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON is not configured.");
@@ -157,29 +233,50 @@ async function buildLibrary(config, options = {}) {
 
   // Phase 3 — text, from memory wherever the file hasn't changed since it was last read.
   const memory = await loadMemory(config.id);
-  const files = [];
-  let textBudget = MAX_LIBRARY_CHARS;
+  const read = [];
   let reusedCount = 0;
   let readCount = 0;
   for (const { file, itemPath } of found) {
+    const { entry, reused } = await textForFile(config.id, file, memory, deps);
+    if (reused) reusedCount += 1; else readCount += 1;
+    read.push({ file, itemPath, entry, category: categoryFor(itemPath, file.name) });
+  }
+
+  // Phase 4 — spend the budget per kind (see LIBRARY_CATEGORIES), so no kind of file can be
+  // crowded out of the agents' view by a newer batch of another kind.
+  const allowance = allocateTextBudget(read, MAX_LIBRARY_CHARS);
+  const files = read.map(({ file, itemPath, entry, category }) => {
     const item = {
       id: file.id, name: file.name, path: itemPath, mimeType: file.mimeType,
+      category,
       modifiedTime: file.modifiedTime || null, size: file.size || null,
       description: file.description || null,
       url: file.webViewLink || `https://drive.google.com/open?id=${file.id}`,
     };
-    const { entry, reused } = await textForFile(config.id, file, memory, deps);
-    if (reused) reusedCount += 1; else readCount += 1;
-    if (entry.text && textBudget > 0) {
-      item.text = entry.text.slice(0, Math.min(textBudget, MAX_FILE_CHARS));
-      textBudget -= item.text.length;
-    } else if (entry.skipped) {
-      // Carried into the library so the app can say WHICH files the agents aren't seeing,
-      // rather than only how many.
-      item.unread = entry.skipped;
-    }
-    files.push(item);
-  }
+    const take = allowance.get(file.id) || 0;
+    if (entry.text && take > 0) item.text = entry.text.slice(0, take);
+    // Carried into the library so the app can say WHICH files the agents aren't seeing,
+    // rather than only how many — including a file that was read perfectly well and then lost
+    // its place to the budget, which used to disappear without leaving a trace anywhere.
+    else if (entry.skipped) item.unread = entry.skipped;
+    else if (entry.text) item.unread = "Read, but left out of this index — the brand's text budget was already full.";
+    return item;
+  });
+
+  // A file that got less text than it had to give, for any reason other than the per-file
+  // ceiling, is the signal that this brand has outgrown its budget.
+  const starved = read.filter(({ file, entry }) =>
+    entry.text && (allowance.get(file.id) || 0) < Math.min(entry.text.length, MAX_FILE_CHARS)).length;
+  const categories = LIBRARY_CATEGORIES.map((category) => {
+    const mine = read.filter((item) => item.category === category.key);
+    return {
+      key: category.key,
+      label: category.label,
+      fileCount: mine.length,
+      textFileCount: mine.filter(({ file }) => (allowance.get(file.id) || 0) > 0).length,
+      chars: mine.reduce((sum, { file }) => sum + (allowance.get(file.id) || 0), 0),
+    };
+  });
 
   // Forget files that have left the folder, so memory tracks the folder rather than growing
   // forever. Only what's actually gone is dropped — and it's written back, since reporting a
@@ -188,7 +285,7 @@ async function buildLibrary(config, options = {}) {
   if (removed) await saveMemory(config.id, kept);
 
   return {
-    schemaVersion: "1.1", brandId: config.id, folderId: root.id, folderName: root.name,
+    schemaVersion: "1.2", brandId: config.id, folderId: root.id, folderName: root.name,
     folderUrl: config.driveFolderUrl || `https://drive.google.com/drive/folders/${root.id}`,
     indexedAt: new Date().toISOString(), fileCount: files.length,
     textFileCount: files.filter((file) => file.text).length,
@@ -196,7 +293,8 @@ async function buildLibrary(config, options = {}) {
     filesReadThisIndex: readCount,
     filesFromMemory: reusedCount,
     forgottenFiles: removed,
-    truncated: files.length >= 500 || textBudget <= 0,
+    categories,
+    truncated: files.length >= 500 || starved > 0,
     files,
   };
 }
@@ -232,6 +330,9 @@ async function listBrandFolders(fetcher = driveFetch) {
 module.exports = {
   loadBrandLibrary, refreshBrandLibrary, buildLibrary,
   listBrandFolders,
+  // Loona Brain's category layer, exported so the app can label a brand's folders the same
+  // way the indexer budgets them, and so the budgeting can be tested without a Drive.
+  LIBRARY_CATEGORIES, categoryFor, allocateTextBudget,
   // Exported so the discovery endpoint pairs folders to brands using exactly the same slug
   // rule findBrandFolder() matches on — otherwise a brand could show as "not set up" here
   // while the pipeline finds its folder perfectly well.

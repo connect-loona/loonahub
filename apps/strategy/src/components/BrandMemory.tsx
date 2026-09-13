@@ -104,6 +104,10 @@ function DriveLibraryStatus({ brandId }: { brandId?: string }) {
     );
   }
   const unread = library.unreadFiles || [];
+  // The three kinds of material that actually matter, in the order a brand gets set up. "Other"
+  // is left out on purpose — it's a budget bucket, not something anyone needs to go and create.
+  const categories = (library.categories || []).filter((c) => c.key !== "other");
+  const missing = categories.filter((c) => c.fileCount === 0);
   return (
     <>
       <div className="st-memory-value" style={{ color: "var(--green)", fontSize: 12, marginTop: 6 }}>
@@ -111,6 +115,30 @@ function DriveLibraryStatus({ brandId }: { brandId?: string }) {
         {typeof textFileCount === "number" && textFileCount < fileCount ? ` · ${textFileCount} readable` : ""}
         {library.indexedAt ? ` · ${fmtDateTime(library.indexedAt)}` : ""}
       </div>
+      {categories.length > 0 && (
+        // Each kind answers a different question for the agents — the guidelines say what the
+        // brand may never say, the approved content shows what shipped, the performance reports
+        // say what worked. A brand missing one of them isn't ready for a real run, and this is
+        // the only place that's visible before a run goes ahead and plans a month without it.
+        <div className="st-memory-value st-library-categories" style={{ fontSize: 12, marginTop: 6 }}>
+          {categories.map((category) => (
+            <div key={category.key} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "2px 0" }}>
+              <span style={{ color: category.fileCount === 0 ? "var(--muted)" : "inherit" }}>
+                {category.fileCount === 0 ? "○" : "●"} {category.label}
+              </span>
+              <span style={{ color: "var(--muted)", whiteSpace: "nowrap" }}>
+                {category.fileCount === 0 ? "none yet" : `${category.fileCount} file${category.fileCount === 1 ? "" : "s"}`}
+              </span>
+            </div>
+          ))}
+          {missing.length > 0 && (
+            <div style={{ color: "var(--muted)", marginTop: 4 }}>
+              No {missing.map((c) => c.label.toLowerCase()).join(" or ")} in this folder yet — the agents plan without{" "}
+              {missing.length === 1 ? "it" : "them"}.
+            </div>
+          )}
+        </div>
+      )}
       {unread.length > 0 && (
         // Naming them is the point: "3 files unread" tells you there's a problem, but the
         // only way to act on it is knowing which deck is too big to read.
