@@ -41,6 +41,15 @@ async function runFor(month) {
   await req("PUT", `${RTDB_URL}/strategy_brands.json`, {
     rro: { id: "rro", name: "RRO Foods", deliverables: { reel: 6, carousel: 4, static: 3, confirmed: true } },
   });
+  // Hub's own brand roster (useAllHubBrands) is the source of truth for which brands show
+  // up at all — RRO here is both a Hub brand AND has a strategy_brands entry (configured);
+  // "Casa Waters" is a real Hub brand with no strategy_brands entry yet, standing in for
+  // the common case: most brands exist in Hub long before anyone drafts their Strategy OS
+  // setup from Drive.
+  await req("PUT", `${RTDB_URL}/brands.json`, {
+    b1: { brand: "RRO Foods" },
+    b2: { brand: "Casa Waters" },
+  });
 
   const browser = await chromium.launch(chromiumLaunchOptions());
   const context = await browser.newContext({ viewport: { width: 1300, height: 900 } });
@@ -58,6 +67,23 @@ async function runFor(month) {
   await page.locator("button", { hasText: "+ New strategy run" }).click();
   await waitFor(async () => (await page.locator("text=Are you ready to build the strategy in Loona way?").count()) > 0 || null, { label: "intake screen renders" });
   check("Type defaults to Monthly strategy", await page.locator('select[aria-label="Type"]').inputValue() === "monthly");
+
+  // ---- Every Hub brand shows up, configured or not — but only a configured one can
+  // actually start a run. Casa Waters exists in Hub with no strategy_brands entry yet. ----
+  const brandOptions = await page.locator('select[aria-label="Brand"] option').allTextContents();
+  check("every Hub brand is listed, not just configured ones", brandOptions.some((t) => t.includes("RRO Foods")) && brandOptions.some((t) => t.includes("Casa Waters")));
+  check("the unconfigured brand is labeled as not set up yet", brandOptions.some((t) => t === "Casa Waters (not set up yet)"), brandOptions);
+  check("the default selection is the configured brand, not just the first alphabetically", await page.locator('select[aria-label="Brand"]').inputValue() === "rro");
+
+  await page.locator('select[aria-label="Brand"]').selectOption({ label: "Casa Waters (not set up yet)" });
+  await page.locator("button", { hasText: "Continue" }).click();
+  await waitFor(async () => (await page.locator(".st-error-text").count()) > 0 || null, { label: "blocked-brand error shows" });
+  check("picking an unconfigured brand is blocked with a clear reason", (await page.locator(".st-error-text").textContent() || "").includes("hasn't been fully set up in Strategy OS yet"));
+  check("a way to actually fix it is offered right there", await page.locator("button", { hasText: "Set it up in Manage brands" }).count() > 0);
+  check("it did not advance to the details screen", await page.locator("text=Are you ready to build the strategy in Loona way?").count() > 0);
+
+  // Switch back to the real, configured brand and continue with the rest of the test as before.
+  await page.locator('select[aria-label="Brand"]').selectOption({ label: "RRO Foods" });
 
   await page.locator('input[aria-label="Month"]').fill("2026-11");
   await page.locator("button", { hasText: "Continue" }).click();

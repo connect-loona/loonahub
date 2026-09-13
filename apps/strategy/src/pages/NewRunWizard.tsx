@@ -12,7 +12,8 @@
 // already threads into every stage's AI prompt, so "this month's priorities"/"campaign
 // details" reach Research with no new backend plumbing.
 import { useState } from "react";
-import type { DeliverablesCount, StrategyBrand } from "../lib/types";
+import type { DeliverablesCount } from "../lib/types";
+import type { HubBrandOption } from "../lib/useRuns";
 import { startRun } from "../lib/api";
 import { DeliverablesFields, deliverablesToMap, rowsFromDeliverables, type Row } from "../components/DeliverablesFields";
 
@@ -49,18 +50,25 @@ export function NewRunWizard({
   brands,
   onCancel,
   onCreated,
+  onManageBrands,
 }: {
   actor: string;
-  brands: StrategyBrand[];
+  brands: HubBrandOption[];
   onCancel: () => void;
   onCreated: (runId: string) => void;
+  onManageBrands: () => void;
 }) {
   const [step, setStep] = useState<Step>("intake");
-  const [brandId, setBrandId] = useState(brands[0]?.id || "");
+  // Default to the first CONFIGURED brand, not just the first in the (alphabetical, mixed)
+  // list — most of the time that's the one someone actually means to pick, since an
+  // unconfigured brand can't start a run yet anyway. Falls back to the first brand overall
+  // only when nothing is configured at all.
+  const defaultBrand = brands.find((b) => b.configured) || brands[0];
+  const [brandId, setBrandId] = useState(defaultBrand?.id || "");
   const [runType, setRunType] = useState<RunType>("monthly");
   const [month, setMonth] = useState(defaultMonth());
 
-  const [deliverableRows, setDeliverableRows] = useState<Row[]>(() => rowsFromDeliverables(brands[0]?.deliverables as DeliverablesCount | undefined));
+  const [deliverableRows, setDeliverableRows] = useState<Row[]>(() => rowsFromDeliverables(defaultBrand?.deliverables as DeliverablesCount | undefined));
   const [notes, setNotes] = useState("");
 
   // Model preferences. `runtime` is the whole run's default; `stageRuntimes` overrides it
@@ -77,6 +85,10 @@ export function NewRunWizard({
   function handleContinue() {
     if (!brandId) { setError("Pick a brand."); return; }
     if (!month) { setError("Pick a month."); return; }
+    if (!selectedBrand?.configured) {
+      setError(`${selectedBrand?.name || "This brand"} hasn't been fully set up in Strategy OS yet — it needs a Drive folder and a reviewed brand config before a run can start.`);
+      return;
+    }
     setError(null);
     // Re-seed the deliverables editor from the brand's stored config every time this
     // screen is reached — matches "show the current deliverables that we set as
@@ -135,7 +147,7 @@ export function NewRunWizard({
 
         <div className="st-board" style={{ marginTop: 0 }}>
           {brands.length === 0 ? (
-            <div className="st-note">No brands configured yet — add one from Manage brands first.</div>
+            <div className="st-note">No active brands in Hub yet — add one there first.</div>
           ) : (
             <>
               <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
@@ -143,7 +155,7 @@ export function NewRunWizard({
                   <label className="st-field-label">Brand</label>
                   <select className="st-form-control" aria-label="Brand" value={brandId} onChange={(e) => setBrandId(e.target.value)}>
                     {brands.map((b) => (
-                      <option key={b.id} value={b.id}>{b.name}</option>
+                      <option key={b.id} value={b.id}>{b.name}{b.configured ? "" : " (not set up yet)"}</option>
                     ))}
                   </select>
                 </div>
@@ -160,7 +172,14 @@ export function NewRunWizard({
                 </div>
               </div>
 
-              {error && <div className="st-error-text">{error}</div>}
+              {error && (
+                <div className="st-error-text" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <span>{error}</span>
+                  {!selectedBrand?.configured && brandId && (
+                    <button type="button" className="st-btn st-btn-ghost st-btn-sm" onClick={onManageBrands}>Set it up in Manage brands</button>
+                  )}
+                </div>
+              )}
 
               <div style={{ display: "flex", gap: 8 }}>
                 <button className="st-btn st-btn-ghost" style={{ flex: 1 }} onClick={onCancel}>Cancel</button>

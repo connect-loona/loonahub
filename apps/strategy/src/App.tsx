@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { onAuthChange, type CurrentUser } from "./lib/firebase";
-import { useBrands } from "./lib/useRuns";
+import { useAllHubBrands, useBrands } from "./lib/useRuns";
 import type { StrategyBrand } from "./lib/types";
 import { RunList } from "./pages/RunList";
 import { RunDetail } from "./pages/RunDetail";
@@ -29,6 +29,7 @@ export default function App() {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [view, setView] = useState<View>({ kind: "runs" });
   const { brands } = useBrands();
+  const { brands: allBrands } = useAllHubBrands();
 
   useEffect(() => {
     // Confirmed live on a real deploy (the Step 1 auth spike): a session the legacy
@@ -67,9 +68,10 @@ export default function App() {
     body = (
       <NewRunWizard
         actor={actor}
-        brands={brands}
+        brands={allBrands}
         onCancel={() => setView({ kind: "runs" })}
         onCreated={(runId) => setView({ kind: "run", runId })}
+        onManageBrands={() => setView({ kind: "brands" })}
       />
     );
   } else if (view.kind === "brands") {
