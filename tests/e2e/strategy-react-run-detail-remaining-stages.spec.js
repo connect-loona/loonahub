@@ -50,6 +50,18 @@ async function backToList(page) {
           arguments: [{ disagreement: "Is fresh better than filtered?", sideA: "Fresh always wins", sideB: "Filtered is safer", credibleBrandPosition: "Filtered, done right", credibilityReason: "Matches our process" }],
           unspokenBehaviours: [{ behaviour: "People reuse oil past its prime", hiddenTension: "Guilt about waste" }],
           exhaustedTerritory: [{ territory: "Generic health claims", reasonExhausted: "Overused by every competitor" }],
+          // The four sections that used to be generated, validated and fed into Strategy's
+          // prompt while rendering nowhere at all on this screen.
+          whitespace: [{ id: "W1", opening: "Nobody talks about the smoke point", brandRightToSpeak: "We publish ours", sourceIds: ["S1"] }],
+          calendar: [
+            { id: "C1", date: "2026-11-12", moment: "Diwali", relevance: "Peak gifting", confidence: "verified", sourceIds: ["S1"] },
+            { id: "C2", date: "2026-11-25", moment: "Regional harvest fair", relevance: "Maybe local only", confidence: "tentative", sourceIds: ["S1"] },
+          ],
+          verifiedFacts: [
+            { fact: "Groundnut oil smoke point is 230C", sourceIds: ["S1"], usableInCopy: true },
+            { fact: "Category grew 8% last year", sourceIds: ["S1"], usableInCopy: false },
+          ],
+          unknowns: ["Whether the 8% growth figure covers rural distribution"],
         },
       },
     },
@@ -164,6 +176,30 @@ async function backToList(page) {
   check("research: category argument renders", mainText.includes("Is fresh better than filtered?"));
   check("research: unspoken behaviour renders", mainText.includes("People reuse oil past its prime"));
   check("research: kill list renders", mainText.includes("Generic health claims"));
+
+  // ---- The four sections that used to be generated and then shown to nobody. Approving
+  // research without seeing these meant approving openings, dates and claims sight-unseen —
+  // and never seeing the one section that says what the research could NOT establish. ----
+  check("research: openings nobody has taken renders", mainText.includes("Nobody talks about the smoke point"), mainText.slice(0, 300));
+  check("research: the brand's right to speak is shown with it", mainText.includes("We publish ours"));
+  check("research: dates worth planning around render", mainText.includes("Diwali") && mainText.includes("2026-11-12"));
+  check("research: facts cleared for copy render", mainText.includes("Groundnut oil smoke point is 230C"));
+  check("research: what research couldn't confirm renders", mainText.includes("Whether the 8% growth figure covers rural distribution"));
+
+  // A guess must not look like a fact. A reviewer who can't tell them apart will plan a launch
+  // around a date the model was never sure about.
+  check("research: a verified date is labelled differently from a tentative one",
+    mainText.includes("confirmed") && mainText.includes("needs checking"), mainText.slice(0, 400));
+  check("research: a fact not cleared for copy is labelled background only",
+    mainText.includes("safe to use in copy") && mainText.includes("background only"));
+
+  // ---- Plain English, not the schema's internal names. A reviewer who doesn't know what
+  // "exhausted territory" or "whitespace" means cannot tell whether the section is any good. ----
+  check("research: sections are named in plain English, not schema jargon",
+    mainText.includes("Openings nobody has taken") && mainText.includes("What people do but don't talk about")
+    && mainText.includes("What research couldn't confirm"), mainText.slice(0, 400));
+  check("research: the old jargon headings are gone",
+    !mainText.includes("Unspoken behaviours") && !mainText.includes("Exhausted territory (kill list)"), mainText.slice(0, 400));
   await backToList(page);
 
   // ---- Copy review ----

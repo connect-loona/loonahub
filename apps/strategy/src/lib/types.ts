@@ -204,14 +204,32 @@ export interface StageMetrics {
 // ---- Research checkpoint (see strategy-app.js's researchReviewHtml) ----
 export interface ResearchSource { id: string; url: string; type: string }
 export interface LiveQuestion { verbatim: string; underlyingNeed: string; sourceIds: string[] }
-export interface CategoryArgument { disagreement: string; sideA: string; sideB: string; credibleBrandPosition: string; credibilityReason: string }
-export interface UnspokenBehaviour { behaviour: string; hiddenTension: string }
-export interface ExhaustedTerritory { territory: string; reasonExhausted: string }
+// sourceIds is required on all three by ResearchSchema (contracts.js) — it was simply missing
+// from these types, so the review screen had no way to cite where any of them came from.
+export interface CategoryArgument { disagreement: string; sideA: string; sideB: string; credibleBrandPosition: string; credibilityReason: string; sourceIds?: string[] }
+export interface UnspokenBehaviour { behaviour: string; hiddenTension: string; sourceIds?: string[] }
+export interface ExhaustedTerritory { territory: string; reasonExhausted: string; sourceIds?: string[] }
+// Every one of these is generated, validated against ResearchSchema and fed into Strategy's
+// prompt. The last four used to be invisible on the review screen — so the team approved
+// research without ever seeing the openings it found, the dates it expects us to plan around,
+// the facts it cleared for use in copy, or the things it admits it could not establish.
+export interface Whitespace { id: string; opening: string; brandRightToSpeak: string; sourceIds: string[] }
+export interface CalendarMoment {
+  id: string; date: string; moment: string; relevance: string;
+  confidence: "verified" | "tentative" | "irrelevant";
+  sourceIds: string[];
+}
+export interface VerifiedFact { fact: string; sourceIds: string[]; usableInCopy: boolean }
+
 export interface ResearchCheckpoint {
   liveQuestions?: LiveQuestion[];
   arguments?: CategoryArgument[];
   unspokenBehaviours?: UnspokenBehaviour[];
   exhaustedTerritory?: ExhaustedTerritory[];
+  whitespace?: Whitespace[];
+  calendar?: CalendarMoment[];
+  verifiedFacts?: VerifiedFact[];
+  unknowns?: string[];
   sources?: ResearchSource[];
 }
 
