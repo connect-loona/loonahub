@@ -130,6 +130,16 @@ button { cursor: pointer; }
 .vs-rule-list li { margin-bottom: 7px; font-size: 12px; }
 .vs-rule-list li span { display: block; color: var(--muted); font-size: 10.5px; }
 
+/* ---- 🧠 Mani, inside the studio ---- */
+.vs-mani { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.vs-mani-input { width: 100%; margin-top: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--page); font: inherit; font-size: 12px; resize: vertical; }
+.vs-mani-ask { margin-top: 6px; padding: 6px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--page); font-size: 12px; font-weight: 600; }
+.vs-mani-ask:disabled { opacity: .5; cursor: not-allowed; }
+.vs-mani-answer { margin-top: 10px; padding: 9px 10px; border-radius: 8px; background: var(--page); border: 1px solid var(--line); font-size: 12px; line-height: 1.5; white-space: pre-wrap; }
+/* A gap is not an answer, and must never be mistaken for one at a glance. */
+.vs-mani-gap { margin-top: 10px; padding: 9px 10px; border-radius: 8px; border: 1px dashed var(--line); color: var(--muted); font-size: 12px; line-height: 1.5; }
+.vs-mani-error { margin-top: 8px; color: #b42318; font-size: 12px; }
+
 .vs-muted { color: var(--muted); }
 .vs-muted-sm { font-size: 12px; }
 

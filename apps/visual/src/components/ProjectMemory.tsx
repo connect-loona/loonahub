@@ -7,7 +7,75 @@
 //
 // What IS here is counted from the rounds on screen. Every number below is derived from real
 // records, and the panel says plainly that a human does the judging.
+import { useState } from "react";
+import { askMani } from "../lib/api";
 import type { Generation, VisualBrand } from "../lib/types";
+
+// 🧠 Mani, in the room where the work is being made.
+//
+// He is already in Hub and in Strategy OS. Putting him here is not a third Mani — it is the
+// same endpoint and the same composed memory. What changes is that the question can be asked
+// at the moment it actually occurs to somebody: halfway through a chat, before typing the next
+// prompt, when the useful question is "have we already tried this for them?"
+//
+// And the memory he reads includes THIS: every round generated in Visual Studio, who wrote the
+// prompt, and which take was chosen (see visual-memory.js). So the studio is not just a place
+// to ask him from — it is one of the things he knows about.
+//
+// The answer that matters most is the one that says nothing is recorded. Mani refuses to guess
+// (see mani.js), and that refusal is rendered as a legitimate answer rather than an error,
+// because a confident invention about a client is the outcome worth engineering against.
+function AskMani({ brand }: { brand: VisualBrand }) {
+  const [question, setQuestion] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [answer, setAnswer] = useState<string | null>(null);
+  const [gap, setGap] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit() {
+    const asked = question.trim();
+    if (!asked || busy) return;
+    setBusy(true);
+    setAnswer(null);
+    setGap(null);
+    setError(null);
+    try {
+      const result = await askMani({ brandId: brand.id, question: asked });
+      if (result.nothingRecorded) setGap(result.detail || "Nothing in this brand's memory answers that.");
+      else setAnswer(result.answer || null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="vs-mani">
+      <p className="vs-section-label">🧠 Ask Mani</p>
+      <p className="vs-muted vs-muted-sm">
+        Everything Loona has recorded about {brand.name} — including every round made here, and who made it.
+        He answers from that only, and says so when it doesn&apos;t cover your question.
+      </p>
+      <textarea
+        className="vs-mani-input"
+        value={question}
+        onChange={(e) => setQuestion(e.target.value)}
+        placeholder="Have we shot this angle before? What did they reject last time?"
+        rows={2}
+        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submit(); } }}
+      />
+      <button type="button" className="vs-mani-ask" disabled={busy || !question.trim()} onClick={() => void submit()}>
+        {busy ? "Remembering…" : "Ask"}
+      </button>
+      {answer && <div className="vs-mani-answer">{answer}</div>}
+      {/* Deliberately styled apart from an answer: an empty result must never read like a
+          finding somebody could act on. */}
+      {gap && <div className="vs-mani-gap">Nothing recorded. {gap}</div>}
+      {error && <div className="vs-mani-error">{error}</div>}
+    </div>
+  );
+}
 
 export function ProjectMemory({ brand, generations }: { brand: VisualBrand | null; generations: Generation[] }) {
   if (!brand) return <aside className="vs-memory" />;
@@ -51,6 +119,8 @@ export function ProjectMemory({ brand, generations }: { brand: VisualBrand | nul
       ) : (
         <p className="vs-muted vs-muted-sm">Nothing generated in this chat yet.</p>
       )}
+
+      <AskMani brand={brand} />
 
       <p className="vs-section-label">Review</p>
       {/* Said plainly, because the alternative — a fabricated pass/fail — is the one thing

@@ -245,6 +245,31 @@ const HOUR = 60 * 60 * 1000;
   check("and not the previous brand's", !casaChats.some((t) => /Royal Indian Table/.test(t)), casaChats);
   check("the thread resets rather than showing the last brand's work", (await page.locator(".vs-round").count()) === 0);
 
+  // ---- 🧠 Mani, asked from inside the studio ----
+  // He is in Hub and in Strategy OS already; this is the third place, and the one where the
+  // question actually occurs to somebody — mid-chat, before typing the next prompt.
+  //
+  // Casa Waters is deliberately the brand under test here: nothing has been scanned, no tasks,
+  // no rounds. So the honest answer is "nothing recorded", it needs no model call, and the
+  // check is exact rather than dependent on an API key.
+  check("Mani can be asked from Visual Studio", (await page.locator(".vs-mani-input").count()) === 1,
+    await page.locator(".vs-mani-input").count());
+  check("and it says the studio's own rounds are part of what he reads",
+    /including every round made here/.test(await page.locator(".vs-mani").textContent()),
+    (await page.locator(".vs-mani").textContent()).slice(0, 200));
+
+  await page.locator(".vs-mani-input").fill("Have we shot their villas at blue hour before?");
+  await page.locator(".vs-mani-ask").click();
+  await waitFor(async () => (await page.locator(".vs-mani-gap, .vs-mani-answer").count()) > 0 || null,
+    { label: "Mani answers" });
+  // The whole point of the feature: an empty memory is reported as empty, visibly distinct
+  // from an answer, rather than filled in with something plausible about a real client.
+  check("a brand with nothing recorded gets an honest gap, not an invention",
+    (await page.locator(".vs-mani-gap").count()) === 1 && (await page.locator(".vs-mani-answer").count()) === 0,
+    { gap: await page.locator(".vs-mani-gap").count(), answer: await page.locator(".vs-mani-answer").count() });
+  const gapText = await page.locator(".vs-mani-gap").textContent();
+  check("and says what would make the answer exist", /Scan its Drive folder/.test(gapText), gapText);
+
   check("no page errors", errors.length === 0, errors);
 
   console.log(allPass ? "\n✅ ALL CHECKS PASSED" : "\n❌ SOME CHECKS FAILED");
