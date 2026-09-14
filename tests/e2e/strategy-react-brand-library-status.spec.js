@@ -159,6 +159,18 @@ function seedRun(runId) {
   check("the internal 'Other' bucket is not shown as something to go and create",
     !catText.includes("Other"), catText);
 
+  // ---- 9. 🧠 Mani is reachable from where somebody is already looking at the brand ----
+  // Before this, everything Loona remembered could only leave one way: as a fixed block pushed
+  // into a stage prompt. "Have we tried this angle for RRO?" had nowhere to be typed.
+  check("Mani can be asked about this brand", (await page.locator(".st-mani").count()) === 1, await page.locator(".st-mani").count());
+  const maniText = await page.locator(".st-mani").textContent();
+  check("he is named", /Ask Mani/.test(maniText), maniText.slice(0, 120));
+  // The promise that makes him safe to trust has to be visible, not just in the prompt.
+  check("and says up front that he only answers from what's recorded",
+    /answers from that only/.test(maniText), maniText);
+  check("asking is disabled until there's a question",
+    await page.locator(".st-mani button").isDisabled());
+
   check("no page errors", errors.length === 0, errors);
 
   console.log(allPass ? "\n✅ ALL CHECKS PASSED" : "\n❌ SOME CHECKS FAILED");

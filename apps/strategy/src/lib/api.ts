@@ -48,6 +48,19 @@ export function scanBrandLibrary(args: { brandId: string; actor: string }): Prom
   return post("strategy-brand-library-scan", args) as Promise<{ ok: true; brandId: string }>;
 }
 
+// Asking 🧠 Mani about a brand. `nothingRecorded` is a real answer rather than a failure —
+// see lib/strategy/mani.js for why an honest gap beats a confident guess.
+export function askMani(args: { brandId: string; question: string }): Promise<{
+  answer?: string | null;
+  grounded?: boolean;
+  nothingRecorded?: boolean;
+  detail?: string;
+}> {
+  return post("strategy-mani-ask", args) as Promise<{
+    answer?: string | null; grounded?: boolean; nothingRecorded?: boolean; detail?: string;
+  }>;
+}
+
 // The brand folders sitting in Drive, and whether each already has a brand in Hub. The Drive
 // folder is where a new client actually starts, so this is what "which brands exist?" should
 // be answered from.
