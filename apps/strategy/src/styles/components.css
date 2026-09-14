@@ -785,3 +785,11 @@ body {
     align-items: center;
   }
 }
+
+/* 🧠 Mani — asking the brand's memory a question, where somebody is already looking at the
+   brand. The "nothing recorded" state is styled deliberately unlike an answer: an empty
+   result must never read like a finding somebody could paste into a brief. */
+.st-mani { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+.st-mani-input { width: 100%; padding: 7px 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel, #fff); color: inherit; font: inherit; font-size: 12px; resize: vertical; }
+.st-mani-answer { margin-top: 8px; padding: 9px 11px; border-radius: 9px; background: var(--soft, rgba(127,127,127,.08)); font-size: 12.5px; white-space: pre-wrap; }
+.st-mani-gap { margin-top: 8px; padding: 9px 11px; border: 1px dashed var(--border); border-radius: 9px; color: var(--muted); font-size: 12px; }

@@ -224,6 +224,50 @@ function renderAgentAnatomy(agent) {
   ].join("\n\n");
 }
 
+
+// Mani is a SUPPORT agent, not a pipeline stage, and that distinction is load-bearing.
+//
+// The five stage agents each own one step of a run and hand work to the next. Mani owns none
+// of them. He is the one who remembers every month before this one, and he is asked rather
+// than run — by a person wanting to know what a brand has already tried, and by the stage
+// agents wanting to know it before they repeat it.
+//
+// So he is deliberately absent from STAGE_ORDER: he has no stage to fail, no checkpoint to
+// approve, and nothing downstream waits on him. A run whose memory lookup errors is a run with
+// less context, not a broken run.
+const SUPPORT_AGENTS = {
+  brain: {
+    id: "brain",
+    name: "Mani",
+    displayName: "🧠 Mani — Brand memory",
+    role: "Brand memory",
+    soulKey: "BRAIN_SOUL",
+    objective: "Answer questions about a brand from everything Loona has actually accumulated about it — guidelines, work that shipped, how it performed, what the team is doing now, and the visual direction real people chose — and say plainly when the memory does not answer.",
+    inputs: [
+      "The brand's distilled Drive material: guidelines, approved content, performance reports.",
+      "The live task board for that brand: who is working on what, and what is overdue.",
+      "Visual Studio's record of prompts written and takes chosen.",
+    ],
+    memory: [
+      "Everything above IS the memory. Mani holds no other knowledge of the brand.",
+    ],
+    tools: [],
+    guardrails: [
+      "Answer only from the brand memory provided; never from general knowledge of the brand or its category.",
+      "Say plainly when the memory does not answer the question rather than inferring an answer.",
+      "Never present a gap as a finding: 'no report mentions this' is not 'this performed fine'.",
+      "Attribute each claim to the kind of material it came from, and when.",
+      "Separate what was measured from what was claimed, and one month's result from a durable pattern.",
+      "Treat a human's recorded pick as stronger evidence than a guideline's stated intention.",
+    ],
+    qualityChecks: ["grounded-in-memory", "gaps-declared", "attributed", "specific"],
+  },
+};
+
+function supportAgent(id) {
+  return SUPPORT_AGENTS[id] || null;
+}
+
 function assertCompleteRegistry() {
   const missing = [];
   for (const stage of STAGE_ORDER) {
@@ -237,10 +281,24 @@ function assertCompleteRegistry() {
       if (!agent || !Array.isArray(agent[key])) missing.push(`${stage}: ${key} must be an array`);
     }
   }
+  // Support agents are held to the same bar, minus the stage-only fields they have no
+  // business carrying (a stage, a prompt file, a checkpoint to produce).
+  for (const [id, agent] of Object.entries(SUPPORT_AGENTS)) {
+    for (const key of ["id", "name", "displayName", "role", "soulKey", "objective"]) {
+      if (!agent[key]) missing.push(`${id}: missing ${key}`);
+    }
+    for (const key of ["inputs", "memory", "tools", "guardrails", "qualityChecks"]) {
+      if (!Array.isArray(agent[key])) missing.push(`${id}: ${key} must be an array`);
+    }
+    if (STAGE_ORDER.includes(id)) missing.push(`${id}: a support agent must not also be a stage`);
+  }
   if (missing.length) throw new Error(`Incomplete Strategy OS agent registry:\n${missing.join("\n")}`);
   return true;
 }
 
 assertCompleteRegistry();
 
-module.exports = { STAGE_ORDER, AGENT_REGISTRY, agentForStage, agentForPrompt, renderAgentAnatomy, assertCompleteRegistry };
+module.exports = {
+  STAGE_ORDER, AGENT_REGISTRY, SUPPORT_AGENTS, supportAgent,
+  agentForStage, agentForPrompt, renderAgentAnatomy, assertCompleteRegistry,
+};

@@ -2,7 +2,7 @@
 // decorated run-detail workspace that's actually live on Hub today.
 import { useState } from "react";
 import { useBrandLibrary } from "../lib/useRuns";
-import { scanBrandLibrary } from "../lib/api";
+import { scanBrandLibrary, askMani } from "../lib/api";
 import type { StrategyBrand } from "../lib/types";
 import { fmtDateTime } from "../lib/format";
 
@@ -44,6 +44,68 @@ function ScanButton({ brandId, scanning }: { brandId: string; scanning: boolean 
       </button>
       {error && <div className="st-error-text" style={{ fontSize: 12, marginTop: 4 }}>{error}</div>}
     </>
+  );
+}
+
+
+// 🧠 Mani — the brand memory agent, where somebody is already looking at the brand.
+//
+// Before this, everything Loona remembered could only leave the building one way: as a fixed
+// block pushed into a stage prompt. Nobody could ask it anything. "Have we tried this angle
+// for RRO?" had nowhere to be typed.
+//
+// The answer that matters most here is the one that says nothing is recorded. Mani is built to
+// refuse to guess (see mani.js), and this shows that refusal as a legitimate answer rather
+// than an error — because a confident invention about a client is the one outcome worth
+// engineering against.
+function AskMani({ brandId }: { brandId: string }) {
+  const [question, setQuestion] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [answer, setAnswer] = useState<string | null>(null);
+  const [gap, setGap] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit() {
+    const asked = question.trim();
+    if (!asked || busy) return;
+    setBusy(true);
+    setAnswer(null);
+    setGap(null);
+    setError(null);
+    try {
+      const result = await askMani({ brandId, question: asked });
+      if (result.nothingRecorded) setGap(result.detail || "Nothing in this brand's memory answers that.");
+      else setAnswer(result.answer || null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="st-mani">
+      <div className="st-memory-label">🧠 Ask Mani</div>
+      <div className="st-memory-value" style={{ color: "var(--muted)", fontSize: 11, marginBottom: 6 }}>
+        Everything Loona has recorded about this brand. He answers from that only, and says so when it doesn&apos;t cover your question.
+      </div>
+      <textarea
+        className="st-mani-input"
+        value={question}
+        onChange={(e) => setQuestion(e.target.value)}
+        placeholder="Have we tried this angle before? What worked on reels?"
+        rows={2}
+        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submit(); } }}
+      />
+      <button className="st-btn st-btn-ghost st-btn-sm" style={{ marginTop: 6 }} disabled={busy || !question.trim()} onClick={submit}>
+        {busy ? "Remembering…" : "Ask"}
+      </button>
+      {answer && <div className="st-mani-answer">{answer}</div>}
+      {/* Shown differently from an answer on purpose: an empty result must never read like a
+          finding somebody could paste into a brief. */}
+      {gap && <div className="st-mani-gap">Nothing recorded. {gap}</div>}
+      {error && <div className="st-error-text" style={{ fontSize: 12, marginTop: 6 }}>{error}</div>}
+    </div>
   );
 }
 
@@ -196,6 +258,7 @@ export function BrandMemory({ brand }: { brand: StrategyBrand | undefined }) {
         <div className="st-memory-value" style={{ color: "var(--muted)" }}>Add final decks, designs and videos in Manage brands.</div>
       )}
       <DriveLibraryStatus brandId={b.id} />
+      {b.id && <AskMani brandId={b.id} />}
       {b.driveFolderUrl && (
         <a className="st-btn st-btn-ghost" href={b.driveFolderUrl} target="_blank" rel="noopener noreferrer" style={{ marginTop: 14, width: "100%", textAlign: "center", display: "block", textDecoration: "none" }}>
           Open brand folder
