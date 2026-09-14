@@ -81,6 +81,23 @@ async function touchChat(chatId, { titleIfUnset } = {}) {
   return updated;
 }
 
+// Renaming a chat. Only the title moves: the brand a chat belongs to is decided once, at
+// creation, and nothing here may touch it — a rename that could also reassign the brand would
+// be the same cross-client hole this file exists to close.
+async function renameChat(chatId, title) {
+  const clean = String(title || "").replace(/\s+/g, " ").trim();
+  if (!clean) throw new Error("A chat needs a name.");
+  const chat = await fbGet(chatPath(chatId));
+  if (!chat) {
+    const error = new Error(`No visual chat ${chatId}.`);
+    error.notFound = true;
+    throw error;
+  }
+  const updated = Object.assign({}, chat, { title: clean.slice(0, MAX_TITLE_CHARS) });
+  await fbSet(chatPath(chatId), updated);
+  return updated;
+}
+
 // A brand's chats, newest activity first. Filtered server-side by the brandId stored on each
 // chat — same rule as everywhere else in this file.
 async function listChatsForBrand(brandId) {
@@ -93,6 +110,6 @@ async function listChatsForBrand(brandId) {
 }
 
 module.exports = {
-  createChat, resolveChat, touchChat, listChatsForBrand, titleFromPrompt, chatPath,
+  createChat, resolveChat, touchChat, renameChat, listChatsForBrand, titleFromPrompt, chatPath,
   MAX_TITLE_CHARS,
 };

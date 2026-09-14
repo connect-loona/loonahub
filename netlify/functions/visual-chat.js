@@ -15,7 +15,7 @@
 // visual-chats.js's header for why that matters.
 "use strict";
 const { checkAuthorization } = require("./lib/strategy/auth");
-const { createChat, resolveChat, listChatsForBrand } = require("./lib/strategy/visual-chats");
+const { createChat, resolveChat, renameChat, listChatsForBrand } = require("./lib/strategy/visual-chats");
 const { loadVisualHistory } = require("./lib/strategy/visual-memory");
 const { hubBrandExists } = require("./lib/strategy/hub-brands");
 
@@ -56,6 +56,19 @@ exports.handler = async (event) => {
     return ok({ id, chat: Object.assign({ id }, record) });
   }
 
+  if (action === "rename") {
+    const chatId = String(body.chatId || "").trim();
+    if (!chatId) return fail(400, "A chatId is required.");
+    // Only the title changes. The chat's brand was decided at creation and stays there —
+    // a rename must never be a way to move a chat between clients.
+    try {
+      return ok({ ok: true, chat: Object.assign({ id: chatId }, await renameChat(chatId, body.title)) });
+    } catch (error) {
+      if (error.notFound) return fail(404, error.message);
+      return fail(400, error.message);
+    }
+  }
+
   if (action === "history") {
     const chatId = String(body.chatId || "").trim();
     if (!chatId) return fail(400, "A chatId is required.");
@@ -69,5 +82,5 @@ exports.handler = async (event) => {
     return ok({ chat: Object.assign({ id: chatId }, chat), generations });
   }
 
-  return fail(400, 'action must be one of "create", "list" or "history".');
+  return fail(400, 'action must be one of "create", "list", "rename" or "history".');
 };

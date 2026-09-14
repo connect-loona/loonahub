@@ -27,8 +27,11 @@ const HOUR = 60 * 60 * 1000;
   await req("PUT", `${RTDB_URL}/strategy_visual.json`, null);
 
   // Brands come from Hub's own node — the prototypes hardcoded four, this reads the real one.
+  // Hub stores a logo per brand (index.html's brand cards render b.logo, falling back to a
+  // coloured dot). Seed one brand with a logo and one without, so both paths are exercised.
+  const TINY_PNG = "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
   await req("PUT", `${RTDB_URL}/brands.json`, {
-    b1: { brand: "RRO Foods" },
+    b1: { brand: "RRO Foods", logo: TINY_PNG },
     b2: { brand: "Casa Waters" },
     b3: { brand: "Retired Brand", inactive: true },
   });
@@ -88,6 +91,19 @@ const HOUR = 60 * 60 * 1000;
   // real click rather than an assumption about which one happens to be first.
   await page.locator(".vs-project", { hasText: "RRO Foods" }).click();
 
+  // ---- Loona's real logo, and each brand's own ----
+  check("the real Loona logo is shown, not a drawn placeholder",
+    (await page.locator(".vs-logo img").count()) === 1, await page.locator(".vs-logo img").count());
+  check("a brand with a logo in Hub shows it",
+    (await page.locator(".vs-project-logo").count()) === 1, await page.locator(".vs-project-logo").count());
+  check("a brand with no logo yet falls back to an initial rather than a broken image",
+    (await page.locator(".vs-project-icon").count()) >= 1, await page.locator(".vs-project-icon").count());
+
+  // ---- The app is light, regardless of the device's dark mode ----
+  // Hub and Strategy OS are both light; a dark studio beside them reads as a different product.
+  const bodyBg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  check("the background is white", bodyBg === "rgb(255, 255, 255)", bodyBg);
+
   // ---- Chats live inside the brand, and only that brand's chats ----
   await waitFor(async () => {
     const titles = await page.locator(".vs-chatlink").allTextContents();
@@ -144,6 +160,37 @@ const HOUR = 60 * 60 * 1000;
   // never appear here.
   check("no fabricated QC verdict anywhere on the page",
     !/checks passed/i.test(await page.locator("body").textContent()), memoryText.slice(0, 300));
+
+  // ---- Renaming a chat ----
+  // The screenshot that prompted this had three "Untitled visual chat · Empty" rows, so both
+  // halves matter: a chat can be named, and an unused one is never created in the first place.
+  await page.locator(".vs-chatrow", { hasText: "Royal Indian Table" }).locator(".vs-chatrename-btn").click();
+  await waitFor(async () => (await page.locator(".vs-chatrename").count()) === 1 || null, { label: "rename field opens" });
+  await page.locator(".vs-chatrename").fill("Royal table, take 2");
+  await page.locator(".vs-chatrename").press("Enter");
+  await waitFor(async () => {
+    const titles = await page.locator(".vs-chatlink").allTextContents();
+    return titles.some((t) => /Royal table, take 2/.test(t)) ? true : null;
+  }, { label: "rename lands in the sidebar" });
+  const renamedChat = (await req("GET", `${RTDB_URL}/visual_chats/chat-rro-1.json`)).body;
+  check("the new name is persisted", renamedChat.title === "Royal table, take 2", renamedChat.title);
+  check("renaming does not move the chat to another brand", renamedChat.brandId === "rro-foods", renamedChat.brandId);
+
+  // Escape abandons the edit rather than saving a half-typed name.
+  await page.locator(".vs-chatrow", { hasText: "Royal table, take 2" }).locator(".vs-chatrename-btn").click();
+  await page.locator(".vs-chatrename").fill("half-typed");
+  await page.locator(".vs-chatrename").press("Escape");
+  const afterEscape = (await req("GET", `${RTDB_URL}/visual_chats/chat-rro-1.json`)).body;
+  check("escaping a rename leaves the old name alone", afterEscape.title === "Royal table, take 2", afterEscape.title);
+
+  // "+ New visual chat" must not write an empty chat — that is what left three unused
+  // "Untitled visual chat" rows in the sidebar.
+  const before = Object.keys((await req("GET", `${RTDB_URL}/visual_chats.json`)).body || {}).length;
+  await page.locator(".vs-newchat").click();
+  await page.locator(".vs-newchat").click();
+  const after = Object.keys((await req("GET", `${RTDB_URL}/visual_chats.json`)).body || {}).length;
+  check("starting a new chat creates nothing until something is actually sent",
+    after === before, { before, after });
 
   // ---- Switching brand switches the project ----
   await page.locator(".vs-project", { hasText: "Casa Waters" }).click();

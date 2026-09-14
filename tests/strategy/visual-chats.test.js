@@ -18,7 +18,7 @@ const path = require("path");
 const { HUB, RTDB_URL, req, check, finish } = require("../harness/shared");
 const { fbGet, fbSet } = require(path.join(HUB, "netlify/functions/lib/strategy/firebase"));
 const {
-  createChat, resolveChat, touchChat, listChatsForBrand, titleFromPrompt,
+  createChat, resolveChat, touchChat, renameChat, listChatsForBrand, titleFromPrompt,
 } = require(path.join(HUB, "netlify/functions/lib/strategy/visual-chats"));
 const {
   buildRulePreamble, applyRules, brandRuleLinesFrom, selectStandardRules, STANDARD_RULES,
@@ -91,6 +91,25 @@ const json = (res) => JSON.parse(res.body);
   await touchChat(rroChat, { titleIfUnset: "Should not rename" });
   check("a chat that already has a name keeps it", (await resolveChat(rroChat)).title === "Royal Indian Table");
   check("activity is counted", (await resolveChat(rroChat)).generationCount >= 1, (await resolveChat(rroChat)).generationCount);
+
+  // ---- Renaming ----
+  await renameChat(untitled, "  Marine   Drive  picnic, v2  ");
+  check("a renamed chat keeps the new name, whitespace tidied",
+    (await resolveChat(untitled)).title === "Marine Drive picnic, v2", (await resolveChat(untitled)).title);
+  // A rename must move ONLY the title. If it could also reassign the brand it would reopen
+  // exactly the cross-client hole the chat/brand binding exists to close.
+  check("renaming cannot move a chat to another brand",
+    (await resolveChat(untitled)).brandId === "rro-foods", (await resolveChat(untitled)).brandId);
+
+  let emptyName = null;
+  try { await renameChat(untitled, "   "); } catch (e) { emptyName = e.message; }
+  check("a chat cannot be renamed to nothing", /needs a name/.test(emptyName || ""), emptyName);
+  check("and the old name survives that attempt",
+    (await resolveChat(untitled)).title === "Marine Drive picnic, v2", (await resolveChat(untitled)).title);
+
+  let renameGone = null;
+  try { await renameChat("not-a-chat", "x"); } catch (e) { renameGone = e; }
+  check("renaming a chat that doesn't exist is a not-found", renameGone && renameGone.notFound === true, renameGone && renameGone.message);
 
   // ---- Rules become real prompt text ----
   check("the standard rules cover the failures that make an image unusable",
@@ -220,6 +239,14 @@ const json = (res) => JSON.parse(res.body);
   const listed = await call(chatFn, { action: "list", brandId: "casa-waters" });
   check("listing returns only that brand's chats",
     json(listed).chats.every((c) => c.brandId === "casa-waters"), json(listed).chats.map((c) => c.brandId));
+
+  const renamed = await call(chatFn, { action: "rename", chatId: rroChat, title: "Royal table, take 2" });
+  check("a chat can be renamed through the endpoint", renamed.statusCode === 200, renamed.body);
+  check("and the new name comes back", json(renamed).chat.title === "Royal table, take 2", json(renamed).chat.title);
+  const renameMissing = await call(chatFn, { action: "rename", chatId: "nope", title: "x" });
+  check("renaming a missing chat 404s through the endpoint", renameMissing.statusCode === 404, renameMissing.body);
+  const renameBlank = await call(chatFn, { action: "rename", chatId: rroChat, title: "" });
+  check("a blank rename is refused", renameBlank.statusCode === 400, renameBlank.body);
 
   const badAction = await call(chatFn, { action: "destroy", brandId: "rro-foods" });
   check("an unknown action is refused", badAction.statusCode === 400, badAction.body);

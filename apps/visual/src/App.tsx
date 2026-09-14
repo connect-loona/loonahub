@@ -23,6 +23,7 @@ import type { Generation, VisualBrand, VisualChat } from "./lib/types";
 import { ChatThread } from "./components/ChatThread";
 import { Composer } from "./components/Composer";
 import { ProjectMemory } from "./components/ProjectMemory";
+import loonaLogo from "./assets/loona-logo.png";
 
 export function App() {
   const { brands, loading: brandsLoading } = useHubBrands();
@@ -34,6 +35,8 @@ export function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
 
   useEffect(() => onAuthChange(setUser), []);
   const actor = user?.displayName || user?.email || "Hub";
@@ -78,16 +81,27 @@ export function App() {
     }
   }, []);
 
-  async function newChat() {
-    if (!brand) return;
+  // Deliberately does NOT create anything yet — send() creates the chat on the first real
+  // message. Creating up front meant every click left an "Untitled visual chat · Empty" row
+  // in the sidebar forever, whether or not anyone typed into it.
+  function newChat() {
+    setChatId(null);
+    setGenerations([]);
     setError(null);
+    setNotice(null);
+  }
+
+  async function commitRename(id: string) {
+    const title = renameDraft.trim();
+    setRenamingId(null);
+    if (!title || !brand) return;
+    // Optimistic: the sidebar updates immediately and reverts by reload if the call fails.
+    setChats((prev) => prev.map((c) => (c.id === id ? { ...c, title } : c)));
     try {
-      const { id } = await api.createChat(brand.id, actor);
-      await loadChats(brand);
-      setChatId(id);
-      setGenerations([]);
+      await api.renameChat(id, title);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      await loadChats(brand);
     }
   }
 
@@ -136,7 +150,7 @@ export function App() {
   return (
     <div className="vs-shell">
       <aside className="vs-sidebar">
-        <div className="vs-logo"><span className="vs-moon" /> loona</div>
+        <div className="vs-logo"><img src={loonaLogo} alt="Loona" /></div>
         <nav className="vs-topnav">
           <a href="/">Hub</a>
           <a href="/strategy/">Strategy OS</a>
@@ -159,25 +173,61 @@ export function App() {
                   className={`vs-project${open ? " is-active" : ""}`}
                   onClick={() => setBrand(b)}
                 >
-                  <span className="vs-project-icon" style={{ background: brandColour(b.id) }}>
-                    {b.name.slice(0, 1).toUpperCase()}
-                  </span>
+                  {/* Hub's own brand logo where there is one, the same way its brand cards do
+                      it — falling back to a coloured initial for brands nobody has uploaded
+                      one for yet. */}
+                  {b.logo
+                    ? <img className="vs-project-logo" src={b.logo} alt="" />
+                    : (
+                      <span className="vs-project-icon" style={{ background: brandColour(b.id) }}>
+                        {b.name.slice(0, 1).toUpperCase()}
+                      </span>
+                    )}
                   <span className="vs-project-name">{b.name}</span>
                 </button>
                 {open && (
                   <div className="vs-chatlist">
                     <button type="button" className="vs-newchat" onClick={newChat}>+ New visual chat</button>
-                    {chats.map((c) => (
-                      <button
+                    {chats.map((c) => (renamingId === c.id ? (
+                      // Rename in place rather than through a dialog — it's one field, and a
+                      // modal for a chat title is more ceremony than the action deserves.
+                      <input
                         key={c.id}
-                        type="button"
-                        className={`vs-chatlink${chatId === c.id ? " is-active" : ""}`}
-                        onClick={() => openChat(c.id)}
-                      >
-                        {c.title}
-                        <span>{c.generationCount ? `${c.generationCount} round${c.generationCount === 1 ? "" : "s"}` : "Empty"}</span>
-                      </button>
-                    ))}
+                        className="vs-chatrename"
+                        value={renameDraft}
+                        autoFocus
+                        onChange={(e) => setRenameDraft(e.target.value)}
+                        onBlur={() => commitRename(c.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") { e.preventDefault(); void commitRename(c.id); }
+                          if (e.key === "Escape") setRenamingId(null);
+                        }}
+                      />
+                    ) : (
+                      <div key={c.id} className={`vs-chatrow${chatId === c.id ? " is-active" : ""}`}>
+                        <button
+                          type="button"
+                          className="vs-chatlink"
+                          onClick={() => openChat(c.id)}
+                          // Double-click to rename, the way a file name works everywhere else.
+                          onDoubleClick={() => { setRenamingId(c.id); setRenameDraft(c.title); }}
+                        >
+                          {c.title}
+                          <span>{c.generationCount ? `${c.generationCount} round${c.generationCount === 1 ? "" : "s"}` : "Empty"}</span>
+                        </button>
+                        {/* An explicit button too: double-click isn't discoverable, and this
+                            is the only way to rename on a touch screen. */}
+                        <button
+                          type="button"
+                          className="vs-chatrename-btn"
+                          title="Rename this chat"
+                          aria-label={`Rename ${c.title}`}
+                          onClick={() => { setRenamingId(c.id); setRenameDraft(c.title); }}
+                        >
+                          ✎
+                        </button>
+                      </div>
+                    )))}
                     {!chats.length && <p className="vs-muted vs-muted-sm">No chats yet for this brand.</p>}
                   </div>
                 )}

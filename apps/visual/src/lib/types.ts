@@ -6,6 +6,9 @@
 export interface VisualBrand {
   id: string;
   name: string;
+  // Hub stores a logo per brand (see index.html's brand cards, which render b.logo and fall
+  // back to a coloured dot). Absent for brands nobody has uploaded one for yet.
+  logo?: string | null;
 }
 
 export interface VisualChat {

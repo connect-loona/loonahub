@@ -33,6 +33,10 @@ export function createChat(brandId: string, actor: string, title?: string): Prom
   return post("visual-chat", { action: "create", brandId, actor, title }) as Promise<{ id: string; chat: VisualChat }>;
 }
 
+export function renameChat(chatId: string, title: string): Promise<{ ok: true; chat: VisualChat }> {
+  return post("visual-chat", { action: "rename", chatId, title }) as Promise<{ ok: true; chat: VisualChat }>;
+}
+
 export function chatHistory(chatId: string): Promise<{ chat: VisualChat; generations: Generation[] }> {
   return post("visual-chat", { action: "history", chatId }) as Promise<{ chat: VisualChat; generations: Generation[] }>;
 }

@@ -24,9 +24,9 @@ export function brandColour(id: string): string {
 }
 
 export function useHubBrands(): { brands: VisualBrand[]; loading: boolean } {
-  const [raw, setRaw] = useState<Record<string, { brand?: string; inactive?: boolean }> | null>(null);
+  const [raw, setRaw] = useState<Record<string, { brand?: string; inactive?: boolean; logo?: string }> | null>(null);
 
-  useEffect(() => listenPath<Record<string, { brand?: string; inactive?: boolean }>>("brands", setRaw), []);
+  useEffect(() => listenPath<Record<string, { brand?: string; inactive?: boolean; logo?: string }>>("brands", setRaw), []);
 
   if (raw === null) return { brands: [], loading: true };
 
@@ -39,7 +39,7 @@ export function useHubBrands(): { brands: VisualBrand[]; loading: boolean } {
     const id = slug(record.brand);
     if (!id || seen.has(id)) continue;
     seen.add(id);
-    brands.push({ id, name: record.brand });
+    brands.push({ id, name: record.brand, logo: record.logo || null });
   }
   brands.sort((a, b) => a.name.localeCompare(b.name));
   return { brands, loading: false };
