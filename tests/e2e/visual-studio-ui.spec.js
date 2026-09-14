@@ -56,6 +56,9 @@ const HOUR = 60 * 60 * 1000;
         { key: "no_label_regeneration", label: "No label regeneration", source: "standard" },
         { key: "brand_0", label: "Never show the cap removed from the bottle.", source: "brand" },
       ],
+      referenceCount: 2,
+      referenceNote: "Product identity · Lighting",
+      expandedPrompt: "An editorial product photograph of the Primio bottle on a warm marble counter, soft morning light from the left, shallow depth of field.",
       pickedIndex: null,
     },
     // An hours-old round: its provider URLs are dead, and the UI has to say so rather than
@@ -152,6 +155,8 @@ const HOUR = 60 * 60 * 1000;
   check("every take can be downloaded", (await page.locator('.vs-image figcaption a:text("Download")').count()) >= 2,
     await page.locator('.vs-image figcaption a:text("Download")').count());
 
+  const threadText2 = await page.locator(".vs-thread").textContent();
+
   // ---- Nothing claims a check that never ran ----
   const memoryText = await page.locator(".vs-memory").textContent();
   check("the memory panel counts real rounds", /2/.test(memoryText), memoryText.slice(0, 200));
@@ -160,6 +165,43 @@ const HOUR = 60 * 60 * 1000;
   // never appear here.
   check("no fabricated QC verdict anywhere on the page",
     !/checks passed/i.test(await page.locator("body").textContent()), memoryText.slice(0, 300));
+
+  // ---- What the model was actually asked for ----
+  // The rewrite is the thing that closes the quality gap with ChatGPT, and it's invisible by
+  // design — but when an image comes back wrong, it's the first thing worth reading, because
+  // it says whether the model misunderstood or did exactly as asked.
+  check("the expanded prompt is available to read", (await page.locator(".vs-expanded").count()) >= 1, await page.locator(".vs-expanded").count());
+  check("but collapsed, since it isn't wanted most of the time",
+    (await page.locator(".vs-expanded[open]").count()) === 0);
+  await page.locator(".vs-expanded summary").first().click();
+  const expandedText = await page.locator(".vs-expanded p").first().textContent();
+  check("opening it shows what the image model really received",
+    /soft morning light from the left/.test(expandedText), expandedText);
+
+  // ---- References: what a round was built from, and building on a result ----
+  // The bytes are never stored, so what has to survive in the thread is the count and what
+  // each reference was FOR — that is what explains a prompt six months later.
+  check("the thread says what the round was worked from",
+    /Worked from 2 references/.test(threadText2), threadText2.slice(0, 400));
+  check("and what each reference was for",
+    /Product identity · Lighting/.test(threadText2), threadText2.slice(0, 400));
+
+  // Carrying a take back up as the next reference is the iteration loop — "now make the table
+  // warmer" without re-uploading anything.
+  check("every take offers to be built on", (await page.locator(".vs-useref").count()) >= 2, await page.locator(".vs-useref").count());
+  await page.locator(".vs-useref").first().click();
+  await waitFor(async () => (await page.locator(".vs-ref").count()) === 1 || null, { label: "result becomes a reference" });
+  check("the composer now carries that image as a reference", (await page.locator(".vs-ref img").count()) === 1);
+  check("and asks what to take from it", (await page.locator(".vs-ref-role").count()) === 1);
+  // The composer should say it is now editing rather than generating from nothing.
+  check("the send button says it is an edit now",
+    /Edit/.test(await page.locator(".vs-send").textContent()), await page.locator(".vs-send").textContent());
+
+  await page.locator(".vs-ref-remove").click();
+  await waitFor(async () => (await page.locator(".vs-ref").count()) === 0 || null, { label: "reference removed" });
+  check("a reference can be taken back off", (await page.locator(".vs-ref").count()) === 0);
+  check("and the button goes back to generating",
+    /Generate/.test(await page.locator(".vs-send").textContent()), await page.locator(".vs-send").textContent());
 
   // ---- Renaming a chat ----
   // The screenshot that prompted this had three "Untitled visual chat · Empty" rows, so both

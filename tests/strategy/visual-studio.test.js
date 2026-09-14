@@ -22,7 +22,7 @@ const {
   recordGeneration, recordPick, loadVisualHistory, visualHistoryToPromptText,
   isPreviewLive, PREVIEW_TTL_MS,
 } = require(path.join(HUB, "netlify/functions/lib/strategy/visual-memory"));
-const { generateImages, resolveSize, listProviders, MAX_IMAGES } = require(path.join(HUB, "netlify/functions/lib/strategy/image-providers"));
+const { generateImages, resolveSize, resolveQuality, listProviders, decodeDataUrl, classifyOpenAIFailure, QUALITY_MODES, MAX_IMAGES, MAX_REFERENCES, MAX_REFERENCE_BYTES } = require(path.join(HUB, "netlify/functions/lib/strategy/image-providers"));
 const crypto = require("crypto");
 
 process.env.BASIC_AUTH_CREDENTIALS = "gokul:supersecret";
@@ -65,7 +65,7 @@ function okFetch(payload) {
   // shape is exactly how this breaks the first time somebody switches model.
   const b64 = await generateImages({ prompt: "a bottle on marble", count: 1 },
     { fetch: okFetch({ data: [{ b64_json: "AAAA", revised_prompt: "a glass bottle on marble" }] }) });
-  check("a base64 image comes back as a usable data URL", /^data:image\/png;base64,AAAA/.test(b64.images[0].url), b64.images[0].url);
+  check("a base64 image comes back as a usable data URL", /^data:image\/[a-z]+;base64,AAAA/.test(b64.images[0].url), b64.images[0].url);
   check("the provider's revised prompt is kept", b64.images[0].revisedPrompt === "a glass bottle on marble", b64.images[0]);
 
   const urlShape = await generateImages({ prompt: "x", count: 1 },
@@ -77,19 +77,183 @@ function okFetch(payload) {
   catch (e) { emptyError = e.message; }
   check("a response with no images is an error, not an empty success", /no usable images/.test(emptyError || ""), emptyError);
 
-  // The provider's own words have to survive. An opaque "generation failed" on a billing
-  // error is precisely the failure that cost real time on the text side.
+  // A recognised billing failure is translated into something a designer can act on, rather
+  // than echoing "billing_hard_limit_reached" — which is precisely as useless on screen as the
+  // opaque "generation failed" it replaced. The raw text still reaches the function logs.
   let billingError = null;
   try {
     await generateImages({ prompt: "x" }, {
       fetch: async () => ({ ok: false, status: 400, text: async () => "billing_hard_limit_reached" }),
+      sleep: async () => {},
     });
-  } catch (e) { billingError = e.message; }
-  check("the provider's own error text is carried through", /billing_hard_limit_reached/.test(billingError || ""), billingError);
+  } catch (e) { billingError = e; }
+  check("a billing failure is named as one", billingError.kind === "quota", billingError.kind);
+  check("and says what actually has to happen", /top it up/.test(billingError.message), billingError.message);
+
+  // An UNRECOGNISED failure still carries the provider's own words, because inventing advice
+  // for something we haven't classified would be worse than quoting it.
+  let oddError = null;
+  try {
+    await generateImages({ prompt: "x" }, {
+      fetch: async () => ({ ok: false, status: 422, text: async () => "moderation_blocked: prompt rejected" }),
+      sleep: async () => {},
+    });
+  } catch (e) { oddError = e.message; }
+  check("an unclassified failure still carries the provider's own text",
+    /moderation_blocked/.test(oddError || ""), oddError);
 
   let noPrompt = null;
   try { await generateImages({ prompt: "   " }, { fetch: okFetch({ data: [] }) }); } catch (e) { noPrompt = e.message; }
   check("an empty prompt is refused before any call is made", /prompt is required/.test(noPrompt || ""), noPrompt);
+
+  // ---- References: the thing that makes this usable rather than a novelty ----
+  // Every real ChatGPT thread this replaces starts by uploading a reference. Text-to-image
+  // alone can't do "keep this exact label, change the background", because there's no way to
+  // hand it the thing that must stay identical.
+  const PIXEL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+  const decoded = decodeDataUrl(PIXEL, 0);
+  check("a data URL is decoded to real bytes", decoded.bytes.length > 0 && decoded.mediaType === "image/png", decoded.mediaType);
+  check("the filename carries a sane extension", /\.png$/.test(decoded.filename), decoded.filename);
+  check("a jpeg keeps a jpg extension rather than 'jpeg'",
+    /\.jpg$/.test(decodeDataUrl("data:image/jpeg;base64,AAAA", 0).filename), decodeDataUrl("data:image/jpeg;base64,AAAA", 0).filename);
+
+  let notAnImage = null;
+  try { decodeDataUrl("data:application/pdf;base64,AAAA", 0); } catch (e) { notAnImage = e.message; }
+  check("a non-image reference is refused with what it actually was", /not an image/.test(notAnImage || ""), notAnImage);
+
+  let notADataUrl = null;
+  try { decodeDataUrl("https://example.com/a.png", 1); } catch (e) { notADataUrl = e.message; }
+  check("a bare URL is not accepted as a reference", /Reference 2 is not a readable image/.test(notADataUrl || ""), notADataUrl);
+
+  // Caught before the upload rather than as an opaque 502 halfway through: a Netlify function
+  // has a hard request ceiling, and a 10MB photo would blow straight past it.
+  let tooBig = null;
+  const huge = `data:image/png;base64,${"A".repeat(Math.ceil((MAX_REFERENCE_BYTES + 1024) / 3) * 4)}`;
+  try { decodeDataUrl(huge, 0); } catch (e) { tooBig = e.message; }
+  check("an oversized reference is refused with its real size and the limit",
+    /MB — the limit is/.test(tooBig || ""), tooBig);
+
+  // With references this must hit the EDIT endpoint, not generations — a different URL, and
+  // multipart rather than JSON.
+  let editCall = null;
+  const edited = await generateImages(
+    { prompt: "keep the bottle, warmer table", count: 2, references: [{ dataUrl: PIXEL, role: "Product identity" }] },
+    { fetch: async (url, options) => { editCall = { url, options }; return { ok: true, status: 200, json: async () => ({ data: [{ b64_json: "QUJD" }] }) }; } },
+  );
+  check("a round with references goes to the edits endpoint", /\/images\/edits$/.test(editCall.url), editCall.url);
+  check("and sends multipart form data, not JSON", editCall.options.body instanceof FormData, typeof editCall.options.body);
+  check("the content-type is left to fetch so the multipart boundary is right",
+    !Object.keys(editCall.options.headers).some((h) => /content-type/i.test(h)), Object.keys(editCall.options.headers));
+  check("the reference is attached under image[] — how gpt-image-1 takes more than one",
+    editCall.options.body.getAll("image[]").length === 1, editCall.options.body.getAll("image[]").length);
+  check("the prompt travels with it", editCall.options.body.get("prompt") === "keep the bottle, warmer table", editCall.options.body.get("prompt"));
+  check("an edit still returns usable images", edited.images.length === 1 && /^data:image\/[a-z]+;base64,/.test(edited.images[0].url), edited.images[0].url.slice(0, 40));
+
+  // Without references it must stay on the plain generations endpoint.
+  let plainCall = null;
+  await generateImages({ prompt: "a bottle", count: 1 },
+    { fetch: async (url, options) => { plainCall = { url, options }; return { ok: true, status: 200, json: async () => ({ data: [{ url: "https://x/a.png" }] }) }; } });
+  check("a round with no references stays on the generations endpoint", /\/images\/generations$/.test(plainCall.url), plainCall.url);
+
+  let tooManyRefs = null;
+  try {
+    await generateImages({ prompt: "x", references: new Array(MAX_REFERENCES + 1).fill({ dataUrl: PIXEL }) },
+      { fetch: async () => ({ ok: true, status: 200, json: async () => ({ data: [] }) }) });
+  } catch (e) { tooManyRefs = e.message; }
+  check("more references than the cap is refused", new RegExp(`Up to ${MAX_REFERENCES} reference`).test(tooManyRefs || ""), tooManyRefs);
+
+  // ---- Draft vs Final ----
+  // Generating four takes at production quality while somebody is still deciding what they
+  // want is how this becomes expensive and slow at the same time. Cost and latency both climb
+  // with quality, so exploring has to be cheap by default.
+  check("draft is the default, not final", resolveQuality().quality === QUALITY_MODES.draft.quality, resolveQuality());
+  check("draft is cheaper and faster than final",
+    QUALITY_MODES.draft.quality === "medium" && QUALITY_MODES.final.quality === "high", QUALITY_MODES);
+  // Nobody colour-grades a thumbnail they're about to throw away; the one that goes into
+  // Photoshop is the one that needs to be lossless.
+  check("draft returns JPEG for speed, final returns PNG for the file that gets worked on",
+    QUALITY_MODES.draft.output_format === "jpeg" && QUALITY_MODES.final.output_format === "png", QUALITY_MODES);
+
+  let badQuality = null;
+  try { resolveQuality("ultra"); } catch (e) { badQuality = e.message; }
+  check("an unknown quality mode fails loudly rather than silently costing production rates",
+    /Unknown quality mode/.test(badQuality || ""), badQuality);
+
+  let qualityCall = null;
+  await generateImages({ prompt: "x", count: 1, quality: "final" },
+    { fetch: async (url, options) => { qualityCall = JSON.parse(options.body); return { ok: true, status: 200, json: async () => ({ data: [{ b64_json: "QUJD" }] }) }; } });
+  check("the chosen quality reaches the provider", qualityCall.quality === "high", qualityCall.quality);
+  check("and so does the output format", qualityCall.output_format === "png", qualityCall.output_format);
+
+  // A JPEG labelled as a PNG produces a data URL some browsers refuse to render.
+  const draftShot = await generateImages({ prompt: "x", count: 1, quality: "draft" },
+    { fetch: async () => ({ ok: true, status: 200, json: async () => ({ data: [{ b64_json: "QUJD" }] }) }) });
+  check("a draft's data URL is labelled as the JPEG it actually is",
+    draftShot.images[0].url.startsWith("data:image/jpeg;base64,"), draftShot.images[0].url.slice(0, 30));
+
+  let editQuality = null;
+  await generateImages({ prompt: "x", count: 1, quality: "final", references: [{ dataUrl: PIXEL }] },
+    { fetch: async (url, options) => { editQuality = options.body; return { ok: true, status: 200, json: async () => ({ data: [{ b64_json: "QUJD" }] }) }; } });
+  check("quality applies to edits as well as fresh generations",
+    editQuality.get("quality") === "high" && editQuality.get("output_format") === "png",
+    { quality: editQuality.get("quality"), format: editQuality.get("output_format") });
+
+  // ---- Hitting a limit: two different things wearing the same 429 ----
+  // This is the question the team will actually ask, having hit ChatGPT's "come back in three
+  // hours" wall. The API has no such cooldown: a 429 is either a burst (clears in seconds) or
+  // an empty account (never clears). Telling them apart is the whole point.
+  const burst = classifyOpenAIFailure(429, '{"error":{"message":"Rate limit reached for images per min","type":"requests"}}');
+  check("a burst rate limit is marked retryable", burst.kind === "rate_limit" && burst.retryable === true, burst.kind);
+  check("and says waiting is the fix", /Wait a few seconds/.test(burst.message), burst.message);
+  check("and suggests the lever that actually helps — fewer takes", /fewer takes/.test(burst.message), burst.message);
+
+  const broke = classifyOpenAIFailure(429, '{"error":{"code":"insufficient_quota","message":"You exceeded your current quota"}}');
+  check("running out of credit is NOT treated as retryable", broke.kind === "quota" && broke.retryable === false, broke.kind);
+  // Telling somebody to wait when the account is empty sends them back in ten minutes to the
+  // same wall. It has to say the opposite.
+  check("and says plainly that waiting will not help", /Waiting won't help/.test(broke.message), broke.message);
+
+  const down = classifyOpenAIFailure(503, "service unavailable");
+  check("a provider outage is retryable too", down.kind === "provider_down" && down.retryable === true, down.kind);
+
+  const badRequest = classifyOpenAIFailure(400, '{"error":{"message":"Invalid prompt"}}');
+  check("an ordinary bad request is not retried", badRequest.retryable === false, badRequest.kind);
+  check("and keeps the provider's own words rather than inventing advice", badRequest.message === null, badRequest.message);
+
+  // One automatic retry on a burst, because the person already waited through attempt one.
+  let attempts = 0;
+  const flaky = async () => {
+    attempts += 1;
+    if (attempts === 1) return { ok: false, status: 429, text: async () => "Rate limit reached for images per min" };
+    return { ok: true, status: 200, json: async () => ({ data: [{ url: "https://x/ok.png" }] }) };
+  };
+  const recovered = await generateImages({ prompt: "x", count: 1 }, { fetch: flaky, sleep: async () => {} });
+  check("a burst limit is absorbed by one automatic retry", attempts === 2 && recovered.images.length === 1, attempts);
+
+  // ...but never for an empty account, where retrying only delays the bad news.
+  let quotaAttempts = 0;
+  let quotaError = null;
+  try {
+    await generateImages({ prompt: "x", count: 1 }, {
+      fetch: async () => { quotaAttempts += 1; return { ok: false, status: 429, text: async () => "insufficient_quota" }; },
+      sleep: async () => {},
+    });
+  } catch (e) { quotaError = e; }
+  check("an out-of-credit failure is not retried at all", quotaAttempts === 1, quotaAttempts);
+  check("and surfaces as a quota problem", quotaError && quotaError.kind === "quota", quotaError && quotaError.kind);
+
+  // Twice in a row is not a blip — stop rather than looping on the person's time.
+  let persistent = 0;
+  let persistentError = null;
+  try {
+    await generateImages({ prompt: "x", count: 1 }, {
+      fetch: async () => { persistent += 1; return { ok: false, status: 429, text: async () => "Rate limit reached" }; },
+      sleep: async () => {},
+    });
+  } catch (e) { persistentError = e; }
+  check("a rate limit that persists is retried once and then reported, not looped",
+    persistent === 2 && persistentError.kind === "rate_limit", persistent);
 
   // ---- recordGeneration: written before anybody picks ----
   const { id } = await recordGeneration("rro", {

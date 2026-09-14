@@ -11,6 +11,15 @@ export interface VisualBrand {
   logo?: string | null;
 }
 
+// A reference the person has attached but not sent yet. Lives only in the browser: nothing is
+// hosted, so the bytes go straight from their machine through the function to the provider.
+// What survives afterwards is the ROLE — see visual-generate.js's referenceNote.
+export interface PendingReference {
+  dataUrl: string;
+  name: string;
+  role: string;
+}
+
 export interface VisualChat {
   id: string;
   brandId: string;
@@ -45,6 +54,13 @@ export interface Generation {
   actor: string;
   images: GeneratedImage[];
   appliedRules?: AppliedRule[];
+  // What the image model was actually asked for, once the person's words were expanded with
+  // the conversation and the brand's memory (see visual-prompt.js). Null when no rewrite
+  // happened. Worth showing: it's the only way to tell a bad image from a bad rewrite.
+  expandedPrompt?: string | null;
+  // "draft" or "final" — a soft-looking image is explained by this rather than looking like
+  // the model underperforming.
+  quality?: "draft" | "final";
   createdAt: string;
   // Provider image URLs expire (OpenAI's in about an hour). The backend says plainly whether
   // a preview is still worth rendering, so this shows an honest "expired" state rather than

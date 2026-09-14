@@ -9,7 +9,7 @@
 // the backend reads it from the stored chat record — see visual-chats.js's header for why
 // letting the browser name the brand would be a cross-client leak waiting to happen.
 import { getIdTokenOrNull } from "./firebase";
-import type { Generation, VisualChat } from "./types";
+import type { Generation, PendingReference, VisualChat } from "./types";
 
 async function post(path: string, body: unknown): Promise<unknown> {
   const token = await getIdTokenOrNull();
@@ -20,7 +20,11 @@ async function post(path: string, body: unknown): Promise<unknown> {
   if (!res.ok) {
     const payload = data as { error?: string; reason?: string };
     const message = payload.error || "Request failed.";
-    throw new Error(payload.reason ? `${message} — ${payload.reason}` : message);
+    const err = new Error(payload.reason ? `${message} — ${payload.reason}` : message) as Error & { status?: number };
+    // 429 (a burst rate limit, retry works) and 402 (out of credit, retry never works) need
+    // different advice, so the status has to survive as far as the screen.
+    err.status = res.status;
+    throw err;
   }
   return data;
 }
@@ -46,7 +50,11 @@ export function generate(args: {
   prompt: string;
   count?: number;
   size?: string;
+  // "draft" (medium quality, JPEG — fast and cheap for exploring) or "final" (high, PNG).
+  quality?: string;
   actor: string;
+  // Passed straight through to the provider and never stored — see visual-generate.js.
+  references?: PendingReference[];
 }): Promise<Generation & { recorded: boolean; brandId: string }> {
   return post("visual-generate", args) as Promise<Generation & { recorded: boolean; brandId: string }>;
 }

@@ -156,7 +156,11 @@ const json = (res) => JSON.parse(res.body);
   const sent = [];
   const realFetch = global.fetch;
   global.fetch = async (url, options) => {
-    sent.push(JSON.parse(options.body));
+    // A round with references is multipart (the edits endpoint), one without is JSON (the
+    // generations endpoint) — the stub has to read both, the way the real API does.
+    sent.push(options.body instanceof FormData
+      ? { url, prompt: options.body.get("prompt"), referenceCount: options.body.getAll("image[]").length }
+      : Object.assign({ url }, JSON.parse(options.body)));
     return { ok: true, status: 200, json: async () => ({ data: [{ url: "https://example.com/a.png" }] }) };
   };
   process.env.OPENAI_API_KEY = "test-key-not-real";
@@ -202,6 +206,34 @@ const json = (res) => JSON.parse(res.body);
 
     const touched = await resolveChat(casaChat);
     check("the chat's activity moves when a round lands in it", touched.generationCount === 1, touched.generationCount);
+
+    // ---- References reach the provider, and their ROLES reach Loona Brain ----
+    // The bytes are deliberately never stored: Visual Studio hosts nothing. What has to
+    // survive is that there WERE references and what each was for — six months on, "2
+    // references" says nothing, but "kept the product · took the lighting" explains the round.
+    const PIXEL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+    const withRefs = await call(generateFn, {
+      chatId: rroChat,
+      prompt: "warmer table, same bottle",
+      references: [
+        { dataUrl: PIXEL, role: "Product identity" },
+        { dataUrl: PIXEL, role: "Lighting" },
+      ],
+    });
+    check("a round with references succeeds", withRefs.statusCode === 200, withRefs.body);
+    const refRow = Object.values(await fbGet("strategy_visual/rro-foods")).find((r) => /warmer table/.test(r.prompt || ""));
+    check("how many references were used is remembered", refRow.referenceCount === 2, refRow.referenceCount);
+    check("and what each was for", refRow.referenceNote === "Product identity · Lighting", refRow.referenceNote);
+    // The images themselves must NOT be in the record — that would be hosting them by accident,
+    // and would bloat every brand's memory with megabytes of base64.
+    check("the reference bytes are not stored anywhere in the record",
+      !JSON.stringify(refRow).includes("iVBORw0KGgo"), Object.keys(refRow));
+
+    const tooManyRefs = await call(generateFn, {
+      chatId: rroChat, prompt: "x",
+      references: [1, 2, 3, 4, 5].map(() => ({ dataUrl: PIXEL })),
+    });
+    check("too many references is refused before any provider call", tooManyRefs.statusCode === 400, tooManyRefs.body);
 
     // A one-off generation with no chat still works, and still checks the brand against Hub.
     const oneOff = await call(generateFn, { brandId: "rro-foods", prompt: "a quick test" });

@@ -13,11 +13,14 @@
 // brand's team tried and rejected. See visual-memory.js.
 "use strict";
 const { checkAuthorization } = require("./lib/strategy/auth");
-const { generateImages, MAX_IMAGES } = require("./lib/strategy/image-providers");
+const { generateImages, MAX_IMAGES, MAX_REFERENCES } = require("./lib/strategy/image-providers");
 const { recordGeneration } = require("./lib/strategy/visual-memory");
 const { resolveChat, touchChat, titleFromPrompt } = require("./lib/strategy/visual-chats");
 const { buildRulePreamble, applyRules } = require("./lib/strategy/visual-rules");
 const { hubBrandExists } = require("./lib/strategy/hub-brands");
+const { expandPrompt, historyForPrompt } = require("./lib/strategy/visual-prompt");
+const { loadVisualHistory } = require("./lib/strategy/visual-memory");
+const { loadBrain, brainToPromptText } = require("./lib/strategy/brand-brain");
 
 function cors() {
   return {
@@ -48,6 +51,16 @@ exports.handler = async (event) => {
   const count = Number(body.count) || 1;
   if (count < 1 || count > MAX_IMAGES) return fail(400, `count must be between 1 and ${MAX_IMAGES}.`);
 
+  // References are the whole point of working this way: a base scene plus the exact product,
+  // "keep the label, change the background". They arrive as data: URLs and are passed straight
+  // through to the provider — never written anywhere, in keeping with Visual Studio not hosting
+  // images. What IS remembered is that there were references and what they were for, which is
+  // the part that explains a prompt later.
+  const references = Array.isArray(body.references) ? body.references : [];
+  if (references.length > MAX_REFERENCES) {
+    return fail(400, `Up to ${MAX_REFERENCES} reference images at a time.`);
+  }
+
   // WHICH BRAND THIS IS FOR IS DECIDED SERVER-SIDE, NOT BY THE CALLER.
   //
   // A chat records its brand once, when it's created. Every generation names only the chat,
@@ -77,19 +90,61 @@ exports.handler = async (event) => {
   let rules = { preamble: "", applied: [] };
   try { rules = await buildRulePreamble(brandId, { disabledRules: body.disabledRules }); }
   catch (error) { console.error(`Could not build rules for ${brandId}:`, error.message); }
-  const finalPrompt = applyRules(rules.preamble, prompt);
+
+  // THE PART THAT CLOSES THE GAP WITH CHATGPT.
+  //
+  // Typing "make the table warmer" into ChatGPT does not send those four words to the image
+  // model: ChatGPT rewrites them, using the whole thread, into a paragraph describing the
+  // entire scene with the change applied. Sending the four words raw is why a bare API call
+  // produces visibly worse images than the same model does inside ChatGPT.
+  //
+  // So the thread and the brand's memory are gathered and the prompt is rewritten the same
+  // way. Both reads are best-effort — neither is worth failing a generation over.
+  let history = "";
+  let brandBrain = null;
+  try {
+    const [rounds, brain] = await Promise.all([
+      chatId ? loadVisualHistory(brandId) : Promise.resolve([]),
+      loadBrain(brandId),
+    ]);
+    history = historyForPrompt(rounds.filter((r) => r.chatId === chatId));
+    brandBrain = brainToPromptText(brain);
+  } catch (error) {
+    console.error(`Could not gather context for ${brandId}:`, error.message);
+  }
+
+  const expansion = await expandPrompt({
+    prompt,
+    history,
+    brandBrain,
+    brandRules: rules.applied,
+    referenceRoles: references.map((r) => (r && r.role) || ""),
+  });
+
+  // The rules still go in front of the rewritten prompt rather than being folded into it: a
+  // model asked to rewrite them could soften them, and they are the part that must not move.
+  const finalPrompt = applyRules(rules.preamble, expansion.prompt);
 
   let result;
   try {
     result = await generateImages({
       prompt: finalPrompt, provider: body.provider, count, size: body.size, model: body.model,
+      quality: body.quality, references,
     });
   } catch (error) {
-    // Carry the provider's own words through rather than flattening everything to "failed" —
-    // the billing and quota cases are the ones people actually need to read.
+    // The status has to tell these apart, because what the person should DO differs. A burst
+    // rate limit clears on its own; running out of credit never does. Flattening both to 502
+    // (or to OpenAI's raw JSON) is the opaque-error failure we already fixed once on the text
+    // side — see runtime-failover.js.
     const status = Number(error.status) || 0;
-    const clientFault = status === 400 || /Unknown image size|A prompt is required|Unknown image provider/.test(error.message || "");
-    return fail(clientFault ? 400 : 502, error.message || "Image generation failed.");
+    const clientFault = (status === 400 && error.kind !== "quota")
+      || /Unknown image size|A prompt is required|Unknown image provider|Up to \d+ reference|Reference \d+ is/.test(error.message || "");
+    if (clientFault) return fail(400, error.message);
+    if (error.kind === "rate_limit") return fail(429, error.message);
+    // Out of credit is not a server error and not the caller's mistake — 402 says "this needs
+    // paying for" precisely, and the UI keys off it to say so plainly.
+    if (error.kind === "quota") return fail(402, error.message);
+    return fail(502, error.message || "Image generation failed.");
   }
 
   let id = null;
@@ -103,10 +158,19 @@ exports.handler = async (event) => {
       provider: result.provider,
       model: result.model,
       actor: body.actor || "Hub",
-      referenceCount: body.referenceCount,
-      referenceNote: body.referenceNote,
+      referenceCount: references.length,
+      // What each reference was FOR ("the product", "the lighting"), joined into one note. The
+      // roles are the useful half — six months on, "2 references" says nothing, but "kept the
+      // product, took the lighting from the second" explains the whole round.
+      referenceNote: references.map((r) => String((r && r.role) || "").trim()).filter(Boolean).join(" · ") || body.referenceNote || null,
       images: result.images,
       appliedRules: rules.applied,
+      // What the model was actually asked for, kept alongside what the person typed. Six
+      // months on this is the only way to tell a bad image from a bad rewrite.
+      expandedPrompt: expansion.expanded ? expansion.prompt : null,
+      // Draft or Final. Worth keeping: a soft-looking image six months on is explained
+      // instantly by "this was a draft", and otherwise looks like the model underperforming.
+      quality: body.quality === "final" ? "final" : "draft",
     }));
     if (chatId) await touchChat(chatId, { titleIfUnset: titleFromPrompt(prompt) });
   } catch (error) {
@@ -123,6 +187,8 @@ exports.handler = async (event) => {
       images: result.images,
       // So the UI can show exactly which rules shaped this image rather than asserting it.
       appliedRules: rules.applied,
+      expandedPrompt: expansion.expanded ? expansion.prompt : null,
+      quality: body.quality === "final" ? "final" : "draft",
       recorded: Boolean(id),
     }),
   };
