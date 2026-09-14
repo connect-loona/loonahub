@@ -22,9 +22,10 @@
 
 const FIREBASE_WEB_API_KEY = process.env.FIREBASE_WEB_API_KEY || "AIzaSyBnESbCpAiVcSPHOZk4ANFwlIqw7DhB4A0";
 const FB = (process.env.FIREBASE_DB_URL || "https://loona-hub-c85d7-default-rtdb.firebaseio.com").replace(/\/+$/, "");
+const { authedUrl } = require("./lib/firebase-auth");
 
 async function fbGet(path) {
-  const resp = await fetch(FB + "/" + path + ".json");
+  const resp = await fetch(authedUrl(FB + "/" + path + ".json"));
   return resp.json().catch(() => null);
 }
 

@@ -63,6 +63,7 @@ const https = require("https");
 const { URL } = require("url");
 
 const FB = (process.env.FIREBASE_DB_URL || "https://loona-hub-c85d7-default-rtdb.firebaseio.com").replace(/\/+$/, "");
+const { authedUrl } = require("./lib/firebase-auth");
 const PASSWORD = process.env.INDEPENDENCE_ADMIN_PASSWORD;
 
 function todayIST() {
@@ -79,7 +80,7 @@ function todayIST() {
 // parsed JSON body means the read succeeded.
 function fbGetChecked(path) {
   return new Promise((resolve) => {
-    const u = new URL(FB + path + ".json");
+    const u = new URL(authedUrl(FB + path + ".json"));
     https.get({ hostname: u.hostname, path: u.pathname + u.search, headers: { Accept: "application/json" } }, (res) => {
       let buf = ""; res.on("data", (c) => (buf += c));
       res.on("end", () => {
@@ -92,7 +93,7 @@ function fbGetChecked(path) {
 }
 function fbGet(path) {
   return new Promise((resolve) => {
-    const u = new URL(FB + path + ".json");
+    const u = new URL(authedUrl(FB + path + ".json"));
     https.get({ hostname: u.hostname, path: u.pathname + u.search, headers: { Accept: "application/json" } }, (res) => {
       let buf = ""; res.on("data", (c) => (buf += c));
       res.on("end", () => { let b; try { b = JSON.parse(buf); } catch (e) { b = null; } resolve(b); });

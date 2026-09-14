@@ -18,6 +18,7 @@ const https = require("https");
 const { URL } = require("url");
 
 const FB = (process.env.FIREBASE_DB_URL || "https://loona-hub-c85d7-default-rtdb.firebaseio.com").replace(/\/+$/, "");
+const { authedUrl } = require("./lib/firebase-auth");
 
 // Keep this list in sync with ALL_MEMBERS in index.html.
 const BASE_MEMBERS = ["Gokul", "Anam", "Ankita", "Ricky", "Muskan", "Nishant", "Karnik", "Chinmay", "Majid", "Anurag", "Vivaan", "Diya", "Ananya"];
@@ -47,6 +48,7 @@ const OFFICIAL_HOLIDAYS = [
 const BOTD_SEED = { date: "2026-07-09", person: "Chinmay" };
 
 function req(method, urlStr, headers, bodyObj) {
+  urlStr = authedUrl(urlStr);
   return new Promise((resolve) => {
     const u = new URL(urlStr);
     const data = bodyObj != null ? JSON.stringify(bodyObj) : null;

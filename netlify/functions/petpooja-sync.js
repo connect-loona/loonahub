@@ -22,10 +22,12 @@ const BASE = (process.env.PETPOOJA_BASE_URL || "https://payrolltp.petpooja.com")
 const CLIENT_ID = process.env.PETPOOJA_CLIENT_ID;
 const CLIENT_SECRET = process.env.PETPOOJA_CLIENT_SECRET;
 const FB = (process.env.FIREBASE_DB_URL || "https://loona-hub-c85d7-default-rtdb.firebaseio.com").replace(/\/+$/, "");
+const { authedUrl } = require("./lib/firebase-auth");
 
 let _access = null, _accessExp = 0;
 
 function req(method, urlStr, headers, bodyObj) {
+  urlStr = authedUrl(urlStr);
   return new Promise((resolve) => {
     const u = new URL(urlStr);
     const data = bodyObj != null ? JSON.stringify(bodyObj) : null;
