@@ -12,7 +12,7 @@ const path = require("path");
 const { HUB, RTDB_URL, req, check, finish } = require("../harness/shared");
 const { fbGet, fbSet } = require(path.join(HUB, "netlify/functions/lib/strategy/firebase"));
 const { isCurrent, prune } = require(path.join(HUB, "netlify/functions/lib/strategy/brand-library-memory"));
-const { extractFile, MAX_PDF_BYTES } = require(path.join(HUB, "netlify/functions/lib/strategy/brand-library-extract"));
+const { extractFile, MAX_PDF_BYTES, MAX_IMAGE_BYTES } = require(path.join(HUB, "netlify/functions/lib/strategy/brand-library-extract"));
 const { buildLibrary } = require(path.join(HUB, "netlify/functions/lib/strategy/google-drive"));
 
 function textResponse(body) {
@@ -65,8 +65,58 @@ function fakeDrive(tree, log) {
   const txt = await extractFile({ id: "t1", name: "notes.txt", mimeType: "text/plain", size: 500 }, { driveFetch: drive });
   check("a plain text file is downloaded", txt.method === "download" && txt.text === "CONTENT OF t1", txt);
 
-  const image = await extractFile({ id: "i1", name: "logo.png", mimeType: "image/png", size: 1000 }, { driveFetch: drive });
-  check("an image is recorded as unreadable with a reason, not silently dropped", !image.text && /image\/png/.test(image.skipped), image);
+  // ---- Images are READ, not skipped ----
+  // This was the biggest hole in the library. An Approved Content folder is mostly images —
+  // the finished posts, the packshots, the campaign frames — and every one of them used to be
+  // recorded as "nothing readable in a image/png of this type" and contribute not one word. So
+  // Loona Brain could read a brand's written guidelines and know nothing at all about what the
+  // brand's work actually LOOKS like, which for a design studio is most of the point.
+  const imageClient = {
+    messages: {
+      create: async (params) => {
+        const block = params.messages[0].content.find((b) => b.type === "image");
+        const asked = params.messages[0].content.find((b) => b.type === "text").text;
+        return {
+          content: [{
+            type: "text",
+            text: block && block.source.media_type === "image/png" && /EVERY piece of text visible/.test(asked)
+              ? "Finished Instagram post. Text in image: \"The recipe is right.\" RRO Primio bottle, centre-right. Warm kitchen light, 4:5."
+              : "NO IMAGE SENT",
+          }],
+        };
+      },
+    },
+  };
+  const image = await extractFile({ id: "i1", name: "post.png", mimeType: "image/png", size: 1000 }, { driveFetch: drive, imageClient });
+  check("an image is read by the model instead of being skipped", image.method === "image-model" && Boolean(image.text), image);
+  // The text baked into a design is invisible everywhere else, and it's exactly what a copy
+  // agent must not contradict or reinvent — so it matters more than anything else extracted.
+  check("the text inside the image is transcribed", /The recipe is right/.test(image.text), image.text);
+  check("and what the image actually is", /Finished Instagram post/.test(image.text), image.text);
+
+  const jpeg = await extractFile({ id: "i2", name: "packshot.jpg", mimeType: "image/jpeg", size: 900 },
+    { driveFetch: drive, imageClient: { messages: { create: async () => ({ content: [{ type: "text", text: "Packshot on white." }] }) } } });
+  check("jpegs are read too, not just pngs", jpeg.method === "image-model" && /Packshot/.test(jpeg.text), jpeg);
+
+  // A logo on its own, or a blank, is a real "nothing here" rather than content to feed agents.
+  const blank = await extractFile({ id: "i3", name: "spacer.png", mimeType: "image/png", size: 200 },
+    { driveFetch: drive, imageClient: { messages: { create: async () => ({ content: [{ type: "text", text: "NOTHING USEFUL" }] }) } } });
+  check("an image carrying nothing useful stores no text", !blank.text && /Nothing useful/.test(blank.skipped), blank);
+
+  // A print-resolution export blows past the model's per-image ceiling, so it's named with its
+  // real size rather than failing mid-request.
+  const bigImage = await extractFile({ id: "i4", name: "billboard.png", mimeType: "image/png", size: 12 * 1024 * 1024 }, { driveFetch: drive, imageClient });
+  check("an oversized image is reported with its real size", !bigImage.text && /Too large to read \(12MB\)/.test(bigImage.skipped), bigImage.skipped);
+  check("and says a web-resolution copy would do", /web-resolution copy is plenty/.test(bigImage.skipped), bigImage.skipped);
+
+  // Formats no model accepts are still genuinely unreadable, and say which type to re-export.
+  const heic = await extractFile({ id: "i5", name: "shot.heic", mimeType: "image/heic", size: 1000 }, { driveFetch: drive, imageClient });
+  check("a format no model takes is still named as unreadable", !heic.text && /image\/heic/.test(heic.skipped), heic.skipped);
+
+  const video = await extractFile({ id: "v1", name: "reel.mp4", mimeType: "video/mp4", size: 1000 }, { driveFetch: drive, imageClient });
+  check("video is still unreadable, with its type named", !video.text && /video\/mp4/.test(video.skipped), video.skipped);
+
+  check("the image ceiling is the documented 5MB", MAX_IMAGE_BYTES === 5 * 1024 * 1024, MAX_IMAGE_BYTES);
 
   // A PDF over the request ceiling can't be sent whole. It must say so, with its real size,
   // because the fix is on the file's side — this is most of Loona's biggest decks.
