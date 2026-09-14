@@ -157,7 +157,12 @@ exports.handler = async (event) => {
     const generationId = crypto.randomUUID();
     // Netlify production always gets durable URLs. Unit tests and the lightweight local
     // harness deliberately keep the provider result in memory unless explicitly opted in.
-    const durable = process.env.NETLIFY === "true" || process.env.VISUAL_ASSET_STORE === "blobs";
+    // Production always preserves. Locally it is opt-in, and VISUAL_ASSET_LOCAL_DIR counts —
+    // otherwise the browser tests would exercise a generation whose images are never stored,
+    // which is not the shape that ships and would leave every asset-key path untested.
+    const durable = process.env.NETLIFY === "true"
+      || process.env.VISUAL_ASSET_STORE === "blobs"
+      || Boolean(process.env.VISUAL_ASSET_LOCAL_DIR);
     if (durable) {
       result.images = await preserveGeneratedImages(result.images, { brandId, chatId, generationId });
     }

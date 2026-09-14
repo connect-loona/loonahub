@@ -39,7 +39,7 @@ export function App() {
   const [notice, setNotice] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
-  // References the person has attached but not sent. Browser-only — nothing is hosted, so
+  // References the person has attached but not sent yet. Browser-only until upload, so
   // these go straight through the function to the provider and are never written down.
   const [references, setReferences] = useState<PendingReference[]>([]);
   // Whether the last failure was the kind that clears on its own — a burst limit or a blip at
@@ -87,23 +87,56 @@ export function App() {
     void loadChats(brand);
   }, [brand, loadChats]);
 
+  // Waits on a job that is already running and drops its round into the thread when it lands.
+  //
+  // This is the same waitForJob the send path uses, deliberately — there is one definition of
+  // "a job finished" rather than a second one for the resume case that could drift from it.
+  const attachToJob = useCallback(async (jobId: string) => {
+    setBusy(true);
+    setError(null);
+    setNotice("Reconnected to a generation that was already running.");
+    try {
+      const result = await api.waitForJob(jobId);
+      // Guard against a job that finished while the person was off looking at another chat:
+      // only append if it isn't already in the thread.
+      setGenerations((prev) => (prev.some((g) => g.id === result.id) ? prev : prev.concat([{ ...result, pickedIndex: null }])));
+      setNotice(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
   const openChat = useCallback(async (id: string) => {
     setChatId(id);
     setGenerations([]);
     setReferences([]);
     setError(null);
+    // Written before the history call, not after: if the page is refreshed while that request
+    // is still in flight, the URL already points at the right chat.
+    const query = new URLSearchParams({ brand: brand?.id || "", chat: id });
+    window.history.replaceState(null, "", `${window.location.pathname}?${query}`);
     try {
       const { generations: rounds, hasMore: more } = await api.chatHistory(id);
       // Oldest first: a conversation reads downward, and the newest round belongs at the
       // bottom next to the composer you're about to type in again.
       setGenerations(rounds.slice().sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt))));
       setHasMore(Boolean(more));
-      const query = new URLSearchParams({ brand: brand?.id || "", chat: id });
-      window.history.replaceState(null, "", `${window.location.pathname}?${query}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      return;
     }
-  }, [brand]);
+    // A generation outlives the tab that started it — the worker keeps going and the round is
+    // paid for either way. So on opening a chat, pick up anything still running rather than
+    // letting a refresh look like a lost round.
+    try {
+      const { jobs } = await api.activeJobs(id);
+      if (jobs.length) void attachToJob(jobs[jobs.length - 1].id);
+    } catch {
+      // Not being able to check for running jobs is not a reason to fail opening the chat.
+    }
+  }, [brand, attachToJob]);
 
   useEffect(() => {
     if (chatId || !chats.length) return;
@@ -180,6 +213,14 @@ export function App() {
         const created = await api.createChat(brand.id, actor);
         id = created.id;
         setChatId(id);
+        // Routed immediately, before the job is even created. A generation can run for well
+        // over a minute, and if the tab is refreshed in that window the URL has to already
+        // name this chat — otherwise the reconnect below has nothing to reconnect to and the
+        // round looks lost while the worker is still finishing it.
+        const query = new URLSearchParams({ brand: brand.id, chat: id });
+        window.history.replaceState(null, "", `${window.location.pathname}?${query}`);
+        // The sidebar should show the new chat straight away, not only once it has a round.
+        void loadChats(brand);
       }
       setNotice(references.length ? "Uploading references securely…" : "Generation queued — you can safely refresh this page.");
       const uploaded = await Promise.all(references.map((reference) => api.uploadReference(id as string, reference)));

@@ -150,7 +150,7 @@ const HOUR = 60 * 60 * 1000;
   check("the pick is recorded against the generation", picked.pickedIndex === 0, picked.pickedIndex);
   check("and who made it", picked.pickedBy === "Gokul", picked.pickedBy);
 
-  // Every take is downloadable, not only the chosen one — nothing is hosted, so downloading
+  // Every take is downloadable, not only the chosen one — a download is how a take leaves
   // is the only way anything survives.
   check("every take can be downloaded", (await page.locator('.vs-image figcaption a:text("Download")').count()) >= 2,
     await page.locator('.vs-image figcaption a:text("Download")').count());
@@ -179,7 +179,7 @@ const HOUR = 60 * 60 * 1000;
     /soft morning light from the left/.test(expandedText), expandedText);
 
   // ---- References: what a round was built from, and building on a result ----
-  // The bytes are never stored, so what has to survive in the thread is the count and what
+  // Beyond the stored bytes, what has to survive in the thread is the count and what
   // each reference was FOR — that is what explains a prompt six months later.
   check("the thread says what the round was worked from",
     /Worked from 2 references/.test(threadText2), threadText2.slice(0, 400));

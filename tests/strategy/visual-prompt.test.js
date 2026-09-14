@@ -14,17 +14,16 @@ process.env.FIREBASE_DB_URL = require("../harness/shared").RTDB_URL;
 const path = require("path");
 const { HUB, check, finish } = require("../harness/shared");
 const {
-  expandPrompt, historyForPrompt, MAX_HISTORY_TURNS,
+  expandPrompt, historyForPrompt, MAX_HISTORY_TURNS, DEFAULT_PROMPT_MODEL,
 } = require(path.join(HUB, "netlify/functions/lib/strategy/visual-prompt"));
 
-function fakeClient(log, reply) {
-  return {
-    messages: {
-      create: async (params) => {
-        log.push({ system: params.system, user: params.messages[0].content, model: params.model });
-        return { content: [{ type: "text", text: reply === undefined ? "A long, specific rewritten prompt." : reply }] };
-      },
-    },
+// The seam production actually uses: instructions in, text out. Deliberately provider-neutral
+// — the old double was Anthropic-shaped and drove a branch that never ran in production, which
+// meant the path that DID run had no coverage at all.
+function fakeRewriter(log, reply) {
+  return async (instructions, input) => {
+    log.push({ system: instructions, user: input });
+    return reply === undefined ? "A long, specific rewritten prompt." : reply;
   };
 }
 
@@ -59,7 +58,7 @@ function fakeClient(log, reply) {
     brandBrain: "# What we know\n- RRO's approved work is warm and domestic.",
     brandRules: [{ key: "no_label_regeneration", label: "No label regeneration" }],
     referenceRoles: ["Product identity", ""],
-  }, { client: fakeClient(log) });
+  }, { generateText: fakeRewriter(log) });
 
   check("the prompt is rewritten", result.expanded === true && result.prompt === "A long, specific rewritten prompt.", result);
   const sent = log[0].user;
@@ -78,21 +77,26 @@ function fakeClient(log, reply) {
   check("and never to contradict the brand's rules", /Never contradict them/.test(log[0].system), log[0].system);
   check("and to output the prompt only, with no preamble", /Output the prompt only/.test(log[0].system), log[0].system);
 
-  // In front of every single generation, so it has to be cheap.
-  check("the rewrite runs on the economy tier", /haiku/.test(log[0].model), log[0].model);
+  // In front of every single generation, so it has to be cheap. Asserted against the constant
+  // production actually uses rather than against a parameter the test double was handed —
+  // the old version checked the fake's own model name, which could say anything.
+  check("the rewrite runs on the economy tier", /mini|haiku|flash/.test(DEFAULT_PROMPT_MODEL), DEFAULT_PROMPT_MODEL);
+  check("and that model is not hard-coded at the call site", /VISUAL_PROMPT_MODEL/.test(
+    require("fs").readFileSync(path.join(HUB, "netlify/functions/lib/strategy/visual-prompt.js"), "utf8"),
+  ));
 
   // ---- It must never block a generation ----
   // A worse image is far better than no image: nobody should be stopped from generating
   // because a helper step had a bad minute.
   const broken = await expandPrompt(
     { prompt: "make the table warmer" },
-    { client: { messages: { create: async () => { throw new Error("model exploded"); } } } },
+    { generateText: async () => { throw new Error("model exploded"); } },
   );
   check("a failed rewrite falls back to exactly what the person typed",
     broken.prompt === "make the table warmer" && broken.expanded === false, broken);
   check("and records why, for the logs", /model exploded/.test(broken.reason || ""), broken.reason);
 
-  const empty = await expandPrompt({ prompt: "make the table warmer" }, { client: fakeClient([], "") });
+  const empty = await expandPrompt({ prompt: "make the table warmer" }, { generateText: fakeRewriter([], "") });
   check("an empty rewrite falls back too rather than sending nothing",
     empty.prompt === "make the table warmer" && empty.expanded === false, empty);
 
@@ -105,7 +109,7 @@ function fakeClient(log, reply) {
   check("and it says why", /No OpenAI key/.test(noKey.reason || ""), noKey.reason);
   if (savedKey) process.env.OPENAI_API_KEY = savedKey;
 
-  const blank = await expandPrompt({ prompt: "   " }, { client: fakeClient([]) });
+  const blank = await expandPrompt({ prompt: "   " }, { generateText: fakeRewriter([]) });
   check("an empty prompt isn't sent for rewriting at all", blank.expanded === false, blank);
 
   finish();

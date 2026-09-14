@@ -23,6 +23,15 @@ function assetUrl(key) {
   return `/.netlify/functions/visual-asset?key=${encodeURIComponent(key)}`;
 }
 
+// A rejection the caller caused — a wrong file, not a broken service. Marked so the endpoints
+// can answer 400 rather than 502: "bad gateway" for an image that is simply too small sends
+// whoever is debugging it to look at Netlify and Blobs instead of at the file they picked.
+function badImage(message) {
+  const error = new Error(message);
+  error.badRequest = true;
+  return error;
+}
+
 function inspectImage(buffer, declaredType) {
   let contentType = null;
   let width = null;
@@ -47,16 +56,54 @@ function inspectImage(buffer, declaredType) {
   } else if (buffer.length >= 12 && buffer.subarray(0, 4).toString("ascii") === "RIFF" && buffer.subarray(8, 12).toString("ascii") === "WEBP") {
     contentType = "image/webp";
   }
-  if (!contentType) throw new Error("The file contents are not a readable PNG, JPEG, WebP or GIF image.");
-  if (declaredType && contentType !== declaredType) throw new Error(`The file is ${contentType}, but was labelled ${declaredType}.`);
-  if (width && height && (width < 128 || height < 128)) throw new Error(`This reference is only ${width}×${height}px. Use an image at least 128px on each side.`);
+  if (!contentType) throw badImage("The file contents are not a readable PNG, JPEG, WebP or GIF image.");
+  if (declaredType && contentType !== declaredType) throw badImage(`The file is ${contentType}, but was labelled ${declaredType}.`);
+  if (width && height && (width < 128 || height < 128)) throw badImage(`This reference is only ${width}×${height}px. Use an image at least 128px on each side.`);
   const warnings = [];
   if (width && height && (width < 800 || height < 800)) warnings.push(`Low-resolution reference (${width}×${height}px); product details may drift.`);
   return { contentType, width, height, warnings };
 }
 
+// A filesystem stand-in for Netlify Blobs, used only when VISUAL_ASSET_LOCAL_DIR is set.
+//
+// Without it the two endpoints that serve client images cannot run outside Netlify at all, so
+// nothing could test that an upload is rejected for the right reason, that a traversal key is
+// refused, or that a stored image comes back with the right content type. Those are exactly
+// the checks worth having, and they were unreachable.
+//
+// Deliberately env-gated rather than a silent fallback: production must fail loudly if Blobs
+// is unavailable rather than quietly writing client images to a container's disk, where they
+// would vanish with the container and look like data loss.
+function localStore(root) {
+  const fsp = require("fs").promises;
+  const nodePath = require("path");
+  const fileFor = (key) => nodePath.join(root, `${Buffer.from(String(key)).toString("hex")}.bin`);
+  const metaFor = (key) => `${fileFor(key)}.json`;
+  return {
+    async set(key, value, options) {
+      await fsp.mkdir(root, { recursive: true });
+      await fsp.writeFile(fileFor(key), Buffer.from(value));
+      await fsp.writeFile(metaFor(key), JSON.stringify((options && options.metadata) || {}));
+    },
+    async get(key, options) {
+      try {
+        const data = await fsp.readFile(fileFor(key));
+        if (options && options.type === "arrayBuffer") return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+        if (options && options.type === "stream") return data;
+        return data;
+      } catch { return null; }
+    },
+    async getMetadata(key) {
+      try { return { metadata: JSON.parse(await fsp.readFile(metaFor(key), "utf8")) }; }
+      catch { return null; }
+    },
+  };
+}
+
 function storeFor(deps = {}) {
   if (deps.store) return deps.store;
+  const local = process.env.VISUAL_ASSET_LOCAL_DIR;
+  if (local) return localStore(local);
   // Required lazily so the pure helpers and existing unit tests remain usable outside a
   // Netlify runtime. A real write still fails loudly if Blobs itself is unavailable.
   const { getStore } = require("@netlify/blobs");
@@ -94,8 +141,8 @@ async function bytesForImage(image, deps = {}) {
 }
 
 async function saveBuffer({ buffer, contentType, brandId, chatId, generationId, kind, index, filename, role }, deps = {}) {
-  if (!SAFE_IMAGE_TYPES.has(contentType)) throw new Error(`Unsupported image type ${contentType}.`);
-  if (!buffer || !buffer.length) throw new Error("Cannot save an empty image.");
+  if (!SAFE_IMAGE_TYPES.has(contentType)) throw badImage(`Unsupported image type ${contentType}.`);
+  if (!buffer || !buffer.length) throw badImage("Cannot save an empty image.");
   if (buffer.length > MAX_ASSET_BYTES) throw new Error(`Image is larger than the ${Math.round(MAX_ASSET_BYTES / 1024 / 1024)}MB Visual Studio limit.`);
   const inspected = inspectImage(buffer, contentType);
   const digest = crypto.createHash("sha256").update(buffer).digest("hex").slice(0, 16);
@@ -163,6 +210,6 @@ async function referenceForProvider(reference, deps = {}) {
 }
 
 module.exports = {
-  STORE_NAME, MAX_ASSET_BYTES, SAFE_IMAGE_TYPES, assetUrl, decodeDataUrl, inspectImage,
+  badImage, STORE_NAME, MAX_ASSET_BYTES, SAFE_IMAGE_TYPES, assetUrl, decodeDataUrl, inspectImage,
   bytesForImage, saveBuffer, preserveGeneratedImages, loadAsset, referenceForProvider, storeFor,
 };

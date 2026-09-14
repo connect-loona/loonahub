@@ -63,10 +63,26 @@ export function chatHistory(chatId: string, before?: string): Promise<{ chat: Vi
   return post("visual-chat", { action: "history", chatId, before, limit: 20 }) as Promise<{ chat: VisualChat; generations: Generation[]; hasMore?: boolean }>;
 }
 
-type VisualJob = { id: string; status: "queued" | "running" | "succeeded" | "failed"; progress?: string; result?: Generation & { recorded: boolean; brandId: string }; error?: string };
+export type VisualJob = {
+  id: string;
+  chatId?: string;
+  status: "queued" | "running" | "succeeded" | "failed";
+  progress?: string;
+  result?: Generation & { recorded: boolean; brandId: string };
+  error?: string;
+};
 
-async function waitForJob(jobId: string): Promise<Generation & { recorded: boolean; brandId: string }> {
-  const deadline = Date.now() + 5 * 60 * 1000;
+// The jobs still running in this chat. Asked when a chat opens, so a refresh mid-generation
+// reconnects to the round rather than losing sight of it — the worker never stopped, and the
+// generation is paid for whether or not a browser was watching.
+export function activeJobs(chatId: string): Promise<{ jobs: VisualJob[] }> {
+  return post("visual-job", { action: "active", chatId }) as Promise<{ jobs: VisualJob[] }>;
+}
+
+// Exported so a reconnected job can be waited on exactly like a freshly started one — there is
+// one polling implementation, not a second one for the resume path.
+export async function waitForJob(jobId: string): Promise<Generation & { recorded: boolean; brandId: string }> {
+  const deadline = Date.now() + 15 * 60 * 1000;
   while (Date.now() < deadline) {
     const { job } = await post("visual-job", { action: "status", jobId }) as { job: VisualJob };
     if (job.status === "succeeded" && job.result) return job.result;
@@ -74,6 +90,22 @@ async function waitForJob(jobId: string): Promise<Generation & { recorded: boole
     await new Promise((resolve) => window.setTimeout(resolve, 1500));
   }
   throw new Error("Generation is still running. It is safe to refresh; this job remains in Visual Studio.");
+}
+
+// Creating a job, kicking its worker, and waiting for it. Shared by generation and by Magnific
+// enhancement because they are the same lifecycle with a different request body — and, since
+// the test-mode bypass was removed, this is the ONLY path either of them takes. What the
+// browser tests exercise is what production runs.
+async function runJob(request: Record<string, unknown>, actor: string): Promise<Generation & { recorded: boolean; brandId: string }> {
+  const { job, workerToken } = await post("visual-job", { action: "create", request, actor }) as { job: VisualJob; workerToken: string };
+  const headers = await authHeaders({ "Content-Type": "application/json" });
+  const started = await fetch("/.netlify/functions/visual-generate-background", {
+    method: "POST", headers, body: JSON.stringify({ jobId: job.id, workerToken }),
+  });
+  // A background function answers 202 and nothing else. Anything outside the 2xx range means
+  // the worker was never kicked, so the job would sit queued for ever if we started polling.
+  if (!started.ok && started.status !== 202) throw new Error("Could not start the generation job.");
+  return waitForJob(job.id);
 }
 
 export function generate(args: {
@@ -90,36 +122,14 @@ export function generate(args: {
   parentGenerationId?: string | null;
   parentImageIndex?: number | null;
 }): Promise<Generation & { recorded: boolean; brandId: string }> {
-  return (async () => {
-    // Browser tests use the deterministic synchronous fixture endpoint. Production always
-    // uses recoverable jobs, which is the behaviour this branch ships.
-    if (import.meta.env.MODE === "test") {
-      return post("visual-generate", args) as Promise<Generation & { recorded: boolean; brandId: string }>;
-    }
-    const { job, workerToken } = await post("visual-job", { action: "create", request: args, actor: args.actor }) as { job: VisualJob; workerToken: string };
-    const headers = await authHeaders({ "Content-Type": "application/json" });
-    const started = await fetch("/.netlify/functions/visual-generate-background", {
-      method: "POST", headers, body: JSON.stringify({ jobId: job.id, workerToken }),
-    });
-    if (!started.ok && started.status !== 202) throw new Error("Could not start the generation job.");
-    return waitForJob(job.id);
-  })();
+  return runJob(args as unknown as Record<string, unknown>, args.actor);
 }
 
 export function enhanceImage(args: { chatId: string; generationId: string; imageIndex: number; actor: string }): Promise<Generation & { recorded: boolean; brandId: string }> {
-  return (async () => {
-    const request = {
-      operation: "magnific_precision", chatId: args.chatId, prompt: "Enhance with Magnific Precision",
-      sourceGenerationId: args.generationId, sourceImageIndex: args.imageIndex, actor: args.actor,
-    };
-    const { job, workerToken } = await post("visual-job", { action: "create", request, actor: args.actor }) as { job: VisualJob; workerToken: string };
-    const headers = await authHeaders({ "Content-Type": "application/json" });
-    const started = await fetch("/.netlify/functions/visual-generate-background", {
-      method: "POST", headers, body: JSON.stringify({ jobId: job.id, workerToken }),
-    });
-    if (!started.ok && started.status !== 202) throw new Error("Could not start Magnific enhancement.");
-    return waitForJob(job.id);
-  })();
+  return runJob({
+    operation: "magnific_precision", chatId: args.chatId, prompt: "Enhance with Magnific Precision",
+    sourceGenerationId: args.generationId, sourceImageIndex: args.imageIndex, actor: args.actor,
+  }, args.actor);
 }
 
 export interface UsageRow {

@@ -13,6 +13,9 @@ const http = require("http");
 const HUB = path.join(__dirname, "..");
 const RTDB_PORT = process.env.FAKE_RTDB_PORT || 9030;
 const DEV_LITE_PORT = process.env.DEV_LITE_PORT || 9020;
+// Stands in for OpenAI's image and rewrite endpoints so the real generation path — job,
+// background worker, polling, storage — runs in tests without a key or a network.
+const FAKE_OPENAI_PORT = process.env.FAKE_OPENAI_PORT || 9040;
 
 // Every test file only wipes the specific paths it cares about (matching what a human
 // tester would clear before checking a specific flow), so leftover data from earlier files
@@ -82,15 +85,31 @@ function listTestFiles(dir, suffix) {
 (async () => {
   console.log("Starting harness servers...");
   const rtdb = spawnServer(path.join(HUB, "tests/harness/fake-rtdb-server.js"), { FAKE_RTDB_PORT: RTDB_PORT });
+  // Where Visual Studio's image bytes go during a test run. Setting it switches
+  // visual-assets.js off Netlify Blobs and onto a throwaway directory, which is what lets the
+  // durable path — upload, store, serve, build-on-this — be exercised locally at all. Cleared
+  // between runs so one run's images can never be mistaken for another's.
+  const assetDir = path.join(HUB, "tests", ".visual-assets");
+  fs.rmSync(assetDir, { recursive: true, force: true });
+  fs.mkdirSync(assetDir, { recursive: true });
+
+  const fakeOpenAI = spawnServer(path.join(HUB, "tests/harness/fake-openai-images.js"), { FAKE_OPENAI_PORT });
+
   const devLite = spawnServer(path.join(HUB, "tests/harness/netlify-dev-lite.js"), {
     DEV_LITE_PORT,
     FIREBASE_DB_URL: `http://127.0.0.1:${RTDB_PORT}`,
+    VISUAL_ASSET_LOCAL_DIR: assetDir,
+    // A key has to be present for the provider to attempt a call at all; its value is never
+    // checked by the stub, and no real endpoint is ever reached.
+    OPENAI_API_KEY: "test-key-not-real",
+    OPENAI_BASE_URL: `http://127.0.0.1:${FAKE_OPENAI_PORT}`,
   });
 
   let results = [];
   try {
     await waitForHttp(`http://127.0.0.1:${RTDB_PORT}/.json`);
     await waitForHttp(`http://127.0.0.1:${DEV_LITE_PORT}/index.html`);
+    await waitForHttp(`http://127.0.0.1:${FAKE_OPENAI_PORT}/responses`);
     console.log("Harness servers are up.\n");
 
     // Optional filter: `node tests/run-all.js strategy` or `node tests/run-all.js e2e`
@@ -123,6 +142,7 @@ function listTestFiles(dir, suffix) {
   } finally {
     rtdb.kill();
     devLite.kill();
+    fakeOpenAI.kill();
   }
 
   console.log("\n\n===== SUMMARY =====");

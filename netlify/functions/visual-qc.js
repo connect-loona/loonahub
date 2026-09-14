@@ -10,6 +10,47 @@ const { recordApiUsage } = require("./lib/strategy/api-usage");
 
 const reply = (statusCode, value) => ({ statusCode, headers: { "Content-Type": "application/json" }, body: JSON.stringify(value) });
 const CHECKS = ["prompt_match", "product_identity", "text_and_logo", "brand_style", "visual_integrity", "production_readiness"];
+const STATUSES = new Set(["pass", "warn", "fail", "not_checked"]);
+
+// Caps on what a model is allowed to put on screen and into a brand's permanent memory.
+// A structured-output schema is a request, not a guarantee: the model can still return a
+// missing check, an invented status, or a thousand-word summary, and every other writer in
+// this codebase caps what it stores. This one was spreading the parsed object straight into
+// Firebase, so whatever came back became part of the record.
+const MAX_SUMMARY_CHARS = 500;
+const MAX_ISSUE_CHARS = 300;
+const MAX_ISSUES = 3;
+// Truncating JSON produces unparseable JSON, so an oversized body is refused rather than cut.
+const MAX_RAW_OUTPUT_CHARS = 20000;
+
+function cap(value, limit) {
+  return String(value == null ? "" : value).trim().slice(0, limit);
+}
+
+// Rebuilt key by key rather than spread: an unexpected field cannot reach the response or the
+// database, and every one of the six checks is present afterwards whatever the model returned.
+// A check the model omitted is "not_checked" — which is the honest reading, and the one status
+// this feature exists to keep meaningful.
+function sanitizeQc(parsed, meta = {}) {
+  const source = (parsed && typeof parsed === "object") ? parsed : {};
+  const sourceChecks = (source.checks && typeof source.checks === "object") ? source.checks : {};
+  const checks = {};
+  for (const name of CHECKS) {
+    const raw = sourceChecks[name];
+    const status = raw && STATUSES.has(raw.status) ? raw.status : "not_checked";
+    const issues = Array.isArray(raw && raw.issues)
+      ? raw.issues.map((issue) => cap(issue, MAX_ISSUE_CHARS)).filter(Boolean).slice(0, MAX_ISSUES)
+      : [];
+    checks[name] = { status, issues };
+  }
+  return {
+    summary: cap(source.summary, MAX_SUMMARY_CHARS),
+    checks,
+    checkedAt: meta.checkedAt || new Date().toISOString(),
+    checkedByModel: cap(meta.model, 100),
+    imageIndex: Number.isInteger(meta.imageIndex) ? meta.imageIndex : 0,
+  };
+}
 
 async function imagePart(assetKey) {
   const asset = await loadAsset(assetKey);
@@ -70,8 +111,13 @@ exports.handler = async (event) => {
     });
     const raw = await response.json();
     if (!response.ok) throw new Error(raw.error && raw.error.message || "OpenAI could not review this image.");
-    const parsed = JSON.parse(outputText(raw));
-    const qc = { ...parsed, checkedAt: new Date().toISOString(), checkedByModel: model, imageIndex: Number(body.imageIndex) || 0 };
+    const text = outputText(raw);
+    if (text.length > MAX_RAW_OUTPUT_CHARS) throw new Error("The review came back unreasonably long and was discarded.");
+    let parsed;
+    try { parsed = JSON.parse(text); } catch { throw new Error("The review did not come back as readable JSON."); }
+    // Sanitised once, then used for BOTH the response and the permanent record — so what the
+    // screen shows and what the brand's memory keeps cannot drift apart.
+    const qc = sanitizeQc(parsed, { model, imageIndex: Number(body.imageIndex) || 0 });
     await recordQc(chat.brandId, generation.id, qc);
     try {
       await recordApiUsage({ id: `qc-${generation.id}-${Date.now()}`, userId: actor.id, userEmail: actor.email,
@@ -84,3 +130,11 @@ exports.handler = async (event) => {
     return reply(502, { error: error.message || "Visual review failed." });
   }
 };
+
+// Exported for tests: the sanitiser is the part that has to hold regardless of what a model
+// returns, so it is exercised directly rather than only through a mocked HTTP round trip.
+exports.sanitizeQc = sanitizeQc;
+exports.CHECKS = CHECKS;
+exports.MAX_SUMMARY_CHARS = MAX_SUMMARY_CHARS;
+exports.MAX_ISSUE_CHARS = MAX_ISSUE_CHARS;
+exports.MAX_ISSUES = MAX_ISSUES;

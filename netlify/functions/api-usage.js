@@ -5,8 +5,26 @@ const { listApiUsage, summarizeApiUsage } = require("./lib/strategy/api-usage");
 const headers = { "Content-Type": "application/json", "Cache-Control": "no-store" };
 const reply = (statusCode, value) => ({ statusCode, headers, body: JSON.stringify(value) });
 
+// "2026-99" matches \d{4}-\d{2} and then produces an Invalid Date, whose toISOString() throws —
+// so a typo in a query string came back as a 502 that read like the usage service was down.
+// The month part has to actually be a month, and anything else is the caller's mistake, said
+// plainly, rather than a silent fall back to "this month" that quietly answers a different
+// question from the one asked.
+function isValidMonth(value) {
+  const text = String(value || "");
+  if (!/^\d{4}-\d{2}$/.test(text)) return false;
+  const [year, month] = text.split("-").map(Number);
+  return year >= 2000 && year <= 2999 && month >= 1 && month <= 12;
+}
+
 function monthWindow(month) {
-  const match = /^\d{4}-\d{2}$/.test(String(month || "")) ? String(month) : new Date().toISOString().slice(0, 7);
+  // An absent month is not an error — it means "this month", which is what the panel opens on.
+  if (month !== undefined && month !== null && String(month) !== "" && !isValidMonth(month)) {
+    const error = new Error(`"${String(month).slice(0, 20)}" is not a month. Use YYYY-MM, for example ${new Date().toISOString().slice(0, 7)}.`);
+    error.badRequest = true;
+    throw error;
+  }
+  const match = isValidMonth(month) ? String(month) : new Date().toISOString().slice(0, 7);
   const start = new Date(`${match}-01T00:00:00Z`);
   const end = new Date(start); end.setUTCMonth(end.getUTCMonth() + 1);
   return { month: match, start: start.toISOString(), end: end.toISOString() };
@@ -67,7 +85,9 @@ exports.handler = async (event) => {
   const auth = checkAuthorization(event);
   if (!auth.ok) return reply(401, { error: "Unauthorized", reason: auth.reason });
   let body; try { body = JSON.parse(event.body || "{}"); } catch { return reply(400, { error: "Invalid JSON" }); }
-  const window = monthWindow(body.month);
+  let window;
+  try { window = monthWindow(body.month); }
+  catch (error) { if (error.badRequest) return reply(400, { error: error.message }); throw error; }
   try {
     const [events, openai, magnific] = await Promise.all([listApiUsage(window.start, window.end), openAiOrganization(window), magnificTeamUsage(window)]);
     const summary = summarizeApiUsage(events);
@@ -92,5 +112,6 @@ exports.handler = async (event) => {
 };
 
 module.exports.monthWindow = monthWindow;
+module.exports.isValidMonth = isValidMonth;
 module.exports.openAiOrganization = openAiOrganization;
 module.exports.magnificTeamUsage = magnificTeamUsage;

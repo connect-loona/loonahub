@@ -3,7 +3,8 @@
 // Two honesty rules run through this file.
 //
 // An expired preview says so. Provider image URLs die after about an hour (see
-// visual-memory.js), and Visual Studio deliberately doesn't host copies. Rendering a dead URL
+// visual-memory.js). Rounds generated before Visual Studio kept its own copies have only such
+// a URL, and it has long since died. Rendering a dead URL
 // would show a broken image and quietly imply the record is damaged — when in fact the prompt,
 // the pick and the reasoning are all intact and are the parts that actually compound.
 //
@@ -85,18 +86,33 @@ function Round({ generation, onPick, onUseAsReference, onSuggestion, onReview, o
                   ? <img src={image.url} alt={`Option ${i + 1} for: ${generation.prompt}`} loading="lazy" />
                   : <div className="vs-image-missing">No image returned</div>}
                 <figcaption>
+                  {/* "Use this" opens the panel and records NOTHING. Recording here as well as
+                      on Save wrote the pick twice — once bare, once with the tags — and Cancel
+                      still left the bare one behind, so "I changed my mind" silently taught the
+                      brand's memory the wrong take. The write happens on Save, once. */}
                   {picked === i ? (
                     <span className="vs-picked-flag">✓ Chosen{generation.pickedBy ? ` by ${generation.pickedBy}` : ""}</span>
                   ) : (
-                    <button type="button" onClick={() => { onPick(generation, i); setFeedbackFor(i); setTags([]); setNote(""); }}>Use this</button>
+                    <button type="button" onClick={() => { setFeedbackFor(i); setTags([]); setNote(""); }}>Use this</button>
                   )}
                   {image.url && (
                     <>
                       {/* Carrying a take back up as the next reference is the iteration loop —
-                          "now make the table warmer" without re-uploading anything. */}
-                      <button type="button" className="vs-useref" onClick={() => onUseAsReference(generation, i)}>
-                        Build on this
-                      </button>
+                          "now make the table warmer" without re-uploading anything.
+                          It needs the stored image, though: rounds made before Visual Studio
+                          kept its own copies have only a provider URL that has long since
+                          expired, and nothing to send a model. Offering the button there fails
+                          at send time with "no longer available to upload", which reads like a
+                          bug. Say why instead. */}
+                      {image.assetKey ? (
+                        <button type="button" className="vs-useref" onClick={() => onUseAsReference(generation, i)}>
+                          Build on this
+                        </button>
+                      ) : (
+                        <span className="vs-useref-unavailable" title="This round was made before Visual Studio kept its own copies of generated images.">
+                          Re-upload to build on this
+                        </span>
+                      )}
                       {image.assetKey && generation.operation !== "magnific_precision" && (
                         <button type="button" className="vs-useref" disabled={enhancing !== null} onClick={async () => {
                           setEnhancing(i); setReviewError(null);
@@ -117,7 +133,9 @@ function Round({ generation, onPick, onUseAsReference, onSuggestion, onReview, o
 
         {feedbackFor !== null && (
           <div className="vs-feedback">
-            <strong>Chosen. Why does take {feedbackFor + 1} work?</strong>
+            {/* "Choosing" rather than "Chosen": nothing is recorded until Save, and saying
+                otherwise would make Cancel read like it undoes something. */}
+            <strong>Choosing take {feedbackFor + 1}. Why does it work?</strong>
             <p>This becomes evidence Mani can reuse, not just a thumbs-up.</p>
             <div className="vs-feedback-tags">
               {PICK_SIGNALS.map((tag) => <button key={tag} type="button" className={tags.includes(tag) ? "is-active" : ""} onClick={() => setTags((old) => old.includes(tag) ? old.filter((x) => x !== tag) : old.concat(tag))}>{tag}</button>)}

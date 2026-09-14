@@ -13,9 +13,13 @@ const { ConfigurationError } = require("./errors");
 const { referenceForProvider } = require("./visual-assets");
 const { apiKey: magnificApiKey, generateWithMystic } = require("./magnific-provider");
 
-const OPENAI_IMAGE_URL = "https://api.openai.com/v1/images/generations";
+// Configurable because a gateway or proxy in front of OpenAI is a normal production
+// arrangement — and because it is what lets the whole generation path, job and all, be
+// exercised locally against a stub instead of being skipped or faked further up the stack.
+const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/, "");
+const OPENAI_IMAGE_URL = `${OPENAI_BASE_URL}/images/generations`;
 // Working from a reference is a different endpoint, not a different parameter.
-const OPENAI_EDIT_URL = "https://api.openai.com/v1/images/edits";
+const OPENAI_EDIT_URL = `${OPENAI_BASE_URL}/images/edits`;
 const DEFAULT_OPENAI_MODEL = "gpt-image-1";
 const MAX_IMAGES = 4;
 // References travel base64 through a Netlify function, which has a hard request-size ceiling
@@ -66,8 +70,9 @@ function resolveSize(size) {
 }
 
 // A data: URL as the browser sends it, turned into something multipart/form-data can carry.
-// References arrive base64 because nothing is hosted — the bytes go straight from the person's
-// machine, through this function, to the provider, and are never stored anywhere in between.
+// References arrive as bytes: either read back from the asset store by key, or — for a
+// reference that has not been uploaded yet — inline. Either way this layer hands the provider
+// the actual image rather than a URL it would have to fetch.
 function decodeDataUrl(dataUrl, index) {
   const match = /^data:([a-z0-9.+/-]+);base64,(.+)$/i.exec(String(dataUrl || ""));
   if (!match) throw new Error(`Reference ${index + 1} is not a readable image.`);

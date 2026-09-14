@@ -5,6 +5,9 @@ const { resolveChat } = require("./visual-chats");
 const { loadVisualHistory } = require("./visual-memory");
 
 const TERMINAL = new Set(["succeeded", "failed"]);
+// A background function can run for fifteen minutes. Past that plus a margin, a job still
+// marked running means the worker died, not that it is still thinking.
+const STALE_JOB_MS = 16 * 60 * 1000;
 
 function signingSecret() { return process.env.VISUAL_JOB_SECRET || process.env.BASIC_AUTH_CREDENTIALS || ""; }
 function signVisualJob(id) { return crypto.createHmac("sha256", signingSecret()).update(String(id)).digest("hex"); }
@@ -69,6 +72,30 @@ async function createVisualJob(request, actor) {
 
 async function getVisualJob(id) { return fbGet(jobPath(id)); }
 
+// The jobs for one chat that have not finished yet.
+//
+// This is what makes a refresh survivable. A generation can run for well over a minute, and
+// the browser is not the thing doing the work — the job is a record in Firebase and the worker
+// keeps going whether or not anybody is watching. Without this, closing the tab or a phone
+// locking its screen looked exactly like a lost generation, while the money was spent anyway.
+//
+// Scoped by chat rather than returning every live job: a chat already answers "which brand?"
+// (see visual-chats.js), so this cannot be used to enumerate another client's work.
+async function activeVisualJobsForChat(chatId, options = {}) {
+  const wanted = String(chatId || "");
+  if (!wanted) return [];
+  const all = (await fbGet("visual_jobs")) || {};
+  const stale = Number(options.staleAfterMs) || STALE_JOB_MS;
+  const now = options.now || Date.now();
+  return Object.values(all)
+    .filter((job) => job && job.chatId === wanted && !TERMINAL.has(job.status))
+    // A worker that died leaves its job "running" for ever. Treating that as live would hang
+    // the composer on a round that is never coming back, so anything untouched for longer than
+    // a background function could possibly run is not offered as resumable.
+    .filter((job) => now - Date.parse(job.updatedAt || job.createdAt || 0) < stale)
+    .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+}
+
 async function updateVisualJob(id, patch) {
   const current = await getVisualJob(id);
   if (!current) throw new Error(`No visual job ${id}.`);
@@ -78,4 +105,7 @@ async function updateVisualJob(id, patch) {
   return next;
 }
 
-module.exports = { createVisualJob, getVisualJob, updateVisualJob, signVisualJob, verifyVisualJobSignature, jobPath };
+module.exports = {
+  createVisualJob, getVisualJob, updateVisualJob, activeVisualJobsForChat,
+  signVisualJob, verifyVisualJobSignature, jobPath, STALE_JOB_MS,
+};

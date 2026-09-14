@@ -1,6 +1,6 @@
 "use strict";
 const { checkAuthorization } = require("./lib/strategy/auth");
-const { createVisualJob, getVisualJob, signVisualJob } = require("./lib/strategy/visual-jobs");
+const { createVisualJob, getVisualJob, signVisualJob, activeVisualJobsForChat } = require("./lib/strategy/visual-jobs");
 const { resolveVisualActor } = require("./lib/strategy/visual-actor");
 
 const headers = { "Content-Type": "application/json", "Cache-Control": "no-store" };
@@ -22,6 +22,13 @@ exports.handler = async (event) => {
     if (body.action === "status") {
       const job = await getVisualJob(String(body.jobId || ""));
       return job ? reply(200, { job }) : reply(404, { error: "Generation job not found." });
+    }
+    // What is still running in this chat. Asked on open, so a refresh — or a phone locking its
+    // screen mid-generation — reconnects to the round instead of losing it while the worker
+    // carries on and the money is spent anyway.
+    if (body.action === "active") {
+      const jobs = await activeVisualJobsForChat(String(body.chatId || ""));
+      return reply(200, { jobs });
     }
     return reply(400, { error: "Unknown action." });
   } catch (error) {

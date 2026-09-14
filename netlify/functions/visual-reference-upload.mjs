@@ -28,6 +28,8 @@ export default async function uploadReference(request) {
     });
     return json({ asset: saved });
   } catch (error) {
+    // A file the person picked being wrong is a 400. Only an actual storage failure is a 502.
+    if (error && error.badRequest) return json({ error: error.message }, 400);
     console.error("Visual reference upload failed:", error);
     return json({ error: error.message || "Could not store the reference." }, 502);
   }

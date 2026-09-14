@@ -19,6 +19,7 @@ process.env.URL = process.env.URL || "http://127.0.0.1:9020";
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const { pathToFileURL } = require("url");
 const HUB = path.join(__dirname, "..", "..");
 
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".png": "image/png", ".css": "text/css" };
@@ -89,18 +90,121 @@ function serveStatic(req, res) {
 // netlify/functions/*.js file is picked up automatically, no separate list to remember to
 // update (a real, recurring maintenance gap in this file's earlier ad-hoc version).
 const FUNCTIONS_DIR = path.join(HUB, "netlify", "functions");
+
+// Both function generations live in this directory and neither can be ignored.
+//
+// The classic ones are CommonJS .js exporting `handler(event)`. The newer ones are .mjs
+// exporting a default `(Request) => Response` — that is how visual-asset and
+// visual-reference-upload are written, and until this understood .mjs they could not be
+// exercised by any test at all, locally or in CI. Two endpoints serving client images, with no
+// coverage, because the harness could not load the file extension.
 function knownFunctionNames() {
-  return fs.readdirSync(FUNCTIONS_DIR)
-    .filter((f) => f.endsWith(".js"))
-    .map((f) => f.slice(0, -3));
+  const names = new Set();
+  for (const file of fs.readdirSync(FUNCTIONS_DIR)) {
+    if (file.endsWith(".mjs")) names.add(file.slice(0, -4));
+    else if (file.endsWith(".js")) names.add(file.slice(0, -3));
+  }
+  return [...names];
+}
+
+function functionFile(name) {
+  const mjs = path.join(FUNCTIONS_DIR, `${name}.mjs`);
+  if (fs.existsSync(mjs)) return { file: mjs, esm: true };
+  const js = path.join(FUNCTIONS_DIR, `${name}.js`);
+  if (fs.existsSync(js)) return { file: js, esm: false };
+  return null;
+}
+
+// Netlify answers a background function with 202 and an empty body straight away, then runs it
+// out of band. Awaiting it here instead would make every browser test see a generation as
+// instant and synchronous — which is exactly the production behaviour the job queue exists to
+// avoid, so the tests would be proving the opposite of what ships.
+function isBackground(name) {
+  return name.endsWith("-background");
+}
+
+// Background work currently in flight.
+//
+// Answering 202 and working afterwards is the right simulation — it is what Netlify does, and
+// it is the only way a test can observe a job while it is still queued or running. But the
+// Strategy OS tests were all written against a harness that finished the work before replying,
+// so for them "the response arrived" meant "the stage has run".
+//
+// Rather than sprinkle polling through five existing test files, the harness tracks what is
+// still running and offers a way to wait for quiet. Node-based tests drain it after each call
+// (see shared.js's req) and keep their old, simpler shape; the browser never drains, so the
+// Visual Studio job tests see the genuinely asynchronous behaviour that ships.
+const inFlight = new Set();
+
+function trackBackground(promise) {
+  inFlight.add(promise);
+  promise.finally(() => inFlight.delete(promise));
+}
+
+async function waitForBackgroundIdle(timeoutMs = 30000) {
+  const deadline = Date.now() + timeoutMs;
+  while (inFlight.size > 0 && Date.now() < deadline) {
+    await Promise.race([Promise.allSettled([...inFlight]), new Promise((r) => setTimeout(r, 50))]);
+  }
+  return inFlight.size === 0;
+}
+
+// A v2 (.mjs) function: build a real Request, run it, stream the Response back.
+//
+// The body is kept as a Buffer throughout. Reference upload posts raw image bytes, and the
+// old string concatenation corrupted every one of them — a PNG that arrived through here would
+// fail its own signature check, which is indistinguishable from the validation working.
+async function handleEsmFunction(file, name, req, res, rawBody) {
+  const proto = req.headers["x-forwarded-proto"] || "http";
+  const url = `${proto}://${req.headers.host || "127.0.0.1"}${req.url}`;
+  const headers = new Headers();
+  for (const [key, value] of Object.entries(req.headers)) {
+    if (Array.isArray(value)) value.forEach((v) => headers.append(key, v));
+    else if (value !== undefined) headers.set(key, String(value));
+  }
+  const hasBody = req.method !== "GET" && req.method !== "HEAD" && rawBody.length > 0;
+  const request = new Request(url, { method: req.method, headers, body: hasBody ? rawBody : undefined });
+
+  const mod = await import(`${pathToFileURL(file).href}?v=${Date.now()}`);
+  const handler = mod.default;
+  if (typeof handler !== "function") throw new Error(`${name}.mjs has no default export to call.`);
+  const response = await handler(request, { requestId: `local-${Date.now()}` });
+
+  res.statusCode = response.status;
+  response.headers.forEach((value, key) => res.setHeader(key, value));
+  // arrayBuffer() rather than text(): these responses carry image bytes, and round-tripping
+  // them through a string is how a valid PNG becomes a broken one.
+  const buffer = Buffer.from(await response.arrayBuffer());
+  res.end(buffer);
 }
 
 async function handleFunction(name, req, res, queryStringParameters) {
-  let body = "";
-  req.on("data", (c) => (body += c));
+  const chunks = [];
+  req.on("data", (c) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
   req.on("end", async () => {
+    const rawBody = Buffer.concat(chunks);
+    const body = rawBody.toString("utf8");
+    const target = functionFile(name);
+    // Answer first, work after — the same order Netlify uses, so a test can observe a job
+    // while it is still queued or running rather than only after it has finished.
+    if (target && isBackground(name)) {
+      res.statusCode = 202;
+      res.end("");
+      const mod = require(target.file);
+      const headers = Object.assign({ "x-forwarded-proto": "http" }, req.headers);
+      trackBackground(
+        mod.handler({ httpMethod: req.method, headers, body, queryStringParameters: queryStringParameters || {} })
+          .catch((e) => console.error(`[dev-lite] background ${name} failed:`, e && e.stack ? e.stack : e)),
+      );
+      return;
+    }
     try {
-      const modPath = path.join(FUNCTIONS_DIR, `${name}.js`);
+      if (!target) throw new Error(`No function file for "${name}".`);
+      if (target.esm) {
+        await handleEsmFunction(target.file, name, req, res, rawBody);
+        return;
+      }
+      const modPath = target.file;
       delete require.cache[require.resolve(modPath)];
       const mod = require(modPath);
       // This stand-in server is always plain http, unlike Netlify's real (always-https)
@@ -130,6 +234,15 @@ async function handleFunction(name, req, res, queryStringParameters) {
 
 const server = http.createServer((req, res) => {
   const [p, queryString] = req.url.split("?");
+  // Test-harness only, and never part of the deployed site: block until no background function
+  // is still running. See trackBackground above for why this exists.
+  if (p === "/__dev/background-idle") {
+    return waitForBackgroundIdle().then((idle) => {
+      res.statusCode = idle ? 200 : 504;
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ idle, running: inFlight.size }));
+    });
+  }
   const fnMatch = p.match(/^\/\.netlify\/functions\/([a-z0-9-]+)$/);
   if (fnMatch && knownFunctionNames().includes(fnMatch[1])) {
     const queryStringParameters = Object.fromEntries(new URLSearchParams(queryString || ""));
