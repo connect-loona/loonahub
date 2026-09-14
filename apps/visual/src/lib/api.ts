@@ -20,7 +20,11 @@ async function post(path: string, body: unknown): Promise<unknown> {
   if (!res.ok) {
     const payload = data as { error?: string; reason?: string };
     const message = payload.error || "Request failed.";
-    throw new Error(payload.reason ? `${message} — ${payload.reason}` : message);
+    const err = new Error(payload.reason ? `${message} — ${payload.reason}` : message) as Error & { status?: number };
+    // 429 (a burst rate limit, retry works) and 402 (out of credit, retry never works) need
+    // different advice, so the status has to survive as far as the screen.
+    err.status = res.status;
+    throw err;
   }
   return data;
 }

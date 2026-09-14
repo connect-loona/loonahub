@@ -117,15 +117,55 @@ async function generateWithOpenAI(request, deps = {}) {
   return readOpenAIImages(response, model, "generate");
 }
 
+// A 429 from OpenAI means two completely different things, and conflating them is useless to
+// whoever is standing in front of the screen.
+//
+//   A RATE limit is a burst: too many images in the same minute, usually because a few people
+//   asked for four takes at once. It clears on its own in seconds, so the right advice is
+//   "try again in a moment" — and it's worth one automatic retry before bothering anyone.
+//
+//   A QUOTA problem is money: prepaid credit exhausted, or the monthly budget cap hit. Waiting
+//   does nothing at all, and retrying just burns time. Somebody has to go and top it up.
+//
+// Unlike ChatGPT's subscription caps there is no multi-hour cooldown here, so "you've hit your
+// limit, come back later" would be actively wrong advice in both cases.
+function classifyOpenAIFailure(status, detail) {
+  const text = String(detail || "").toLowerCase();
+  if (/insufficient_quota|exceeded your current quota|billing|credit balance|payment|hard limit/.test(text)) {
+    return {
+      kind: "quota",
+      retryable: false,
+      message: "OpenAI has stopped accepting requests — the account is out of credit or has hit its monthly budget cap. Waiting won't help; someone needs to top it up in the OpenAI dashboard.",
+    };
+  }
+  if (status === 429 || /rate limit|too many requests/.test(text)) {
+    return {
+      kind: "rate_limit",
+      retryable: true,
+      message: "OpenAI is briefly rate-limiting us — too many images at once. Wait a few seconds and try again, or ask for fewer takes.",
+    };
+  }
+  if (status >= 500) {
+    return { kind: "provider_down", retryable: true, message: `OpenAI had a problem on their end (${status}). Worth trying again in a moment.` };
+  }
+  return { kind: "request", retryable: false, message: null };
+}
+
 // Both endpoints answer in the same shape, so both are read the same way.
 async function readOpenAIImages(response, model, mode) {
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
-    // Carry the provider's own words through. The billing case especially: an opaque "image
-    // generation failed" is exactly the failure that cost us a real afternoon on the text
-    // side (see runtime-failover.js's isProviderError comment).
-    const error = new Error(`OpenAI image ${mode} failed (${response.status}). ${detail.slice(0, 400)}`);
+    const verdict = classifyOpenAIFailure(response.status, detail);
+    // The person gets the plain-English version; the raw response still goes to the function
+    // logs, so a diagnosis later isn't limited to whatever we decided to paraphrase today.
+    console.error(`OpenAI image ${mode} failed (${response.status}) [${verdict.kind}]:`, String(detail).slice(0, 600));
+    // Carry the provider's own words through when we have nothing better to say. The billing
+    // case especially: an opaque "image generation failed" is exactly the failure that cost us
+    // a real afternoon on the text side (see runtime-failover.js's isProviderError comment).
+    const error = new Error(verdict.message || `OpenAI image ${mode} failed (${response.status}). ${detail.slice(0, 400)}`);
     error.status = response.status;
+    error.kind = verdict.kind;
+    error.retryable = verdict.retryable;
     throw error;
   }
 
@@ -151,14 +191,34 @@ function listProviders() {
   }));
 }
 
-async function generateImages(request, deps) {
+// One automatic retry, and only for a genuine burst limit.
+//
+// A rate limit clears in seconds, and the person has already waited through the first attempt
+// — making them press the button again to ride out a two-second window is a worse experience
+// than absorbing it here. A quota problem is never retried: waiting does nothing, so a retry
+// just doubles the time before they learn they need to top up the account.
+//
+// Deliberately once, not a loop: if a second attempt also fails, the limit is not a blip and
+// the right move is to tell them rather than keep spending their time on it.
+const RETRY_DELAY_MS = 2500;
+
+async function generateImages(request, deps = {}) {
   const provider = PROVIDERS[request.provider || "openai"];
   if (!provider) throw new Error(`Unknown image provider "${request.provider}".`);
   if (!String(request.prompt || "").trim()) throw new Error("A prompt is required.");
-  return provider.generate(request, deps);
+
+  try {
+    return await provider.generate(request, deps);
+  } catch (error) {
+    if (!error || !error.retryable) throw error;
+    // deps.sleep is injected by tests so this doesn't actually wait two and a half seconds.
+    const sleep = deps.sleep || ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+    await sleep(RETRY_DELAY_MS);
+    return provider.generate(request, deps);
+  }
 }
 
 module.exports = {
-  generateImages, listProviders, resolveSize, decodeDataUrl,
-  SIZES, MAX_IMAGES, MAX_REFERENCES, MAX_REFERENCE_BYTES, PROVIDERS,
+  generateImages, listProviders, resolveSize, decodeDataUrl, classifyOpenAIFailure,
+  SIZES, MAX_IMAGES, MAX_REFERENCES, MAX_REFERENCE_BYTES, RETRY_DELAY_MS, PROVIDERS,
 };

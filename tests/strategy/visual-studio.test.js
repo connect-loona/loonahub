@@ -22,7 +22,7 @@ const {
   recordGeneration, recordPick, loadVisualHistory, visualHistoryToPromptText,
   isPreviewLive, PREVIEW_TTL_MS,
 } = require(path.join(HUB, "netlify/functions/lib/strategy/visual-memory"));
-const { generateImages, resolveSize, listProviders, decodeDataUrl, MAX_IMAGES, MAX_REFERENCES, MAX_REFERENCE_BYTES } = require(path.join(HUB, "netlify/functions/lib/strategy/image-providers"));
+const { generateImages, resolveSize, listProviders, decodeDataUrl, classifyOpenAIFailure, MAX_IMAGES, MAX_REFERENCES, MAX_REFERENCE_BYTES } = require(path.join(HUB, "netlify/functions/lib/strategy/image-providers"));
 const crypto = require("crypto");
 
 process.env.BASIC_AUTH_CREDENTIALS = "gokul:supersecret";
@@ -77,15 +77,30 @@ function okFetch(payload) {
   catch (e) { emptyError = e.message; }
   check("a response with no images is an error, not an empty success", /no usable images/.test(emptyError || ""), emptyError);
 
-  // The provider's own words have to survive. An opaque "generation failed" on a billing
-  // error is precisely the failure that cost real time on the text side.
+  // A recognised billing failure is translated into something a designer can act on, rather
+  // than echoing "billing_hard_limit_reached" — which is precisely as useless on screen as the
+  // opaque "generation failed" it replaced. The raw text still reaches the function logs.
   let billingError = null;
   try {
     await generateImages({ prompt: "x" }, {
       fetch: async () => ({ ok: false, status: 400, text: async () => "billing_hard_limit_reached" }),
+      sleep: async () => {},
     });
-  } catch (e) { billingError = e.message; }
-  check("the provider's own error text is carried through", /billing_hard_limit_reached/.test(billingError || ""), billingError);
+  } catch (e) { billingError = e; }
+  check("a billing failure is named as one", billingError.kind === "quota", billingError.kind);
+  check("and says what actually has to happen", /top it up/.test(billingError.message), billingError.message);
+
+  // An UNRECOGNISED failure still carries the provider's own words, because inventing advice
+  // for something we haven't classified would be worse than quoting it.
+  let oddError = null;
+  try {
+    await generateImages({ prompt: "x" }, {
+      fetch: async () => ({ ok: false, status: 422, text: async () => "moderation_blocked: prompt rejected" }),
+      sleep: async () => {},
+    });
+  } catch (e) { oddError = e.message; }
+  check("an unclassified failure still carries the provider's own text",
+    /moderation_blocked/.test(oddError || ""), oddError);
 
   let noPrompt = null;
   try { await generateImages({ prompt: "   " }, { fetch: okFetch({ data: [] }) }); } catch (e) { noPrompt = e.message; }
@@ -147,6 +162,62 @@ function okFetch(payload) {
       { fetch: async () => ({ ok: true, status: 200, json: async () => ({ data: [] }) }) });
   } catch (e) { tooManyRefs = e.message; }
   check("more references than the cap is refused", new RegExp(`Up to ${MAX_REFERENCES} reference`).test(tooManyRefs || ""), tooManyRefs);
+
+  // ---- Hitting a limit: two different things wearing the same 429 ----
+  // This is the question the team will actually ask, having hit ChatGPT's "come back in three
+  // hours" wall. The API has no such cooldown: a 429 is either a burst (clears in seconds) or
+  // an empty account (never clears). Telling them apart is the whole point.
+  const burst = classifyOpenAIFailure(429, '{"error":{"message":"Rate limit reached for images per min","type":"requests"}}');
+  check("a burst rate limit is marked retryable", burst.kind === "rate_limit" && burst.retryable === true, burst.kind);
+  check("and says waiting is the fix", /Wait a few seconds/.test(burst.message), burst.message);
+  check("and suggests the lever that actually helps — fewer takes", /fewer takes/.test(burst.message), burst.message);
+
+  const broke = classifyOpenAIFailure(429, '{"error":{"code":"insufficient_quota","message":"You exceeded your current quota"}}');
+  check("running out of credit is NOT treated as retryable", broke.kind === "quota" && broke.retryable === false, broke.kind);
+  // Telling somebody to wait when the account is empty sends them back in ten minutes to the
+  // same wall. It has to say the opposite.
+  check("and says plainly that waiting will not help", /Waiting won't help/.test(broke.message), broke.message);
+
+  const down = classifyOpenAIFailure(503, "service unavailable");
+  check("a provider outage is retryable too", down.kind === "provider_down" && down.retryable === true, down.kind);
+
+  const badRequest = classifyOpenAIFailure(400, '{"error":{"message":"Invalid prompt"}}');
+  check("an ordinary bad request is not retried", badRequest.retryable === false, badRequest.kind);
+  check("and keeps the provider's own words rather than inventing advice", badRequest.message === null, badRequest.message);
+
+  // One automatic retry on a burst, because the person already waited through attempt one.
+  let attempts = 0;
+  const flaky = async () => {
+    attempts += 1;
+    if (attempts === 1) return { ok: false, status: 429, text: async () => "Rate limit reached for images per min" };
+    return { ok: true, status: 200, json: async () => ({ data: [{ url: "https://x/ok.png" }] }) };
+  };
+  const recovered = await generateImages({ prompt: "x", count: 1 }, { fetch: flaky, sleep: async () => {} });
+  check("a burst limit is absorbed by one automatic retry", attempts === 2 && recovered.images.length === 1, attempts);
+
+  // ...but never for an empty account, where retrying only delays the bad news.
+  let quotaAttempts = 0;
+  let quotaError = null;
+  try {
+    await generateImages({ prompt: "x", count: 1 }, {
+      fetch: async () => { quotaAttempts += 1; return { ok: false, status: 429, text: async () => "insufficient_quota" }; },
+      sleep: async () => {},
+    });
+  } catch (e) { quotaError = e; }
+  check("an out-of-credit failure is not retried at all", quotaAttempts === 1, quotaAttempts);
+  check("and surfaces as a quota problem", quotaError && quotaError.kind === "quota", quotaError && quotaError.kind);
+
+  // Twice in a row is not a blip — stop rather than looping on the person's time.
+  let persistent = 0;
+  let persistentError = null;
+  try {
+    await generateImages({ prompt: "x", count: 1 }, {
+      fetch: async () => { persistent += 1; return { ok: false, status: 429, text: async () => "Rate limit reached" }; },
+      sleep: async () => {},
+    });
+  } catch (e) { persistentError = e; }
+  check("a rate limit that persists is retried once and then reported, not looped",
+    persistent === 2 && persistentError.kind === "rate_limit", persistent);
 
   // ---- recordGeneration: written before anybody picks ----
   const { id } = await recordGeneration("rro", {

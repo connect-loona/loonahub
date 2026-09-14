@@ -40,6 +40,11 @@ export function App() {
   // References the person has attached but not sent. Browser-only — nothing is hosted, so
   // these go straight through the function to the provider and are never written down.
   const [references, setReferences] = useState<PendingReference[]>([]);
+  // Whether the last failure was the kind that clears on its own — a burst limit or a blip at
+  // OpenAI's end — so the error can offer a retry instead of just sitting there.
+  const [retryable, setRetryable] = useState(false);
+  // Kept so a transient failure can be retried without making the person retype the prompt.
+  const [lastSend, setLastSend] = useState<{ prompt: string; count: number; size: string } | null>(null);
 
   useEffect(() => onAuthChange(setUser), []);
   const actor = user?.displayName || user?.email || "Hub";
@@ -129,6 +134,8 @@ export function App() {
     if (!brand) return;
     setError(null);
     setNotice(null);
+    setRetryable(false);
+    setLastSend({ prompt, count, size });
     setBusy(true);
     try {
       // A chat is created on first send rather than up front, so opening Visual Studio and
@@ -151,7 +158,15 @@ export function App() {
       }
       await loadChats(brand);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const status = (e as { status?: number }).status;
+      const message = e instanceof Error ? e.message : String(e);
+      // A rate limit already got one automatic retry server-side, so by the time it reaches
+      // here it's worth saying plainly that waiting is the fix — and that fewer takes helps.
+      // Running out of credit is the opposite: waiting achieves nothing.
+      setError(status === 402
+        ? `${message} (Nothing you can do from here — this needs topping up.)`
+        : message);
+      setRetryable(status === 429 || status === 502);
     } finally {
       setBusy(false);
     }
@@ -271,7 +286,18 @@ export function App() {
           </div>
         </header>
 
-        {error && <div className="vs-error" role="alert">{error}</div>}
+        {error && (
+          <div className="vs-error" role="alert">
+            {error}
+            {retryable && lastSend && !busy && (
+              // The references are still attached (they're only cleared on success), so this
+              // really is the same round again rather than a half-rebuilt one.
+              <button type="button" className="vs-retry" onClick={() => send(lastSend.prompt, lastSend.count, lastSend.size)}>
+                Try again
+              </button>
+            )}
+          </div>
+        )}
         {notice && <div className="vs-notice" role="status">{notice}</div>}
 
         <ChatThread generations={generations} onPick={pick} onUseAsReference={useAsReference} busy={busy} />

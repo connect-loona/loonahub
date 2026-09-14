@@ -96,11 +96,19 @@ exports.handler = async (event) => {
       references,
     });
   } catch (error) {
-    // Carry the provider's own words through rather than flattening everything to "failed" —
-    // the billing and quota cases are the ones people actually need to read.
+    // The status has to tell these apart, because what the person should DO differs. A burst
+    // rate limit clears on its own; running out of credit never does. Flattening both to 502
+    // (or to OpenAI's raw JSON) is the opaque-error failure we already fixed once on the text
+    // side — see runtime-failover.js.
     const status = Number(error.status) || 0;
-    const clientFault = status === 400 || /Unknown image size|A prompt is required|Unknown image provider/.test(error.message || "");
-    return fail(clientFault ? 400 : 502, error.message || "Image generation failed.");
+    const clientFault = (status === 400 && error.kind !== "quota")
+      || /Unknown image size|A prompt is required|Unknown image provider|Up to \d+ reference|Reference \d+ is/.test(error.message || "");
+    if (clientFault) return fail(400, error.message);
+    if (error.kind === "rate_limit") return fail(429, error.message);
+    // Out of credit is not a server error and not the caller's mistake — 402 says "this needs
+    // paying for" precisely, and the UI keys off it to say so plainly.
+    if (error.kind === "quota") return fail(402, error.message);
+    return fail(502, error.message || "Image generation failed.");
   }
 
   let id = null;
