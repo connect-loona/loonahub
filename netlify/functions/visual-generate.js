@@ -18,6 +18,9 @@ const { recordGeneration } = require("./lib/strategy/visual-memory");
 const { resolveChat, touchChat, titleFromPrompt } = require("./lib/strategy/visual-chats");
 const { buildRulePreamble, applyRules } = require("./lib/strategy/visual-rules");
 const { hubBrandExists } = require("./lib/strategy/hub-brands");
+const { expandPrompt, historyForPrompt } = require("./lib/strategy/visual-prompt");
+const { loadVisualHistory } = require("./lib/strategy/visual-memory");
+const { loadBrain, brainToPromptText } = require("./lib/strategy/brand-brain");
 
 function cors() {
   return {
@@ -87,7 +90,40 @@ exports.handler = async (event) => {
   let rules = { preamble: "", applied: [] };
   try { rules = await buildRulePreamble(brandId, { disabledRules: body.disabledRules }); }
   catch (error) { console.error(`Could not build rules for ${brandId}:`, error.message); }
-  const finalPrompt = applyRules(rules.preamble, prompt);
+
+  // THE PART THAT CLOSES THE GAP WITH CHATGPT.
+  //
+  // Typing "make the table warmer" into ChatGPT does not send those four words to the image
+  // model: ChatGPT rewrites them, using the whole thread, into a paragraph describing the
+  // entire scene with the change applied. Sending the four words raw is why a bare API call
+  // produces visibly worse images than the same model does inside ChatGPT.
+  //
+  // So the thread and the brand's memory are gathered and the prompt is rewritten the same
+  // way. Both reads are best-effort — neither is worth failing a generation over.
+  let history = "";
+  let brandBrain = null;
+  try {
+    const [rounds, brain] = await Promise.all([
+      chatId ? loadVisualHistory(brandId) : Promise.resolve([]),
+      loadBrain(brandId),
+    ]);
+    history = historyForPrompt(rounds.filter((r) => r.chatId === chatId));
+    brandBrain = brainToPromptText(brain);
+  } catch (error) {
+    console.error(`Could not gather context for ${brandId}:`, error.message);
+  }
+
+  const expansion = await expandPrompt({
+    prompt,
+    history,
+    brandBrain,
+    brandRules: rules.applied,
+    referenceRoles: references.map((r) => (r && r.role) || ""),
+  });
+
+  // The rules still go in front of the rewritten prompt rather than being folded into it: a
+  // model asked to rewrite them could soften them, and they are the part that must not move.
+  const finalPrompt = applyRules(rules.preamble, expansion.prompt);
 
   let result;
   try {
@@ -129,6 +165,9 @@ exports.handler = async (event) => {
       referenceNote: references.map((r) => String((r && r.role) || "").trim()).filter(Boolean).join(" · ") || body.referenceNote || null,
       images: result.images,
       appliedRules: rules.applied,
+      // What the model was actually asked for, kept alongside what the person typed. Six
+      // months on this is the only way to tell a bad image from a bad rewrite.
+      expandedPrompt: expansion.expanded ? expansion.prompt : null,
     }));
     if (chatId) await touchChat(chatId, { titleIfUnset: titleFromPrompt(prompt) });
   } catch (error) {
@@ -145,6 +184,7 @@ exports.handler = async (event) => {
       images: result.images,
       // So the UI can show exactly which rules shaped this image rather than asserting it.
       appliedRules: rules.applied,
+      expandedPrompt: expansion.expanded ? expansion.prompt : null,
       recorded: Boolean(id),
     }),
   };

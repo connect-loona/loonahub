@@ -58,6 +58,7 @@ const HOUR = 60 * 60 * 1000;
       ],
       referenceCount: 2,
       referenceNote: "Product identity · Lighting",
+      expandedPrompt: "An editorial product photograph of the Primio bottle on a warm marble counter, soft morning light from the left, shallow depth of field.",
       pickedIndex: null,
     },
     // An hours-old round: its provider URLs are dead, and the UI has to say so rather than
@@ -164,6 +165,18 @@ const HOUR = 60 * 60 * 1000;
   // never appear here.
   check("no fabricated QC verdict anywhere on the page",
     !/checks passed/i.test(await page.locator("body").textContent()), memoryText.slice(0, 300));
+
+  // ---- What the model was actually asked for ----
+  // The rewrite is the thing that closes the quality gap with ChatGPT, and it's invisible by
+  // design — but when an image comes back wrong, it's the first thing worth reading, because
+  // it says whether the model misunderstood or did exactly as asked.
+  check("the expanded prompt is available to read", (await page.locator(".vs-expanded").count()) >= 1, await page.locator(".vs-expanded").count());
+  check("but collapsed, since it isn't wanted most of the time",
+    (await page.locator(".vs-expanded[open]").count()) === 0);
+  await page.locator(".vs-expanded summary").first().click();
+  const expandedText = await page.locator(".vs-expanded p").first().textContent();
+  check("opening it shows what the image model really received",
+    /soft morning light from the left/.test(expandedText), expandedText);
 
   // ---- References: what a round was built from, and building on a result ----
   // The bytes are never stored, so what has to survive in the thread is the count and what

@@ -40,6 +40,16 @@ function Round({ generation, onPick, onUseAsReference }: {
       </div>
 
       <div className="vs-reply">
+        {generation.expandedPrompt && (
+          // Collapsed by default: nobody needs this most of the time, but when an image comes
+          // back wrong it's the first thing worth reading — it tells you whether the model
+          // misunderstood, or whether it did exactly what it was asked.
+          <details className="vs-expanded">
+            <summary>What the model was actually asked for</summary>
+            <p>{generation.expandedPrompt}</p>
+          </details>
+        )}
+
         {generation.appliedRules && generation.appliedRules.length > 0 && (
           // Exactly the rules that were prepended to the prompt — not a set of toggles that
           // look like they did something. See visual-rules.js.

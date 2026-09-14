@@ -48,6 +48,10 @@ async function recordGeneration(brandId, round) {
     // Which rules actually shaped this image (see visual-rules.js). Stored so the record can
     // show what was applied rather than the UI claiming it.
     appliedRules: (round.appliedRules || []).map((rule) => ({ key: rule.key, label: rule.label, source: rule.source })),
+    // What the image model was actually asked for, once the person's words were expanded with
+    // the thread and the brand's memory (see visual-prompt.js). Null when no rewrite happened.
+    // Kept because it is the only way to tell a bad image apart from a bad rewrite later.
+    expandedPrompt: round.expandedPrompt || null,
     images: (round.images || []).map((image) => ({
       url: image.url || null,
       revisedPrompt: image.revisedPrompt || null,
