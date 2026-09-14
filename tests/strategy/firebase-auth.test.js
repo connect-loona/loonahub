@@ -80,5 +80,42 @@ const DB = "https://loona-hub-c85d7-default-rtdb.firebaseio.com";
   delete process.env.FIREBASE_DB_SECRET;
   check("the default database is the one Hub actually uses", /loona-hub-c85d7/.test(databaseUrl()), databaseUrl());
 
+  // ---- The helper being correct and the helper being WIRED IN are different claims ----
+  // Everything above tests a pure function. None of it would notice if the helper were never
+  // called — which is the failure that would matter, because it would look exactly like
+  // success right up until the rules were closed and every function started failing at once.
+  //
+  // So: stand up a throwaway server, point the database at it, and inspect what actually goes
+  // over the wire. Writes matter as much as reads here; an unauthenticated PUT is how a
+  // stranger would have been able to overwrite a client's brand.
+  const http = require("http");
+  const received = [];
+  const server = http.createServer((request, response) => {
+    received.push(`${request.method} ${request.url}`);
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(JSON.stringify({ ok: true }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+
+  process.env.FIREBASE_DB_URL = `http://127.0.0.1:${server.address().port}`;
+  process.env.FIREBASE_DB_SECRET = "wired-in-secret";
+  for (const mod of ["netlify/functions/lib/firebase-auth", "netlify/functions/lib/strategy/firebase"]) {
+    delete require.cache[require.resolve(path.join(HUB, mod))];
+  }
+  const fb = require(path.join(HUB, "netlify/functions/lib/strategy/firebase"));
+  await fb.fbGet("strategy_runs");
+  await fb.fbSet("strategy_brain/rro-foods", { distilled: true });
+  await fb.fbPush("strategy_activity", { what: "test" });
+  await new Promise((resolve) => server.close(resolve));
+
+  check("reads, writes and pushes all reach the database", received.length === 3, received);
+  check("and every one of them carried the credential",
+    received.every((r) => r.includes("auth=wired-in-secret")), received);
+  check("specifically the write, which is what a stranger could otherwise have done",
+    received.some((r) => r.startsWith("PUT ") && r.includes("auth=wired-in-secret")), received);
+
+  delete process.env.FIREBASE_DB_URL;
+  delete process.env.FIREBASE_DB_SECRET;
+
   finish();
 })().catch((e) => { console.error("FATAL:", e, e.stack); process.exit(1); });
