@@ -46,9 +46,11 @@ function instructions() {
   ].join("\n");
 }
 
-// `memory` is the composed brand memory (store.js's loadBrandBrain) — the distilled Drive
-// material, the live task board, and the visual direction actually chosen.
-async function askMani({ brandId, brandName, question, memory }, deps = {}) {
+// `memory` is either one brand's composed memory (store.js's loadBrandBrain) or the Hub-wide
+// roll-up (hub-memory.js). `scope` says which, because the honest answer differs: with no
+// brand named, "I don't have that" often means "ask me about one brand specifically" rather
+// than "nobody ever recorded it".
+async function askMani({ brandId, brandName, question, memory, scope }, deps = {}) {
   const asked = String(question || "").trim().slice(0, MAX_QUESTION_CHARS);
   if (!asked) throw new Error("Mani needs a question.");
 
@@ -58,7 +60,9 @@ async function askMani({ brandId, brandName, question, memory }, deps = {}) {
       answer: null,
       grounded: false,
       nothingRecorded: true,
-      detail: `Nothing has been recorded for ${brandName || brandId} yet. Scan its Drive folder to give Mani something to remember.`,
+      detail: scope === "hub"
+        ? "Nothing is recorded across Hub yet — no active brands with tasks, scanned folders or Visual Studio work."
+        : `Nothing has been recorded for ${brandName || brandId} yet. Scan its Drive folder to give Mani something to remember.`,
     };
   }
 
@@ -78,14 +82,25 @@ async function askMani({ brandId, brandName, question, memory }, deps = {}) {
     system: instructions(),
     messages: [{
       role: "user",
-      content: [
-        `Brand: ${brandName || brandId}`,
-        "",
-        "Everything Loona has recorded about this brand:",
-        memory,
-        "",
-        `Question: ${asked}`,
-      ].join("\n"),
+      content: (scope === "hub"
+        ? [
+          "You are being asked about Loona as a whole, not one brand.",
+          "",
+          "Everything Loona has recorded across every active brand:",
+          memory,
+          "",
+          "If answering properly needs depth on one brand, say which brand to ask about rather than guessing.",
+          "",
+          `Question: ${asked}`,
+        ]
+        : [
+          `Brand: ${brandName || brandId}`,
+          "",
+          "Everything Loona has recorded about this brand:",
+          memory,
+          "",
+          `Question: ${asked}`,
+        ]).join("\n"),
     }],
   });
 
@@ -111,7 +126,7 @@ async function askMani({ brandId, brandName, question, memory }, deps = {}) {
     };
   }
 
-  return { answer: text.slice(0, MAX_ANSWER_CHARS), grounded: true, nothingRecorded: false };
+  return { answer: text.slice(0, MAX_ANSWER_CHARS), grounded: true, nothingRecorded: false, scope: scope || "brand" };
 }
 
 module.exports = { askMani, instructions, NOTHING_RECORDED, MAX_QUESTION_CHARS };

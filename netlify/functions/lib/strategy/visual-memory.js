@@ -112,7 +112,13 @@ function visualHistoryToPromptText(history) {
     const when = String(record.createdAt || "").slice(0, 10);
     const note = record.pickNote ? ` Chosen because: ${record.pickNote}` : "";
     const took = record.images && record.images.length > 1 ? ` (chosen from ${record.images.length} takes)` : "";
-    return `- ${when} · ${record.provider}${record.model ? `/${record.model}` : ""}${took}: "${record.prompt}"${note}`;
+    // WHO wrote the prompt and WHO chose the take. Both were always stored and neither ever
+    // reached the agents, so "which of us made this creative" — a question with an exact
+    // recorded answer — could not be answered by the one thing holding the answer.
+    const madeBy = record.actor && record.actor !== "unknown" ? ` — written by ${record.actor}` : "";
+    const chosenBy = record.pickedBy && record.pickedBy !== record.actor && record.pickedBy !== "unknown"
+      ? `, chosen by ${record.pickedBy}` : "";
+    return `- ${when} · ${record.provider}${record.model ? `/${record.model}` : ""}${took}: "${record.prompt}"${madeBy}${chosenBy}${note}`;
   });
   return [
     "# Visual direction this brand has actually chosen",
