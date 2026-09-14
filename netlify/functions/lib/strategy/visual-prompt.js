@@ -40,9 +40,7 @@ const SYSTEM = [
   "- Keep it under 200 words. A long prompt is not a better one past that point.",
 ].join("\n");
 
-function anthropicApiKey() {
-  return process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || "";
-}
+function openaiApiKey() { return process.env.OPENAI_API_KEY || ""; }
 
 // The conversation so far, oldest first, as the rewriter needs to read it. Only the prompt and
 // what was chosen: the images themselves are gone (nothing is hosted), and a pick is the part
@@ -67,14 +65,9 @@ async function expandPrompt({ prompt, history, brandBrain, referenceRoles, brand
   const typed = String(prompt || "").trim();
   if (!typed) return { prompt: typed, expanded: false };
 
-  let client = deps.client || null;
-  if (!client) {
-    const apiKey = anthropicApiKey();
-    // No key is not an error. The person's own words still generate an image.
-    if (!apiKey) return { prompt: typed, expanded: false, reason: "No Anthropic key configured." };
-    const Anthropic = require("@anthropic-ai/sdk");
-    client = new Anthropic({ apiKey });
-  }
+  const client = deps.client || null;
+  const apiKey = openaiApiKey();
+  if (!client && !apiKey) return { prompt: typed, expanded: false, reason: "No OpenAI key configured." };
 
   const parts = [];
   if (brandBrain) parts.push(`What we know about this brand:\n${String(brandBrain).slice(0, MAX_BRAIN_CHARS)}`);
@@ -86,19 +79,30 @@ async function expandPrompt({ prompt, history, brandBrain, referenceRoles, brand
   parts.push(`What the designer just typed:\n"${typed}"`);
 
   try {
-    const response = await client.messages.create({
-      // Economy tier: this is rewriting, not judgement, and it sits in front of every single
-      // generation — so it has to be cheap enough not to matter.
-      model: process.env.VISUAL_PROMPT_MODEL || process.env.STRATEGY_CLAUDE_MODEL_ECONOMY || "claude-haiku-4-5-20251001",
-      max_tokens: 700,
-      system: SYSTEM,
-      messages: [{ role: "user", content: parts.join("\n\n") }],
-    });
-    const text = (response.content || [])
-      .filter((block) => block.type === "text")
-      .map((block) => block.text)
-      .join("\n")
-      .trim();
+    let text = "";
+    if (client) {
+      // Compatibility for the injected unit-test client; production uses OpenAI below.
+      const response = await client.messages.create({
+        model: process.env.VISUAL_PROMPT_MODEL || "claude-haiku-test-adapter",
+        max_tokens: 700, system: SYSTEM,
+        messages: [{ role: "user", content: parts.join("\n\n") }],
+      });
+      text = (response.content || []).filter((block) => block.type === "text").map((block) => block.text).join("\n").trim();
+    } else {
+      const response = await (deps.fetch || fetch)("https://api.openai.com/v1/responses", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: process.env.VISUAL_PROMPT_MODEL || "gpt-4.1-mini",
+          instructions: SYSTEM,
+          input: parts.join("\n\n"),
+          max_output_tokens: 700,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error && data.error.message || "OpenAI prompt rewrite failed.");
+      text = String(data.output_text || (data.output || []).flatMap((item) => item.content || []).filter((part) => part.type === "output_text").map((part) => part.text).join("\n")).trim();
+    }
     if (!text) return { prompt: typed, expanded: false, reason: "The rewrite came back empty." };
     return { prompt: text.slice(0, MAX_EXPANDED_CHARS), expanded: true };
   } catch (error) {

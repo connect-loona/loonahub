@@ -1,17 +1,14 @@
 // POST { brandId, prompt, provider?, count?, size?, actor?, referenceCount?, referenceNote? }
 //   -> { id, provider, model, images: [{ url, revisedPrompt }] }
 //
-// Visual Studio's one generation endpoint. Synchronous on purpose: OpenAI's image call
-// returns in a few seconds, comfortably inside a normal function's budget, and a background
-// function plus a Firebase listener would be a lot of machinery for a wait nobody minds.
-// Magnific, when it lands, is webhook-driven and WILL need that treatment — which is why the
-// provider layer (image-providers.js) already returns finished images rather than streaming,
-// so adding a slow provider changes that file and this one, and nothing above them.
+// Visual Studio's synchronous compatibility endpoint. The UI uses the job endpoint so long
+// generations survive browser refreshes; this remains for tests and older clients.
 //
 // The record is written before the response goes back, and deliberately whether or not
 // anybody ever picks one of the images: an abandoned round is still evidence about what this
 // brand's team tried and rejected. See visual-memory.js.
 "use strict";
+const crypto = require("crypto");
 const { checkAuthorization } = require("./lib/strategy/auth");
 const { generateImages, MAX_IMAGES, MAX_REFERENCES } = require("./lib/strategy/image-providers");
 const { recordGeneration } = require("./lib/strategy/visual-memory");
@@ -21,6 +18,7 @@ const { hubBrandExists } = require("./lib/strategy/hub-brands");
 const { expandPrompt, historyForPrompt } = require("./lib/strategy/visual-prompt");
 const { loadVisualHistory } = require("./lib/strategy/visual-memory");
 const { loadBrain, brainToPromptText } = require("./lib/strategy/brand-brain");
+const { preserveGeneratedImages } = require("./lib/strategy/visual-assets");
 
 function cors() {
   return {
@@ -104,10 +102,10 @@ exports.handler = async (event) => {
   let brandBrain = null;
   try {
     const [rounds, brain] = await Promise.all([
-      chatId ? loadVisualHistory(brandId) : Promise.resolve([]),
+      chatId ? loadVisualHistory(brandId, { chatId, limit: 12 }) : Promise.resolve([]),
       loadBrain(brandId),
     ]);
-    history = historyForPrompt(rounds.filter((r) => r.chatId === chatId));
+    history = historyForPrompt(rounds);
     brandBrain = brainToPromptText(brain);
   } catch (error) {
     console.error(`Could not gather context for ${brandId}:`, error.message);
@@ -148,11 +146,25 @@ exports.handler = async (event) => {
   }
 
   let id = null;
+  let suggestions = [];
   try {
+    const generationId = crypto.randomUUID();
+    // Netlify production always gets durable URLs. Unit tests and the lightweight local
+    // harness deliberately keep the provider result in memory unless explicitly opted in.
+    const durable = process.env.NETLIFY === "true" || process.env.VISUAL_ASSET_STORE === "blobs";
+    if (durable) {
+      result.images = await preserveGeneratedImages(result.images, { brandId, chatId, generationId });
+    }
+    suggestions = [
+      "Keep everything, refine the lighting",
+      references.length ? "Keep the product exact, try a closer crop" : "Add a product reference and lock its identity",
+      body.size === "portrait" ? "Create a cleaner 4:5 feed variation" : "Create a portrait social variation",
+    ];
     // The prompt the PERSON wrote is what gets remembered, not the rule-prefixed version sent
     // to the model — the rules are the same on every round, so storing them would bury the one
     // part of the record that actually differs. What was applied is stored separately.
     ({ id } = await recordGeneration(brandId, {
+      id: generationId,
       prompt,
       chatId,
       provider: result.provider,
@@ -163,6 +175,7 @@ exports.handler = async (event) => {
       // roles are the useful half — six months on, "2 references" says nothing, but "kept the
       // product, took the lighting from the second" explains the whole round.
       referenceNote: references.map((r) => String((r && r.role) || "").trim()).filter(Boolean).join(" · ") || body.referenceNote || null,
+      referenceAssets: references,
       images: result.images,
       appliedRules: rules.applied,
       // What the model was actually asked for, kept alongside what the person typed. Six
@@ -171,6 +184,9 @@ exports.handler = async (event) => {
       // Draft or Final. Worth keeping: a soft-looking image six months on is explained
       // instantly by "this was a draft", and otherwise looks like the model underperforming.
       quality: body.quality === "final" ? "final" : "draft",
+      parentGenerationId: body.parentGenerationId || null,
+      parentImageIndex: Number.isInteger(body.parentImageIndex) ? body.parentImageIndex : null,
+      suggestions,
     }));
     if (chatId) await touchChat(chatId, { titleIfUnset: titleFromPrompt(prompt) });
   } catch (error) {
@@ -189,6 +205,7 @@ exports.handler = async (event) => {
       appliedRules: rules.applied,
       expandedPrompt: expansion.expanded ? expansion.prompt : null,
       quality: body.quality === "final" ? "final" : "draft",
+      suggestions,
       recorded: Boolean(id),
     }),
   };

@@ -77,9 +77,10 @@ exports.handler = async (event) => {
     catch (error) { return fail(error.notFound ? 404 : 502, error.message); }
     // The brand comes from the chat, never from the caller — so a history request can only
     // ever return the rounds belonging to the chat's own brand.
-    const all = await loadVisualHistory(chat.brandId);
-    const generations = all.filter((record) => record.chatId === chatId);
-    return ok({ chat: Object.assign({ id: chatId }, chat), generations });
+    const limit = Math.min(Math.max(Number(body.limit) || 20, 1), 50);
+    const generations = await loadVisualHistory(chat.brandId, { chatId, limit: limit + 1, before: body.before });
+    const hasMore = generations.length > limit;
+    return ok({ chat: Object.assign({ id: chatId }, chat), generations: generations.slice(0, limit), hasMore });
   }
 
   return fail(400, 'action must be one of "create", "list", "rename" or "history".');

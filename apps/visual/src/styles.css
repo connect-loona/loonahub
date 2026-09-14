@@ -73,7 +73,8 @@ button { cursor: pointer; }
 
 /* ---- Main column ---- */
 .vs-main { display: flex; flex-direction: column; min-width: 0; max-height: 100vh; }
-.vs-header { flex: 0 0 auto; padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.vs-header { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.vs-header > div { flex: 1; }
 .vs-header h1 { margin: 0; font-family: Georgia, serif; font-size: 19px; font-weight: 500; }
 .vs-header p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
 .vs-error, .vs-notice { margin: 12px 20px 0; padding: 9px 12px; border-radius: 9px; font-size: 13px; }
@@ -83,6 +84,7 @@ button { cursor: pointer; }
 .vs-thread { flex: 1 1 auto; overflow-y: auto; padding: 18px 20px; }
 .vs-thread-empty { display: flex; flex-direction: column; justify-content: center; gap: 6px; color: var(--muted); text-align: center; }
 .vs-working { color: var(--muted); font-size: 13px; }
+.vs-load-older { align-self: center; margin: 10px auto 0; padding: 6px 11px; border: 1px solid var(--line); border-radius: 20px; background: #fff; color: var(--muted); font-size: 11.5px; }
 
 .vs-round { margin-bottom: 26px; }
 .vs-ask { max-width: 640px; margin-left: auto; padding: 10px 13px; border-radius: 13px 13px 3px 13px; background: var(--selected); }
@@ -120,7 +122,9 @@ button { cursor: pointer; }
 .vs-send:disabled { opacity: .5; cursor: not-allowed; }
 
 /* ---- Project memory ---- */
-.vs-memory { padding: 16px 14px; border-left: 1px solid var(--line); background: #fbfaf7; overflow-y: auto; max-height: 100vh; }
+.vs-memory-drawer { min-width: 0; }
+.vs-memory { height: 100%; padding: 16px 14px; border-left: 1px solid var(--line); background: #fbfaf7; overflow-y: auto; max-height: 100vh; }
+.vs-mobile-tool, .vs-drawer-close, .vs-scrim { display: none; }
 .vs-memory h2 { margin: 0 0 6px; font-size: 13px; }
 .vs-stats { display: flex; gap: 10px; margin: 12px 0; }
 .vs-stats div { flex: 1; padding: 9px; border: 1px solid var(--line); border-radius: 9px; text-align: center; }
@@ -133,12 +137,18 @@ button { cursor: pointer; }
 .vs-muted { color: var(--muted); }
 .vs-muted-sm { font-size: 12px; }
 
-/* Narrow screens: the side panels stack above and below the conversation rather than
-   squeezing it, since the thread is the part you actually work in. */
 @media (max-width: 980px) {
   .vs-shell { grid-template-columns: 1fr; }
-  .vs-sidebar, .vs-memory { max-height: none; border: 0; border-bottom: 1px solid var(--line); }
-  .vs-main { max-height: none; }
+  .vs-main { min-height: 100dvh; max-height: 100dvh; }
+  .vs-sidebar, .vs-memory-drawer { position: fixed; z-index: 30; top: 0; bottom: 0; width: min(86vw, 320px); transition: transform .2s ease; }
+  .vs-sidebar { left: 0; max-height: 100dvh; transform: translateX(-105%); box-shadow: 8px 0 30px rgba(0,0,0,.12); }
+  .vs-sidebar.is-open { transform: translateX(0); }
+  .vs-memory-drawer { right: 0; transform: translateX(105%); }
+  .vs-memory-drawer.is-open { transform: translateX(0); box-shadow: -8px 0 30px rgba(0,0,0,.12); }
+  .vs-memory { max-height: 100dvh; border: 0; }
+  .vs-mobile-tool { display: inline-flex; align-items: center; justify-content: center; min-width: 38px; height: 34px; padding: 0 9px; border: 1px solid var(--line); border-radius: 9px; background: #fff; font-size: 12px; font-weight: 600; }
+  .vs-drawer-close { display: block; position: absolute; z-index: 2; top: 10px; right: 10px; padding: 5px 9px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+  .vs-scrim { display: block; position: fixed; z-index: 20; inset: 0; border: 0; background: rgba(25,24,21,.28); }
 }
 
 /* ---- References attached to the next prompt ----
@@ -149,6 +159,7 @@ button { cursor: pointer; }
 .vs-ref img { flex: 0 0 40px; width: 40px; height: 40px; border-radius: 6px; object-fit: cover; background: #fff; }
 .vs-ref-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
 .vs-ref-name { overflow: hidden; color: var(--muted); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
+.vs-ref-warning { color: var(--amber); font-size: 10px; line-height: 1.25; }
 .vs-ref-role { width: 100%; padding: 3px 6px; border: 1px solid var(--line); border-radius: 6px; background: #fff; font-size: 11.5px; }
 .vs-ref-remove { flex: 0 0 auto; padding: 0 5px; border: 0; border-radius: 6px; color: var(--muted); background: transparent; font-size: 15px; line-height: 1; }
 .vs-ref-remove:hover { color: var(--red); }
@@ -169,3 +180,21 @@ button { cursor: pointer; }
 .vs-expanded { max-width: 640px; margin-bottom: 10px; }
 .vs-expanded summary { color: var(--muted); cursor: pointer; font-size: 11.5px; }
 .vs-expanded p { margin: 6px 0 0; padding: 9px 11px; border-radius: 9px; background: #f8f6f1; color: var(--muted); font-size: 12px; white-space: pre-wrap; }
+
+.vs-feedback, .vs-qc { max-width: 720px; margin-top: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 11px; background: #fbfaf7; }
+.vs-feedback p { margin: 2px 0 9px; color: var(--muted); font-size: 11.5px; }
+.vs-feedback-tags, .vs-suggestions { display: flex; flex-wrap: wrap; gap: 6px; }
+.vs-feedback-tags button, .vs-suggestions button, .vs-qc > button, .vs-feedback-actions button { padding: 5px 9px; border: 1px solid var(--line); border-radius: 20px; background: #fff; font-size: 11.5px; }
+.vs-feedback-tags button.is-active { border-color: var(--green); color: var(--green); background: #e6f1ea; }
+.vs-feedback input { width: 100%; margin-top: 9px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.vs-feedback-actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 9px; }
+.vs-feedback-actions button.is-primary { border-color: var(--accent); color: #fff; background: var(--accent); }
+.vs-qc-result { display: grid; gap: 4px; margin-top: 9px; }
+.vs-qc-result span { font-size: 11.5px; text-transform: capitalize; }
+.vs-qc-result .is-pass { color: var(--green); }
+.vs-qc-result .is-fail { color: var(--red); }
+.vs-qc-result .is-warn { color: var(--amber); }
+.vs-qc-result .is-not_checked { color: var(--muted); }
+.vs-suggestions { align-items: center; max-width: 800px; margin-top: 12px; }
+.vs-suggestions > span { width: 100%; color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; }
+.vs-suggestions button:hover { border-color: var(--accent); color: var(--accent); }

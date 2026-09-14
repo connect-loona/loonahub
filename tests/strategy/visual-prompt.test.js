@@ -97,16 +97,13 @@ function fakeClient(log, reply) {
     empty.prompt === "make the table warmer" && empty.expanded === false, empty);
 
   // No key configured is a normal state, not a failure — the app still generates.
-  const savedKey = process.env.ANTHROPIC_API_KEY;
-  const savedClaude = process.env.CLAUDE_API_KEY;
-  delete process.env.ANTHROPIC_API_KEY;
-  delete process.env.CLAUDE_API_KEY;
+  const savedKey = process.env.OPENAI_API_KEY;
+  delete process.env.OPENAI_API_KEY;
   const noKey = await expandPrompt({ prompt: "make the table warmer" });
   check("with no key the person's own words are used, and nothing breaks",
     noKey.prompt === "make the table warmer" && noKey.expanded === false, noKey);
-  check("and it says why", /No Anthropic key/.test(noKey.reason || ""), noKey.reason);
-  if (savedKey) process.env.ANTHROPIC_API_KEY = savedKey;
-  if (savedClaude) process.env.CLAUDE_API_KEY = savedClaude;
+  check("and it says why", /No OpenAI key/.test(noKey.reason || ""), noKey.reason);
+  if (savedKey) process.env.OPENAI_API_KEY = savedKey;
 
   const blank = await expandPrompt({ prompt: "   " }, { client: fakeClient([]) });
   check("an empty prompt isn't sent for rewriting at all", blank.expanded === false, blank);

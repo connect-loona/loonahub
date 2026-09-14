@@ -6,12 +6,11 @@
 // streaming, and why a provider is free to be slow. Nothing above this layer should ever need
 // to know which one produced an image.
 //
-// What this deliberately does NOT do is host anything. Providers hand back URLs that expire
-// (OpenAI's in roughly an hour); the team saves the finals they want into the brand's Drive
-// folder by hand, exactly as they do today, and visual-memory.js keeps the prompt and the
-// pick forever regardless of what happens to the URL.
+// The provider returns finished bytes; Visual Studio preserves them in its asset store before
+// recording the searchable conversation ledger.
 "use strict";
 const { ConfigurationError } = require("./errors");
+const { referenceForProvider } = require("./visual-assets");
 
 const OPENAI_IMAGE_URL = "https://api.openai.com/v1/images/generations";
 // Working from a reference is a different endpoint, not a different parameter.
@@ -82,6 +81,22 @@ function decodeDataUrl(dataUrl, index) {
   return { bytes, mediaType, filename: `reference-${index + 1}.${ext}` };
 }
 
+function decodeReference(reference, index) {
+  if (reference && reference.data) {
+    const bytes = Buffer.isBuffer(reference.data) ? reference.data : Buffer.from(reference.data);
+    const mediaType = reference.contentType || "image/png";
+    if (!SAFE_IMAGE_TYPE(mediaType)) throw new Error(`Reference ${index + 1} is a ${mediaType}, not a supported image.`);
+    if (!bytes.length) throw new Error(`Reference ${index + 1} is empty.`);
+    if (bytes.length > MAX_REFERENCE_BYTES) throw new Error(`Reference ${index + 1} is larger than the ${Math.round(MAX_REFERENCE_BYTES / 1024 / 1024)}MB limit.`);
+    return { bytes, mediaType, filename: reference.filename || `reference-${index + 1}.${mediaType.split("/")[1] || "png"}` };
+  }
+  return decodeDataUrl(reference && reference.dataUrl, index);
+}
+
+function SAFE_IMAGE_TYPE(mediaType) {
+  return /^(image\/(png|jpeg|webp|gif))$/i.test(String(mediaType || ""));
+}
+
 // deps.fetch is injected by tests so this is exercisable without a key or a network.
 async function generateWithOpenAI(request, deps = {}) {
   const doFetch = deps.fetch || fetch;
@@ -110,8 +125,10 @@ async function generateWithOpenAI(request, deps = {}) {
     form.append("size", resolveSize(request.size));
     form.append("quality", tier.quality);
     form.append("output_format", tier.output_format);
-    references.forEach((reference, i) => {
-      const { bytes, mediaType, filename } = decodeDataUrl(reference && reference.dataUrl, i);
+    const resolvedReferences = [];
+    for (const reference of references) resolvedReferences.push(await referenceForProvider(reference, deps));
+    resolvedReferences.forEach((reference, i) => {
+      const { bytes, mediaType, filename } = decodeReference(reference, i);
       // image[] (repeated) is how gpt-image-1 takes more than one reference.
       form.append("image[]", new Blob([bytes], { type: mediaType }), filename);
     });
@@ -245,6 +262,6 @@ async function generateImages(request, deps = {}) {
 }
 
 module.exports = {
-  generateImages, listProviders, resolveSize, resolveQuality, decodeDataUrl, classifyOpenAIFailure,
+  generateImages, listProviders, resolveSize, resolveQuality, decodeDataUrl, decodeReference, classifyOpenAIFailure,
   SIZES, QUALITY_MODES, MAX_IMAGES, MAX_REFERENCES, MAX_REFERENCE_BYTES, RETRY_DELAY_MS, PROVIDERS,
 };

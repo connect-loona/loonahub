@@ -40,7 +40,9 @@ exports.handler = async (event) => {
   if (!Number.isInteger(index) || index < 0) return fail(400, "index must be a non-negative integer.");
 
   try {
-    const record = await recordPick(brandId, generationId, { index, actor: body.actor || "Hub", note: body.note });
+    const record = await recordPick(brandId, generationId, {
+      index, actor: body.actor || "Hub", note: body.note, tags: body.tags,
+    });
     return { statusCode: 200, headers: cors(), body: JSON.stringify({ ok: true, record }) };
   } catch (error) {
     if (/No generation/.test(error.message || "")) return fail(404, error.message);

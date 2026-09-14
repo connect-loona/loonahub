@@ -32,6 +32,7 @@ export function App() {
   const [chats, setChats] = useState<VisualChat[]>([]);
   const [chatId, setChatId] = useState<string | null>(null);
   const [generations, setGenerations] = useState<Generation[]>([]);
+  const [hasMore, setHasMore] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -43,6 +44,10 @@ export function App() {
   // Whether the last failure was the kind that clears on its own — a burst limit or a blip at
   // OpenAI's end — so the error can offer a retry instead of just sitting there.
   const [retryable, setRetryable] = useState(false);
+  const [suggestedPrompt, setSuggestedPrompt] = useState<string | null>(null);
+  const [parent, setParent] = useState<{ generationId: string; imageIndex: number } | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [memoryOpen, setMemoryOpen] = useState(false);
   // Kept so a transient failure can be retried without making the person retype the prompt.
   const [lastSend, setLastSend] = useState<{ prompt: string; count: number; size: string; quality: string } | null>(null);
 
@@ -52,7 +57,10 @@ export function App() {
   // Pick the first brand once Hub's list arrives, so the app opens on something real rather
   // than an empty frame.
   useEffect(() => {
-    if (!brand && brands.length) setBrand(brands[0]);
+    if (!brand && brands.length) {
+      const wanted = new URLSearchParams(window.location.search).get("brand");
+      setBrand(brands.find((b) => b.id === wanted) || brands[0]);
+    }
   }, [brands, brand]);
 
   const loadChats = useCallback(async (b: VisualBrand) => {
@@ -73,6 +81,7 @@ export function App() {
     setChatId(null);
     setGenerations([]);
     setReferences([]);
+    setParent(null);
     void loadChats(brand);
   }, [brand, loadChats]);
 
@@ -82,14 +91,33 @@ export function App() {
     setReferences([]);
     setError(null);
     try {
-      const { generations: rounds } = await api.chatHistory(id);
+      const { generations: rounds, hasMore: more } = await api.chatHistory(id);
       // Oldest first: a conversation reads downward, and the newest round belongs at the
       // bottom next to the composer you're about to type in again.
       setGenerations(rounds.slice().sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt))));
+      setHasMore(Boolean(more));
+      const query = new URLSearchParams({ brand: brand?.id || "", chat: id });
+      window.history.replaceState(null, "", `${window.location.pathname}?${query}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, []);
+  }, [brand]);
+
+  useEffect(() => {
+    if (chatId || !chats.length) return;
+    const wanted = new URLSearchParams(window.location.search).get("chat");
+    if (wanted && chats.some((chat) => chat.id === wanted)) void openChat(wanted);
+  }, [chats, chatId, openChat]);
+
+  async function loadOlder() {
+    if (!chatId || !generations.length) return;
+    try {
+      const oldest = generations[0].createdAt;
+      const { generations: older, hasMore: more } = await api.chatHistory(chatId, oldest);
+      setGenerations((current) => older.slice().sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt))).concat(current));
+      setHasMore(Boolean(more));
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+  }
 
   // Deliberately does NOT create anything yet — send() creates the chat on the first real
   // message. Creating up front meant every click left an "Untitled visual chat · Empty" row
@@ -100,6 +128,8 @@ export function App() {
     setReferences([]);
     setError(null);
     setNotice(null);
+    setParent(null);
+    if (brand) window.history.replaceState(null, "", `${window.location.pathname}?brand=${encodeURIComponent(brand.id)}`);
   }
 
   // Carrying a generated image back up as the next reference IS the iteration loop — it's how
@@ -111,8 +141,11 @@ export function App() {
     setReferences((prev) => (prev.length >= 4 ? prev : [...prev, {
       dataUrl: image.url as string,
       name: `Take ${index + 1} from this chat`,
-      role: "",
+      role: "Composition and current scene",
+      assetKey: image.assetKey || undefined,
+      contentType: image.contentType || undefined,
     }]));
+    setParent({ generationId: generation.id, imageIndex: index });
     setNotice(null);
   }
 
@@ -146,11 +179,21 @@ export function App() {
         id = created.id;
         setChatId(id);
       }
-      const result = await api.generate({ chatId: id, prompt, count, size, quality, actor, references });
+      setNotice(references.length ? "Uploading references securely…" : "Generation queued — you can safely refresh this page.");
+      const uploaded = await Promise.all(references.map((reference) => api.uploadReference(id as string, reference)));
+      setReferences(uploaded);
+      const result = await api.generate({
+        chatId: id, prompt, count, size, quality, actor,
+        references: uploaded,
+        parentGenerationId: parent?.generationId || null,
+        parentImageIndex: parent?.imageIndex ?? null,
+      });
       setGenerations((prev) => prev.concat([{ ...result, pickedIndex: null }]));
       // Cleared on success only: a failed round should keep what was attached so the person
       // can fix the prompt and try again without re-uploading everything.
       setReferences([]);
+      setParent(null);
+      setNotice(null);
       // The images exist either way — say so plainly if the memory write was what failed,
       // rather than letting the round silently vanish from history later.
       if (result.recorded === false) {
@@ -172,11 +215,11 @@ export function App() {
     }
   }
 
-  async function pick(generation: Generation, index: number) {
+  async function pick(generation: Generation, index: number, note?: string, tags?: string[]) {
     if (!brand) return;
     setError(null);
     try {
-      await api.pickImage({ brandId: brand.id, generationId: generation.id, index, actor });
+      await api.pickImage({ brandId: brand.id, generationId: generation.id, index, actor, note, tags });
       setGenerations((prev) => prev.map((g) => (g.id === generation.id
         ? { ...g, pickedIndex: index, pickedBy: actor, pickedAt: new Date().toISOString() }
         : g)));
@@ -187,7 +230,7 @@ export function App() {
 
   return (
     <div className="vs-shell">
-      <aside className="vs-sidebar">
+      <aside className={`vs-sidebar${sidebarOpen ? " is-open" : ""}`}>
         <div className="vs-logo"><img src={loonaLogo} alt="Loona" /></div>
         <nav className="vs-topnav">
           <a href="/">Hub</a>
@@ -209,7 +252,10 @@ export function App() {
                 <button
                   type="button"
                   className={`vs-project${open ? " is-active" : ""}`}
-                  onClick={() => setBrand(b)}
+                  onClick={() => {
+                    window.history.replaceState(null, "", `${window.location.pathname}?brand=${encodeURIComponent(b.id)}`);
+                    setBrand(b); setSidebarOpen(false);
+                  }}
                 >
                   {/* Hub's own brand logo where there is one, the same way its brand cards do
                       it — falling back to a coloured initial for brands nobody has uploaded
@@ -246,7 +292,7 @@ export function App() {
                         <button
                           type="button"
                           className="vs-chatlink"
-                          onClick={() => openChat(c.id)}
+                          onClick={() => { void openChat(c.id); setSidebarOpen(false); }}
                           // Double-click to rename, the way a file name works everywhere else.
                           onDoubleClick={() => { setRenamingId(c.id); setRenameDraft(c.title); }}
                         >
@@ -278,12 +324,15 @@ export function App() {
         <div className="vs-user">{actor}</div>
       </aside>
 
+      {(sidebarOpen || memoryOpen) && <button className="vs-scrim" aria-label="Close side panel" onClick={() => { setSidebarOpen(false); setMemoryOpen(false); }} />}
       <main className="vs-main">
         <header className="vs-header">
+          <button type="button" className="vs-mobile-tool" onClick={() => setSidebarOpen(true)} aria-label="Open projects">☰</button>
           <div>
             <h1>{brand ? brand.name : "Visual Studio"}</h1>
             <p>{chats.find((c) => c.id === chatId)?.title || "New visual chat"}</p>
           </div>
+          <button type="button" className="vs-mobile-tool" onClick={() => setMemoryOpen(true)} aria-label="Open brand memory">Mani</button>
         </header>
 
         {error && (
@@ -299,12 +348,30 @@ export function App() {
           </div>
         )}
         {notice && <div className="vs-notice" role="status">{notice}</div>}
+        {hasMore && <button type="button" className="vs-load-older" onClick={() => void loadOlder()}>Load older rounds</button>}
 
-        <ChatThread generations={generations} onPick={pick} onUseAsReference={useAsReference} busy={busy} />
-        <Composer onSend={send} busy={busy} disabled={!brand} references={references} setReferences={setReferences} />
+        <ChatThread
+          generations={generations}
+          onPick={pick}
+          onUseAsReference={useAsReference}
+          onSuggestion={setSuggestedPrompt}
+          onReview={async (generation, imageIndex) => {
+            if (!chatId) return;
+            const { qc } = await api.reviewImage({ chatId, generationId: generation.id, imageIndex });
+            setGenerations((prev) => prev.map((g) => g.id === generation.id ? { ...g, qc } : g));
+          }}
+          busy={busy}
+        />
+        <Composer
+          onSend={send} busy={busy} disabled={!brand} references={references} setReferences={setReferences}
+          suggestedPrompt={suggestedPrompt} onSuggestionUsed={() => setSuggestedPrompt(null)}
+        />
       </main>
 
-      <ProjectMemory brand={brand} generations={generations} />
+      <div className={`vs-memory-drawer${memoryOpen ? " is-open" : ""}`}>
+        <button type="button" className="vs-drawer-close" onClick={() => setMemoryOpen(false)}>Close</button>
+        <ProjectMemory brand={brand} generations={generations} />
+      </div>
     </div>
   );
 }

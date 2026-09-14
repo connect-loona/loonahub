@@ -175,6 +175,16 @@
 #                             ALSO reused (same key, no separate credential) by Strategy OS's
 #                             Research + Strategy stages via the OpenAI Agents SDK — see
 #                             netlify/functions/lib/strategy/runtime-openai.js.)
+#                             Visual Studio also uses this key for image generation, the
+#                             conversational prompt rewrite, and evidence-based image review.)
+#   VISUAL_OPENAI_MODEL      (optional image model; defaults to gpt-image-1.)
+#   VISUAL_PROMPT_MODEL      (optional OpenAI text model used to turn short follow-ups into
+#                             self-contained image prompts; defaults to gpt-4.1-mini.)
+#   VISUAL_QC_MODEL          (optional OpenAI vision model for on-demand quality review;
+#                             defaults to gpt-4.1.)
+#   VISUAL_JOB_SECRET        (optional signing secret for Visual Studio background jobs.
+#                             Set a long random value in production; BASIC_AUTH_CREDENTIALS
+#                             is used as the fallback so unsigned jobs always fail closed.)
 #   STRATEGY_OPENAI_MODEL    (optional — model id for Strategy OS stages running on OpenAI;
 #                             defaults to "gpt-5.4" if unset. Never hard-code a model name in
 #                             code, per the Strategy OS build brief — change it here instead.)

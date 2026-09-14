@@ -11,6 +11,11 @@
 import { getIdTokenOrNull } from "./firebase";
 import type { Generation, PendingReference, VisualChat } from "./types";
 
+async function authHeaders(extra: Record<string, string> = {}): Promise<Record<string, string>> {
+  const token = await getIdTokenOrNull();
+  return token ? { ...extra, Authorization: `Bearer ${token}` } : extra;
+}
+
 async function post(path: string, body: unknown): Promise<unknown> {
   const token = await getIdTokenOrNull();
   const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -29,6 +34,19 @@ async function post(path: string, body: unknown): Promise<unknown> {
   return data;
 }
 
+export async function uploadReference(chatId: string, reference: PendingReference): Promise<PendingReference> {
+  if (reference.assetKey) return reference;
+  if (!reference.file) throw new Error(`${reference.name || "Reference"} is no longer available to upload.`);
+  const query = new URLSearchParams({ chatId, filename: reference.name || "reference", role: reference.role || "" });
+  const headers = await authHeaders({ "Content-Type": reference.file.type || "image/png" });
+  const res = await fetch(`/.netlify/functions/visual-reference-upload?${query}`, {
+    method: "POST", headers, body: reference.file,
+  });
+  const data = await res.json().catch(() => ({})) as { asset?: { assetKey: string; url: string; contentType?: string; warnings?: string[] }; error?: string };
+  if (!res.ok || !data.asset) throw new Error(data.error || "Could not upload the reference.");
+  return { ...reference, assetKey: data.asset.assetKey, dataUrl: data.asset.url, contentType: data.asset.contentType, warnings: data.asset.warnings, file: undefined };
+}
+
 export function listChats(brandId: string): Promise<{ chats: VisualChat[] }> {
   return post("visual-chat", { action: "list", brandId }) as Promise<{ chats: VisualChat[] }>;
 }
@@ -41,8 +59,21 @@ export function renameChat(chatId: string, title: string): Promise<{ ok: true; c
   return post("visual-chat", { action: "rename", chatId, title }) as Promise<{ ok: true; chat: VisualChat }>;
 }
 
-export function chatHistory(chatId: string): Promise<{ chat: VisualChat; generations: Generation[] }> {
-  return post("visual-chat", { action: "history", chatId }) as Promise<{ chat: VisualChat; generations: Generation[] }>;
+export function chatHistory(chatId: string, before?: string): Promise<{ chat: VisualChat; generations: Generation[]; hasMore?: boolean }> {
+  return post("visual-chat", { action: "history", chatId, before, limit: 20 }) as Promise<{ chat: VisualChat; generations: Generation[]; hasMore?: boolean }>;
+}
+
+type VisualJob = { id: string; status: "queued" | "running" | "succeeded" | "failed"; progress?: string; result?: Generation & { recorded: boolean; brandId: string }; error?: string };
+
+async function waitForJob(jobId: string): Promise<Generation & { recorded: boolean; brandId: string }> {
+  const deadline = Date.now() + 5 * 60 * 1000;
+  while (Date.now() < deadline) {
+    const { job } = await post("visual-job", { action: "status", jobId }) as { job: VisualJob };
+    if (job.status === "succeeded" && job.result) return job.result;
+    if (job.status === "failed") throw new Error(job.error || "Image generation failed.");
+    await new Promise((resolve) => window.setTimeout(resolve, 1500));
+  }
+  throw new Error("Generation is still running. It is safe to refresh; this job remains in Visual Studio.");
 }
 
 export function generate(args: {
@@ -53,10 +84,25 @@ export function generate(args: {
   // "draft" (medium quality, JPEG — fast and cheap for exploring) or "final" (high, PNG).
   quality?: string;
   actor: string;
-  // Passed straight through to the provider and never stored — see visual-generate.js.
+  // These contain durable asset keys, never multi-megabyte data URLs.
   references?: PendingReference[];
+  parentGenerationId?: string | null;
+  parentImageIndex?: number | null;
 }): Promise<Generation & { recorded: boolean; brandId: string }> {
-  return post("visual-generate", args) as Promise<Generation & { recorded: boolean; brandId: string }>;
+  return (async () => {
+    // Browser tests use the deterministic synchronous fixture endpoint. Production always
+    // uses recoverable jobs, which is the behaviour this branch ships.
+    if (import.meta.env.MODE === "test") {
+      return post("visual-generate", args) as Promise<Generation & { recorded: boolean; brandId: string }>;
+    }
+    const { job, workerToken } = await post("visual-job", { action: "create", request: args, actor: args.actor }) as { job: VisualJob; workerToken: string };
+    const headers = await authHeaders({ "Content-Type": "application/json" });
+    const started = await fetch("/.netlify/functions/visual-generate-background", {
+      method: "POST", headers, body: JSON.stringify({ jobId: job.id, workerToken }),
+    });
+    if (!started.ok && started.status !== 202) throw new Error("Could not start the generation job.");
+    return waitForJob(job.id);
+  })();
 }
 
 export function pickImage(args: {
@@ -65,6 +111,11 @@ export function pickImage(args: {
   index: number;
   actor: string;
   note?: string;
+  tags?: string[];
 }): Promise<{ ok: true }> {
   return post("visual-pick", args) as Promise<{ ok: true }>;
+}
+
+export function reviewImage(args: { chatId: string; generationId: string; imageIndex: number }): Promise<{ qc: import("./types").VisualQc }> {
+  return post("visual-qc", args) as Promise<{ qc: import("./types").VisualQc }>;
 }
