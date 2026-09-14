@@ -59,6 +59,23 @@ export function generate(args: {
   return post("visual-generate", args) as Promise<Generation & { recorded: boolean; brandId: string }>;
 }
 
+// 🧠 Mani, asked from inside the studio. The brandId is sent explicitly here rather than
+// inferred from a chat, because this question isn't about one chat — it's about everything
+// recorded for the brand, which includes the rounds generated in every other chat.
+//
+// Note this is the SAME endpoint Strategy OS and Hub ask. There is one Mani and one definition
+// of what Loona remembers; the studio gets a place to type, not a second memory.
+export function askMani(args: { brandId: string; question: string }): Promise<{
+  answer?: string | null;
+  grounded?: boolean;
+  nothingRecorded?: boolean;
+  detail?: string;
+}> {
+  return post("strategy-mani-ask", args) as Promise<{
+    answer?: string | null; grounded?: boolean; nothingRecorded?: boolean; detail?: string;
+  }>;
+}
+
 export function pickImage(args: {
   brandId: string;
   generationId: string;

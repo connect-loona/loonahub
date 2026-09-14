@@ -61,7 +61,7 @@ function check(name, cond, extra) {
   // the Hub SPA and break every check after it. "Strategy legacy" is the rollback button
   // that still activates the in-Hub #page-strategy panel the rest of this loop's pattern
   // expects.
-  const tabs = ["Overview", "Task Board", "Monthly Plan", "Team", "Brands", "Strategy legacy", "Calendar", "Loona Code", "Loonaverse"];
+  const tabs = ["Overview", "Task Board", "Monthly Plan", "Team", "Brands", "🧠 Mani", "Strategy legacy", "Calendar", "Loona Code", "Loonaverse"];
   for (const tab of tabs) {
     await page.locator(".nav-btn", { hasText: tab }).click();
     await page.waitForTimeout(300);
