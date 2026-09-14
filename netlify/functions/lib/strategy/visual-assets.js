@@ -32,7 +32,16 @@ function badImage(message) {
   return error;
 }
 
-function inspectImage(buffer, declaredType) {
+// `minSide` and `declaredType` are the two rules that only make sense for a file a PERSON
+// chose. A reference has to be big enough to hold an identity, and has to actually be the type
+// it claims — lying about that is how a file gets mishandled downstream.
+//
+// Neither rule belongs on the provider's own output. A generated image is not somebody's
+// upload: rejecting it for being small would discard work that was already paid for, and the
+// wording ("This reference is only…") would be nonsense. The declared type is our own request
+// for a format, not a claim about bytes we have seen, so for generated output the type is read
+// from the file rather than asserted against.
+function inspectImage(buffer, declaredType, { minSide = 128 } = {}) {
   let contentType = null;
   let width = null;
   let height = null;
@@ -58,7 +67,9 @@ function inspectImage(buffer, declaredType) {
   }
   if (!contentType) throw badImage("The file contents are not a readable PNG, JPEG, WebP or GIF image.");
   if (declaredType && contentType !== declaredType) throw badImage(`The file is ${contentType}, but was labelled ${declaredType}.`);
-  if (width && height && (width < 128 || height < 128)) throw badImage(`This reference is only ${width}×${height}px. Use an image at least 128px on each side.`);
+  if (minSide && width && height && (width < minSide || height < minSide)) {
+    throw badImage(`This reference is only ${width}×${height}px. Use an image at least ${minSide}px on each side.`);
+  }
   const warnings = [];
   if (width && height && (width < 800 || height < 800)) warnings.push(`Low-resolution reference (${width}×${height}px); product details may drift.`);
   return { contentType, width, height, warnings };
@@ -144,7 +155,13 @@ async function saveBuffer({ buffer, contentType, brandId, chatId, generationId, 
   if (!SAFE_IMAGE_TYPES.has(contentType)) throw badImage(`Unsupported image type ${contentType}.`);
   if (!buffer || !buffer.length) throw badImage("Cannot save an empty image.");
   if (buffer.length > MAX_ASSET_BYTES) throw new Error(`Image is larger than the ${Math.round(MAX_ASSET_BYTES / 1024 / 1024)}MB Visual Studio limit.`);
-  const inspected = inspectImage(buffer, contentType);
+  // Only a person's upload is held to the reference rules. See inspectImage for why applying
+  // them to the provider's own output would throw away a generation somebody already paid for.
+  const isReference = kind === "references";
+  const inspected = inspectImage(buffer, isReference ? contentType : null, { minSide: isReference ? 128 : 0 });
+  // For generated output the type is whatever the bytes actually are, not the format we asked
+  // the provider for — labelling a PNG as a JPEG produces a data URL some browsers refuse.
+  if (!isReference) contentType = inspected.contentType;
   const digest = crypto.createHash("sha256").update(buffer).digest("hex").slice(0, 16);
   const key = [
     "brands", safePart(brandId), "chats", safePart(chatId, "one-off"),

@@ -5,7 +5,7 @@
 // checkpoint specifically. Approving with nothing locked advances everything, unchanged
 // from before this feature existed.
 const path = require("path");
-const { HUB, RTDB_URL, DEV_LITE_URL, req } = require("../harness/shared");
+const { HUB, RTDB_URL, DEV_LITE_URL, req, waitForBackgroundIdle } = require("../harness/shared");
 const apiReq = (method, url, body) => req(method, url, body, { auth: true });
 
 let allPass = true;

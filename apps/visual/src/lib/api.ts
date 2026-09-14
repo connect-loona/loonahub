@@ -70,6 +70,8 @@ export type VisualJob = {
   progress?: string;
   result?: Generation & { recorded: boolean; brandId: string };
   error?: string;
+  // Present on jobs returned by activeJobs, so a job found still queued can be started.
+  workerToken?: string;
 };
 
 // The jobs still running in this chat. Asked when a chat opens, so a refresh mid-generation
@@ -92,19 +94,28 @@ export async function waitForJob(jobId: string): Promise<Generation & { recorded
   throw new Error("Generation is still running. It is safe to refresh; this job remains in Visual Studio.");
 }
 
+// Kicks the background worker for a job that exists but has not started.
+//
+// Safe to call twice: visual-generate-background ignores a job that is no longer queued. That
+// matters because a tab can die between creating a job and starting it, leaving it queued with
+// nobody running it — so whoever finds it next starts it.
+export async function startJob(jobId: string, workerToken: string): Promise<void> {
+  const headers = await authHeaders({ "Content-Type": "application/json" });
+  const started = await fetch("/.netlify/functions/visual-generate-background", {
+    method: "POST", headers, body: JSON.stringify({ jobId, workerToken }),
+  });
+  // A background function answers 202 and nothing else. Anything outside the 2xx range means
+  // the worker was never kicked, so the job would sit queued for ever if we started polling.
+  if (!started.ok && started.status !== 202) throw new Error("Could not start the generation job.");
+}
+
 // Creating a job, kicking its worker, and waiting for it. Shared by generation and by Magnific
 // enhancement because they are the same lifecycle with a different request body — and, since
 // the test-mode bypass was removed, this is the ONLY path either of them takes. What the
 // browser tests exercise is what production runs.
 async function runJob(request: Record<string, unknown>, actor: string): Promise<Generation & { recorded: boolean; brandId: string }> {
   const { job, workerToken } = await post("visual-job", { action: "create", request, actor }) as { job: VisualJob; workerToken: string };
-  const headers = await authHeaders({ "Content-Type": "application/json" });
-  const started = await fetch("/.netlify/functions/visual-generate-background", {
-    method: "POST", headers, body: JSON.stringify({ jobId: job.id, workerToken }),
-  });
-  // A background function answers 202 and nothing else. Anything outside the 2xx range means
-  // the worker was never kicked, so the job would sit queued for ever if we started polling.
-  if (!started.ok && started.status !== 202) throw new Error("Could not start the generation job.");
+  await startJob(job.id, workerToken);
   return waitForJob(job.id);
 }
 

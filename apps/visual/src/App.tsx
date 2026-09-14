@@ -91,12 +91,17 @@ export function App() {
   //
   // This is the same waitForJob the send path uses, deliberately — there is one definition of
   // "a job finished" rather than a second one for the resume case that could drift from it.
-  const attachToJob = useCallback(async (jobId: string) => {
+  const attachToJob = useCallback(async (job: api.VisualJob) => {
     setBusy(true);
     setError(null);
     setNotice("Reconnected to a generation that was already running.");
     try {
-      const result = await api.waitForJob(jobId);
+      // A job can be found still QUEUED: created, but never started, because the tab that
+      // created it went away in the moment between those two calls. Nothing else will ever
+      // pick it up, so it would sit queued for ever while somebody waits for a round that is
+      // not coming. Starting it here is safe — the worker ignores a job already running.
+      if (job.status === "queued" && job.workerToken) await api.startJob(job.id, job.workerToken);
+      const result = await api.waitForJob(job.id);
       // Guard against a job that finished while the person was off looking at another chat:
       // only append if it isn't already in the thread.
       setGenerations((prev) => (prev.some((g) => g.id === result.id) ? prev : prev.concat([{ ...result, pickedIndex: null }])));
@@ -117,6 +122,23 @@ export function App() {
     // is still in flight, the URL already points at the right chat.
     const query = new URLSearchParams({ brand: brand?.id || "", chat: id });
     window.history.replaceState(null, "", `${window.location.pathname}?${query}`);
+    // Running jobs are read BEFORE the history, and the order is load-bearing.
+    //
+    // A generation outlives the tab that started it: the worker keeps going and the round is
+    // paid for either way. Reading history first opened a window where a job finishing in
+    // between belonged to neither list — not yet recorded when history was read, no longer
+    // "active" when jobs were. The round simply vanished, and somebody had been charged for it.
+    //
+    // This way round there is no such gap: if nothing is running, everything that exists is
+    // already in the record, and the history read below will contain it.
+    let running: api.VisualJob[] = [];
+    try {
+      const { jobs } = await api.activeJobs(id);
+      running = jobs;
+    } catch {
+      // Not being able to check for running jobs is not a reason to fail opening the chat.
+    }
+
     try {
       const { generations: rounds, hasMore: more } = await api.chatHistory(id);
       // Oldest first: a conversation reads downward, and the newest round belongs at the
@@ -127,15 +149,10 @@ export function App() {
       setError(e instanceof Error ? e.message : String(e));
       return;
     }
-    // A generation outlives the tab that started it — the worker keeps going and the round is
-    // paid for either way. So on opening a chat, pick up anything still running rather than
-    // letting a refresh look like a lost round.
-    try {
-      const { jobs } = await api.activeJobs(id);
-      if (jobs.length) void attachToJob(jobs[jobs.length - 1].id);
-    } catch {
-      // Not being able to check for running jobs is not a reason to fail opening the chat.
-    }
+
+    // attachToJob de-duplicates by id, so a job that lands in history while we were waiting
+    // cannot produce the same round twice.
+    if (running.length) void attachToJob(running[running.length - 1]);
   }, [brand, attachToJob]);
 
   useEffect(() => {

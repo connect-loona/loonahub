@@ -12,7 +12,7 @@
 // the contract the frontend actually depends on: history accumulates across chained turns
 // and resets on a fresh (non-refine) request.
 const path = require("path");
-const { HUB, RTDB_URL, DEV_LITE_URL, req, waitFor } = require("../harness/shared");
+const { HUB, RTDB_URL, DEV_LITE_URL, req, waitFor, waitForBackgroundIdle } = require("../harness/shared");
 const apiReq = (method, url, body) => req(method, url, body, { auth: true });
 
 let allPass = true;

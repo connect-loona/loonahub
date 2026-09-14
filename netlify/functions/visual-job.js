@@ -28,7 +28,15 @@ exports.handler = async (event) => {
     // carries on and the money is spent anyway.
     if (body.action === "active") {
       const jobs = await activeVisualJobsForChat(String(body.chatId || ""));
-      return reply(200, { jobs });
+      // Each job comes back with its worker token, because a job can be found in "queued" —
+      // created, but never started, because the tab that created it went away in the moment
+      // between those two calls. Whoever finds it has to be able to start it, or it sits
+      // queued for ever while the person waits for a round that is never coming.
+      //
+      // Handing the token back is no weaker than create, which hands out the same thing to the
+      // same authenticated caller, and visual-generate-background ignores a second kick on a
+      // job that is already running.
+      return reply(200, { jobs: jobs.map((job) => ({ ...job, workerToken: signVisualJob(job.id) })) });
     }
     return reply(400, { error: "Unknown action." });
   } catch (error) {

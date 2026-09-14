@@ -3,7 +3,7 @@
 // strategy-run-start, all 5 stage approvals chaining correctly end to end, and
 // strategy-stage-retry.js's path on a manually-forced "failed" stage.
 const path = require("path");
-const { HUB, RTDB_URL, DEV_LITE_URL, req, waitFor } = require("../harness/shared");
+const { HUB, RTDB_URL, DEV_LITE_URL, req, waitFor, waitForBackgroundIdle } = require("../harness/shared");
 
 const FIXTURE_DIR = path.join(HUB, "netlify/functions/lib/strategy/fixtures/rro-2026-10");
 const apiReq = (method, url, body) => req(method, url, body, { auth: true });
