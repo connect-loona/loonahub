@@ -185,6 +185,19 @@
 #   VISUAL_JOB_SECRET        (optional signing secret for Visual Studio background jobs.
 #                             Set a long random value in production; BASIC_AUTH_CREDENTIALS
 #                             is used as the fallback so unsigned jobs always fail closed.)
+#   MAGNIFIC_API_KEY         (server-only key for Magnific Mystic generation and Precision
+#                             enhancement in Visual Studio. Never expose this to Vite/React.)
+#   OPENAI_ADMIN_KEY         (optional OpenAI organization Admin API key, used read-only by
+#                             Visual Studio's API Control Room for provider-reported usage and
+#                             spend. This is separate from OPENAI_API_KEY.)
+#   OPENAI_MONTHLY_BUDGET_USD
+#                            (optional management budget shown in the Control Room; remaining
+#                             budget is this value minus provider-reported monthly spend.)
+#   MAGNIFIC_MONTHLY_CREDIT_ALLOWANCE
+#                            (optional plan allowance. Magnific's Business/Enterprise analytics
+#                             reports credits consumed; Hub subtracts that from this value.)
+#   FIREBASE_API_KEY         (optional; the public Firebase Web API key used server-side to
+#                             resolve a signed-in user's ID token for usage attribution.)
 #   STRATEGY_OPENAI_MODEL    (optional — model id for Strategy OS stages running on OpenAI;
 #                             defaults to "gpt-5.4" if unset. Never hard-code a model name in
 #                             code, per the Strategy OS build brief — change it here instead.)

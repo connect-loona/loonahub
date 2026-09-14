@@ -58,6 +58,8 @@ export interface Generation {
   chatId: string | null;
   prompt: string;
   provider: string;
+  operation?: "generate" | "magnific_precision";
+  providerTaskId?: string | null;
   model?: string | null;
   actor: string;
   images: GeneratedImage[];

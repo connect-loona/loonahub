@@ -19,6 +19,8 @@ const { expandPrompt, historyForPrompt } = require("./lib/strategy/visual-prompt
 const { loadVisualHistory } = require("./lib/strategy/visual-memory");
 const { loadBrain, brainToPromptText } = require("./lib/strategy/brand-brain");
 const { preserveGeneratedImages } = require("./lib/strategy/visual-assets");
+const { resolveVisualActor } = require("./lib/strategy/visual-actor");
+const { recordApiUsage } = require("./lib/strategy/api-usage");
 
 function cors() {
   return {
@@ -42,6 +44,9 @@ exports.handler = async (event) => {
 
   let body;
   try { body = JSON.parse(event.body || "{}"); } catch { return fail(400, "Invalid JSON"); }
+  const actor = body.actorId
+    ? { id: body.actorId, email: body.actorEmail || null, name: body.actor || "Hub", verified: Boolean(body.actorVerified) }
+    : await resolveVisualActor(event, body.actor || "Hub");
 
   const prompt = String(body.prompt || "").trim();
   if (!prompt) return fail(400, "A prompt is required.");
@@ -146,6 +151,7 @@ exports.handler = async (event) => {
   }
 
   let id = null;
+  let createdAt = new Date().toISOString();
   let suggestions = [];
   try {
     const generationId = crypto.randomUUID();
@@ -163,13 +169,15 @@ exports.handler = async (event) => {
     // The prompt the PERSON wrote is what gets remembered, not the rule-prefixed version sent
     // to the model — the rules are the same on every round, so storing them would bury the one
     // part of the record that actually differs. What was applied is stored separately.
-    ({ id } = await recordGeneration(brandId, {
+    const recorded = await recordGeneration(brandId, {
       id: generationId,
       prompt,
       chatId,
       provider: result.provider,
       model: result.model,
-      actor: body.actor || "Hub",
+      operation: "generate",
+      providerTaskId: result.taskId || null,
+      actor: actor.name,
       referenceCount: references.length,
       // What each reference was FOR ("the product", "the lighting"), joined into one note. The
       // roles are the useful half — six months on, "2 references" says nothing, but "kept the
@@ -187,7 +195,9 @@ exports.handler = async (event) => {
       parentGenerationId: body.parentGenerationId || null,
       parentImageIndex: Number.isInteger(body.parentImageIndex) ? body.parentImageIndex : null,
       suggestions,
-    }));
+    });
+    id = recorded.id;
+    createdAt = recorded.record.createdAt;
     if (chatId) await touchChat(chatId, { titleIfUnset: titleFromPrompt(prompt) });
   } catch (error) {
     // Losing the memory write must not lose the images the user just paid for. Say so in the
@@ -195,11 +205,25 @@ exports.handler = async (event) => {
     console.error(`Could not record generation for ${brandId}:`, error.message);
   }
 
+  // This ledger is deliberately separate from brand memory. It contains operational totals
+  // and identity, never prompt text or image bytes, so managers can coach usage without
+  // turning the report into surveillance of creative work.
+  try {
+    await recordApiUsage({
+      id: `visual-${id || crypto.randomUUID()}`,
+      userId: actor.id, userEmail: actor.email, userName: actor.name, identityVerified: actor.verified,
+      provider: result.provider, model: result.model, feature: "visual_studio", operation: "generate",
+      brandId, chatId, outputCount: result.images.length,
+    });
+  } catch (error) {
+    console.error("Could not record API usage:", error.message);
+  }
+
   return {
     statusCode: 200,
     headers: cors(),
     body: JSON.stringify({
-      id, brandId, chatId, provider: result.provider, model: result.model,
+      id, brandId, chatId, provider: result.provider, model: result.model, createdAt,
       images: result.images,
       // So the UI can show exactly which rules shaped this image rather than asserting it.
       appliedRules: rules.applied,

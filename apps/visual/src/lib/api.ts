@@ -83,6 +83,7 @@ export function generate(args: {
   size?: string;
   // "draft" (medium quality, JPEG — fast and cheap for exploring) or "final" (high, PNG).
   quality?: string;
+  provider?: "openai" | "magnific";
   actor: string;
   // These contain durable asset keys, never multi-megabyte data URLs.
   references?: PendingReference[];
@@ -103,6 +104,43 @@ export function generate(args: {
     if (!started.ok && started.status !== 202) throw new Error("Could not start the generation job.");
     return waitForJob(job.id);
   })();
+}
+
+export function enhanceImage(args: { chatId: string; generationId: string; imageIndex: number; actor: string }): Promise<Generation & { recorded: boolean; brandId: string }> {
+  return (async () => {
+    const request = {
+      operation: "magnific_precision", chatId: args.chatId, prompt: "Enhance with Magnific Precision",
+      sourceGenerationId: args.generationId, sourceImageIndex: args.imageIndex, actor: args.actor,
+    };
+    const { job, workerToken } = await post("visual-job", { action: "create", request, actor: args.actor }) as { job: VisualJob; workerToken: string };
+    const headers = await authHeaders({ "Content-Type": "application/json" });
+    const started = await fetch("/.netlify/functions/visual-generate-background", {
+      method: "POST", headers, body: JSON.stringify({ jobId: job.id, workerToken }),
+    });
+    if (!started.ok && started.status !== 202) throw new Error("Could not start Magnific enhancement.");
+    return waitForJob(job.id);
+  })();
+}
+
+export interface UsageRow {
+  key: string; name?: string; email?: string | null; verified?: boolean;
+  requests: number; outputs: number; generations: number; enhancements: number; strategyRuns: number; picks: number; reviews: number; failures: number;
+}
+
+export interface UsageReport {
+  month: string;
+  coverage: string;
+  totals: UsageRow;
+  users: UsageRow[];
+  providers: UsageRow[];
+  accounts: {
+    openai: { connected: boolean; spendUsd?: number; imageCount?: number; budgetUsd?: number | null; remainingBudgetUsd?: number | null; reason?: string };
+    magnific: { connected: boolean; analyticsConnected?: boolean; operations: number; creditsUsed?: number; uses?: number; allowance?: number | null; remainingCredits?: number | null; reason?: string; note: string };
+  };
+}
+
+export function usageReport(month?: string): Promise<UsageReport> {
+  return post("api-usage", { month }) as Promise<UsageReport>;
 }
 
 export function pickImage(args: {

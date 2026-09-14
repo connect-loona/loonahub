@@ -26,6 +26,7 @@ const ALL_STRATEGY_PATHS = [
   "strategy_runs", "strategy_brands", "strategy_months", "strategy_learning_events",
   "strategy_learnings", "strategy_activity", "strategy_stage_versions", "strategy_brand_library",
   "strategy_brain", "strategy_visual", "visual_chats", "brands",
+  "visual_jobs", "api_usage_events",
   "tasks",
 ];
 function wipeAll(rtdbUrl) {

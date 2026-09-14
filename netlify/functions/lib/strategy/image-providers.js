@@ -11,6 +11,7 @@
 "use strict";
 const { ConfigurationError } = require("./errors");
 const { referenceForProvider } = require("./visual-assets");
+const { apiKey: magnificApiKey, generateWithMystic } = require("./magnific-provider");
 
 const OPENAI_IMAGE_URL = "https://api.openai.com/v1/images/generations";
 // Working from a reference is a different endpoint, not a different parameter.
@@ -226,6 +227,7 @@ async function readOpenAIImages(response, model, mode, outputFormat) {
 
 const PROVIDERS = {
   openai: { label: "ChatGPT (OpenAI)", generate: generateWithOpenAI, configured: () => Boolean(openaiApiKey()) },
+  magnific: { label: "Magnific Mystic", generate: generateWithMystic, configured: () => Boolean(magnificApiKey()) },
 };
 
 function listProviders() {

@@ -38,7 +38,7 @@ function readAsDataUrl(file: File): Promise<string> {
 }
 
 export function Composer({ onSend, busy, disabled, references, setReferences, suggestedPrompt, onSuggestionUsed }: {
-  onSend: (prompt: string, count: number, size: string, quality: string) => void;
+  onSend: (prompt: string, count: number, size: string, quality: string, provider: "openai" | "magnific") => void;
   busy: boolean;
   disabled: boolean;
   references: PendingReference[];
@@ -53,6 +53,7 @@ export function Composer({ onSend, busy, disabled, references, setReferences, su
   // generating four takes at production quality to reject three of them is how this gets both
   // expensive and slow.
   const [quality, setQuality] = useState("draft");
+  const [provider, setProvider] = useState<"openai" | "magnific">("openai");
   const [fileError, setFileError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -91,7 +92,7 @@ export function Composer({ onSend, busy, disabled, references, setReferences, su
   function submit() {
     const clean = prompt.trim();
     if (!clean || busy || disabled) return;
-    onSend(clean, count, size, quality);
+    onSend(clean, provider === "magnific" ? 1 : count, size, quality, provider);
     setPrompt("");
   }
 
@@ -175,11 +176,19 @@ export function Composer({ onSend, busy, disabled, references, setReferences, su
           + Reference
         </button>
         <label>
+          Create with
+          <select value={provider} onChange={(e) => { const next = e.target.value as "openai" | "magnific"; setProvider(next); if (next === "magnific") setCount(1); }} disabled={disabled}>
+            <option value="openai">ChatGPT</option>
+            <option value="magnific">Magnific Mystic</option>
+          </select>
+        </label>
+        <label>
           Takes
-          <select value={count} onChange={(e) => setCount(Number(e.target.value))} disabled={disabled}>
+          <select value={count} onChange={(e) => setCount(Number(e.target.value))} disabled={disabled || provider === "magnific"}>
             {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
         </label>
+        {provider === "magnific" && <span className="vs-provider-note">Mystic creates one paid take at a time.</span>}
         <label>
           Quality
           <select value={quality} onChange={(e) => setQuality(e.target.value)} disabled={disabled}>

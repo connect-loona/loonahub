@@ -5,6 +5,8 @@ const { checkAuthorization } = require("./lib/strategy/auth");
 const { resolveChat } = require("./lib/strategy/visual-chats");
 const { loadVisualHistory, recordQc } = require("./lib/strategy/visual-memory");
 const { loadAsset } = require("./lib/strategy/visual-assets");
+const { resolveVisualActor } = require("./lib/strategy/visual-actor");
+const { recordApiUsage } = require("./lib/strategy/api-usage");
 
 const reply = (statusCode, value) => ({ statusCode, headers: { "Content-Type": "application/json" }, body: JSON.stringify(value) });
 const CHECKS = ["prompt_match", "product_identity", "text_and_logo", "brand_style", "visual_integrity", "production_readiness"];
@@ -26,6 +28,7 @@ exports.handler = async (event) => {
   let body;
   try { body = JSON.parse(event.body || "{}"); } catch { return reply(400, { error: "Invalid JSON" }); }
   try {
+    const actor = await resolveVisualActor(event, "Hub");
     const chat = await resolveChat(String(body.chatId || ""));
     const history = await loadVisualHistory(chat.brandId, { chatId: body.chatId, limit: 100 });
     const generation = history.find((g) => g.id === body.generationId);
@@ -70,6 +73,12 @@ exports.handler = async (event) => {
     const parsed = JSON.parse(outputText(raw));
     const qc = { ...parsed, checkedAt: new Date().toISOString(), checkedByModel: model, imageIndex: Number(body.imageIndex) || 0 };
     await recordQc(chat.brandId, generation.id, qc);
+    try {
+      await recordApiUsage({ id: `qc-${generation.id}-${Date.now()}`, userId: actor.id, userEmail: actor.email,
+        userName: actor.name, identityVerified: actor.verified, provider: "openai", model,
+        feature: "visual_studio", operation: "quality_review", brandId: chat.brandId,
+        chatId: body.chatId, outputCount: 0 });
+    } catch (usageError) { console.error("Could not record review usage:", usageError.message); }
     return reply(200, { qc });
   } catch (error) {
     return reply(502, { error: error.message || "Visual review failed." });

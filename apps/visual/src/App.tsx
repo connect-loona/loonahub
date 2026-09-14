@@ -23,6 +23,7 @@ import type { Generation, PendingReference, VisualBrand, VisualChat } from "./li
 import { ChatThread } from "./components/ChatThread";
 import { Composer } from "./components/Composer";
 import { ProjectMemory } from "./components/ProjectMemory";
+import { UsagePanel } from "./components/UsagePanel";
 import loonaLogo from "./assets/loona-logo.png";
 
 export function App() {
@@ -48,8 +49,9 @@ export function App() {
   const [parent, setParent] = useState<{ generationId: string; imageIndex: number } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [memoryOpen, setMemoryOpen] = useState(false);
+  const [usageOpen, setUsageOpen] = useState(false);
   // Kept so a transient failure can be retried without making the person retype the prompt.
-  const [lastSend, setLastSend] = useState<{ prompt: string; count: number; size: string; quality: string } | null>(null);
+  const [lastSend, setLastSend] = useState<{ prompt: string; count: number; size: string; quality: string; provider: "openai" | "magnific" } | null>(null);
 
   useEffect(() => onAuthChange(setUser), []);
   const actor = user?.displayName || user?.email || "Hub";
@@ -163,12 +165,12 @@ export function App() {
     }
   }
 
-  async function send(prompt: string, count: number, size: string, quality: string) {
+  async function send(prompt: string, count: number, size: string, quality: string, provider: "openai" | "magnific") {
     if (!brand) return;
     setError(null);
     setNotice(null);
     setRetryable(false);
-    setLastSend({ prompt, count, size, quality });
+    setLastSend({ prompt, count, size, quality, provider });
     setBusy(true);
     try {
       // A chat is created on first send rather than up front, so opening Visual Studio and
@@ -183,7 +185,7 @@ export function App() {
       const uploaded = await Promise.all(references.map((reference) => api.uploadReference(id as string, reference)));
       setReferences(uploaded);
       const result = await api.generate({
-        chatId: id, prompt, count, size, quality, actor,
+        chatId: id, prompt, count, size, quality, provider, actor,
         references: uploaded,
         parentGenerationId: parent?.generationId || null,
         parentImageIndex: parent?.imageIndex ?? null,
@@ -226,6 +228,18 @@ export function App() {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
+  }
+
+  async function enhance(generation: Generation, index: number) {
+    if (!chatId) return;
+    setError(null); setNotice("Magnific Precision enhancement queued — this can take several minutes."); setBusy(true);
+    try {
+      const result = await api.enhanceImage({ chatId, generationId: generation.id, imageIndex: index, actor });
+      setGenerations((prev) => prev.concat([{ ...result, pickedIndex: null }]));
+      setNotice(null);
+      if (brand) await loadChats(brand);
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
   }
 
   return (
@@ -321,10 +335,11 @@ export function App() {
         </div>
 
         <div className="vs-spacer" />
+        <button type="button" className="vs-usage-link" onClick={() => setUsageOpen(true)}>API usage</button>
         <div className="vs-user">{actor}</div>
       </aside>
 
-      {(sidebarOpen || memoryOpen) && <button className="vs-scrim" aria-label="Close side panel" onClick={() => { setSidebarOpen(false); setMemoryOpen(false); }} />}
+      {(sidebarOpen || memoryOpen || usageOpen) && <button className="vs-scrim" aria-label="Close side panel" onClick={() => { setSidebarOpen(false); setMemoryOpen(false); setUsageOpen(false); }} />}
       <main className="vs-main">
         <header className="vs-header">
           <button type="button" className="vs-mobile-tool" onClick={() => setSidebarOpen(true)} aria-label="Open projects">☰</button>
@@ -333,6 +348,7 @@ export function App() {
             <p>{chats.find((c) => c.id === chatId)?.title || "New visual chat"}</p>
           </div>
           <button type="button" className="vs-mobile-tool" onClick={() => setMemoryOpen(true)} aria-label="Open brand memory">Mani</button>
+          <button type="button" className="vs-header-tool" onClick={() => setUsageOpen(true)}>API usage</button>
         </header>
 
         {error && (
@@ -341,7 +357,7 @@ export function App() {
             {retryable && lastSend && !busy && (
               // The references are still attached (they're only cleared on success), so this
               // really is the same round again rather than a half-rebuilt one.
-              <button type="button" className="vs-retry" onClick={() => send(lastSend.prompt, lastSend.count, lastSend.size, lastSend.quality)}>
+              <button type="button" className="vs-retry" onClick={() => send(lastSend.prompt, lastSend.count, lastSend.size, lastSend.quality, lastSend.provider)}>
                 Try again
               </button>
             )}
@@ -360,6 +376,7 @@ export function App() {
             const { qc } = await api.reviewImage({ chatId, generationId: generation.id, imageIndex });
             setGenerations((prev) => prev.map((g) => g.id === generation.id ? { ...g, qc } : g));
           }}
+          onEnhance={enhance}
           busy={busy}
         />
         <Composer
@@ -372,6 +389,7 @@ export function App() {
         <button type="button" className="vs-drawer-close" onClick={() => setMemoryOpen(false)}>Close</button>
         <ProjectMemory brand={brand} generations={generations} />
       </div>
+      <UsagePanel open={usageOpen} onClose={() => setUsageOpen(false)} />
     </div>
   );
 }

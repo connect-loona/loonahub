@@ -1,6 +1,7 @@
 "use strict";
 const { checkAuthorization } = require("./lib/strategy/auth");
 const { createVisualJob, getVisualJob, signVisualJob } = require("./lib/strategy/visual-jobs");
+const { resolveVisualActor } = require("./lib/strategy/visual-actor");
 
 const headers = { "Content-Type": "application/json", "Cache-Control": "no-store" };
 const reply = (statusCode, value) => ({ statusCode, headers, body: JSON.stringify(value) });
@@ -14,7 +15,8 @@ exports.handler = async (event) => {
   try {
     if (body.action === "create") {
       if (!String(body.request && body.request.prompt || "").trim()) return reply(400, { error: "A prompt is required." });
-      const job = await createVisualJob(body.request || {}, body.actor || "Hub");
+      const actor = await resolveVisualActor(event, body.actor || "Hub");
+      const job = await createVisualJob(body.request || {}, actor);
       return reply(201, { job, workerToken: signVisualJob(job.id) });
     }
     if (body.action === "status") {

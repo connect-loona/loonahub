@@ -7,6 +7,8 @@
 "use strict";
 const { checkAuthorization } = require("./lib/strategy/auth");
 const { recordPick } = require("./lib/strategy/visual-memory");
+const { resolveVisualActor } = require("./lib/strategy/visual-actor");
+const { recordApiUsage } = require("./lib/strategy/api-usage");
 
 function cors() {
   return {
@@ -40,9 +42,13 @@ exports.handler = async (event) => {
   if (!Number.isInteger(index) || index < 0) return fail(400, "index must be a non-negative integer.");
 
   try {
+    const actor = await resolveVisualActor(event, body.actor || "Hub");
     const record = await recordPick(brandId, generationId, {
-      index, actor: body.actor || "Hub", note: body.note, tags: body.tags,
+      index, actor: actor.name, note: body.note, tags: body.tags,
     });
+    await recordApiUsage({ id: `pick-${generationId}`, userId: actor.id, userEmail: actor.email, userName: actor.name,
+      identityVerified: actor.verified, provider: record.provider, model: record.model, feature: "visual_studio",
+      operation: "pick", brandId, chatId: record.chatId, requests: 0 });
     return { statusCode: 200, headers: cors(), body: JSON.stringify({ ok: true, record }) };
   } catch (error) {
     if (/No generation/.test(error.message || "")) return fail(404, error.message);

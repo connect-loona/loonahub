@@ -19,12 +19,13 @@ function when(iso: string): string {
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
-function Round({ generation, onPick, onUseAsReference, onSuggestion, onReview }: {
+function Round({ generation, onPick, onUseAsReference, onSuggestion, onReview, onEnhance }: {
   generation: Generation;
   onPick: (g: Generation, i: number, note?: string, tags?: string[]) => void;
   onUseAsReference: (g: Generation, i: number) => void;
   onSuggestion: (prompt: string) => void;
   onReview: (g: Generation, i: number) => Promise<void>;
+  onEnhance: (g: Generation, i: number) => Promise<void>;
 }) {
   const images = generation.images || [];
   const picked = generation.pickedIndex;
@@ -33,6 +34,7 @@ function Round({ generation, onPick, onUseAsReference, onSuggestion, onReview }:
   const [note, setNote] = useState("");
   const [reviewing, setReviewing] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [enhancing, setEnhancing] = useState<number | null>(null);
 
   return (
     <article className="vs-round">
@@ -95,6 +97,13 @@ function Round({ generation, onPick, onUseAsReference, onSuggestion, onReview }:
                       <button type="button" className="vs-useref" onClick={() => onUseAsReference(generation, i)}>
                         Build on this
                       </button>
+                      {image.assetKey && generation.operation !== "magnific_precision" && (
+                        <button type="button" className="vs-useref" disabled={enhancing !== null} onClick={async () => {
+                          setEnhancing(i); setReviewError(null);
+                          try { await onEnhance(generation, i); } catch (e) { setReviewError(e instanceof Error ? e.message : String(e)); }
+                          finally { setEnhancing(null); }
+                        }}>{enhancing === i ? "Enhancing…" : "Enhance in Magnific"}</button>
+                      )}
                       <a href={image.url} download={`${generation.id}-${i + 1}.png`} target="_blank" rel="noopener noreferrer">
                         Download
                       </a>
@@ -149,12 +158,13 @@ function Round({ generation, onPick, onUseAsReference, onSuggestion, onReview }:
   );
 }
 
-export function ChatThread({ generations, onPick, onUseAsReference, onSuggestion, onReview, busy }: {
+export function ChatThread({ generations, onPick, onUseAsReference, onSuggestion, onReview, onEnhance, busy }: {
   generations: Generation[];
   onPick: (g: Generation, i: number, note?: string, tags?: string[]) => void;
   onUseAsReference: (g: Generation, i: number) => void;
   onSuggestion: (prompt: string) => void;
   onReview: (g: Generation, i: number) => Promise<void>;
+  onEnhance: (g: Generation, i: number) => Promise<void>;
   busy: boolean;
 }) {
   if (!generations.length && !busy) {
@@ -171,8 +181,8 @@ export function ChatThread({ generations, onPick, onUseAsReference, onSuggestion
 
   return (
     <div className="vs-thread">
-      {generations.map((g) => <Round key={g.id} generation={g} onPick={onPick} onUseAsReference={onUseAsReference} onSuggestion={onSuggestion} onReview={onReview} />)}
-      {busy && <p className="vs-working">OpenAI is generating this as a saved job. You can refresh safely.</p>}
+      {generations.map((g) => <Round key={g.id} generation={g} onPick={onPick} onUseAsReference={onUseAsReference} onSuggestion={onSuggestion} onReview={onReview} onEnhance={onEnhance} />)}
+      {busy && <p className="vs-working">The image job is running and saved. You can refresh safely.</p>}
     </div>
   );
 }

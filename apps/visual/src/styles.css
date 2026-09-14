@@ -70,6 +70,8 @@ button { cursor: pointer; }
 .vs-chatlink:hover { background: var(--hover); }
 .vs-spacer { flex: 1; }
 .vs-user { padding: 10px 8px 0; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+.vs-usage-link { padding: 8px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); text-align: left; }
+.vs-usage-link:hover { background: var(--hover); color: var(--accent); }
 
 /* ---- Main column ---- */
 .vs-main { display: flex; flex-direction: column; min-width: 0; max-height: 100vh; }
@@ -77,6 +79,7 @@ button { cursor: pointer; }
 .vs-header > div { flex: 1; }
 .vs-header h1 { margin: 0; font-family: Georgia, serif; font-size: 19px; font-weight: 500; }
 .vs-header p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+.vs-header-tool { padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; font-size: 12px; }
 .vs-error, .vs-notice { margin: 12px 20px 0; padding: 9px 12px; border-radius: 9px; font-size: 13px; }
 .vs-error { color: var(--red); background: #fbecea; }
 .vs-notice { color: var(--amber); background: #fbf3e3; }
@@ -120,6 +123,35 @@ button { cursor: pointer; }
 .vs-composer-foot select { padding: 5px 7px; border: 1px solid var(--line); border-radius: 7px; background: var(--page); font-size: 12px; }
 .vs-send { margin-left: auto; padding: 8px 18px; border: 0; border-radius: 9px; color: #fff; background: var(--accent); font-size: 13px; font-weight: 600; }
 .vs-send:disabled { opacity: .5; cursor: not-allowed; }
+.vs-provider-note { color: var(--amber); font-size: 11px; }
+
+/* ---- API Control Room ---- */
+.vs-usage-drawer { position: fixed; z-index: 40; top: 0; right: 0; bottom: 0; width: min(760px, 94vw); padding: 22px; overflow-y: auto; border-left: 1px solid var(--line); background: #fff; box-shadow: -10px 0 34px rgba(0,0,0,.12); transform: translateX(105%); transition: transform .2s ease; }
+.vs-usage-drawer.is-open { transform: translateX(0); }
+.vs-usage-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.vs-usage-head h2 { margin: 0; font: 500 24px Georgia, serif; }
+.vs-usage-head p { margin: 3px 0 0; color: var(--muted); }
+.vs-usage-head button, .vs-usage-filter button { padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.vs-usage-filter { display: flex; align-items: center; justify-content: space-between; margin: 20px 0; }
+.vs-usage-filter label { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+.vs-usage-filter input { padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px; }
+.vs-usage-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
+.vs-usage-cards div { padding: 13px; border: 1px solid var(--line); border-radius: 10px; background: #fbfaf7; }
+.vs-usage-cards span { display: block; color: var(--muted); font-size: 10.5px; }
+.vs-usage-cards b { display: block; margin-top: 4px; font-size: 20px; }
+.vs-usage-callout { padding: 10px 12px; border-radius: 9px; color: var(--amber); background: #fbf3e3; font-size: 12px; }
+.vs-usage-drawer section { margin-top: 24px; }
+.vs-usage-drawer h3 { margin: 0 0 6px; font-size: 14px; }
+.vs-usage-table { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+.vs-usage-table table { width: 100%; border-collapse: collapse; white-space: nowrap; }
+.vs-usage-table th, .vs-usage-table td { padding: 9px 10px; border-bottom: 1px solid var(--line); text-align: right; font-size: 12px; }
+.vs-usage-table th:first-child, .vs-usage-table td:first-child { text-align: left; }
+.vs-usage-table th { color: var(--muted); background: #fbfaf7; font-weight: 600; }
+.vs-usage-table tr:last-child td { border-bottom: 0; }
+.vs-usage-table small { display: block; color: var(--amber); font-size: 9px; }
+.vs-provider-account { display: flex; justify-content: space-between; gap: 20px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+.vs-provider-account span { color: var(--muted); text-align: right; }
+.vs-usage-foot { margin-top: 22px; color: var(--muted); font-size: 10.5px; }
 
 /* ---- Project memory ---- */
 .vs-memory-drawer { min-width: 0; }
@@ -174,6 +206,8 @@ button { cursor: pointer; }
 @media (max-width: 560px) {
   .vs-ref { width: 100%; }
   .vs-composer-foot { flex-wrap: wrap; gap: 9px; }
+  .vs-usage-cards { grid-template-columns: repeat(2, 1fr); }
+  .vs-header-tool { display: none; }
 }
 .vs-error { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .vs-retry { padding: 3px 11px; border: 1px solid currentColor; border-radius: 20px; background: transparent; font-size: 11.5px; font-weight: 600; }

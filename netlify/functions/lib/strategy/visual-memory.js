@@ -39,6 +39,8 @@ async function recordGeneration(brandId, round) {
     chatId: round.chatId || null,
     provider: round.provider || "unknown",
     model: round.model || null,
+    operation: round.operation || "generate",
+    providerTaskId: round.providerTaskId || null,
     actor: round.actor || "unknown",
     // What the team started from, if anything — Visual Studio's whole point is that people
     // work from a reference, not from a blank prompt (see the ChatGPT workflows this copies).
