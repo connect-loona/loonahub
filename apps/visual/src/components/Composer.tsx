@@ -38,7 +38,7 @@ function readAsDataUrl(file: File): Promise<string> {
 }
 
 export function Composer({ onSend, busy, disabled, references, setReferences }: {
-  onSend: (prompt: string, count: number, size: string) => void;
+  onSend: (prompt: string, count: number, size: string, quality: string) => void;
   busy: boolean;
   disabled: boolean;
   references: PendingReference[];
@@ -47,6 +47,10 @@ export function Composer({ onSend, busy, disabled, references, setReferences }: 
   const [prompt, setPrompt] = useState("");
   const [count, setCount] = useState(2);
   const [size, setSize] = useState("portrait");
+  // Draft by default, on purpose. Most rounds are somebody working out what they want, and
+  // generating four takes at production quality to reject three of them is how this gets both
+  // expensive and slow.
+  const [quality, setQuality] = useState("draft");
   const [fileError, setFileError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -79,7 +83,7 @@ export function Composer({ onSend, busy, disabled, references, setReferences }: 
   function submit() {
     const clean = prompt.trim();
     if (!clean || busy || disabled) return;
-    onSend(clean, count, size);
+    onSend(clean, count, size, quality);
     setPrompt("");
   }
 
@@ -165,6 +169,13 @@ export function Composer({ onSend, busy, disabled, references, setReferences }: 
           Takes
           <select value={count} onChange={(e) => setCount(Number(e.target.value))} disabled={disabled}>
             {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </label>
+        <label>
+          Quality
+          <select value={quality} onChange={(e) => setQuality(e.target.value)} disabled={disabled}>
+            <option value="draft">Draft — fast</option>
+            <option value="final">Final — production</option>
           </select>
         </label>
         <label>

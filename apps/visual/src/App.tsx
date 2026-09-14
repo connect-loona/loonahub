@@ -44,7 +44,7 @@ export function App() {
   // OpenAI's end — so the error can offer a retry instead of just sitting there.
   const [retryable, setRetryable] = useState(false);
   // Kept so a transient failure can be retried without making the person retype the prompt.
-  const [lastSend, setLastSend] = useState<{ prompt: string; count: number; size: string } | null>(null);
+  const [lastSend, setLastSend] = useState<{ prompt: string; count: number; size: string; quality: string } | null>(null);
 
   useEffect(() => onAuthChange(setUser), []);
   const actor = user?.displayName || user?.email || "Hub";
@@ -130,12 +130,12 @@ export function App() {
     }
   }
 
-  async function send(prompt: string, count: number, size: string) {
+  async function send(prompt: string, count: number, size: string, quality: string) {
     if (!brand) return;
     setError(null);
     setNotice(null);
     setRetryable(false);
-    setLastSend({ prompt, count, size });
+    setLastSend({ prompt, count, size, quality });
     setBusy(true);
     try {
       // A chat is created on first send rather than up front, so opening Visual Studio and
@@ -146,7 +146,7 @@ export function App() {
         id = created.id;
         setChatId(id);
       }
-      const result = await api.generate({ chatId: id, prompt, count, size, actor, references });
+      const result = await api.generate({ chatId: id, prompt, count, size, quality, actor, references });
       setGenerations((prev) => prev.concat([{ ...result, pickedIndex: null }]));
       // Cleared on success only: a failed round should keep what was attached so the person
       // can fix the prompt and try again without re-uploading everything.
@@ -292,7 +292,7 @@ export function App() {
             {retryable && lastSend && !busy && (
               // The references are still attached (they're only cleared on success), so this
               // really is the same round again rather than a half-rebuilt one.
-              <button type="button" className="vs-retry" onClick={() => send(lastSend.prompt, lastSend.count, lastSend.size)}>
+              <button type="button" className="vs-retry" onClick={() => send(lastSend.prompt, lastSend.count, lastSend.size, lastSend.quality)}>
                 Try again
               </button>
             )}

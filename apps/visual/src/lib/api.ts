@@ -50,6 +50,8 @@ export function generate(args: {
   prompt: string;
   count?: number;
   size?: string;
+  // "draft" (medium quality, JPEG — fast and cheap for exploring) or "final" (high, PNG).
+  quality?: string;
   actor: string;
   // Passed straight through to the provider and never stored — see visual-generate.js.
   references?: PendingReference[];

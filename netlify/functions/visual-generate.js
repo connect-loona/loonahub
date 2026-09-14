@@ -129,7 +129,7 @@ exports.handler = async (event) => {
   try {
     result = await generateImages({
       prompt: finalPrompt, provider: body.provider, count, size: body.size, model: body.model,
-      references,
+      quality: body.quality, references,
     });
   } catch (error) {
     // The status has to tell these apart, because what the person should DO differs. A burst
@@ -168,6 +168,9 @@ exports.handler = async (event) => {
       // What the model was actually asked for, kept alongside what the person typed. Six
       // months on this is the only way to tell a bad image from a bad rewrite.
       expandedPrompt: expansion.expanded ? expansion.prompt : null,
+      // Draft or Final. Worth keeping: a soft-looking image six months on is explained
+      // instantly by "this was a draft", and otherwise looks like the model underperforming.
+      quality: body.quality === "final" ? "final" : "draft",
     }));
     if (chatId) await touchChat(chatId, { titleIfUnset: titleFromPrompt(prompt) });
   } catch (error) {
@@ -185,6 +188,7 @@ exports.handler = async (event) => {
       // So the UI can show exactly which rules shaped this image rather than asserting it.
       appliedRules: rules.applied,
       expandedPrompt: expansion.expanded ? expansion.prompt : null,
+      quality: body.quality === "final" ? "final" : "draft",
       recorded: Boolean(id),
     }),
   };

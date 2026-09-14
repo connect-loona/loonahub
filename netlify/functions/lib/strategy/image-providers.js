@@ -36,6 +36,25 @@ const SIZES = {
   landscape: "1536x1024",
 };
 
+// Draft versus Final, because generating four takes at production quality while somebody is
+// still deciding what they want is how this gets expensive and slow at the same time. Cost and
+// latency both scale with quality, and a complex request at the top setting can take well over
+// a minute — which is a long time to wait for an idea you're going to reject.
+//
+// Draft also returns JPEG: smaller and quicker off the wire, and nobody is colour-grading a
+// thumbnail they're about to discard. Final stays PNG, because that is the one somebody
+// actually takes into Photoshop.
+const QUALITY_MODES = {
+  draft: { quality: "medium", output_format: "jpeg", label: "Draft — faster and cheaper, for exploring" },
+  final: { quality: "high", output_format: "png", label: "Final — production quality" },
+};
+
+function resolveQuality(mode) {
+  const chosen = QUALITY_MODES[mode || "draft"];
+  if (!chosen) throw new Error(`Unknown quality mode "${mode}". Use one of: ${Object.keys(QUALITY_MODES).join(", ")}.`);
+  return chosen;
+}
+
 function resolveSize(size) {
   if (!size) return SIZES.square;
   if (SIZES[size]) return SIZES[size];
@@ -74,6 +93,7 @@ async function generateWithOpenAI(request, deps = {}) {
   const count = Math.min(Math.max(Number(request.count) || 1, 1), MAX_IMAGES);
   const model = request.model || process.env.VISUAL_OPENAI_MODEL || DEFAULT_OPENAI_MODEL;
   const references = Array.isArray(request.references) ? request.references : [];
+  const tier = resolveQuality(request.quality);
 
   // WITH references this is an EDIT, not a generation — a different endpoint, and the one that
   // matters here. Working from a reference is how this team actually makes images: a base
@@ -88,6 +108,8 @@ async function generateWithOpenAI(request, deps = {}) {
     form.append("prompt", request.prompt);
     form.append("n", String(count));
     form.append("size", resolveSize(request.size));
+    form.append("quality", tier.quality);
+    form.append("output_format", tier.output_format);
     references.forEach((reference, i) => {
       const { bytes, mediaType, filename } = decodeDataUrl(reference && reference.dataUrl, i);
       // image[] (repeated) is how gpt-image-1 takes more than one reference.
@@ -100,7 +122,7 @@ async function generateWithOpenAI(request, deps = {}) {
       headers: { authorization: `Bearer ${apiKey}` },
       body: form,
     });
-    return readOpenAIImages(edited, model, "edit");
+    return readOpenAIImages(edited, model, "edit", tier.output_format);
   }
 
   const response = await doFetch(OPENAI_IMAGE_URL, {
@@ -111,10 +133,12 @@ async function generateWithOpenAI(request, deps = {}) {
       prompt: request.prompt,
       n: count,
       size: resolveSize(request.size),
+      quality: tier.quality,
+      output_format: tier.output_format,
     }),
   });
 
-  return readOpenAIImages(response, model, "generate");
+  return readOpenAIImages(response, model, "generate", tier.output_format);
 }
 
 // A 429 from OpenAI means two completely different things, and conflating them is useless to
@@ -152,7 +176,7 @@ function classifyOpenAIFailure(status, detail) {
 }
 
 // Both endpoints answer in the same shape, so both are read the same way.
-async function readOpenAIImages(response, model, mode) {
+async function readOpenAIImages(response, model, mode, outputFormat) {
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
     const verdict = classifyOpenAIFailure(response.status, detail);
@@ -173,7 +197,9 @@ async function readOpenAIImages(response, model, mode) {
   const images = (data.data || []).map((item) => ({
     // gpt-image-1 returns base64 by default, dall-e-3 returns a URL. Take whichever came
     // back rather than assuming, and let the caller deal with the difference.
-    url: item.url || (item.b64_json ? `data:image/png;base64,${item.b64_json}` : null),
+    // The media type has to match what was actually asked for — labelling a JPEG as a PNG
+    // produces a data URL some browsers refuse to render.
+    url: item.url || (item.b64_json ? `data:image/${outputFormat === "jpeg" ? "jpeg" : outputFormat || "png"};base64,${item.b64_json}` : null),
     revisedPrompt: item.revised_prompt || null,
   })).filter((image) => image.url);
 
@@ -219,6 +245,6 @@ async function generateImages(request, deps = {}) {
 }
 
 module.exports = {
-  generateImages, listProviders, resolveSize, decodeDataUrl, classifyOpenAIFailure,
-  SIZES, MAX_IMAGES, MAX_REFERENCES, MAX_REFERENCE_BYTES, RETRY_DELAY_MS, PROVIDERS,
+  generateImages, listProviders, resolveSize, resolveQuality, decodeDataUrl, classifyOpenAIFailure,
+  SIZES, QUALITY_MODES, MAX_IMAGES, MAX_REFERENCES, MAX_REFERENCE_BYTES, RETRY_DELAY_MS, PROVIDERS,
 };

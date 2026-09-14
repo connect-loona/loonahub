@@ -22,7 +22,7 @@ const {
   recordGeneration, recordPick, loadVisualHistory, visualHistoryToPromptText,
   isPreviewLive, PREVIEW_TTL_MS,
 } = require(path.join(HUB, "netlify/functions/lib/strategy/visual-memory"));
-const { generateImages, resolveSize, listProviders, decodeDataUrl, classifyOpenAIFailure, MAX_IMAGES, MAX_REFERENCES, MAX_REFERENCE_BYTES } = require(path.join(HUB, "netlify/functions/lib/strategy/image-providers"));
+const { generateImages, resolveSize, resolveQuality, listProviders, decodeDataUrl, classifyOpenAIFailure, QUALITY_MODES, MAX_IMAGES, MAX_REFERENCES, MAX_REFERENCE_BYTES } = require(path.join(HUB, "netlify/functions/lib/strategy/image-providers"));
 const crypto = require("crypto");
 
 process.env.BASIC_AUTH_CREDENTIALS = "gokul:supersecret";
@@ -65,7 +65,7 @@ function okFetch(payload) {
   // shape is exactly how this breaks the first time somebody switches model.
   const b64 = await generateImages({ prompt: "a bottle on marble", count: 1 },
     { fetch: okFetch({ data: [{ b64_json: "AAAA", revised_prompt: "a glass bottle on marble" }] }) });
-  check("a base64 image comes back as a usable data URL", /^data:image\/png;base64,AAAA/.test(b64.images[0].url), b64.images[0].url);
+  check("a base64 image comes back as a usable data URL", /^data:image\/[a-z]+;base64,AAAA/.test(b64.images[0].url), b64.images[0].url);
   check("the provider's revised prompt is kept", b64.images[0].revisedPrompt === "a glass bottle on marble", b64.images[0]);
 
   const urlShape = await generateImages({ prompt: "x", count: 1 },
@@ -148,7 +148,7 @@ function okFetch(payload) {
   check("the reference is attached under image[] — how gpt-image-1 takes more than one",
     editCall.options.body.getAll("image[]").length === 1, editCall.options.body.getAll("image[]").length);
   check("the prompt travels with it", editCall.options.body.get("prompt") === "keep the bottle, warmer table", editCall.options.body.get("prompt"));
-  check("an edit still returns usable images", edited.images.length === 1 && /^data:image\/png;base64,/.test(edited.images[0].url), edited.images[0].url.slice(0, 40));
+  check("an edit still returns usable images", edited.images.length === 1 && /^data:image\/[a-z]+;base64,/.test(edited.images[0].url), edited.images[0].url.slice(0, 40));
 
   // Without references it must stay on the plain generations endpoint.
   let plainCall = null;
@@ -162,6 +162,42 @@ function okFetch(payload) {
       { fetch: async () => ({ ok: true, status: 200, json: async () => ({ data: [] }) }) });
   } catch (e) { tooManyRefs = e.message; }
   check("more references than the cap is refused", new RegExp(`Up to ${MAX_REFERENCES} reference`).test(tooManyRefs || ""), tooManyRefs);
+
+  // ---- Draft vs Final ----
+  // Generating four takes at production quality while somebody is still deciding what they
+  // want is how this becomes expensive and slow at the same time. Cost and latency both climb
+  // with quality, so exploring has to be cheap by default.
+  check("draft is the default, not final", resolveQuality().quality === QUALITY_MODES.draft.quality, resolveQuality());
+  check("draft is cheaper and faster than final",
+    QUALITY_MODES.draft.quality === "medium" && QUALITY_MODES.final.quality === "high", QUALITY_MODES);
+  // Nobody colour-grades a thumbnail they're about to throw away; the one that goes into
+  // Photoshop is the one that needs to be lossless.
+  check("draft returns JPEG for speed, final returns PNG for the file that gets worked on",
+    QUALITY_MODES.draft.output_format === "jpeg" && QUALITY_MODES.final.output_format === "png", QUALITY_MODES);
+
+  let badQuality = null;
+  try { resolveQuality("ultra"); } catch (e) { badQuality = e.message; }
+  check("an unknown quality mode fails loudly rather than silently costing production rates",
+    /Unknown quality mode/.test(badQuality || ""), badQuality);
+
+  let qualityCall = null;
+  await generateImages({ prompt: "x", count: 1, quality: "final" },
+    { fetch: async (url, options) => { qualityCall = JSON.parse(options.body); return { ok: true, status: 200, json: async () => ({ data: [{ b64_json: "QUJD" }] }) }; } });
+  check("the chosen quality reaches the provider", qualityCall.quality === "high", qualityCall.quality);
+  check("and so does the output format", qualityCall.output_format === "png", qualityCall.output_format);
+
+  // A JPEG labelled as a PNG produces a data URL some browsers refuse to render.
+  const draftShot = await generateImages({ prompt: "x", count: 1, quality: "draft" },
+    { fetch: async () => ({ ok: true, status: 200, json: async () => ({ data: [{ b64_json: "QUJD" }] }) }) });
+  check("a draft's data URL is labelled as the JPEG it actually is",
+    draftShot.images[0].url.startsWith("data:image/jpeg;base64,"), draftShot.images[0].url.slice(0, 30));
+
+  let editQuality = null;
+  await generateImages({ prompt: "x", count: 1, quality: "final", references: [{ dataUrl: PIXEL }] },
+    { fetch: async (url, options) => { editQuality = options.body; return { ok: true, status: 200, json: async () => ({ data: [{ b64_json: "QUJD" }] }) }; } });
+  check("quality applies to edits as well as fresh generations",
+    editQuality.get("quality") === "high" && editQuality.get("output_format") === "png",
+    { quality: editQuality.get("quality"), format: editQuality.get("output_format") });
 
   // ---- Hitting a limit: two different things wearing the same 429 ----
   // This is the question the team will actually ask, having hit ChatGPT's "come back in three

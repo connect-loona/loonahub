@@ -52,6 +52,9 @@ async function recordGeneration(brandId, round) {
     // the thread and the brand's memory (see visual-prompt.js). Null when no rewrite happened.
     // Kept because it is the only way to tell a bad image apart from a bad rewrite later.
     expandedPrompt: round.expandedPrompt || null,
+    // "draft" or "final" — see QUALITY_MODES. A draft that looks soft later is explained by
+    // this rather than looking like the model underperforming.
+    quality: round.quality === "final" ? "final" : "draft",
     images: (round.images || []).map((image) => ({
       url: image.url || null,
       revisedPrompt: image.revisedPrompt || null,

@@ -58,6 +58,9 @@ export interface Generation {
   // the conversation and the brand's memory (see visual-prompt.js). Null when no rewrite
   // happened. Worth showing: it's the only way to tell a bad image from a bad rewrite.
   expandedPrompt?: string | null;
+  // "draft" or "final" — a soft-looking image is explained by this rather than looking like
+  // the model underperforming.
+  quality?: "draft" | "final";
   createdAt: string;
   // Provider image URLs expire (OpenAI's in about an hour). The backend says plainly whether
   // a preview is still worth rendering, so this shows an honest "expired" state rather than
