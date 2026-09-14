@@ -11,6 +11,15 @@ export interface VisualBrand {
   logo?: string | null;
 }
 
+// A reference the person has attached but not sent yet. Lives only in the browser: nothing is
+// hosted, so the bytes go straight from their machine through the function to the provider.
+// What survives afterwards is the ROLE — see visual-generate.js's referenceNote.
+export interface PendingReference {
+  dataUrl: string;
+  name: string;
+  role: string;
+}
+
 export interface VisualChat {
   id: string;
   brandId: string;

@@ -140,3 +140,27 @@ button { cursor: pointer; }
   .vs-sidebar, .vs-memory { max-height: none; border: 0; border-bottom: 1px solid var(--line); }
   .vs-main { max-height: none; }
 }
+
+/* ---- References attached to the next prompt ----
+   These live only in the browser until they're sent: nothing is hosted, so the thumbnails are
+   the same data: URLs that get posted to the provider and then discarded. */
+.vs-refs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 9px; }
+.vs-ref { display: flex; align-items: center; gap: 8px; width: 240px; padding: 6px; border: 1px solid var(--line); border-radius: 10px; background: #fbfaf7; }
+.vs-ref img { flex: 0 0 40px; width: 40px; height: 40px; border-radius: 6px; object-fit: cover; background: #fff; }
+.vs-ref-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.vs-ref-name { overflow: hidden; color: var(--muted); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
+.vs-ref-role { width: 100%; padding: 3px 6px; border: 1px solid var(--line); border-radius: 6px; background: #fff; font-size: 11.5px; }
+.vs-ref-remove { flex: 0 0 auto; padding: 0 5px; border: 0; border-radius: 6px; color: var(--muted); background: transparent; font-size: 15px; line-height: 1; }
+.vs-ref-remove:hover { color: var(--red); }
+.vs-ref-error { margin-bottom: 8px; color: var(--red); font-size: 12px; }
+.vs-attach { padding: 6px 11px; border: 1px solid var(--line); border-radius: 8px; background: #fff; font-size: 12px; font-weight: 600; }
+.vs-attach:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.vs-attach:disabled { opacity: .5; cursor: not-allowed; }
+.vs-useref { padding: 3px 9px; border: 1px solid var(--line); border-radius: 20px; background: transparent; font-size: 11.5px; }
+.vs-useref:hover { border-color: var(--accent); color: var(--accent); }
+/* Three controls plus two buttons is more than fits one phone-width row. */
+.vs-image figcaption { flex-wrap: wrap; }
+@media (max-width: 560px) {
+  .vs-ref { width: 100%; }
+  .vs-composer-foot { flex-wrap: wrap; gap: 9px; }
+}

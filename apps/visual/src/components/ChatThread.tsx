@@ -16,7 +16,11 @@ function when(iso: string): string {
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
-function Round({ generation, onPick }: { generation: Generation; onPick: (g: Generation, i: number) => void }) {
+function Round({ generation, onPick, onUseAsReference }: {
+  generation: Generation;
+  onPick: (g: Generation, i: number) => void;
+  onUseAsReference: (g: Generation, i: number) => void;
+}) {
   const images = generation.images || [];
   const picked = generation.pickedIndex;
 
@@ -24,6 +28,14 @@ function Round({ generation, onPick }: { generation: Generation; onPick: (g: Gen
     <article className="vs-round">
       <div className="vs-ask">
         <p>{generation.prompt}</p>
+        {/* What this round was built from. The bytes are long gone — nothing is hosted — but
+            the count and what each reference was FOR are what explain the prompt later. */}
+        {generation.referenceCount ? (
+          <span className="vs-meta">
+            Worked from {generation.referenceCount} reference{generation.referenceCount === 1 ? "" : "s"}
+            {generation.referenceNote ? ` · ${generation.referenceNote}` : ""}
+          </span>
+        ) : null}
         <span className="vs-meta">{generation.actor} · {when(generation.createdAt)}</span>
       </div>
 
@@ -59,11 +71,18 @@ function Round({ generation, onPick }: { generation: Generation; onPick: (g: Gen
                     <button type="button" onClick={() => onPick(generation, i)}>Use this</button>
                   )}
                   {image.url && (
-                    // Download is the only way anything survives, since nothing is hosted —
-                    // so it sits on every option, not just the chosen one.
-                    <a href={image.url} download={`${generation.id}-${i + 1}.png`} target="_blank" rel="noopener noreferrer">
-                      Download
-                    </a>
+                    <>
+                      {/* Carrying a take back up as the next reference is the iteration loop —
+                          "now make the table warmer" without re-uploading anything. */}
+                      <button type="button" className="vs-useref" onClick={() => onUseAsReference(generation, i)}>
+                        Build on this
+                      </button>
+                      {/* Download is the only way anything survives, since nothing is hosted —
+                          so it sits on every option, not just the chosen one. */}
+                      <a href={image.url} download={`${generation.id}-${i + 1}.png`} target="_blank" rel="noopener noreferrer">
+                        Download
+                      </a>
+                    </>
                   )}
                 </figcaption>
               </figure>
@@ -80,15 +99,16 @@ function Round({ generation, onPick }: { generation: Generation; onPick: (g: Gen
   );
 }
 
-export function ChatThread({ generations, onPick, busy }: {
+export function ChatThread({ generations, onPick, onUseAsReference, busy }: {
   generations: Generation[];
   onPick: (g: Generation, i: number) => void;
+  onUseAsReference: (g: Generation, i: number) => void;
   busy: boolean;
 }) {
   if (!generations.length && !busy) {
     return (
       <div className="vs-thread vs-thread-empty">
-        <p>Describe the image you want, or start from a reference you paste in below.</p>
+        <p>Describe the image you want, or drop a reference into the box below and say what to change about it.</p>
         <p className="vs-muted vs-muted-sm">
           Everything generated here — the prompt, the model, and which take you choose — is saved into this
           brand&apos;s memory and read by Strategy OS on its next run.
@@ -99,7 +119,7 @@ export function ChatThread({ generations, onPick, busy }: {
 
   return (
     <div className="vs-thread">
-      {generations.map((g) => <Round key={g.id} generation={g} onPick={onPick} />)}
+      {generations.map((g) => <Round key={g.id} generation={g} onPick={onPick} onUseAsReference={onUseAsReference} />)}
       {busy && <p className="vs-working">Generating…</p>}
     </div>
   );

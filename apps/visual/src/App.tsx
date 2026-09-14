@@ -19,7 +19,7 @@ import { useCallback, useEffect, useState } from "react";
 import { onAuthChange, type CurrentUser } from "./lib/firebase";
 import { useHubBrands, brandColour } from "./lib/useBrands";
 import * as api from "./lib/api";
-import type { Generation, VisualBrand, VisualChat } from "./lib/types";
+import type { Generation, PendingReference, VisualBrand, VisualChat } from "./lib/types";
 import { ChatThread } from "./components/ChatThread";
 import { Composer } from "./components/Composer";
 import { ProjectMemory } from "./components/ProjectMemory";
@@ -37,6 +37,9 @@ export function App() {
   const [notice, setNotice] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  // References the person has attached but not sent. Browser-only — nothing is hosted, so
+  // these go straight through the function to the provider and are never written down.
+  const [references, setReferences] = useState<PendingReference[]>([]);
 
   useEffect(() => onAuthChange(setUser), []);
   const actor = user?.displayName || user?.email || "Hub";
@@ -64,12 +67,14 @@ export function App() {
     if (!brand) return;
     setChatId(null);
     setGenerations([]);
+    setReferences([]);
     void loadChats(brand);
   }, [brand, loadChats]);
 
   const openChat = useCallback(async (id: string) => {
     setChatId(id);
     setGenerations([]);
+    setReferences([]);
     setError(null);
     try {
       const { generations: rounds } = await api.chatHistory(id);
@@ -87,7 +92,22 @@ export function App() {
   function newChat() {
     setChatId(null);
     setGenerations([]);
+    setReferences([]);
     setError(null);
+    setNotice(null);
+  }
+
+  // Carrying a generated image back up as the next reference IS the iteration loop — it's how
+  // "now make the table warmer" works without re-uploading anything, and it costs nothing
+  // because the image is already in the browser.
+  function useAsReference(generation: Generation, index: number) {
+    const image = (generation.images || [])[index];
+    if (!image || !image.url) return;
+    setReferences((prev) => (prev.length >= 4 ? prev : [...prev, {
+      dataUrl: image.url as string,
+      name: `Take ${index + 1} from this chat`,
+      role: "",
+    }]));
     setNotice(null);
   }
 
@@ -119,8 +139,11 @@ export function App() {
         id = created.id;
         setChatId(id);
       }
-      const result = await api.generate({ chatId: id, prompt, count, size, actor });
+      const result = await api.generate({ chatId: id, prompt, count, size, actor, references });
       setGenerations((prev) => prev.concat([{ ...result, pickedIndex: null }]));
+      // Cleared on success only: a failed round should keep what was attached so the person
+      // can fix the prompt and try again without re-uploading everything.
+      setReferences([]);
       // The images exist either way — say so plainly if the memory write was what failed,
       // rather than letting the round silently vanish from history later.
       if (result.recorded === false) {
@@ -251,8 +274,8 @@ export function App() {
         {error && <div className="vs-error" role="alert">{error}</div>}
         {notice && <div className="vs-notice" role="status">{notice}</div>}
 
-        <ChatThread generations={generations} onPick={pick} busy={busy} />
-        <Composer onSend={send} busy={busy} disabled={!brand} />
+        <ChatThread generations={generations} onPick={pick} onUseAsReference={useAsReference} busy={busy} />
+        <Composer onSend={send} busy={busy} disabled={!brand} references={references} setReferences={setReferences} />
       </main>
 
       <ProjectMemory brand={brand} generations={generations} />

@@ -13,7 +13,7 @@
 // brand's team tried and rejected. See visual-memory.js.
 "use strict";
 const { checkAuthorization } = require("./lib/strategy/auth");
-const { generateImages, MAX_IMAGES } = require("./lib/strategy/image-providers");
+const { generateImages, MAX_IMAGES, MAX_REFERENCES } = require("./lib/strategy/image-providers");
 const { recordGeneration } = require("./lib/strategy/visual-memory");
 const { resolveChat, touchChat, titleFromPrompt } = require("./lib/strategy/visual-chats");
 const { buildRulePreamble, applyRules } = require("./lib/strategy/visual-rules");
@@ -47,6 +47,16 @@ exports.handler = async (event) => {
 
   const count = Number(body.count) || 1;
   if (count < 1 || count > MAX_IMAGES) return fail(400, `count must be between 1 and ${MAX_IMAGES}.`);
+
+  // References are the whole point of working this way: a base scene plus the exact product,
+  // "keep the label, change the background". They arrive as data: URLs and are passed straight
+  // through to the provider — never written anywhere, in keeping with Visual Studio not hosting
+  // images. What IS remembered is that there were references and what they were for, which is
+  // the part that explains a prompt later.
+  const references = Array.isArray(body.references) ? body.references : [];
+  if (references.length > MAX_REFERENCES) {
+    return fail(400, `Up to ${MAX_REFERENCES} reference images at a time.`);
+  }
 
   // WHICH BRAND THIS IS FOR IS DECIDED SERVER-SIDE, NOT BY THE CALLER.
   //
@@ -83,6 +93,7 @@ exports.handler = async (event) => {
   try {
     result = await generateImages({
       prompt: finalPrompt, provider: body.provider, count, size: body.size, model: body.model,
+      references,
     });
   } catch (error) {
     // Carry the provider's own words through rather than flattening everything to "failed" —
@@ -103,8 +114,11 @@ exports.handler = async (event) => {
       provider: result.provider,
       model: result.model,
       actor: body.actor || "Hub",
-      referenceCount: body.referenceCount,
-      referenceNote: body.referenceNote,
+      referenceCount: references.length,
+      // What each reference was FOR ("the product", "the lighting"), joined into one note. The
+      // roles are the useful half — six months on, "2 references" says nothing, but "kept the
+      // product, took the lighting from the second" explains the whole round.
+      referenceNote: references.map((r) => String((r && r.role) || "").trim()).filter(Boolean).join(" · ") || body.referenceNote || null,
       images: result.images,
       appliedRules: rules.applied,
     }));

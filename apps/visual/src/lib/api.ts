@@ -9,7 +9,7 @@
 // the backend reads it from the stored chat record — see visual-chats.js's header for why
 // letting the browser name the brand would be a cross-client leak waiting to happen.
 import { getIdTokenOrNull } from "./firebase";
-import type { Generation, VisualChat } from "./types";
+import type { Generation, PendingReference, VisualChat } from "./types";
 
 async function post(path: string, body: unknown): Promise<unknown> {
   const token = await getIdTokenOrNull();
@@ -47,6 +47,8 @@ export function generate(args: {
   count?: number;
   size?: string;
   actor: string;
+  // Passed straight through to the provider and never stored — see visual-generate.js.
+  references?: PendingReference[];
 }): Promise<Generation & { recorded: boolean; brandId: string }> {
   return post("visual-generate", args) as Promise<Generation & { recorded: boolean; brandId: string }>;
 }

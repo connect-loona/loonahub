@@ -22,7 +22,7 @@ const {
   recordGeneration, recordPick, loadVisualHistory, visualHistoryToPromptText,
   isPreviewLive, PREVIEW_TTL_MS,
 } = require(path.join(HUB, "netlify/functions/lib/strategy/visual-memory"));
-const { generateImages, resolveSize, listProviders, MAX_IMAGES } = require(path.join(HUB, "netlify/functions/lib/strategy/image-providers"));
+const { generateImages, resolveSize, listProviders, decodeDataUrl, MAX_IMAGES, MAX_REFERENCES, MAX_REFERENCE_BYTES } = require(path.join(HUB, "netlify/functions/lib/strategy/image-providers"));
 const crypto = require("crypto");
 
 process.env.BASIC_AUTH_CREDENTIALS = "gokul:supersecret";
@@ -90,6 +90,63 @@ function okFetch(payload) {
   let noPrompt = null;
   try { await generateImages({ prompt: "   " }, { fetch: okFetch({ data: [] }) }); } catch (e) { noPrompt = e.message; }
   check("an empty prompt is refused before any call is made", /prompt is required/.test(noPrompt || ""), noPrompt);
+
+  // ---- References: the thing that makes this usable rather than a novelty ----
+  // Every real ChatGPT thread this replaces starts by uploading a reference. Text-to-image
+  // alone can't do "keep this exact label, change the background", because there's no way to
+  // hand it the thing that must stay identical.
+  const PIXEL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+  const decoded = decodeDataUrl(PIXEL, 0);
+  check("a data URL is decoded to real bytes", decoded.bytes.length > 0 && decoded.mediaType === "image/png", decoded.mediaType);
+  check("the filename carries a sane extension", /\.png$/.test(decoded.filename), decoded.filename);
+  check("a jpeg keeps a jpg extension rather than 'jpeg'",
+    /\.jpg$/.test(decodeDataUrl("data:image/jpeg;base64,AAAA", 0).filename), decodeDataUrl("data:image/jpeg;base64,AAAA", 0).filename);
+
+  let notAnImage = null;
+  try { decodeDataUrl("data:application/pdf;base64,AAAA", 0); } catch (e) { notAnImage = e.message; }
+  check("a non-image reference is refused with what it actually was", /not an image/.test(notAnImage || ""), notAnImage);
+
+  let notADataUrl = null;
+  try { decodeDataUrl("https://example.com/a.png", 1); } catch (e) { notADataUrl = e.message; }
+  check("a bare URL is not accepted as a reference", /Reference 2 is not a readable image/.test(notADataUrl || ""), notADataUrl);
+
+  // Caught before the upload rather than as an opaque 502 halfway through: a Netlify function
+  // has a hard request ceiling, and a 10MB photo would blow straight past it.
+  let tooBig = null;
+  const huge = `data:image/png;base64,${"A".repeat(Math.ceil((MAX_REFERENCE_BYTES + 1024) / 3) * 4)}`;
+  try { decodeDataUrl(huge, 0); } catch (e) { tooBig = e.message; }
+  check("an oversized reference is refused with its real size and the limit",
+    /MB — the limit is/.test(tooBig || ""), tooBig);
+
+  // With references this must hit the EDIT endpoint, not generations — a different URL, and
+  // multipart rather than JSON.
+  let editCall = null;
+  const edited = await generateImages(
+    { prompt: "keep the bottle, warmer table", count: 2, references: [{ dataUrl: PIXEL, role: "Product identity" }] },
+    { fetch: async (url, options) => { editCall = { url, options }; return { ok: true, status: 200, json: async () => ({ data: [{ b64_json: "QUJD" }] }) }; } },
+  );
+  check("a round with references goes to the edits endpoint", /\/images\/edits$/.test(editCall.url), editCall.url);
+  check("and sends multipart form data, not JSON", editCall.options.body instanceof FormData, typeof editCall.options.body);
+  check("the content-type is left to fetch so the multipart boundary is right",
+    !Object.keys(editCall.options.headers).some((h) => /content-type/i.test(h)), Object.keys(editCall.options.headers));
+  check("the reference is attached under image[] — how gpt-image-1 takes more than one",
+    editCall.options.body.getAll("image[]").length === 1, editCall.options.body.getAll("image[]").length);
+  check("the prompt travels with it", editCall.options.body.get("prompt") === "keep the bottle, warmer table", editCall.options.body.get("prompt"));
+  check("an edit still returns usable images", edited.images.length === 1 && /^data:image\/png;base64,/.test(edited.images[0].url), edited.images[0].url.slice(0, 40));
+
+  // Without references it must stay on the plain generations endpoint.
+  let plainCall = null;
+  await generateImages({ prompt: "a bottle", count: 1 },
+    { fetch: async (url, options) => { plainCall = { url, options }; return { ok: true, status: 200, json: async () => ({ data: [{ url: "https://x/a.png" }] }) }; } });
+  check("a round with no references stays on the generations endpoint", /\/images\/generations$/.test(plainCall.url), plainCall.url);
+
+  let tooManyRefs = null;
+  try {
+    await generateImages({ prompt: "x", references: new Array(MAX_REFERENCES + 1).fill({ dataUrl: PIXEL }) },
+      { fetch: async () => ({ ok: true, status: 200, json: async () => ({ data: [] }) }) });
+  } catch (e) { tooManyRefs = e.message; }
+  check("more references than the cap is refused", new RegExp(`Up to ${MAX_REFERENCES} reference`).test(tooManyRefs || ""), tooManyRefs);
 
   // ---- recordGeneration: written before anybody picks ----
   const { id } = await recordGeneration("rro", {
