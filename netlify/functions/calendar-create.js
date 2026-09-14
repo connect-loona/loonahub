@@ -31,6 +31,7 @@
 const crypto = require('crypto');
 
 const FB = (process.env.FIREBASE_DB_URL || 'https://loona-hub-c85d7-default-rtdb.firebaseio.com').replace(/\/+$/, '');
+const { authedUrl } = require("./lib/firebase-auth");
 const WRITE_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
 
 // Only affects TEXT/labels below (the auto-created task, the Loona Board
@@ -71,7 +72,7 @@ async function getAccessToken(userEmail, sa) {
 }
 
 async function fbGet(path) {
-  const resp = await fetch(FB + '/' + path + '.json');
+  const resp = await fetch(authedUrl(FB + '/' + path + '.json'));
   return resp.json().catch(() => null);
 }
 // Callers were previously ignoring the response entirely — a rejected write
@@ -81,7 +82,7 @@ async function fbGet(path) {
 // with nothing anywhere to say so. This logs the failure and lets the caller
 // track it instead of it disappearing.
 async function fbPatch(path, obj) {
-  const resp = await fetch(FB + '/' + path + '.json', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) });
+  const resp = await fetch(authedUrl(FB + '/' + path + '.json'), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) });
   if (!resp.ok) {
     const errText = await resp.text().catch(() => '');
     console.error(`Firebase PATCH ${path} failed (${resp.status}): ${errText.slice(0, 300)}`);

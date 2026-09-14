@@ -96,6 +96,7 @@ const crypto = require('crypto');
 function normName(v) { return String(v || '').trim().toLowerCase(); }
 
 const FB = (process.env.FIREBASE_DB_URL || 'https://loona-hub-c85d7-default-rtdb.firebaseio.com').replace(/\/+$/, '');
+const { authedUrl } = require("./lib/firebase-auth");
 const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 const YEARLY_TAB = 'Yearly Summary';
 
@@ -252,7 +253,7 @@ function signJWT(claims, privateKey) {
   return signingInput + '.' + base64url(signature);
 }
 async function fbGet(path) {
-  const resp = await fetch(FB + '/' + path + '.json');
+  const resp = await fetch(authedUrl(FB + '/' + path + '.json'));
   return resp.json().catch(() => null);
 }
 async function sheetsRequest(path, accessToken, init) {

@@ -31,19 +31,20 @@
 // ============================================================================
 
 const FB = (process.env.FIREBASE_DB_URL || 'https://loona-hub-c85d7-default-rtdb.firebaseio.com').replace(/\/+$/, '');
+const { authedUrl } = require("./lib/firebase-auth");
 
 function fbSafeKey(s) {
   return String(s).replace(/[.#$[\]/]/g, '_');
 }
 async function fbGet(path) {
-  const resp = await fetch(FB + '/' + path + '.json');
+  const resp = await fetch(authedUrl(FB + '/' + path + '.json'));
   return resp.json().catch(() => null);
 }
 async function fbPatch(path, obj) {
-  return fetch(FB + '/' + path + '.json', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) });
+  return fetch(authedUrl(FB + '/' + path + '.json'), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) });
 }
 async function fbPush(path, obj) {
-  const resp = await fetch(FB + '/' + path + '.json', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) });
+  const resp = await fetch(authedUrl(FB + '/' + path + '.json'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) });
   return resp.json().catch(() => null);
 }
 
