@@ -1,0 +1,142 @@
+/* Visual Studio's own styles. Deliberately self-contained rather than importing the legacy
+   Hub's stylesheet: this is a three-column app with a scrolling thread, which shares almost
+   nothing structurally with Hub's pages, and the tokens below are the few colours it needs. */
+
+:root {
+  /* Light, always. This deliberately does NOT follow the device's dark mode: Loona Hub and
+     Strategy OS are both light, and a dark studio sitting next to them reads as a different
+     product rather than another room in the same one. */
+  color-scheme: light;
+  --ink: #191815;
+  --muted: #77736b;
+  --page: #ffffff;
+  --panel: #ffffff;
+  --line: #e6e2d9;
+  --accent: #c2592f;
+  --green: #2f7550;
+  --red: #a32f22;
+  --amber: #8a5a14;
+  --hover: #f4f1ea;
+  --selected: #eee9e0;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  color: var(--ink);
+  background: var(--page);
+  font: 14px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+button, select, textarea, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+
+.vs-shell { display: grid; grid-template-columns: 236px minmax(0, 1fr) 280px; min-height: 100vh; }
+
+/* ---- Sidebar: brand projects, each expanding to its own chats ---- */
+.vs-sidebar { display: flex; flex-direction: column; gap: 4px; padding: 16px 12px; border-right: 1px solid var(--line); background: #fbfaf7; max-height: 100vh; overflow-y: auto; }
+.vs-logo { padding: 2px 6px 14px; }
+.vs-logo img { display: block; height: 22px; width: auto; }
+.vs-topnav { display: flex; flex-direction: column; gap: 2px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.vs-topnav a, .vs-topnav span { padding: 6px 8px; border-radius: 7px; color: var(--muted); text-decoration: none; font-size: 13px; }
+.vs-topnav a:hover { background: var(--hover); }
+.vs-topnav .is-active { color: var(--ink); background: var(--selected); font-weight: 600; }
+.vs-section-label { margin: 14px 0 6px; padding: 0 6px; color: var(--muted); font-size: 10px; letter-spacing: .09em; text-transform: uppercase; }
+.vs-projects { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+.vs-project { display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px 8px; border: 0; border-radius: 8px; background: transparent; text-align: left; }
+.vs-project:hover { background: var(--hover); }
+.vs-project.is-active { background: var(--selected); font-weight: 600; }
+.vs-project-icon { display: grid; place-items: center; flex: 0 0 24px; width: 24px; height: 24px; border-radius: 50%; color: #fff; font-size: 11px; font-weight: 600; }
+.vs-project-logo { flex: 0 0 24px; width: 24px; height: 24px; border-radius: 6px; object-fit: cover; background: #fff; }
+
+/* The chat row carries the link and a rename button side by side. The button stays hidden
+   until hover on a pointer device, but is always present for touch — where there is no hover
+   and double-tap-to-rename would be undiscoverable. */
+.vs-chatrow { display: flex; align-items: stretch; gap: 2px; border-radius: 7px; }
+.vs-chatrow:hover, .vs-chatrow.is-active { background: var(--selected); }
+.vs-chatrow .vs-chatlink { flex: 1; min-width: 0; background: transparent; }
+.vs-chatrow .vs-chatlink:hover { background: transparent; }
+.vs-chatrow.is-active .vs-chatlink { font-weight: 600; }
+.vs-chatrename-btn { flex: 0 0 26px; border: 0; border-radius: 7px; color: var(--muted); background: transparent; font-size: 12px; opacity: 0; }
+.vs-chatrow:hover .vs-chatrename-btn, .vs-chatrow.is-active .vs-chatrename-btn { opacity: 1; }
+.vs-chatrename-btn:hover { color: var(--accent); }
+@media (hover: none) { .vs-chatrename-btn { opacity: 1; } }
+.vs-chatrename { width: 100%; padding: 6px 8px; border: 1px solid var(--accent); border-radius: 7px; background: #fff; font-size: 12.5px; }
+.vs-project-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vs-chatlist { display: flex; flex-direction: column; gap: 1px; margin: 2px 0 8px; padding-left: 10px; border-left: 1px solid var(--line); margin-left: 18px; }
+.vs-newchat { padding: 6px 8px; border: 0; border-radius: 7px; color: var(--accent); background: transparent; text-align: left; font-size: 12px; font-weight: 600; }
+.vs-newchat:hover { background: var(--hover); }
+.vs-chatlink { display: flex; flex-direction: column; gap: 1px; padding: 6px 8px; border: 0; border-radius: 7px; background: transparent; text-align: left; font-size: 12.5px; }
+.vs-chatlink span { color: var(--muted); font-size: 10.5px; }
+.vs-chatlink:hover { background: var(--hover); }
+.vs-spacer { flex: 1; }
+.vs-user { padding: 10px 8px 0; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+
+/* ---- Main column ---- */
+.vs-main { display: flex; flex-direction: column; min-width: 0; max-height: 100vh; }
+.vs-header { flex: 0 0 auto; padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.vs-header h1 { margin: 0; font-family: Georgia, serif; font-size: 19px; font-weight: 500; }
+.vs-header p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+.vs-error, .vs-notice { margin: 12px 20px 0; padding: 9px 12px; border-radius: 9px; font-size: 13px; }
+.vs-error { color: var(--red); background: #fbecea; }
+.vs-notice { color: var(--amber); background: #fbf3e3; }
+
+.vs-thread { flex: 1 1 auto; overflow-y: auto; padding: 18px 20px; }
+.vs-thread-empty { display: flex; flex-direction: column; justify-content: center; gap: 6px; color: var(--muted); text-align: center; }
+.vs-working { color: var(--muted); font-size: 13px; }
+
+.vs-round { margin-bottom: 26px; }
+.vs-ask { max-width: 640px; margin-left: auto; padding: 10px 13px; border-radius: 13px 13px 3px 13px; background: var(--selected); }
+.vs-ask p { margin: 0; white-space: pre-wrap; }
+.vs-meta { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
+.vs-reply { margin-top: 14px; }
+
+.vs-rules { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+.vs-rule { max-width: 320px; overflow: hidden; padding: 3px 8px; border-radius: 20px; font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
+.vs-rule-standard { color: var(--muted); background: #f2efe8; }
+.vs-rule-brand { color: var(--green); background: #e6f1ea; }
+
+.vs-images { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; max-width: 900px; }
+.vs-images[data-count="1"] { grid-template-columns: minmax(0, 420px); }
+.vs-image { margin: 0; border: 2px solid transparent; border-radius: 11px; overflow: hidden; background: var(--panel); }
+.vs-image.is-picked { border-color: var(--green); }
+.vs-image img { display: block; width: 100%; height: auto; }
+.vs-image-missing { display: grid; place-items: center; aspect-ratio: 4 / 5; color: var(--muted); font-size: 12px; }
+.vs-image figcaption { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 9px; border-top: 1px solid var(--line); font-size: 12px; }
+.vs-image figcaption button { padding: 3px 10px; border: 1px solid var(--line); border-radius: 20px; background: transparent; font-size: 11.5px; font-weight: 600; }
+.vs-image figcaption button:hover { border-color: var(--accent); color: var(--accent); }
+.vs-image figcaption a { color: var(--muted); font-size: 11.5px; }
+.vs-picked-flag { color: var(--green); font-weight: 600; font-size: 11.5px; }
+
+.vs-expired { max-width: 640px; padding: 11px 13px; border: 1px dashed var(--line); border-radius: 10px; color: var(--muted); font-size: 12.5px; }
+.vs-hint { max-width: 640px; margin: 9px 0 0; color: var(--muted); font-size: 12px; }
+
+/* ---- Composer ---- */
+.vs-composer { flex: 0 0 auto; padding: 12px 20px 16px; border-top: 1px solid var(--line); background: var(--panel); }
+.vs-composer textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 11px; background: var(--page); resize: vertical; }
+.vs-composer-foot { display: flex; align-items: center; gap: 14px; margin-top: 9px; }
+.vs-composer-foot label { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+.vs-composer-foot select { padding: 5px 7px; border: 1px solid var(--line); border-radius: 7px; background: var(--page); font-size: 12px; }
+.vs-send { margin-left: auto; padding: 8px 18px; border: 0; border-radius: 9px; color: #fff; background: var(--accent); font-size: 13px; font-weight: 600; }
+.vs-send:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ---- Project memory ---- */
+.vs-memory { padding: 16px 14px; border-left: 1px solid var(--line); background: #fbfaf7; overflow-y: auto; max-height: 100vh; }
+.vs-memory h2 { margin: 0 0 6px; font-size: 13px; }
+.vs-stats { display: flex; gap: 10px; margin: 12px 0; }
+.vs-stats div { flex: 1; padding: 9px; border: 1px solid var(--line); border-radius: 9px; text-align: center; }
+.vs-stats b { display: block; font-size: 19px; }
+.vs-stats span { color: var(--muted); font-size: 10.5px; }
+.vs-rule-list { margin: 0; padding: 0; list-style: none; }
+.vs-rule-list li { margin-bottom: 7px; font-size: 12px; }
+.vs-rule-list li span { display: block; color: var(--muted); font-size: 10.5px; }
+
+.vs-muted { color: var(--muted); }
+.vs-muted-sm { font-size: 12px; }
+
+/* Narrow screens: the side panels stack above and below the conversation rather than
+   squeezing it, since the thread is the part you actually work in. */
+@media (max-width: 980px) {
+  .vs-shell { grid-template-columns: 1fr; }
+  .vs-sidebar, .vs-memory { max-height: none; border: 0; border-bottom: 1px solid var(--line); }
+  .vs-main { max-height: none; }
+}

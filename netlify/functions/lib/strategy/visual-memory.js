@@ -35,6 +35,9 @@ async function recordGeneration(brandId, round) {
   if (!brandId) throw new Error("recordGeneration needs a brandId.");
   const record = {
     prompt: String(round.prompt || "").slice(0, MAX_PROMPT_CHARS),
+    // Which conversation this round happened in. Null for a one-off generation with no chat,
+    // which keeps every record written before chats existed readable.
+    chatId: round.chatId || null,
     provider: round.provider || "unknown",
     model: round.model || null,
     actor: round.actor || "unknown",
@@ -42,6 +45,9 @@ async function recordGeneration(brandId, round) {
     // work from a reference, not from a blank prompt (see the ChatGPT workflows this copies).
     referenceCount: Number(round.referenceCount || 0),
     referenceNote: round.referenceNote || null,
+    // Which rules actually shaped this image (see visual-rules.js). Stored so the record can
+    // show what was applied rather than the UI claiming it.
+    appliedRules: (round.appliedRules || []).map((rule) => ({ key: rule.key, label: rule.label, source: rule.source })),
     images: (round.images || []).map((image) => ({
       url: image.url || null,
       revisedPrompt: image.revisedPrompt || null,

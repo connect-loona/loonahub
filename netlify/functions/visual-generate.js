@@ -12,10 +12,12 @@
 // anybody ever picks one of the images: an abandoned round is still evidence about what this
 // brand's team tried and rejected. See visual-memory.js.
 "use strict";
-const { fbGet, fbSafeKey } = require("./lib/strategy/firebase");
 const { checkAuthorization } = require("./lib/strategy/auth");
 const { generateImages, MAX_IMAGES } = require("./lib/strategy/image-providers");
 const { recordGeneration } = require("./lib/strategy/visual-memory");
+const { resolveChat, touchChat, titleFromPrompt } = require("./lib/strategy/visual-chats");
+const { buildRulePreamble, applyRules } = require("./lib/strategy/visual-rules");
+const { hubBrandExists } = require("./lib/strategy/hub-brands");
 
 function cors() {
   return {
@@ -40,26 +42,47 @@ exports.handler = async (event) => {
   let body;
   try { body = JSON.parse(event.body || "{}"); } catch { return fail(400, "Invalid JSON"); }
 
-  const brandId = String(body.brandId || "").trim();
-  if (!/^[a-z0-9-]+$/.test(brandId)) return fail(400, "brandId must be lowercase letters, numbers or hyphens.");
-
   const prompt = String(body.prompt || "").trim();
   if (!prompt) return fail(400, "A prompt is required.");
-
-  // Visual Studio's brands come from Hub, which is the source of truth for what a brand is —
-  // but the memory is written under a Strategy OS brand key, so an unknown id would quietly
-  // create a new orphan bucket that nothing ever reads back.
-  const brand = await fbGet(`brands/${fbSafeKey(brandId)}`);
-  const strategyBrand = await fbGet(`strategy_brands/${fbSafeKey(brandId)}`);
-  if (!brand && !strategyBrand) return fail(404, "Brand not found in Hub.");
 
   const count = Number(body.count) || 1;
   if (count < 1 || count > MAX_IMAGES) return fail(400, `count must be between 1 and ${MAX_IMAGES}.`);
 
+  // WHICH BRAND THIS IS FOR IS DECIDED SERVER-SIDE, NOT BY THE CALLER.
+  //
+  // A chat records its brand once, when it's created. Every generation names only the chat,
+  // and the brand is read back out of the stored chat. If the browser could say "generate into
+  // chat X, and that's brand Y", one client's prompts, references and brand memory could be
+  // written into another client's project by nothing more than a wrong id in a request body.
+  // A brandId sent alongside a chatId is ignored on purpose rather than trusted or merged.
+  let brandId;
+  let chatId = null;
+  if (body.chatId) {
+    let chat;
+    try { chat = await resolveChat(String(body.chatId)); }
+    catch (error) { return fail(error.notFound ? 404 : 502, error.message); }
+    brandId = chat.brandId;
+    chatId = String(body.chatId);
+  } else {
+    // No chat: a one-off generation. Here the caller's brandId is all there is, so it's
+    // validated against Hub — an unknown id would otherwise quietly create an orphan bucket
+    // that nothing ever reads back.
+    brandId = String(body.brandId || "").trim();
+    if (!/^[a-z0-9-]+$/.test(brandId)) return fail(400, "brandId must be lowercase letters, numbers or hyphens.");
+    if (!(await hubBrandExists(brandId))) return fail(404, "Brand not found in Hub.");
+  }
+
+  // The brand's hard rules become a real prompt preamble — see visual-rules.js for why these
+  // are sentences prepended to the prompt rather than toggles that change nothing.
+  let rules = { preamble: "", applied: [] };
+  try { rules = await buildRulePreamble(brandId, { disabledRules: body.disabledRules }); }
+  catch (error) { console.error(`Could not build rules for ${brandId}:`, error.message); }
+  const finalPrompt = applyRules(rules.preamble, prompt);
+
   let result;
   try {
     result = await generateImages({
-      prompt, provider: body.provider, count, size: body.size, model: body.model,
+      prompt: finalPrompt, provider: body.provider, count, size: body.size, model: body.model,
     });
   } catch (error) {
     // Carry the provider's own words through rather than flattening everything to "failed" —
@@ -71,15 +94,21 @@ exports.handler = async (event) => {
 
   let id = null;
   try {
+    // The prompt the PERSON wrote is what gets remembered, not the rule-prefixed version sent
+    // to the model — the rules are the same on every round, so storing them would bury the one
+    // part of the record that actually differs. What was applied is stored separately.
     ({ id } = await recordGeneration(brandId, {
       prompt,
+      chatId,
       provider: result.provider,
       model: result.model,
       actor: body.actor || "Hub",
       referenceCount: body.referenceCount,
       referenceNote: body.referenceNote,
       images: result.images,
+      appliedRules: rules.applied,
     }));
+    if (chatId) await touchChat(chatId, { titleIfUnset: titleFromPrompt(prompt) });
   } catch (error) {
     // Losing the memory write must not lose the images the user just paid for. Say so in the
     // response instead, so the UI can warn rather than silently dropping it from history.
@@ -90,7 +119,10 @@ exports.handler = async (event) => {
     statusCode: 200,
     headers: cors(),
     body: JSON.stringify({
-      id, provider: result.provider, model: result.model, images: result.images,
+      id, brandId, chatId, provider: result.provider, model: result.model,
+      images: result.images,
+      // So the UI can show exactly which rules shaped this image rather than asserting it.
+      appliedRules: rules.applied,
       recorded: Boolean(id),
     }),
   };

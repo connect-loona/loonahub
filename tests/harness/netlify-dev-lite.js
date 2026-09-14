@@ -28,10 +28,36 @@ const MIME = { ".html": "text/html", ".js": "text/javascript", ".json": "applica
 // so tests exercise the exact same routing shape production actually has, build step
 // included (run `npm run build` before pointing a test at this server's /strategy/ path).
 const STRATEGY_DIST = path.join(HUB, "dist", "strategy");
+// Visual Studio is served the same way, from its own build at dist/visual/ — see
+// netlify.toml's matching /visual/* rewrite.
+const VISUAL_DIST = path.join(HUB, "dist", "visual");
+
+// Both apps route identically (a built SPA behind a status=200 rewrite), so the handling is
+// shared rather than duplicated per app.
+function serveApp(distRoot, prefix, p, res) {
+  const rel = p === prefix ? "/index.html" : p.slice(prefix.length) || "/index.html";
+  const assetPath = path.join(distRoot, rel);
+  if (!assetPath.startsWith(distRoot)) { res.statusCode = 403; return res.end("forbidden"); }
+  return fs.readFile(assetPath, (err, data) => {
+    if (err) {
+      // SPA fallback, same as netlify.toml's status=200 rewrite — any path under the app
+      // that isn't a real built asset still serves the app shell.
+      return fs.readFile(path.join(distRoot, "index.html"), (err2, indexData) => {
+        if (err2) { res.statusCode = 404; return res.end("not found — did you run `npm run build`?"); }
+        res.setHeader("Content-Type", "text/html");
+        res.end(indexData);
+      });
+    }
+    res.setHeader("Content-Type", MIME[path.extname(assetPath)] || "application/octet-stream");
+    res.end(data);
+  });
+}
 
 function serveStatic(req, res) {
   let p = decodeURIComponent(req.url.split("?")[0]);
   if (p === "/") p = "/index.html";
+
+  if (p === "/visual" || p.startsWith("/visual/")) return serveApp(VISUAL_DIST, "/visual", p, res);
 
   if (p === "/strategy" || p.startsWith("/strategy/")) {
     const rel = p === "/strategy" ? "/index.html" : p.slice("/strategy".length) || "/index.html";
@@ -39,8 +65,6 @@ function serveStatic(req, res) {
     if (!assetPath.startsWith(STRATEGY_DIST)) { res.statusCode = 403; return res.end("forbidden"); }
     return fs.readFile(assetPath, (err, data) => {
       if (err) {
-        // SPA fallback, same as netlify.toml's status=200 rewrite — any /strategy/* path
-        // that isn't a real built asset still serves the app shell.
         return fs.readFile(path.join(STRATEGY_DIST, "index.html"), (err2, indexData) => {
           if (err2) { res.statusCode = 404; return res.end("not found — did you run `npm run build`?"); }
           res.setHeader("Content-Type", "text/html");
