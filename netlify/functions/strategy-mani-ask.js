@@ -11,6 +11,7 @@ const { checkAuthorization } = require("./lib/strategy/auth");
 const { hubBrandExists, findHubBrand } = require("./lib/strategy/hub-brands");
 const { loadBrandBrain } = require("./lib/strategy/store");
 const { askMani, MAX_QUESTION_CHARS } = require("./lib/strategy/mani");
+const { loadHubMemoryText } = require("./lib/strategy/hub-memory");
 
 function cors() {
   return {
@@ -35,19 +36,30 @@ exports.handler = async (event) => {
   let body;
   try { body = JSON.parse(event.body || "{}"); } catch { return fail(400, "Invalid JSON"); }
 
-  const brandId = String(body.brandId || "").trim();
-  if (!/^[a-z0-9-]+$/.test(brandId)) return fail(400, "brandId must be lowercase letters, numbers or hyphens.");
-  if (!(await hubBrandExists(brandId))) return fail(404, "Brand not found in Hub.");
-
   const question = String(body.question || "").trim();
   if (!question) return fail(400, "Ask Mani something.");
   if (question.length > MAX_QUESTION_CHARS) return fail(400, `Keep the question under ${MAX_QUESTION_CHARS} characters.`);
 
-  const brand = await findHubBrand(brandId);
-  const memory = await loadBrandBrain(brandId, brand && brand.name);
+  // No brandId is a legitimate way to ask — and the more natural one from anywhere in Hub.
+  // "What is Anjali working on?" and "what's overdue?" belong to no single brand, so
+  // demanding one up front makes the questions people actually ask unanswerable.
+  const brandId = String(body.brandId || "").trim();
+  let brand = null;
+  let memory = null;
+  let scope = "hub";
+
+  if (brandId) {
+    if (!/^[a-z0-9-]+$/.test(brandId)) return fail(400, "brandId must be lowercase letters, numbers or hyphens.");
+    if (!(await hubBrandExists(brandId))) return fail(404, "Brand not found in Hub.");
+    brand = await findHubBrand(brandId);
+    memory = await loadBrandBrain(brandId, brand && brand.name);
+    scope = "brand";
+  } else {
+    memory = await loadHubMemoryText();
+  }
 
   try {
-    const result = await askMani({ brandId, brandName: brand && brand.name, question, memory });
+    const result = await askMani({ brandId, brandName: brand && brand.name, question, memory, scope });
     return { statusCode: 200, headers: cors(), body: JSON.stringify(result) };
   } catch (error) {
     const missingKey = /ANTHROPIC_API_KEY/.test(error.message || "");

@@ -104,6 +104,28 @@ const MEMORY = [
   try { await askMani({ brandId: "rro-foods", question: "  ", memory: MEMORY }); } catch (e) { noQuestion = e.message; }
   check("an empty question is refused", /needs a question/.test(noQuestion || ""), noQuestion);
 
+  // ---- Asked with no brand at all: the Hub-wide scope ----
+  // The questions people actually ask belong to no single brand, so demanding one up front
+  // makes them unanswerable. "What is Anjali working on?" is the normal case, not the edge.
+  const wideLog = [];
+  const wide = await askMani(
+    { question: "Who is working on what?", memory: "# What is happening across Loona right now\n## RRO Foods\nWorking on it: Anjali.", scope: "hub" },
+    { client: fakeClient(wideLog) },
+  );
+  check("he can be asked without naming a brand", wide.grounded === true, wide);
+  check("and is told he's being asked about Loona as a whole",
+    /about Loona as a whole, not one brand/.test(wideLog[0].user), wideLog[0].user.slice(0, 120));
+  // Otherwise he answers a deep question from a shallow summary and sounds confident doing it.
+  check("and told to name a brand rather than guess when depth is needed",
+    /say which brand to ask about rather than guessing/.test(wideLog[0].user), wideLog[0].user);
+  check("the scope comes back so the caller knows which he answered", wide.scope === "hub", wide.scope);
+
+  // An empty Hub is a different sentence from an unscanned brand — telling somebody to scan a
+  // Drive folder when the question was "what's happening?" would be the wrong advice.
+  const emptyHub = await askMani({ question: "anything?", memory: null, scope: "hub" });
+  check("an empty Hub says so in its own words, not a brand's",
+    emptyHub.nothingRecorded === true && /across Hub/.test(emptyHub.detail), emptyHub.detail);
+
   // ---- The endpoint ----
   const noAuth = await ask.handler({ httpMethod: "POST", headers: { host: "127.0.0.1:9020" }, body: JSON.stringify({ brandId: "rro-foods", question: "x" }) });
   check("asking Mani requires auth — it reads a client's accumulated memory", noAuth.statusCode === 401, noAuth.statusCode);
@@ -113,6 +135,11 @@ const MEMORY = [
 
   const unknown = await call({ brandId: "not-a-brand", question: "x" });
   check("a brand Hub doesn't have is refused", unknown.statusCode === 404, unknown.body);
+
+  // Omitting brandId is legitimate, not a validation error — it's how you ask about the studio.
+  const wideCall = await call({ question: "what's happening?" });
+  check("the endpoint accepts a question with no brand at all",
+    wideCall.statusCode !== 400, { status: wideCall.statusCode, body: wideCall.body.slice(0, 120) });
 
   const noQ = await call({ brandId: "rro-foods", question: "" });
   check("an empty question is refused by the endpoint too", noQ.statusCode === 400, noQ.body);

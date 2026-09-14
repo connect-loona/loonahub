@@ -9,6 +9,7 @@
 const https = require("https");
 const http = require("http");
 const { URL } = require("url");
+const { authedUrl } = require("../firebase-auth");
 
 const FB = (process.env.FIREBASE_DB_URL || "https://loona-hub-c85d7-default-rtdb.firebaseio.com").replace(/\/+$/, "");
 
@@ -39,7 +40,10 @@ function req(method, urlStr, bodyObj) {
 }
 
 function pathUrl(path) {
-  return `${FB}/${path.replace(/^\/+/, "")}.json`;
+  // authedUrl attaches the database credential when one is configured, and is a no-op
+  // otherwise — see lib/firebase-auth.js for why the database could not be locked down until
+  // the functions were able to identify themselves.
+  return authedUrl(`${FB}/${path.replace(/^\/+/, "")}.json`);
 }
 
 async function fbGet(path) {

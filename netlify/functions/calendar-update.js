@@ -23,6 +23,7 @@
 const crypto = require('crypto');
 
 const FB = (process.env.FIREBASE_DB_URL || 'https://loona-hub-c85d7-default-rtdb.firebaseio.com').replace(/\/+$/, '');
+const { authedUrl } = require("./lib/firebase-auth");
 const WRITE_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
 
 // Same labels as calendar-create.js — kept in step by hand, same as every
@@ -62,11 +63,11 @@ async function getAccessToken(userEmail, sa) {
 }
 
 async function fbGet(path) {
-  const resp = await fetch(FB + '/' + path + '.json');
+  const resp = await fetch(authedUrl(FB + '/' + path + '.json'));
   return resp.json().catch(() => null);
 }
 async function fbPatch(path, obj) {
-  return fetch(FB + '/' + path + '.json', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) });
+  return fetch(authedUrl(FB + '/' + path + '.json'), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) });
 }
 
 function fmtIST(iso) {

@@ -52,6 +52,7 @@
 const crypto = require('crypto');
 
 const FB = (process.env.FIREBASE_DB_URL || 'https://loona-hub-c85d7-default-rtdb.firebaseio.com').replace(/\/+$/, '');
+const { authedUrl } = require("./lib/firebase-auth");
 const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 const FIREBASE_ADMIN_SCOPE = 'https://www.googleapis.com/auth/firebase.database https://www.googleapis.com/auth/userinfo.email';
 const SHEET_TAB = 'Master Employee Data';
@@ -107,7 +108,7 @@ async function getAccessToken(sa, scope) {
 // publicly readable by Firebase rules (matches the existing, already-
 // working pattern for /members and /inactive_members).
 async function fbGet(path) {
-  const resp = await fetch(FB + '/' + path + '.json');
+  const resp = await fetch(authedUrl(FB + '/' + path + '.json'));
   return resp.json().catch(() => null);
 }
 
@@ -116,7 +117,7 @@ async function fbGet(path) {
 // identity on this project bypasses database rules entirely, which is the
 // only way to reach a path this locked-down from a server context.
 async function fbGetAdmin(path, adminToken) {
-  const resp = await fetch(FB + '/' + path + '.json', { headers: { Authorization: 'Bearer ' + adminToken } });
+  const resp = await fetch(authedUrl(FB + '/' + path + '.json'), { headers: { Authorization: 'Bearer ' + adminToken } });
   if (!resp.ok) return null;
   return resp.json().catch(() => null);
 }

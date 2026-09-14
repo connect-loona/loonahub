@@ -18,8 +18,10 @@ const { URL } = require("url");
 const { sendPushBroadcast } = require("./lib/push-send");
 
 const FB = (process.env.FIREBASE_DB_URL || "https://loona-hub-c85d7-default-rtdb.firebaseio.com").replace(/\/+$/, "");
+const { authedUrl } = require("./lib/firebase-auth");
 
 function req(method, urlStr, headers, bodyObj) {
+  urlStr = authedUrl(urlStr);
   return new Promise((resolve) => {
     const u = new URL(urlStr);
     const data = bodyObj != null ? JSON.stringify(bodyObj) : null;

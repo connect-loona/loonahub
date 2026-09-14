@@ -4469,6 +4469,7 @@
         <button class="nav-btn" onclick="showPage('brands',this)">Brands</button>
         <a class="nav-btn" href="/strategy/" style="text-decoration:none">Strategy OS</a>
         <a class="nav-btn" href="/visual/" style="text-decoration:none">Visual Studio</a>
+        <button class="nav-btn" onclick="showPage('mani',this)">🧠 Mani</button>
         <button class="nav-btn" onclick="showPage('strategy',this)" title="Legacy Strategy OS (rollback)" style="opacity:.55;font-size:11px;padding:4px 8px">Strategy legacy</button>
         <button class="nav-btn" onclick="showPage('calendar',this)">📅 Calendar</button>
         <button class="nav-btn" onclick="showPage('loonacode',this)">Loona Code</button>
@@ -5718,6 +5719,40 @@
           </thead>
           <tbody id="design-tbody"></tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- ======= MANI — the brand memory agent ======= -->
+    <!--
+      Mani lives in Hub rather than only inside Strategy OS because the questions people
+      actually ask don't belong to one brand: "what is Anjali working on?", "who made anything
+      for Casa this week?", "what's overdue?". Asked from here with no brand selected, he sees
+      across every active brand; pick a brand and he goes deep on that one instead.
+
+      He answers only from what Loona has recorded. When the memory doesn't cover a question he
+      says so, and that refusal is rendered differently from an answer on purpose — an empty
+      result must never read like a finding somebody could act on.
+    -->
+    <div class="page" id="page-mani">
+      <div class="section-header" style="margin-top:0">
+        <div class="section-title">🧠 <span>Mani</span></div>
+        <div id="mani-scope-note" style="color:var(--muted);font-size:12px">Everything Loona has recorded</div>
+      </div>
+      <div style="max-width:760px">
+        <p style="color:var(--muted);font-size:13px;margin-top:0">
+          Ask about any brand, anyone's work, or what's happening right now. Mani answers only from what Hub,
+          the brand folders and Visual Studio have actually recorded — and tells you plainly when something isn't there.
+        </p>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+          <select id="mani-brand" style="padding:8px 10px;border:1px solid var(--border,#ddd);border-radius:8px">
+            <option value="">All brands</option>
+          </select>
+          <span style="color:var(--muted);font-size:12px">Pick a brand to go deeper on that one.</span>
+        </div>
+        <textarea id="mani-question" rows="3" placeholder="What is Anjali working on? Has anyone made anything for Casa this week? What worked on RRO's reels?"
+          style="width:100%;padding:10px 12px;border:1px solid var(--border,#ddd);border-radius:10px;font:inherit;resize:vertical"></textarea>
+        <div style="margin-top:8px"><button class="btn" id="mani-ask-btn" onclick="maniAsk()">Ask Mani</button></div>
+        <div id="mani-result" style="margin-top:14px"></div>
       </div>
     </div>
 
@@ -17388,6 +17423,11 @@
         if (typeof renderOrgChart === 'function') renderOrgChart();
         if (typeof initReimbForm === 'function') initReimbForm();
       }
+      // Mani's brand picker is filled from Hub's own live brand list, so a brand added this
+      // morning is selectable this morning without a deploy.
+      if (id === 'mani') {
+        if (typeof maniBrandOptions === 'function') maniBrandOptions();
+      }
       if (id === 'calendar') {
         openCalendarTab();
       }
@@ -18293,6 +18333,62 @@
       if (b && b.logo) return `<img src="${b.logo}" class="ln-note-brand-logo" alt="">`;
       const col = COLORS[Math.max(0, BRANDS_ALLOC.indexOf(b)) % COLORS.length];
       return `<span class="ln-note-brand-dot" style="background:${col}"></span>`;
+    }
+
+
+    // ======= 🧠 Mani — asking the brand memory agent =======
+    //
+    // With no brand selected he answers across every active brand, which is what most real
+    // questions need ("what is Anjali working on?"). Pick a brand and he goes deep on that one.
+    //
+    // The answer that matters most is the one saying nothing is recorded. Mani is built to
+    // refuse to guess rather than invent something about a client, so that refusal is shown as
+    // a legitimate answer — styled unlike a real one, because an empty result must never read
+    // like a finding somebody could act on.
+    function maniBrandOptions() {
+      const select = document.getElementById('mani-brand');
+      if (!select) return;
+      const current = select.value;
+      const brands = (BRANDS_ALLOC || []).filter(b => b && b.brand && !b.inactive);
+      select.innerHTML = '<option value="">All brands</option>' +
+        brands.map(b => `<option value="${escAttr(slugifyBrand(b.brand))}">${escHtml(b.brand)}</option>`).join('');
+      select.value = current;
+    }
+
+    function slugifyBrand(name) {
+      return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    }
+
+    async function maniAsk() {
+      const box = document.getElementById('mani-result');
+      const btn = document.getElementById('mani-ask-btn');
+      const question = (document.getElementById('mani-question').value || '').trim();
+      if (!question) return;
+      const brandId = document.getElementById('mani-brand').value || '';
+      btn.disabled = true;
+      btn.textContent = 'Remembering…';
+      box.innerHTML = '';
+      try {
+        const res = await fetch('/.netlify/functions/strategy-mani-ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(brandId ? { brandId, question } : { question })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+        if (data.nothingRecorded) {
+          // Deliberately not styled as an answer.
+          box.innerHTML = `<div style="padding:11px 13px;border:1px dashed var(--border,#ddd);border-radius:10px;color:var(--muted);font-size:13px">
+            <b>Nothing recorded.</b> ${escHtml(data.detail || 'Mani has nothing on that.')}</div>`;
+        } else {
+          box.innerHTML = `<div style="padding:12px 14px;border-radius:10px;background:rgba(127,127,127,.08);font-size:14px;white-space:pre-wrap">${escHtml(data.answer || '')}</div>`;
+        }
+      } catch (e) {
+        box.innerHTML = `<div style="color:var(--red,#a32f22);font-size:13px">${escHtml(e.message || String(e))}</div>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Ask Mani';
+      }
     }
 
     function lnBrandOptionList() {
