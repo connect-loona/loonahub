@@ -203,6 +203,16 @@
 #                            (optional — Claude's cheap tier, defaults to Haiku. Same role as
 #                             STRATEGY_OPENAI_MODEL_ECONOMY above, for when a cheap-tier stage
 #                             is running on Claude rather than OpenAI.)
+#   MAGNIFIC_API_KEY         (Magnific, formerly Freepik — Visual Studio's second image
+#                             provider, see netlify/functions/lib/strategy/magnific.js. Sent as
+#                             the x-magnific-api-key header, not a bearer token.
+#                             IMPORTANT, and the reason this note exists: Magnific is an ASYNC
+#                             job API. A POST returns a task id and the image lands 10-90s later
+#                             depending on resolution, so it cannot be called from a synchronous
+#                             function — even its fastest tier outlives the request budget. It
+#                             must be driven from a background worker. No webhook secret is
+#                             needed: the provider polls the task id rather than taking a
+#                             callback, which is one fewer public endpoint and one fewer secret.)
 #   SARVAM_API_KEY           (Sarvam AI batch speech-to-text, used by Loona Notes' meeting
 #                             recorder — see netlify/functions/sarvam-*.js)
 #   GOOGLE_CALENDAR_SERVICE_ACCOUNT   (full JSON key contents for the service account

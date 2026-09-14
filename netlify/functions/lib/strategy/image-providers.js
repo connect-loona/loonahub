@@ -209,6 +209,15 @@ async function readOpenAIImages(response, model, mode, outputFormat) {
 
 const PROVIDERS = {
   openai: { label: "ChatGPT (OpenAI)", generate: generateWithOpenAI, configured: () => Boolean(openaiApiKey()) },
+  // Magnific is an async job API — its fastest tier takes longer than a synchronous Netlify
+  // function is allowed to run. It is registered here so the seam is real and testable, but
+  // it can only actually be CALLED from somewhere with time to wait. See magnific.js.
+  magnific: {
+    label: "Magnific (Mystic)",
+    generate: (request, deps) => require("./magnific").generateWithMagnific(request, deps),
+    configured: () => Boolean(require("./magnific").magnificApiKey()),
+    async: true,
+  },
 };
 
 function listProviders() {
