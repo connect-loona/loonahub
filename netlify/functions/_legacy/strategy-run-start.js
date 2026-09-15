@@ -37,7 +37,8 @@ const STAGE_NAMES = ["research", "strategy", "copy", "creative-direction", "deck
 // runs that aren't going to be retried, and archiving one deliberately frees up its
 // brand + month for a fresh run without needing to touch its status.
 function isActiveRun(run) {
-  return run.status !== "deck-builder_approved" && !run.archivedAt;
+  const terminal = run.chatMode ? "creative-direction_approved" : "deck-builder_approved";
+  return run.status !== terminal && !run.archivedAt;
 }
 
 function cors() {
@@ -69,6 +70,7 @@ exports.handler = async (event) => {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "month must be YYYY-MM." }) };
 
   const runType = body.runType === "campaign" ? "campaign" : "monthly";
+  const chatMode = body.chatMode === true;
   // An open map of {deliverableName: count} — not just reel/carousel/static, since the
   // wizard's deliverables editor (DeliverablesFields.tsx) can list any of the brand's
   // configured deliverable names, including ones added on the fly (see contracts.js's
@@ -150,6 +152,7 @@ exports.handler = async (event) => {
       fixtureDir: runtimeName === "fixture" ? (body.fixtureDir || null) : null,
       sourceContext: Array.isArray(body.sourceContext) ? body.sourceContext.filter((s) => typeof s === "string") : [],
       runType,
+      chatMode,
       deliverablesOverride,
       owner: actor,
       ownerIdentity: actorIdentity,
@@ -161,18 +164,17 @@ exports.handler = async (event) => {
         strategy: { status: "locked" },
         copy: { status: "locked" },
         "creative-direction": { status: "locked" },
-        "deck-builder": { status: "locked" },
+        "deck-builder": { status: chatMode ? "skipped" : "locked", detail: chatMode ? "Deck building is disabled for chat-based planning." : undefined },
       },
       approvals: {},
     });
 
     const base = siteBaseUrl(event);
     try {
-      const backgroundBody = JSON.stringify({ runId: id });
       await fetch(`${base}/.netlify/functions/strategy-research-background`, {
         method: "POST",
-        headers: signedBackgroundHeaders("strategy-research-background", backgroundBody),
-        body: backgroundBody,
+        headers: signedBackgroundHeaders("strategy-research-background", JSON.stringify({ runId: id })),
+        body: JSON.stringify({ runId: id }),
       });
     } catch (e) {
       // Write the failure into the run doc itself — previously this was only
