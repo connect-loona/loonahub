@@ -314,12 +314,70 @@ function okFetch(payload) {
   check("a rate limit that persists is retried once and then reported, not looped",
     persistent === 2 && persistentError.kind === "rate_limit", persistent);
 
+  // ---- The conversational path (gated behind VISUAL_RESPONSES_API, off by default) ----
+  // This is how ChatGPT itself does back-to-back editing: previous_response_id carries the
+  // thread on OpenAI's side instead of this app re-describing the whole scene and re-uploading
+  // a reference on every turn. Off by default until verified against one real production call
+  // — see image-providers.js.
+  check("off by default, a round with no reference still goes to the stateless endpoint",
+    plainCall && /\/images\/generations$/.test(plainCall.url), plainCall && plainCall.url);
+
+  process.env.VISUAL_RESPONSES_API = "true";
+  let freshResponsesCall = null;
+  const freshResponses = await generateImages({ prompt: "a bottle on marble", count: 1 }, {
+    fetch: async (url, options) => {
+      freshResponsesCall = { url, options };
+      return {
+        ok: true, status: 200,
+        json: async () => ({ id: "resp_abc123", output: [{ type: "image_generation_call", result: "AAAA", revised_prompt: "a glass bottle" }] }),
+      };
+    },
+  });
+  check("the flag switches a fresh generation to the Responses endpoint",
+    /\/responses$/.test(freshResponsesCall.url), freshResponsesCall.url);
+  const freshResponsesBody = JSON.parse(freshResponsesCall.options.body);
+  check("the image tool is forced rather than left to the model's judgement",
+    freshResponsesBody.tool_choice && freshResponsesBody.tool_choice.type === "image_generation", freshResponsesBody.tool_choice);
+  check("no thread to continue means no previous_response_id is sent",
+    !("previous_response_id" in freshResponsesBody), freshResponsesBody);
+  check("the image comes back as a usable data URL", /^data:image\/[a-z]+;base64,AAAA/.test(freshResponses.images[0].url), freshResponses.images[0]);
+  check("its revised prompt is kept, same as the stateless path", freshResponses.images[0].revisedPrompt === "a glass bottle", freshResponses.images[0]);
+  check("the response's own id comes back so the next round can thread it", freshResponses.responseId === "resp_abc123", freshResponses.responseId);
+
+  let continuedCall = null;
+  await generateImages({ prompt: "now make the table warmer", count: 1, previousResponseId: "resp_abc123" }, {
+    fetch: async (url, options) => {
+      continuedCall = { url, options };
+      return { ok: true, status: 200, json: async () => ({ id: "resp_def456", output: [{ type: "image_generation_call", result: "BBBB" }] }) };
+    },
+  });
+  check("a parent with a stored responseId threads previous_response_id",
+    JSON.parse(continuedCall.options.body).previous_response_id === "resp_abc123", JSON.parse(continuedCall.options.body).previous_response_id);
+
+  let noImageCall = null;
+  try {
+    await generateImages({ prompt: "x", count: 1 }, {
+      fetch: async () => ({ ok: true, status: 200, json: async () => ({ id: "resp_empty", output: [{ type: "reasoning" }] }) }),
+    });
+  } catch (e) { noImageCall = e.message; }
+  check("an unexpected response shape fails loudly instead of guessing — the exact seam a live check has to confirm",
+    /no image/i.test(noImageCall || ""), noImageCall);
+  delete process.env.VISUAL_RESPONSES_API;
+
+  let backToStatelessCall = null;
+  await generateImages({ prompt: "x", count: 1 }, {
+    fetch: async (url, options) => { backToStatelessCall = url; return { ok: true, status: 200, json: async () => ({ data: [{ url: "https://x/a.png" }] }) }; },
+  });
+  check("clearing the flag returns to the stateless endpoint",
+    /\/images\/generations$/.test(backToStatelessCall), backToStatelessCall);
+
   // ---- recordGeneration: written before anybody picks ----
   const { id } = await recordGeneration("rro", {
     prompt: "Primio bottle on a marble counter, warm morning light",
     provider: "openai", model: "gpt-image-1", actor: "Anjali", size: "9x16",
     referenceCount: 2, referenceNote: "kept the label exactly",
     images: [{ url: "https://example.com/1.png" }, { url: "https://example.com/2.png" }],
+    responseId: "resp_stored123",
   });
   check("a generation is recorded and gets an id", Boolean(id), id);
   const stored = await fbGet(`strategy_visual/rro/${id}`);
@@ -332,6 +390,13 @@ function okFetch(payload) {
   // never stored before this, so a designer had no way to continue in the same shape except
   // remembering to reselect it every single round.
   check("the shape it was made at is kept", stored.size === "9x16", stored.size);
+  // The Responses API's own thread id, so a follow-up can look it up via parentGenerationId
+  // and thread previous_response_id instead of starting over — see image-providers.js.
+  check("the responseId is kept, for a follow-up to thread", stored.responseId === "resp_stored123", stored.responseId);
+  const noResponseId = await recordGeneration("rro-shapeless-test", { prompt: "y", provider: "openai", actor: "A", images: [] });
+  check("a round made the stateless way stores null, not undefined",
+    (await fbGet(`strategy_visual/rro-shapeless-test/${noResponseId.id}`)).responseId === null,
+    (await fbGet(`strategy_visual/rro-shapeless-test/${noResponseId.id}`)).responseId);
   // A brand nobody else touches in this file, deliberately: "rro" is used below by tests that
   // assume its history holds exactly one record in a known order (see the preview-expiry
   // block), and a second record here would silently break that ordering rather than this check.

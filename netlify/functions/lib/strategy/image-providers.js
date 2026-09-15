@@ -21,6 +21,9 @@ const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || "https://api.openai.com/
 const OPENAI_IMAGE_URL = `${OPENAI_BASE_URL}/images/generations`;
 // Working from a reference is a different endpoint, not a different parameter.
 const OPENAI_EDIT_URL = `${OPENAI_BASE_URL}/images/edits`;
+// The conversational path — see generateWithOpenAIResponses below. Same base URL
+// visual-prompt.js already calls for text; this is the image side of it.
+const OPENAI_RESPONSES_URL = `${OPENAI_BASE_URL}/responses`;
 // Two real models, not one default with a knob. OpenAI's own positioning (ChatGPT Images 2.5,
 // announced 8 Sep 2026) draws the same line this app already draws at the endpoint: Sunburst is
 // "built for premium visual workflows that benefit from tighter control across edits", Flare is
@@ -38,6 +41,23 @@ const MAX_REFERENCES = 4;
 
 function openaiApiKey() {
   return process.env.OPENAI_API_KEY || "";
+}
+
+// Off by default on purpose. This switches every OpenAI round from the stateless
+// images/generations + images/edits pair above to the Responses API path below, which is how
+// ChatGPT itself does back-to-back editing: the model keeps the conversation (and the image it
+// just made) on OpenAI's side between calls, addressed by previous_response_id, instead of this
+// app reconstructing the whole scene in text and re-uploading a reference on every turn.
+//
+// The request/response shape below is written from the Responses API's documented
+// image-generation tool as it existed before this session's knowledge cutoff (January 2026) —
+// confirmed to still exist as a mechanism, but NOT confirmed against gpt-image-2.5-flare/sunburst
+// specifically, since OpenAI announced those after the cutoff and every OpenAI doc domain is
+// blocked from this environment. Flip this on for one real generation on production, read the
+// result (and the function logs if it errors), and only then make it the default — see the PR
+// description for the exact check.
+function responsesApiEnabled() {
+  return /^(1|true)$/i.test(process.env.VISUAL_RESPONSES_API || "");
 }
 
 // The three sizes gpt-image-1 will actually accept. This is the whole menu — there is no 4:5
@@ -121,6 +141,7 @@ async function generateWithOpenAI(request, deps = {}) {
   if (!apiKey && !deps.fetch) {
     throw new ConfigurationError("OPENAI_API_KEY is required to generate images.");
   }
+  if (responsesApiEnabled()) return generateWithOpenAIResponses(request, deps, { apiKey, doFetch });
 
   const count = Math.min(Math.max(Number(request.count) || 1, 1), MAX_IMAGES);
   const references = Array.isArray(request.references) ? request.references : [];
@@ -186,6 +207,76 @@ async function generateWithOpenAI(request, deps = {}) {
   });
 
   return readOpenAIImages(response, model, "generate", tier.output_format);
+}
+
+// The conversational path (see responsesApiEnabled above). One endpoint for both a fresh
+// generation and an edit — the Responses API takes reference images as ordinary input content
+// rather than a separate endpoint — and one call shape whether or not there is a thread to
+// continue: request.previousResponseId is threaded in when present, and left off to start a new
+// one when it isn't (a round with no stored responseId — never generated with this path, or
+// built on a Magnific round — starts fresh instead of failing).
+async function generateWithOpenAIResponses(request, deps, { apiKey, doFetch }) {
+  const count = Math.min(Math.max(Number(request.count) || 1, 1), MAX_IMAGES);
+  const references = Array.isArray(request.references) ? request.references : [];
+  const tier = resolveQuality(request.quality);
+  const model = request.model || process.env.VISUAL_OPENAI_MODEL
+    || (references.length ? DEFAULT_OPENAI_EDIT_MODEL : DEFAULT_OPENAI_DRAFT_MODEL);
+  if (references.length > MAX_REFERENCES) {
+    throw new Error(`Up to ${MAX_REFERENCES} reference images at a time — you sent ${references.length}.`);
+  }
+
+  const content = [{ type: "input_text", text: promptForShape(request.prompt, request.size) }];
+  for (let i = 0; i < references.length; i++) {
+    const resolved = await referenceForProvider(references[i], deps);
+    const { bytes, mediaType } = decodeReference(resolved, i);
+    content.push({ type: "input_image", image_url: `data:${mediaType};base64,${bytes.toString("base64")}` });
+  }
+
+  const body = {
+    model,
+    input: [{ role: "user", content }],
+    // Forced rather than offered: an orchestrator left free to decide whether and how to call
+    // the tool is exactly the uncontrolled creative rewrite this app deliberately avoids
+    // elsewhere (see visual-prompt.js's deterministic reference-edit prompt). The prompt above
+    // is already the fully-formed instruction; the tool call should be automatic, not a
+    // judgement call the model makes on top of it.
+    tools: [{ type: "image_generation", size: resolveSize(request.size), quality: tier.quality, output_format: tier.output_format }],
+    tool_choice: { type: "image_generation" },
+  };
+  if (request.previousResponseId) body.previous_response_id = request.previousResponseId;
+
+  const response = await doFetch(OPENAI_RESPONSES_URL, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    const verdict = classifyOpenAIFailure(response.status, detail);
+    console.error(`OpenAI responses image call failed (${response.status}) [${verdict.kind}]:`, String(detail).slice(0, 600));
+    const error = new Error(verdict.message || `OpenAI image generation failed (${response.status}). ${detail.slice(0, 400)}`);
+    error.status = response.status;
+    error.kind = verdict.kind;
+    error.retryable = verdict.retryable;
+    throw error;
+  }
+
+  const data = await response.json();
+  const calls = (data.output || []).filter((item) => item && item.type === "image_generation_call");
+  if (!calls.length) {
+    // Surfaced loudly rather than guessed at: this is the exact seam that needs a real
+    // production call to confirm before the flag ever defaults on. See responsesApiEnabled.
+    console.error("OpenAI responses call returned no image_generation_call output:", JSON.stringify(data).slice(0, 800));
+    throw new Error("OpenAI's conversational image API returned no image. Check the function logs for the raw response.");
+  }
+  const images = calls.slice(0, count).map((call) => ({
+    url: call.result ? `data:image/${tier.output_format};base64,${call.result}` : null,
+    revisedPrompt: call.revised_prompt || null,
+  })).filter((image) => image.url);
+  if (!images.length) throw new Error("OpenAI returned no usable images.");
+
+  return { provider: "openai", model, images, responseId: data.id || null };
 }
 
 // A 429 from OpenAI means two completely different things, and conflating them is useless to
@@ -294,6 +385,7 @@ async function generateImages(request, deps = {}) {
 
 module.exports = {
   generateImages, listProviders, resolveSize, resolveQuality, decodeDataUrl, decodeReference, classifyOpenAIFailure,
+  generateWithOpenAIResponses, responsesApiEnabled,
   SIZES, QUALITY_MODES, MAX_IMAGES, MAX_REFERENCES, MAX_REFERENCE_BYTES, RETRY_DELAY_MS, PROVIDERS,
   DEFAULT_OPENAI_DRAFT_MODEL, DEFAULT_OPENAI_EDIT_MODEL,
 };
