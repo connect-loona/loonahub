@@ -113,12 +113,6 @@ exports.handler = async (event) => {
   // way. Both reads are best-effort — neither is worth failing a generation over.
   let history = "";
   let brandBrain = null;
-  // Set only when body.parentGenerationId names a round that was itself made through the
-  // Responses API and still has its responseId — see image-providers.js. Reused from the same
-  // history read just below rather than a second lookup; when the parent isn't in this window,
-  // or has no responseId (never made this way, or built from a Magnific round), this stays null
-  // and the next call just starts a fresh thread instead of failing.
-  let previousResponseId = null;
   try {
     const [rounds, brain] = await Promise.all([
       chatId ? loadVisualHistory(brandId, { chatId, limit: 12 }) : Promise.resolve([]),
@@ -126,10 +120,6 @@ exports.handler = async (event) => {
     ]);
     history = historyForPrompt(rounds);
     brandBrain = brainToPromptText(brain);
-    if (body.parentGenerationId) {
-      const parentRound = rounds.find((round) => round.id === body.parentGenerationId);
-      previousResponseId = (parentRound && parentRound.responseId) || null;
-    }
   } catch (error) {
     console.error(`Could not gather context for ${brandId}:`, error.message);
   }
@@ -150,7 +140,7 @@ exports.handler = async (event) => {
   try {
     result = await generateImages({
       prompt: finalPrompt, provider: body.provider, count, size: body.size, model: body.model,
-      quality: body.quality, references, previousResponseId,
+      quality: body.quality, references,
     });
   } catch (error) {
     // The status has to tell these apart, because what the person should DO differs. A burst
@@ -202,7 +192,6 @@ exports.handler = async (event) => {
       chatId,
       provider: result.provider,
       model: result.model,
-      responseId: result.responseId || null,
       // The normalized key, not whatever the caller sent — shapeKey() collapses a legacy name
       // like "portrait" to what it actually resolves to (2x3), so a follow-up reading this back
       // asks for the ratio this image really is, not the ratio a stale label once claimed.
