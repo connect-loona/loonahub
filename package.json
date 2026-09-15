@@ -5,6 +5,10 @@
   "description": "Server-side dependencies for Loona Hub's Netlify Functions.",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",
+    "@jimp/core": "^1.6.1",
+    "@jimp/js-jpeg": "^1.6.1",
+    "@jimp/js-png": "^1.6.1",
+    "@jimp/plugin-crop": "^1.6.1",
     "@netlify/aws-lambda-compat": "^2.0.0",
     "@netlify/blobs": "^10.0.10",
     "@openai/agents": "^0.17.2",

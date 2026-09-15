@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const { fbGet, fbSet, fbSafeKey } = require("./firebase");
 const { resolveChat } = require("./visual-chats");
 const { loadVisualHistory } = require("./visual-memory");
+const { DEFAULT_SHAPE } = require("./image-shapes");
 
 const TERMINAL = new Set(["succeeded", "failed"]);
 // A background function can run for fifteen minutes. Past that plus a margin, a job still
@@ -33,7 +34,7 @@ async function createVisualJob(request, actor) {
     chatId,
     prompt: String(request.prompt || "").slice(0, 2000),
     count: Number(request.count) || 1,
-    size: request.size || "portrait",
+    size: request.size || DEFAULT_SHAPE,
     quality: request.quality === "final" ? "final" : "draft",
     provider: request.provider === "magnific" ? "magnific" : "openai",
     actor: actor && actor.name || request.actor || "Hub",

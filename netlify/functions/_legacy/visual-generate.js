@@ -19,6 +19,7 @@ const { expandPrompt, historyForPrompt } = require("../lib/strategy/visual-promp
 const { loadVisualHistory } = require("../lib/strategy/visual-memory");
 const { loadBrain, brainToPromptText } = require("../lib/strategy/brand-brain");
 const { preserveGeneratedImages } = require("../lib/strategy/visual-assets");
+const { shapeKey } = require("../lib/strategy/image-shapes");
 const { resolveVisualActor } = require("../lib/strategy/visual-actor");
 const { recordApiUsage } = require("../lib/strategy/api-usage");
 
@@ -164,12 +165,16 @@ exports.handler = async (event) => {
       || process.env.VISUAL_ASSET_STORE === "blobs"
       || Boolean(process.env.VISUAL_ASSET_LOCAL_DIR);
     if (durable) {
-      result.images = await preserveGeneratedImages(result.images, { brandId, chatId, generationId });
+      // shape is what the person asked for; the provider generated at the nearest ratio it
+      // offers, and this is where it becomes the real one.
+      result.images = await preserveGeneratedImages(result.images, { brandId, chatId, generationId, shape: body.size });
     }
     suggestions = [
       "Keep everything, refine the lighting",
       references.length ? "Keep the product exact, try a closer crop" : "Add a product reference and lock its identity",
-      body.size === "portrait" ? "Create a cleaner 4:5 feed variation" : "Create a portrait social variation",
+      // Offer the shape they did NOT just make. 4:5 is the highest-value feed placement, so it
+      // is the default suggestion; someone already on 4:5 is most often next after the story cut.
+      shapeKey(body.size) === "4x5" ? "Recut this for a 9:16 story" : "Recut this as a 4:5 feed post",
     ];
     // The prompt the PERSON wrote is what gets remembered, not the rule-prefixed version sent
     // to the model — the rules are the same on every round, so storing them would bury the one
