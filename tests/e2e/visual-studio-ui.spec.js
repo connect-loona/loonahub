@@ -237,6 +237,11 @@ const HOUR = 60 * 60 * 1000;
   // on this 9:16 final shouldn't quietly land back on the composer's own defaults (4:5, draft).
   const shapeSelect = page.locator("label", { hasText: "Shape" }).locator("select");
   const qualitySelect = page.locator("label", { hasText: "Quality" }).locator("select");
+  // Getting there takes a second async hop beyond the reference chip rendering: the parent's
+  // state update reaches Composer as a prop, and only then does Composer's own effect fire and
+  // set its internal size/quality state, which is what the select's value actually reflects.
+  // Reading immediately after the chip appears can catch that hop mid-flight.
+  await waitFor(async () => (await shapeSelect.inputValue()) === "9x16" || null, { label: "shape seeded onto the composer" });
   check("the shape carried forward from the round being built on", await shapeSelect.inputValue() === "9x16", await shapeSelect.inputValue());
   check("and so did the quality", await qualitySelect.inputValue() === "final", await qualitySelect.inputValue());
 
