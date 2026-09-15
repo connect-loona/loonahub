@@ -1,8 +1,9 @@
 // Regression checks for the agency-grade Visual Studio layer: durable binary assets,
 // reference validation and signed background jobs.
+const fs = require("fs");
 const path = require("path");
 const { HUB, check, finish } = require("../harness/shared");
-const { inspectImage, saveBuffer, loadAsset } = require(path.join(HUB, "netlify/functions/lib/strategy/visual-assets"));
+const { inspectImage, saveBuffer, loadAsset, storeFor, configureNetlifyStore } = require(path.join(HUB, "netlify/functions/lib/strategy/visual-assets"));
 const { signVisualJob, verifyVisualJobSignature } = require(path.join(HUB, "netlify/functions/lib/strategy/visual-jobs"));
 const { aspectRatio, generateWithMystic, enhanceWithPrecision } = require(path.join(HUB, "netlify/functions/lib/strategy/magnific-provider"));
 const { summarizeApiUsage } = require(path.join(HUB, "netlify/functions/lib/strategy/api-usage"));
@@ -42,6 +43,23 @@ function pngHeader(width, height) {
   check("stored images return a durable proxy URL, never embedded base64", saved.durable && saved.url.startsWith("/.netlify/functions/visual-asset?"), saved);
   const loaded = await loadAsset(saved.assetKey, { store });
   check("the durable image can be loaded back by its asset key", loaded && loaded.data.length === 24, loaded && loaded.data.length);
+
+  let configuredOptions = null;
+  const configuredStore = { configured: true };
+  configureNetlifyStore((options) => { configuredOptions = options; return configuredStore; });
+  check("Runtime V2 can inject the statically imported Netlify Blobs factory",
+    storeFor() === configuredStore && configuredOptions.name === "loona-visual-assets" && configuredOptions.consistency === "strong",
+    configuredOptions);
+  const assetSource = fs.readFileSync(path.join(HUB, "netlify/functions/lib/strategy/visual-assets.js"), "utf8");
+  const bridgeSource = fs.readFileSync(path.join(HUB, "netlify/functions/_shared/visual-blob-store.mjs"), "utf8");
+  check("the deployed asset layer contains no lazy @netlify/blobs require",
+    !/require\(["']@netlify\/blobs["']\)/.test(assetSource));
+  check("the Runtime V2 bridge statically imports @netlify/blobs",
+    /import\s*\{\s*getStore\s*\}\s*from\s*["']@netlify\/blobs["']/.test(bridgeSource));
+  for (const file of ["visual-reference-upload.mjs", "visual-asset.mjs", "visual-generate-background.mjs", "visual-generate.mjs", "visual-qc.mjs"]) {
+    const source = fs.readFileSync(path.join(HUB, "netlify/functions", file), "utf8");
+    check(`${file} configures the static Blobs bridge`, source.includes("visual-blob-store.mjs"));
+  }
 
   process.env.BASIC_AUTH_CREDENTIALS = "loona:test-secret";
   const signature = signVisualJob("job-123");

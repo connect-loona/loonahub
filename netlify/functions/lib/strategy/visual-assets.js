@@ -10,6 +10,17 @@ const { cropToShape } = require("./image-shapes");
 const STORE_NAME = "loona-visual-assets";
 const MAX_ASSET_BYTES = 5 * 1024 * 1024;
 const SAFE_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+let netlifyStoreFactory = null;
+
+// Runtime V2 functions configure this from an ESM module that statically imports
+// @netlify/blobs. Keeping that import at the function boundary is important: a lazy
+// CommonJS require inside this shared file survives Netlify's ESM bundling as a runtime
+// require(), but the package is not copied beside the function. The result is the exact
+// production failure "Cannot find module '@netlify/blobs'".
+function configureNetlifyStore(factory) {
+  if (typeof factory !== "function") throw new TypeError("A Netlify Blobs store factory is required.");
+  netlifyStoreFactory = factory;
+}
 
 function safePart(value, fallback = "unknown") {
   const clean = String(value || "").toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
@@ -116,10 +127,11 @@ function storeFor(deps = {}) {
   if (deps.store) return deps.store;
   const local = process.env.VISUAL_ASSET_LOCAL_DIR;
   if (local) return localStore(local);
-  // Required lazily so the pure helpers and existing unit tests remain usable outside a
-  // Netlify runtime. A real write still fails loudly if Blobs itself is unavailable.
-  const { getStore } = require("@netlify/blobs");
-  return getStore({ name: STORE_NAME, consistency: "strong" });
+  const factory = deps.getStore || netlifyStoreFactory;
+  if (!factory) {
+    throw new Error("Netlify Blobs was not configured for this Visual Studio function.");
+  }
+  return factory({ name: STORE_NAME, consistency: "strong" });
 }
 
 function decodeDataUrl(dataUrl) {
@@ -260,4 +272,5 @@ async function referenceForProvider(reference, deps = {}) {
 module.exports = {
   badImage, STORE_NAME, MAX_ASSET_BYTES, SAFE_IMAGE_TYPES, assetUrl, decodeDataUrl, inspectImage,
   bytesForImage, saveBuffer, preserveGeneratedImages, loadAsset, referenceForProvider, storeFor,
+  configureNetlifyStore,
 };
