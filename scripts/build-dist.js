@@ -42,14 +42,28 @@ console.log("Cleaning dist/...");
 fs.rmSync(DIST, { recursive: true, force: true });
 fs.mkdirSync(DIST, { recursive: true });
 
+// --include=dev, explicitly. These apps build with Vite and TypeScript, which are
+// devDependencies — and `npm ci` installs only production dependencies when NODE_ENV is
+// "production", which is exactly what a deploy environment is likely to set. The failure that
+// produces is a wall of TS2307 "cannot find module 'vite'" errors that reads like the code is
+// broken, when the toolchain simply was not installed. A build's own tools must not depend on
+// an ambient variable meant for runtime behaviour.
+const buildApp = (dir) => execSync("npm ci --include=dev && npm run build", {
+  cwd: path.join(ROOT, dir),
+  stdio: "inherit",
+  // Belt and braces: even with the flag above, some tooling reads NODE_ENV to decide what to
+  // emit. The app builds want a production BUILD, which Vite already does by default here.
+  env: Object.assign({}, process.env, { NODE_ENV: "" }),
+});
+
 console.log("Building Strategy OS (apps/strategy)...");
-execSync("npm ci && npm run build", { cwd: path.join(ROOT, "apps/strategy"), stdio: "inherit" });
+buildApp("apps/strategy");
 
 // Visual Studio, on the same footing as Strategy OS: its own Vite build, landing at
 // dist/visual/. Both run before the legacy files are copied in, so a legacy file can never
 // clobber an app's output.
 console.log("Building Visual Studio (apps/visual)...");
-execSync("npm ci && npm run build", { cwd: path.join(ROOT, "apps/visual"), stdio: "inherit" });
+buildApp("apps/visual");
 
 console.log("Copying legacy Hub static files into dist/...");
 for (const file of LEGACY_FILES) {
