@@ -177,8 +177,18 @@ const HOUR = 60 * 60 * 1000;
 
   // Every take is downloadable, not only the chosen one — a download is how a take leaves
   // is the only way anything survives.
-  check("every take can be downloaded", (await page.locator('.vs-image figcaption a:text("Download")').count()) >= 2,
-    await page.locator('.vs-image figcaption a:text("Download")').count());
+  const downloadButtons = page.locator(".vs-image figcaption button.vs-download");
+  check("every take can be downloaded", (await downloadButtons.count()) >= 2, await downloadButtons.count());
+  // Fetched into a real Blob rather than linked as a raw data: URI, so the saved file is named
+  // after what it actually is — a plain href here used to name every file ".png" regardless of
+  // format, so a Draft (JPEG) take saved as "name.png" and the browser's own extension got
+  // appended on top of that mismatch instead of replacing it.
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    downloadButtons.first().click(),
+  ]);
+  check("the download is a real image file, correctly named for what it actually is",
+    /\.(png|jpe?g|webp|gif)$/i.test(download.suggestedFilename()), download.suggestedFilename());
 
   const threadText2 = await page.locator(".vs-thread").textContent();
 
