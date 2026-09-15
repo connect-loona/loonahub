@@ -125,13 +125,16 @@ async function generateWithOpenAI(request, deps = {}) {
   const count = Math.min(Math.max(Number(request.count) || 1, 1), MAX_IMAGES);
   const references = Array.isArray(request.references) ? request.references : [];
   const tier = resolveQuality(request.quality);
-  // An explicit request.model, or the site-wide VISUAL_OPENAI_MODEL override, wins outright —
-  // this only decides the FALLBACK, and it decides it by what's actually being asked for
-  // (an edit or a fresh generation), not by the draft/final quality tier: a final-quality
-  // generation with no reference is still speed-first work, and a draft edit still wants the
-  // model that won't wander from the reference.
-  const model = request.model || process.env.VISUAL_OPENAI_MODEL
-    || (references.length ? DEFAULT_OPENAI_EDIT_MODEL : DEFAULT_OPENAI_DRAFT_MODEL);
+  // An explicit request.model is respected for controlled experiments. Production
+  // defaults are selected by the work itself: reference edits and final-quality generations
+  // use the precision model, while drafts may use the faster model. Separate environment
+  // overrides are supported so a legacy global VISUAL_OPENAI_MODEL setting cannot silently
+  // force the old gpt-image-1 onto every request.
+  const configuredModel = references.length
+    ? process.env.VISUAL_OPENAI_EDIT_MODEL
+    : process.env.VISUAL_OPENAI_DRAFT_MODEL;
+  const model = request.model || configuredModel
+    || (references.length || request.quality === "final" ? DEFAULT_OPENAI_EDIT_MODEL : DEFAULT_OPENAI_DRAFT_MODEL);
 
   // WITH references this is an EDIT, not a generation — a different endpoint, and the one that
   // matters here. Working from a reference is how this team actually makes images: a base

@@ -199,8 +199,8 @@ function okFetch(payload) {
   check("but does not send gpt-image-1's input_fidelity switch to it",
     defaultEditCall.options.body.get("input_fidelity") === null, defaultEditCall.options.body.get("input_fidelity"));
 
-  // An explicit model, or the site-wide env override, still wins outright over either default —
-  // this is a fallback, not a forced choice.
+  // An explicit model still wins for a controlled experiment. A legacy global
+  // VISUAL_OPENAI_MODEL setting must not be able to force production back to gpt-image-1.
   let pinnedCall = null;
   await generateImages({ prompt: "x", model: "gpt-image-1", references: [{ dataUrl: PIXEL }] },
     { fetch: async (url, options) => { pinnedCall = { url, options }; return { ok: true, status: 200, json: async () => ({ data: [{ b64_json: "QQ==" }] }) }; } });
@@ -208,12 +208,20 @@ function okFetch(payload) {
     pinnedCall.options.body.get("model") === "gpt-image-1", pinnedCall.options.body.get("model"));
 
   process.env.VISUAL_OPENAI_MODEL = "gpt-image-1";
-  let envCall = null;
+  let legacyEnvCall = null;
   await generateImages({ prompt: "x", count: 1 },
-    { fetch: async (url, options) => { envCall = { url, options }; return { ok: true, status: 200, json: async () => ({ data: [{ url: "https://x/a.png" }] }) }; } });
-  check("the site-wide env override outranks the new default too",
-    JSON.parse(envCall.options.body).model === "gpt-image-1", JSON.parse(envCall.options.body).model);
+    { fetch: async (url, options) => { legacyEnvCall = { url, options }; return { ok: true, status: 200, json: async () => ({ data: [{ url: "https://x/a.png" }] }) }; } });
+  check("a legacy global model setting cannot override the modern production default",
+    JSON.parse(legacyEnvCall.options.body).model === DEFAULT_OPENAI_DRAFT_MODEL, JSON.parse(legacyEnvCall.options.body).model);
   delete process.env.VISUAL_OPENAI_MODEL;
+
+  process.env.VISUAL_OPENAI_DRAFT_MODEL = "gpt-image-2.5-sunburst";
+  let draftEnvCall = null;
+  await generateImages({ prompt: "x", count: 1 },
+    { fetch: async (url, options) => { draftEnvCall = { url, options }; return { ok: true, status: 200, json: async () => ({ data: [{ url: "https://x/a.png" }] }) }; } });
+  check("the draft model can be explicitly configured without a global override",
+    JSON.parse(draftEnvCall.options.body).model === "gpt-image-2.5-sunburst", JSON.parse(draftEnvCall.options.body).model);
+  delete process.env.VISUAL_OPENAI_DRAFT_MODEL;
 
   let tooManyRefs = null;
   try {
