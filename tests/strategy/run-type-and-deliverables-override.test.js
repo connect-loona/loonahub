@@ -8,7 +8,7 @@ const path = require("path");
 const { HUB, RTDB_URL, wipeFirebase, req, check, finish } = require("../harness/shared");
 const { fbSet, fbGet, fbUpdate } = require(path.join(HUB, "netlify/functions/lib/strategy/firebase"));
 const { runResearchStage, runStrategyStage } = require(path.join(HUB, "netlify/functions/lib/strategy/pipeline"));
-const runStart = require(path.join(HUB, "netlify/functions/strategy-run-start.js"));
+const runStart = require(path.join(HUB, "netlify/functions/_legacy/strategy-run-start.js"));
 const crypto = require("crypto");
 
 process.env.BASIC_AUTH_CREDENTIALS = "gokul:supersecret";

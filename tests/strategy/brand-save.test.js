@@ -8,7 +8,7 @@ process.env.FIREBASE_DB_URL = RTDB_URL;
 process.env.BASIC_AUTH_CREDENTIALS = "gokul:supersecret";
 const crypto = require("crypto");
 const { fbSet, fbGet } = require(path.join(HUB, "netlify/functions/lib/strategy/firebase"));
-const brandSave = require(path.join(HUB, "netlify/functions/strategy-brand-save.js"));
+const brandSave = require(path.join(HUB, "netlify/functions/_legacy/strategy-brand-save.js"));
 
 let allPass = true;
 function check(name, cond, extra) {

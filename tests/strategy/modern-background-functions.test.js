@@ -80,7 +80,7 @@ const MODERN_BACKGROUNDS = [
     "strategy-stage-retry.js",
   ];
   for (const file of triggerFiles) {
-    const source = fs.readFileSync(path.join(HUB, "netlify/functions", file), "utf8");
+    const source = fs.readFileSync(path.join(HUB, "netlify/functions/_legacy", file), "utf8");
     check(`${file} signs its internal background call`, source.includes("signedBackgroundHeaders"));
   }
 

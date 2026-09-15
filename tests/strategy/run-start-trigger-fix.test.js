@@ -25,8 +25,8 @@ const authCookie = `loona_auth=${token}`;
 
   // ---- 1. With no Host header AND no env vars, the OLD code would fetch a bare relative
   // path and throw immediately — now surfaced as a "failed" stage instead of silently lost. ----
-  delete require.cache[require.resolve(path.join(HUB, "netlify/functions/strategy-run-start.js"))];
-  const runStart = require(path.join(HUB, "netlify/functions/strategy-run-start.js"));
+  delete require.cache[require.resolve(path.join(HUB, "netlify/functions/_legacy/strategy-run-start.js"))];
+  const runStart = require(path.join(HUB, "netlify/functions/_legacy/strategy-run-start.js"));
   delete process.env.URL;
   delete process.env.DEPLOY_URL;
 

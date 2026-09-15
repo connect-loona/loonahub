@@ -10,7 +10,7 @@ const path = require("path");
 const { HUB, RTDB_URL, req, check, finish, waitForBackgroundIdle } = require("../harness/shared");
 const { fbGet, fbSet } = require(path.join(HUB, "netlify/functions/lib/strategy/firebase"));
 const { BrandDraftSchema, draftBrandFromLibrary, orderedFiles, buildInput } = require(path.join(HUB, "netlify/functions/lib/strategy/brand-draft"));
-const draftEndpoint = require(path.join(HUB, "netlify/functions/strategy-brand-draft.js"));
+const draftEndpoint = require(path.join(HUB, "netlify/functions/_legacy/strategy-brand-draft.js"));
 const crypto = require("crypto");
 
 process.env.BASIC_AUTH_CREDENTIALS = "gokul:supersecret";

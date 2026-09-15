@@ -12,7 +12,7 @@ const path = require("path");
 const { HUB, check, finish } = require("../harness/shared");
 const {
   sanitizeQc, CHECKS, MAX_SUMMARY_CHARS, MAX_ISSUE_CHARS, MAX_ISSUES,
-} = require(path.join(HUB, "netlify/functions/visual-qc.js"));
+} = require(path.join(HUB, "netlify/functions/_legacy/visual-qc.js"));
 
 (async () => {
   // ---- Every check is present, whatever came back ----

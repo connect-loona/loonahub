@@ -13,7 +13,7 @@ const { fbGet } = require(path.join(HUB, "netlify/functions/lib/strategy/firebas
 const { createRuntime, providerForStage, tierForStage, modelFor, shouldEscalateTier } = require(path.join(HUB, "netlify/functions/lib/strategy/pipeline"));
 const { StageValidationError } = require(path.join(HUB, "netlify/functions/lib/strategy/errors"));
 const { FixtureRuntime } = require(path.join(HUB, "netlify/functions/lib/strategy/runtime-fixture"));
-const runStart = require(path.join(HUB, "netlify/functions/strategy-run-start.js"));
+const runStart = require(path.join(HUB, "netlify/functions/_legacy/strategy-run-start.js"));
 const crypto = require("crypto");
 
 process.env.BASIC_AUTH_CREDENTIALS = "gokul:supersecret";

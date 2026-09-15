@@ -9,7 +9,7 @@ process.env.FIREBASE_DB_URL = require("../harness/shared").RTDB_URL;
 const path = require("path");
 const { HUB, RTDB_URL, req, check, finish, waitForBackgroundIdle } = require("../harness/shared");
 const { fbGet, fbSet } = require(path.join(HUB, "netlify/functions/lib/strategy/firebase"));
-const scan = require(path.join(HUB, "netlify/functions/strategy-brand-library-scan.js"));
+const scan = require(path.join(HUB, "netlify/functions/_legacy/strategy-brand-library-scan.js"));
 const crypto = require("crypto");
 
 process.env.BASIC_AUTH_CREDENTIALS = "gokul:supersecret";
