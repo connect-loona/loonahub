@@ -115,7 +115,11 @@ function Round({ generation, onPick, onUseAsReference, onSuggestion, onReview, o
                           finally { setEnhancing(null); }
                         }}>{enhancing === i ? "Enhancing…" : "Enhance in Magnific"}</button>
                       )}
-                      <a href={image.url} download={`${generation.id}-${i + 1}.png`} target="_blank" rel="noopener noreferrer">
+                      {/* No target="_blank" — that combined with download is a known dead end in
+                          Safari/WebKit: the browser can't decide whether to open a tab or save a
+                          file, and silently does neither. A plain same-tab link lets it just
+                          save, which is the only thing this button is for. */}
+                      <a href={image.url} download={`${generation.id}-${i + 1}.png`}>
                         Download
                       </a>
                     </>
