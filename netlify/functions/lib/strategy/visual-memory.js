@@ -43,11 +43,6 @@ async function recordGeneration(brandId, round) {
     // no way to ask for the same one back except the person remembering to reselect it. See
     // image-shapes.js for the key; null for anything recorded before shapes existed at all.
     size: round.size || null,
-    // OpenAI's Responses API id for this round, when it was made through that path (see
-    // responsesApiEnabled in image-providers.js). Null for anything made the stateless way, or
-    // by Magnific — this is what a follow-up looks up via parentGenerationId to thread
-    // previous_response_id instead of starting over.
-    responseId: round.responseId || null,
     operation: round.operation || "generate",
     providerTaskId: round.providerTaskId || null,
     actor: round.actor || "unknown",
