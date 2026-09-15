@@ -26,6 +26,23 @@ import { ProjectMemory } from "./components/ProjectMemory";
 import { UsagePanel } from "./components/UsagePanel";
 import loonaLogo from "./assets/loona-logo.png";
 
+// Turns a base64 data: URL back into a real File, so a generated image that was never
+// durably stored (see carryForward) can still be uploaded as a reference instead of being
+// carried forward with nothing behind it.
+function dataUrlToFile(dataUrl: string, filename: string): File | undefined {
+  const match = /^data:([^;,]+);base64,(.+)$/i.exec(dataUrl);
+  if (!match) return undefined;
+  const [, mime, base64] = match;
+  try {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    return new File([bytes], filename, { type: mime });
+  } catch {
+    return undefined;
+  }
+}
+
 export function App() {
   const { brands, loading: brandsLoading } = useHubBrands();
   const [user, setUser] = useState<CurrentUser | null>(null);
@@ -203,12 +220,21 @@ export function App() {
   function carryForward(generation: Generation, index: number) {
     const image = (generation.images || [])[index];
     if (!image || !image.url) return;
+    // A round whose image was never durably saved (a Netlify Blobs write failure, or a round
+    // from before durable storage existed) has no assetKey — but the provider's own base64
+    // bytes are often still sitting right there in image.url. Without turning that into a real
+    // File here, the carried reference had nothing uploadable behind it: no assetKey to skip
+    // the upload, no File to upload instead, so it was either refused or silently dropped, and
+    // the next request ran as a fresh generation with no reference at all. That's why "just
+    // change the olive to a strawberry" came back as an entirely different scene.
+    const file = image.assetKey ? undefined : dataUrlToFile(image.url, `take-${index + 1}.png`);
     setReferences([{
       dataUrl: image.url as string,
       name: `Take ${index + 1} from this chat`,
       role: "Composition and current scene",
       assetKey: image.assetKey || undefined,
       contentType: image.contentType || undefined,
+      file,
     }]);
     setParent({ generationId: generation.id, imageIndex: index });
     setSeedShape({ size: generation.size, quality: generation.quality });
@@ -293,17 +319,22 @@ export function App() {
   async function pick(generation: Generation, index: number, note?: string, tags?: string[]) {
     if (!brand) return;
     setError(null);
+    // Carrying the image forward happens regardless of whether the pick itself can be
+    // recorded: a round that failed to save (id is null — see carryForward's own comment on
+    // dataUrlToFile) still has an image worth continuing to edit, and making that wait on a
+    // database write it can never complete would block someone from working on their own image.
+    // Picking option A out of a round means continuing on A, not leaving somebody to click
+    // "Build on this" a second time for the choice they just made. carryForward REPLACES
+    // rather than stacks, so this is safe even when the take just picked is the same one
+    // already carried by an earlier explicit click — picking it again is a no-op, not a
+    // second copy of the same reference.
+    carryForward(generation, index);
+    if (!generation.id) return;
     try {
       await api.pickImage({ brandId: brand.id, generationId: generation.id, index, actor, note, tags });
       setGenerations((prev) => prev.map((g) => (g.id === generation.id
         ? { ...g, pickedIndex: index, pickedBy: actor, pickedAt: new Date().toISOString() }
         : g)));
-      // Picking option A out of a round means continuing on A, not leaving somebody to click
-      // "Build on this" a second time for the choice they just made. carryForward REPLACES
-      // rather than stacks, so this is safe even when the take just picked is the same one
-      // already carried by an earlier explicit click — picking it again is a no-op, not a
-      // second copy of the same reference.
-      carryForward(generation, index);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -426,7 +457,7 @@ export function App() {
             <h1>{brand ? brand.name : "Visual Studio"}</h1>
             <p>{chats.find((c) => c.id === chatId)?.title || "New visual chat"}</p>
           </div>
-          <button type="button" className="vs-mobile-tool" onClick={() => setMemoryOpen(true)} aria-label="Open brand memory">Mani</button>
+          <button type="button" className="vs-header-tool" onClick={() => setMemoryOpen(true)}>Mani</button>
           <button type="button" className="vs-header-tool" onClick={() => setUsageOpen(true)}>API usage</button>
         </header>
 

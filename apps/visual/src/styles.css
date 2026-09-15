@@ -30,7 +30,7 @@ body {
 button, select, textarea, input { font: inherit; color: inherit; }
 button { cursor: pointer; }
 
-.vs-shell { display: grid; grid-template-columns: 236px minmax(0, 1fr) 280px; min-height: 100vh; }
+.vs-shell { display: grid; grid-template-columns: 236px minmax(0, 1fr); min-height: 100vh; }
 
 /* ---- Sidebar: brand projects, each expanding to its own chats ---- */
 .vs-sidebar { display: flex; flex-direction: column; gap: 4px; padding: 16px 12px; border-right: 1px solid var(--line); background: #fbfaf7; max-height: 100vh; overflow-y: auto; }
@@ -157,10 +157,19 @@ button { cursor: pointer; }
 .vs-provider-account span { color: var(--muted); text-align: right; }
 .vs-usage-foot { margin-top: 22px; color: var(--muted); font-size: 10.5px; }
 
-/* ---- Project memory ---- */
-.vs-memory-drawer { min-width: 0; }
-.vs-memory { height: 100%; padding: 16px 14px; border-left: 1px solid var(--line); background: #fbfaf7; overflow-y: auto; max-height: 100vh; }
-.vs-mobile-tool, .vs-drawer-close, .vs-scrim { display: none; }
+/* ---- Project memory ----
+   A drawer at every width, not just on mobile — opened from the "Mani" button in the header,
+   the same on-demand pattern as API usage, rather than a column that is always there whether
+   or not anyone asked for it. */
+.vs-memory-drawer {
+  position: fixed; z-index: 30; top: 0; right: 0; bottom: 0; width: min(86vw, 320px);
+  transform: translateX(105%); transition: transform .2s ease;
+}
+.vs-memory-drawer.is-open { transform: translateX(0); box-shadow: -8px 0 30px rgba(0,0,0,.12); }
+.vs-memory { height: 100%; padding: 16px 14px; border-left: 1px solid var(--line); background: #fbfaf7; overflow-y: auto; max-height: 100dvh; }
+.vs-drawer-close { display: inline-block; position: absolute; z-index: 2; top: 10px; right: 10px; padding: 5px 9px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.vs-scrim { display: block; position: fixed; z-index: 20; inset: 0; border: 0; background: rgba(25,24,21,.28); }
+.vs-mobile-tool { display: none; }
 .vs-memory h2 { margin: 0 0 6px; font-size: 13px; }
 .vs-stats { display: flex; gap: 10px; margin: 12px 0; }
 .vs-stats div { flex: 1; padding: 9px; border: 1px solid var(--line); border-radius: 9px; text-align: center; }
@@ -186,15 +195,10 @@ button { cursor: pointer; }
 @media (max-width: 980px) {
   .vs-shell { grid-template-columns: 1fr; }
   .vs-main { min-height: 100dvh; max-height: 100dvh; }
-  .vs-sidebar, .vs-memory-drawer { position: fixed; z-index: 30; top: 0; bottom: 0; width: min(86vw, 320px); transition: transform .2s ease; }
-  .vs-sidebar { left: 0; max-height: 100dvh; transform: translateX(-105%); box-shadow: 8px 0 30px rgba(0,0,0,.12); }
+  .vs-sidebar { position: fixed; z-index: 30; top: 0; bottom: 0; left: 0; width: min(86vw, 320px); max-height: 100dvh; transition: transform .2s ease; transform: translateX(-105%); box-shadow: 8px 0 30px rgba(0,0,0,.12); }
   .vs-sidebar.is-open { transform: translateX(0); }
-  .vs-memory-drawer { right: 0; transform: translateX(105%); }
-  .vs-memory-drawer.is-open { transform: translateX(0); box-shadow: -8px 0 30px rgba(0,0,0,.12); }
   .vs-memory { max-height: 100dvh; border: 0; }
   .vs-mobile-tool { display: inline-flex; align-items: center; justify-content: center; min-width: 38px; height: 34px; padding: 0 9px; border: 1px solid var(--line); border-radius: 9px; background: #fff; font-size: 12px; font-weight: 600; }
-  .vs-drawer-close { display: block; position: absolute; z-index: 2; top: 10px; right: 10px; padding: 5px 9px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
-  .vs-scrim { display: block; position: fixed; z-index: 20; inset: 0; border: 0; background: rgba(25,24,21,.28); }
 }
 
 /* ---- References attached to the next prompt ----
@@ -232,14 +236,9 @@ button { cursor: pointer; }
 .vs-expanded summary { color: var(--muted); cursor: pointer; font-size: 11.5px; }
 .vs-expanded p { margin: 6px 0 0; padding: 9px 11px; border-radius: 9px; background: #f8f6f1; color: var(--muted); font-size: 12px; white-space: pre-wrap; }
 
-.vs-feedback, .vs-qc { max-width: 720px; margin-top: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 11px; background: #fbfaf7; }
-.vs-feedback p { margin: 2px 0 9px; color: var(--muted); font-size: 11.5px; }
-.vs-feedback-tags, .vs-suggestions { display: flex; flex-wrap: wrap; gap: 6px; }
-.vs-feedback-tags button, .vs-suggestions button, .vs-qc > button, .vs-feedback-actions button { padding: 5px 9px; border: 1px solid var(--line); border-radius: 20px; background: #fff; font-size: 11.5px; }
-.vs-feedback-tags button.is-active { border-color: var(--green); color: var(--green); background: #e6f1ea; }
-.vs-feedback input { width: 100%; margin-top: 9px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
-.vs-feedback-actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 9px; }
-.vs-feedback-actions button.is-primary { border-color: var(--accent); color: #fff; background: var(--accent); }
+.vs-qc { max-width: 720px; margin-top: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 11px; background: #fbfaf7; }
+.vs-suggestions { display: flex; flex-wrap: wrap; gap: 6px; }
+.vs-suggestions button, .vs-qc > button { padding: 5px 9px; border: 1px solid var(--line); border-radius: 20px; background: #fff; font-size: 11.5px; }
 .vs-qc-result { display: grid; gap: 4px; margin-top: 9px; }
 .vs-qc-result span { font-size: 11.5px; text-transform: capitalize; }
 .vs-qc-result .is-pass { color: var(--green); }

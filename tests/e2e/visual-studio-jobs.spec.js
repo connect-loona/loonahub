@@ -93,9 +93,9 @@ const asUser = async (page) => page.evaluate(() => {
   check("and the deep link still points at the same chat", /chat=/.test(page.url()), page.url());
 
   // ---- Picking writes exactly once ----
-  // "Use this" opens the panel and records nothing; Save records once. Recording on both wrote
-  // the pick twice — once bare, once with tags — and Cancel left the bare one behind, which
-  // silently taught the brand's memory a take somebody had changed their mind about.
+  // "Use this" is the whole action now — one click records the pick immediately. The reasons
+  // panel (tags + note) used to sit between the click and the write; it was confusing more than
+  // it was useful, so picking is a single unambiguous signal on its own.
   const chatId = new URL(page.url()).searchParams.get("chat");
   const before = (await req("GET", `${RTDB_URL}/strategy_visual/rro-foods.json`)).body || {};
   const generationId = Object.keys(before)[0];
@@ -103,30 +103,13 @@ const asUser = async (page) => page.evaluate(() => {
     before[generationId].pickedIndex);
 
   await page.locator('.vs-image figcaption button:text("Use this")').first().click();
-  await waitFor(async () => (await page.locator(".vs-feedback").count()) === 1 || null, { label: "feedback panel opens" });
-  const afterOpen = (await req("GET", `${RTDB_URL}/strategy_visual/rro-foods/${generationId}.json`)).body;
-  check("opening the panel records NOTHING",
-    afterOpen.pickedIndex === null || afterOpen.pickedIndex === undefined, afterOpen.pickedIndex);
-
-  await page.locator('.vs-feedback-actions button:text("Cancel")').click();
-  const afterCancel = (await req("GET", `${RTDB_URL}/strategy_visual/rro-foods/${generationId}.json`)).body;
-  check("and cancelling records nothing either",
-    afterCancel.pickedIndex === null || afterCancel.pickedIndex === undefined, afterCancel.pickedIndex);
-
-  await page.locator('.vs-image figcaption button:text("Use this")').first().click();
-  await waitFor(async () => (await page.locator(".vs-feedback").count()) === 1 || null, { label: "panel reopens" });
-  await page.locator('.vs-feedback-tags button:text("Strong composition")').click();
-  await page.locator(".vs-feedback input").fill("the label reads cleanly");
-  await page.locator('.vs-feedback button:text("Save choice")').click();
 
   await waitFor(async () => {
     const record = (await req("GET", `${RTDB_URL}/strategy_visual/rro-foods/${generationId}.json`)).body;
     return record && record.pickedIndex === 0 ? record : null;
   }, { label: "the pick is saved" });
   const picked = (await req("GET", `${RTDB_URL}/strategy_visual/rro-foods/${generationId}.json`)).body;
-  check("saving records the pick once, with its reasons", picked.pickedIndex === 0, picked.pickedIndex);
-  check("including the signals chosen", (picked.pickTags || []).includes("Strong composition"), picked.pickTags);
-  check("and the note, which is what Mani can actually reuse", /reads cleanly/.test(picked.pickNote || ""), picked.pickNote);
+  check("clicking Use this records the pick once", picked.pickedIndex === 0, picked.pickedIndex);
 
   // ---- Reconnecting to a job that is still in flight ----
   // A generation outlives the tab that started it: the worker keeps going and the round is paid
