@@ -46,7 +46,9 @@ function readAsDataUrl(file: File): Promise<string> {
   });
 }
 
-export function Composer({ onSend, busy, disabled, references, setReferences, suggestedPrompt, onSuggestionUsed }: {
+export function Composer({
+  onSend, busy, disabled, references, setReferences, suggestedPrompt, onSuggestionUsed, seedShape, onSeedUsed,
+}: {
   onSend: (prompt: string, count: number, size: string, quality: string, provider: "openai" | "magnific") => void;
   busy: boolean;
   disabled: boolean;
@@ -54,6 +56,13 @@ export function Composer({ onSend, busy, disabled, references, setReferences, su
   setReferences: (next: PendingReference[]) => void;
   suggestedPrompt?: string | null;
   onSuggestionUsed?: () => void;
+  // Carries a prior round's shape and quality in when a follow-up starts from it — a designer
+  // continuing a 9:16 story shouldn't have to remember to reselect 9:16 on every turn just
+  // because the composer defaults to something else. Either field may be absent (an old record
+  // has no stored shape), so each is applied independently rather than as one all-or-nothing
+  // pair.
+  seedShape?: { size?: string | null; quality?: string | null } | null;
+  onSeedUsed?: () => void;
 }) {
   const [prompt, setPrompt] = useState("");
   const [count, setCount] = useState(2);
@@ -73,6 +82,13 @@ export function Composer({ onSend, busy, disabled, references, setReferences, su
     setPrompt(suggestedPrompt);
     onSuggestionUsed?.();
   }, [suggestedPrompt, onSuggestionUsed]);
+
+  useEffect(() => {
+    if (!seedShape) return;
+    if (seedShape.size) setSize(seedShape.size);
+    if (seedShape.quality) setQuality(seedShape.quality);
+    onSeedUsed?.();
+  }, [seedShape, onSeedUsed]);
 
   async function addFiles(files: FileList | File[]) {
     setFileError(null);

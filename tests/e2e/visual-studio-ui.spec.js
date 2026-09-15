@@ -51,6 +51,10 @@ const HOUR = 60 * 60 * 1000;
     "gen-1": {
       chatId: "chat-rro-1", prompt: "Primio bottle on a marble counter, warm morning light",
       provider: "openai", model: "gpt-image-1", actor: "Anjali", createdAt: fresh,
+      // A 9:16 final: distinct from the composer's own defaults (4:5 draft), so carrying it
+      // forward via "Build on this" is actually observable rather than a no-op that happens to
+      // match what was already selected.
+      size: "9x16", quality: "final",
       // Asset keys present: this is a round from after Visual Studio began keeping its own
       // copies, which is what makes "Build on this" available on it.
       images: [
@@ -216,18 +220,55 @@ const HOUR = 60 * 60 * 1000;
 
   // Carrying a take back up as the next reference is the iteration loop — "now make the table
   // warmer" without re-uploading anything.
-  check("every stored take offers to be built on", (await page.locator(".vs-useref").count()) >= 2, await page.locator(".vs-useref").count());
+  //
+  // .vs-useref is not unique to this button — "Enhance in Magnific" shares the class for
+  // styling, so each take with stored bytes renders TWO .vs-useref elements. Filtered by its
+  // actual text below, rather than positionally, so this doesn't silently start clicking the
+  // wrong one the day a third button picks up the same class.
+  const buildOnThis = marbleRound.locator(".vs-useref", { hasText: "Build on this" });
+  check("every stored take offers to be built on", (await buildOnThis.count()) === 2, await buildOnThis.count());
   // A round made before Visual Studio kept its own copies has no bytes to send, so the button
   // is replaced by an explanation rather than left to fail when somebody presses Generate.
   check("a round with no stored image says why it can't be built on instead",
     (await page.locator(".vs-useref-unavailable").count()) === 1, await page.locator(".vs-useref-unavailable").count());
-  await page.locator(".vs-useref").first().click();
+  await buildOnThis.first().click();
   await waitFor(async () => (await page.locator(".vs-ref").count()) === 1 || null, { label: "result becomes a reference" });
   check("the composer now carries that image as a reference", (await page.locator(".vs-ref img").count()) === 1);
   check("and asks what to take from it", (await page.locator(".vs-ref-role").count()) === 1);
   // The composer should say it is now editing rather than generating from nothing.
   check("the send button says it is an edit now",
     /Edit/.test(await page.locator(".vs-send").textContent()), await page.locator(".vs-send").textContent());
+
+  // "Build on this" carries the round's shape and quality along with the image — a follow-up
+  // on this 9:16 final shouldn't quietly land back on the composer's own defaults (4:5, draft).
+  const shapeSelect = page.locator("label", { hasText: "Shape" }).locator("select");
+  const qualitySelect = page.locator("label", { hasText: "Quality" }).locator("select");
+  // Getting there takes a second async hop beyond the reference chip rendering: the parent's
+  // state update reaches Composer as a prop, and only then does Composer's own effect fire and
+  // set its internal size/quality state, which is what the select's value actually reflects.
+  // Reading immediately after the chip appears can catch that hop mid-flight.
+  await waitFor(async () => (await shapeSelect.inputValue()) === "9x16" || null, { label: "shape seeded onto the composer" });
+  check("the shape carried forward from the round being built on", await shapeSelect.inputValue() === "9x16", await shapeSelect.inputValue());
+  check("and so did the quality", await qualitySelect.inputValue() === "final", await qualitySelect.inputValue());
+
+  // Which specific model made this — necessary now that "ChatGPT" in the picker covers two
+  // real models with genuinely different behaviour, not one model at a fixed quality.
+  check("the round says which model actually made it",
+    /Made with gpt-image-1/.test(await marbleRound.locator(".vs-model").first().textContent()),
+    await marbleRound.locator(".vs-model").first().textContent());
+
+  // ---- Continuing on ONE take, exclusively ----
+  // Picking option A out of a round means working on A, not A-plus-whatever-was-attached
+  // before. Building on a DIFFERENT take afterwards means moving on to that one — the composer
+  // must swap, not accumulate a second reference alongside the first.
+  await buildOnThis.nth(1).click();
+  await waitFor(async () => /Take 2 from this chat/.test(await page.locator(".vs-ref-name").first().textContent() || "") || null,
+    { label: "the composer swaps to the other take" });
+  check("building on a different take REPLACES the reference rather than adding a second one",
+    (await page.locator(".vs-ref").count()) === 1, await page.locator(".vs-ref").count());
+  check("and it's the take just clicked, not both",
+    /Take 2 from this chat/.test(await page.locator(".vs-ref-name").first().textContent() || ""),
+    await page.locator(".vs-ref-name").first().textContent());
 
   await page.locator(".vs-ref-remove").click();
   await waitFor(async () => (await page.locator(".vs-ref").count()) === 0 || null, { label: "reference removed" });

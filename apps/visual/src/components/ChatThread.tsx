@@ -52,6 +52,13 @@ function Round({ generation, onPick, onUseAsReference, onSuggestion, onReview, o
       </div>
 
       <div className="vs-reply">
+        {/* Which model actually made this — not which provider was picked, but the specific
+            model, now that there are two real ones behind "ChatGPT" (Flare for a fresh
+            generation, Sunburst for an edit; see image-providers.js). Without this, a round
+            that came out softer or more literal than expected looks like inconsistent quality
+            rather than what it is: a different model. */}
+        {generation.model && <span className="vs-meta vs-model">Made with {generation.model}</span>}
+
         {generation.expandedPrompt && (
           // Collapsed by default: nobody needs this most of the time, but when an image comes
           // back wrong it's the first thing worth reading — it tells you whether the model

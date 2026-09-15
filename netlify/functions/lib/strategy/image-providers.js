@@ -21,7 +21,14 @@ const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || "https://api.openai.com/
 const OPENAI_IMAGE_URL = `${OPENAI_BASE_URL}/images/generations`;
 // Working from a reference is a different endpoint, not a different parameter.
 const OPENAI_EDIT_URL = `${OPENAI_BASE_URL}/images/edits`;
-const DEFAULT_OPENAI_MODEL = "gpt-image-1";
+// Two real models, not one default with a knob. OpenAI's own positioning (ChatGPT Images 2.5,
+// announced 8 Sep 2026) draws the same line this app already draws at the endpoint: Sunburst is
+// "built for premium visual workflows that benefit from tighter control across edits", Flare is
+// the fast default for everything else. That maps directly onto references.length below — an
+// edit reaches for precision, a fresh generation reaches for speed — so the split costs nothing
+// extra to compute and needs no new request field.
+const DEFAULT_OPENAI_DRAFT_MODEL = "gpt-image-2.5-flare";
+const DEFAULT_OPENAI_EDIT_MODEL = "gpt-image-2.5-sunburst";
 const MAX_IMAGES = 4;
 // References travel base64 through a Netlify function, which has a hard request-size ceiling
 // (6MB). Capping each one well under that, and capping how many can be sent at once, keeps a
@@ -116,9 +123,15 @@ async function generateWithOpenAI(request, deps = {}) {
   }
 
   const count = Math.min(Math.max(Number(request.count) || 1, 1), MAX_IMAGES);
-  const model = request.model || process.env.VISUAL_OPENAI_MODEL || DEFAULT_OPENAI_MODEL;
   const references = Array.isArray(request.references) ? request.references : [];
   const tier = resolveQuality(request.quality);
+  // An explicit request.model, or the site-wide VISUAL_OPENAI_MODEL override, wins outright —
+  // this only decides the FALLBACK, and it decides it by what's actually being asked for
+  // (an edit or a fresh generation), not by the draft/final quality tier: a final-quality
+  // generation with no reference is still speed-first work, and a draft edit still wants the
+  // model that won't wander from the reference.
+  const model = request.model || process.env.VISUAL_OPENAI_MODEL
+    || (references.length ? DEFAULT_OPENAI_EDIT_MODEL : DEFAULT_OPENAI_DRAFT_MODEL);
 
   // WITH references this is an EDIT, not a generation — a different endpoint, and the one that
   // matters here. Working from a reference is how this team actually makes images: a base
@@ -135,9 +148,12 @@ async function generateWithOpenAI(request, deps = {}) {
     form.append("size", resolveSize(request.size));
     form.append("quality", tier.quality);
     form.append("output_format", tier.output_format);
-    // GPT Image models before v2 default to lower reference fidelity. This is an editing
-    // product, so preserving the supplied pixels is worth the additional input-image cost.
-    // v2 and later reject this switch because high fidelity is automatic there.
+    // gpt-image-1 defaults to lower reference fidelity, so this asks for the higher tier
+    // explicitly — worth the added input-image cost on an editing product. Left off for every
+    // other model on purpose, including the 2.5 line now default above: stronger reference
+    // fidelity is described as built into Sunburst and Flare rather than a separate switch, and
+    // sending a parameter a model doesn't expect is a 400 waiting to happen. Confirm against a
+    // live 2.5 response before ever widening this regex.
     if (/^gpt-image-1(?:$|[.-])/.test(model)) form.append("input_fidelity", "high");
     const resolvedReferences = [];
     for (const reference of references) resolvedReferences.push(await referenceForProvider(reference, deps));
@@ -279,4 +295,5 @@ async function generateImages(request, deps = {}) {
 module.exports = {
   generateImages, listProviders, resolveSize, resolveQuality, decodeDataUrl, decodeReference, classifyOpenAIFailure,
   SIZES, QUALITY_MODES, MAX_IMAGES, MAX_REFERENCES, MAX_REFERENCE_BYTES, RETRY_DELAY_MS, PROVIDERS,
+  DEFAULT_OPENAI_DRAFT_MODEL, DEFAULT_OPENAI_EDIT_MODEL,
 };
