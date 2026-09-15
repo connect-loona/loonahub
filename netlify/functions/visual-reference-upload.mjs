@@ -3,7 +3,7 @@
 // expensive model call starts.
 import crypto from "node:crypto";
 import chats from "./lib/strategy/visual-chats.js";
-import assets from "./lib/strategy/visual-assets.js";
+import assets from "./_shared/visual-blob-store.mjs";
 import { authorizeVisualRequest, json } from "./_shared/visual-auth.mjs";
 
 export default async function uploadReference(request) {

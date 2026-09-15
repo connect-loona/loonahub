@@ -1,6 +1,6 @@
 // Authenticated, streaming delivery for durable Visual Studio images. The chat loads small
 // records from Firebase and asks for the image only when it is actually visible.
-import assets from "./lib/strategy/visual-assets.js";
+import assets from "./_shared/visual-blob-store.mjs";
 import { authorizeVisualRequest, json } from "./_shared/visual-auth.mjs";
 
 export default async function visualAsset(request) {

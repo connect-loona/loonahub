@@ -4,6 +4,7 @@
 // Request into the Lambda-style event it expects, and its response back again.
 // See _legacy/README.md for why this wrapper exists.
 import { withLambda } from "@netlify/aws-lambda-compat";
+import "./_shared/visual-blob-store.mjs";
 import legacy from "./_legacy/visual-qc.js";
 
 export default withLambda(legacy.handler);

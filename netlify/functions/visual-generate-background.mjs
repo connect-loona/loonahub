@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import generation from "./_legacy/visual-generate.js";
 import auth from "./lib/strategy/auth.js";
 import visualJobs from "./lib/strategy/visual-jobs.js";
-import visualAssets from "./lib/strategy/visual-assets.js";
+import visualAssets from "./_shared/visual-blob-store.mjs";
 import magnific from "./lib/strategy/magnific-provider.js";
 import visualMemory from "./lib/strategy/visual-memory.js";
 import visualChats from "./lib/strategy/visual-chats.js";
