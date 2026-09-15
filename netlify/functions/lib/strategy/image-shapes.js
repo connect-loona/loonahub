@@ -132,10 +132,18 @@ function promptForShape(prompt, size) {
 // rather than an exception thrown — the wrong shape is a problem, but a lost image is a worse
 // one, and `cropped: false` plus a reason is how the caller can say so.
 async function cropToShape(buffer, contentType, size, deps = {}) {
-  const shape = shapeFor(size);
+  const asIs = (reason) => ({ buffer, contentType, width: null, height: null, cropped: false, reason });
+  // Resolving the shape is inside the guarantee, not before it. shapeFor throws on an unknown
+  // shape — correct when validating a request, fatal here, because by this point the image has
+  // been generated and paid for and throwing would discard it.
+  let shape;
+  try {
+    shape = shapeFor(size);
+  } catch (error) {
+    return asIs(`Could not work out the shape to crop to: ${error.message}`);
+  }
   const [ratioW, ratioH] = shape.ratio;
   const read = deps.readImage || defaultReadImage;
-  const asIs = (reason) => ({ buffer, contentType, width: null, height: null, cropped: false, reason });
   let image;
   try {
     image = await read(buffer);

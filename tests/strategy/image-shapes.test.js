@@ -119,6 +119,26 @@ const deps = (w, h) => ({ readImage: async () => fakeImage(w, h) });
     unreadable.cropped === false && unreadable.buffer.toString() === "not an image");
   check("with the decoder's own complaint recorded", /unsupported format/.test(unreadable.reason || ""), unreadable.reason);
 
+  // An unknown shape is a hard error when a REQUEST is being validated, and must not be one
+  // here: resolving it happens after the image exists, so throwing would discard a paid image
+  // over a bad string.
+  const unknownShape = await cropToShape(Buffer.from("real bytes"), "image/png", "panorama", deps(1024, 1536));
+  check("an unknown shape at crop time keeps the image rather than throwing",
+    unknownShape.cropped === false && unknownShape.buffer.toString() === "real bytes", unknownShape);
+  check("and explains itself", /Could not work out the shape/.test(unknownShape.reason || ""), unknownShape.reason);
+
+  // The crop stage as a whole: whatever goes wrong, bytes come back.
+  for (const [name, badDeps] of [
+    ["a decoder that returns nothing", { readImage: async () => ({}) }],
+    ["a decoder that reports zero size", { readImage: async () => ({ width: 0, height: 0 }) }],
+    ["a crop that throws mid-encode", { readImage: async () => ({ width: 1024, height: 1536, crop: async () => { throw new Error("out of memory"); } }) }],
+  ]) {
+    const survived = await cropToShape(Buffer.from("payload"), "image/png", "9x16", badDeps);
+    check(`${name} still yields the original image`,
+      survived.buffer.toString() === "payload" && survived.cropped === false, survived);
+    check(`${name} says why`, Boolean(survived.reason), survived.reason);
+  }
+
   // ---- The real decoder, on real bytes ----
   // Everything above runs on injected maths. This runs the path that actually ships: jimp,
   // decoding and re-encoding genuine image bytes. Without it the crop could be exactly right

@@ -206,11 +206,20 @@ async function preserveGeneratedImages(images, context, deps = {}) {
     let cropped = false;
     let cropReason = null;
     if (context && context.shape) {
-      const result = await cropToShape(buffer, contentType, context.shape, deps);
-      buffer = result.buffer;
-      contentType = result.contentType;
-      cropped = result.cropped;
-      cropReason = result.reason || null;
+      // THE IMAGE ALWAYS SURVIVES THE CROP. cropToShape is written not to throw, and this
+      // catch is the second lock on the same door: by this point the generation has been
+      // waited on for up to ninety seconds and billed, and anything thrown here would escape
+      // into the background worker's own catch, mark the whole job failed, and discard the one
+      // copy of the image. A wrong-shaped image is a complaint; a lost one is unrecoverable.
+      try {
+        const result = await cropToShape(buffer, contentType, context.shape, deps);
+        buffer = result.buffer;
+        contentType = result.contentType;
+        cropped = result.cropped;
+        cropReason = result.reason || null;
+      } catch (error) {
+        cropReason = `Kept the original frame — cropping failed: ${error.message}`;
+      }
     }
     const asset = await saveBuffer({ ...context, buffer, contentType, kind: "generations", index }, deps);
     // A crop that couldn't happen rides along as a warning next to the image rather than
