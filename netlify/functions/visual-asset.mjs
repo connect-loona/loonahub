@@ -11,7 +11,7 @@ export default async function visualAsset(request) {
   // Resolved through visual-assets rather than calling getStore here, so there is one place
   // that decides where image bytes live — and so this endpoint can run outside Netlify, which
   // is what makes its auth, traversal and content-type behaviour testable at all.
-  const store = assets.storeFor();
+  const store = await assets.storeFor();
   const [data, result] = await Promise.all([store.get(key, { type: "stream" }), store.getMetadata(key)]);
   if (!data) return json({ error: "Image not found" }, 404);
   const metadata = (result && result.metadata) || {};

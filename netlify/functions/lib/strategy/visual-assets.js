@@ -112,13 +112,40 @@ function localStore(root) {
   };
 }
 
-function storeFor(deps = {}) {
+// ASYNC, and via import() rather than require(), for a reason that cost production a morning.
+//
+// `require("@netlify/blobs")` failed in every deployed function that touched image bytes:
+//
+//   Cannot find module '@netlify/blobs'
+//   Require stack: - /var/task/visual-reference-upload.mjs
+//
+// Netlify does not bundle @netlify/blobs into a Functions v2 deploy — it is provided by the
+// runtime, as an ES module. A CJS `require` for it therefore resolves against the function's
+// own node_modules, which does not contain it, and throws. Nothing catches that, so uploading
+// a reference and storing a generated image both died at the moment they reached the store.
+//
+// A dynamic import() resolves the runtime's ESM copy correctly, and still works unchanged if a
+// bundler decides to inline the package instead — so this is right either way rather than right
+// only for the bundling we happen to get today.
+//
+// The cost is that this function is now async. Its three call sites were all already inside
+// async functions, so nothing above had to change shape.
+//
+// Still lazy: the pure helpers and the unit tests stay usable outside a Netlify runtime, and
+// both escape hatches above (an injected store, or VISUAL_ASSET_LOCAL_DIR) return before the
+// import is ever attempted.
+async function storeFor(deps = {}) {
   if (deps.store) return deps.store;
   const local = process.env.VISUAL_ASSET_LOCAL_DIR;
   if (local) return localStore(local);
-  // Required lazily so the pure helpers and existing unit tests remain usable outside a
-  // Netlify runtime. A real write still fails loudly if Blobs itself is unavailable.
-  const { getStore } = require("@netlify/blobs");
+  let getStore;
+  try {
+    ({ getStore } = await import("@netlify/blobs"));
+  } catch (error) {
+    // Say which capability is missing rather than leaking a bare module-resolution error at
+    // whoever is trying to upload a reference.
+    throw new Error(`Durable image storage is unavailable in this environment: ${error.message}`);
+  }
   return getStore({ name: STORE_NAME, consistency: "strong" });
 }
 
@@ -169,7 +196,8 @@ async function saveBuffer({ buffer, contentType, brandId, chatId, generationId, 
     safePart(kind, "asset"), safePart(generationId, "pending"),
     `${String(index || 0).padStart(2, "0")}-${digest}.${extensionFor(contentType)}`,
   ].join("/");
-  await storeFor(deps).set(key, buffer, {
+  const store = await storeFor(deps);
+  await store.set(key, buffer, {
     metadata: {
       contentType, brandId, chatId: chatId || null, generationId: generationId || null,
       kind: kind || "asset", filename: filename || null, role: role || null,
@@ -233,7 +261,7 @@ async function preserveGeneratedImages(images, context, deps = {}) {
 
 async function loadAsset(key, deps = {}) {
   if (!key || !String(key).startsWith("brands/")) throw new Error("Invalid visual asset key.");
-  const store = storeFor(deps);
+  const store = await storeFor(deps);
   const [data, result] = await Promise.all([
     store.get(String(key), { type: "arrayBuffer" }),
     store.getMetadata(String(key)),
