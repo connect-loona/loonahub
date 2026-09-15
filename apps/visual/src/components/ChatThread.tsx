@@ -13,8 +13,6 @@
 import { useState } from "react";
 import type { Generation } from "../lib/types";
 
-const PICK_SIGNALS = ["Product is accurate", "Strong composition", "On-brand colour", "Natural lighting", "Client-ready"];
-
 function when(iso: string): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
@@ -30,9 +28,6 @@ function Round({ generation, onPick, onUseAsReference, onSuggestion, onReview, o
 }) {
   const images = generation.images || [];
   const picked = generation.pickedIndex;
-  const [feedbackFor, setFeedbackFor] = useState<number | null>(null);
-  const [tags, setTags] = useState<string[]>([]);
-  const [note, setNote] = useState("");
   const [reviewing, setReviewing] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [enhancing, setEnhancing] = useState<number | null>(null);
@@ -93,14 +88,10 @@ function Round({ generation, onPick, onUseAsReference, onSuggestion, onReview, o
                   ? <img src={image.url} alt={`Option ${i + 1} for: ${generation.prompt}`} loading="lazy" />
                   : <div className="vs-image-missing">No image returned</div>}
                 <figcaption>
-                  {/* "Use this" opens the panel and records NOTHING. Recording here as well as
-                      on Save wrote the pick twice — once bare, once with the tags — and Cancel
-                      still left the bare one behind, so "I changed my mind" silently taught the
-                      brand's memory the wrong take. The write happens on Save, once. */}
                   {picked === i ? (
                     <span className="vs-picked-flag">✓ Chosen{generation.pickedBy ? ` by ${generation.pickedBy}` : ""}</span>
                   ) : (
-                    <button type="button" onClick={() => { setFeedbackFor(i); setTags([]); setNote(""); }}>Use this</button>
+                    <button type="button" onClick={() => onPick(generation, i)}>Use this</button>
                   )}
                   {image.url && (
                     <>
@@ -135,23 +126,6 @@ function Round({ generation, onPick, onUseAsReference, onSuggestion, onReview, o
                 </figcaption>
               </figure>
             ))}
-          </div>
-        )}
-
-        {feedbackFor !== null && (
-          <div className="vs-feedback">
-            {/* "Choosing" rather than "Chosen": nothing is recorded until Save, and saying
-                otherwise would make Cancel read like it undoes something. */}
-            <strong>Choosing take {feedbackFor + 1}. Why does it work?</strong>
-            <p>This becomes evidence Mani can reuse, not just a thumbs-up.</p>
-            <div className="vs-feedback-tags">
-              {PICK_SIGNALS.map((tag) => <button key={tag} type="button" className={tags.includes(tag) ? "is-active" : ""} onClick={() => setTags((old) => old.includes(tag) ? old.filter((x) => x !== tag) : old.concat(tag))}>{tag}</button>)}
-            </div>
-            <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional: what should Mani remember?" />
-            <div className="vs-feedback-actions">
-              <button type="button" onClick={() => setFeedbackFor(null)}>Cancel</button>
-              <button type="button" className="is-primary" onClick={() => { onPick(generation, feedbackFor, note, tags); setFeedbackFor(null); }}>Save choice</button>
-            </div>
           </div>
         )}
 

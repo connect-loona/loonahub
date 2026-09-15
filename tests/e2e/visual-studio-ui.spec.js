@@ -164,16 +164,9 @@ const HOUR = 60 * 60 * 1000;
   check("an un-picked round offers a choice on each take", (await useButtons.count()) === 2, await useButtons.count());
   await useButtons.first().click();
 
-  // Choosing is now two steps, and deliberately so. "Use this" opens the panel and records
-  // NOTHING; the write happens once, on Save. Recording on both wrote the pick twice — bare,
-  // then again with the tags — and Cancel left the bare one behind, so changing your mind
-  // silently taught the brand's memory a take somebody had rejected.
-  await waitFor(async () => (await page.locator(".vs-feedback").count()) === 1 || null, { label: "the reasons panel opens" });
-  const beforeSave = (await req("GET", `${RTDB_URL}/strategy_visual/rro-foods/gen-1.json`)).body;
-  check("opening the panel records nothing yet",
-    beforeSave.pickedIndex === null || beforeSave.pickedIndex === undefined, beforeSave.pickedIndex);
-
-  await page.locator('.vs-feedback button:text("Save choice")').click();
+  // "Use this" is now the whole action — one click records the pick, with no reasons panel in
+  // between. The panel used to ask for tags and a note before the write happened, which was
+  // confusing more than it was useful; picking is a single unambiguous signal on its own.
   // One flag, on the take just chosen. The other round on screen is expired, so it renders no
   // images at all and therefore carries no flag of its own.
   await waitFor(async () => (await page.locator(".vs-picked-flag").count()) === 1 || null, { label: "pick registers" });
@@ -330,6 +323,12 @@ const HOUR = 60 * 60 * 1000;
   check("and it says the studio's own rounds are part of what he reads",
     /including every round made here/.test(await page.locator(".vs-mani").textContent()),
     (await page.locator(".vs-mani").textContent()).slice(0, 200));
+
+  // The memory panel is a drawer now, not a column that's always on screen — opened from the
+  // "Mani" button in the header, the same on-demand pattern as API usage.
+  await page.locator('.vs-header-tool:text("Mani")').click();
+  await waitFor(async () => (await page.locator(".vs-memory-drawer.is-open").count()) === 1 || null,
+    { label: "the memory drawer opens" });
 
   await page.locator(".vs-mani-input").fill("Have we shot their villas at blue hour before?");
   await page.locator(".vs-mani-ask").click();
