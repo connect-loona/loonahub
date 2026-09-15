@@ -96,21 +96,18 @@ function Round({ generation, onPick, onUseAsReference, onSuggestion, onReview, o
                   {image.url && (
                     <>
                       {/* Carrying a take back up as the next reference is the iteration loop —
-                          "now make the table warmer" without re-uploading anything.
-                          It needs the stored image, though: rounds made before Visual Studio
-                          kept its own copies have only a provider URL that has long since
-                          expired, and nothing to send a model. Offering the button there fails
-                          at send time with "no longer available to upload", which reads like a
-                          bug. Say why instead. */}
-                      {image.assetKey ? (
-                        <button type="button" className="vs-useref" onClick={() => onUseAsReference(generation, i)}>
-                          Build on this
-                        </button>
-                      ) : (
-                        <span className="vs-useref-unavailable" title="This round was made before Visual Studio kept its own copies of generated images.">
-                          Re-upload to build on this
-                        </span>
-                      )}
+                          "now make the table warmer" without re-uploading anything, and it's
+                          the only way back into a round once it's already been picked (the
+                          pick button above becomes static "Chosen" text). This used to require
+                          an assetKey — a round whose image was never durably saved had no way
+                          back in at all, silently or otherwise. carryForward now falls back to
+                          re-uploading the image's own bytes when there's no saved copy, so the
+                          button stays offered here; the rare case where even that fails (a
+                          genuinely dead provider URL from before durable storage existed) still
+                          surfaces as a clear error at send time rather than hiding the option. */}
+                      <button type="button" className="vs-useref" onClick={() => onUseAsReference(generation, i)}>
+                        Build on this
+                      </button>
                       {image.assetKey && generation.operation !== "magnific_precision" && (
                         <button type="button" className="vs-useref" disabled={enhancing !== null} onClick={async () => {
                           setEnhancing(i); setReviewError(null);

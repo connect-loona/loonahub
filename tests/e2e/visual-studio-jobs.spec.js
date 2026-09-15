@@ -70,6 +70,11 @@ const asUser = async (page) => page.evaluate(() => {
 
   await waitFor(async () => (await page.locator(".vs-round").count()) > 0 || null, { label: "the round lands", timeoutMs: 30000 });
   check("the finished round appears in the thread", (await page.locator(".vs-round").count()) === 1);
+  // The words somebody actually typed have to show up the instant the round lands, not only
+  // after a refresh re-reads it from storage — the generate response itself has to carry them.
+  check("the prompt just typed is shown immediately, not just after a reload",
+    (await page.locator(".vs-ask p").first().textContent()) === "Primio bottle on a warm marble counter",
+    await page.locator(".vs-ask p").first().textContent());
 
   const finishedJobs = (await req("GET", `${RTDB_URL}/visual_jobs.json`)).body || {};
   check("and the job is marked succeeded", Object.values(finishedJobs)[0].status === "succeeded",

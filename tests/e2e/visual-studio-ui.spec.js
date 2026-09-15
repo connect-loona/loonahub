@@ -71,8 +71,8 @@ const HOUR = 60 * 60 * 1000;
       pickedIndex: null,
     },
     // A round from before durable storage whose preview is still within its hour: the image
-    // renders, but there is nothing stored to send a model, so "Build on this" must explain
-    // itself rather than fail at send time with "no longer available to upload".
+    // renders, and there is nothing stored to send a model — but "Build on this" still works,
+    // by re-uploading the image's own base64 bytes rather than requiring a saved copy.
     "gen-legacy": {
       chatId: "chat-rro-1", prompt: "A round from before images were kept",
       provider: "openai", actor: "Anjali", createdAt: fresh,
@@ -220,10 +220,15 @@ const HOUR = 60 * 60 * 1000;
   // wrong one the day a third button picks up the same class.
   const buildOnThis = marbleRound.locator(".vs-useref", { hasText: "Build on this" });
   check("every stored take offers to be built on", (await buildOnThis.count()) === 2, await buildOnThis.count());
-  // A round made before Visual Studio kept its own copies has no bytes to send, so the button
-  // is replaced by an explanation rather than left to fail when somebody presses Generate.
-  check("a round with no stored image says why it can't be built on instead",
-    (await page.locator(".vs-useref-unavailable").count()) === 1, await page.locator(".vs-useref-unavailable").count());
+  // A round made before Visual Studio kept its own copies has no assetKey, but the base64 data
+  // is still right there in the image — "Build on this" is offered here too rather than
+  // silently unavailable, because carrying it forward can re-upload those bytes directly.
+  const legacyRound = page.locator(".vs-round", { hasText: "A round from before images were kept" });
+  check("a round with no stored copy still offers to be built on",
+    (await legacyRound.locator(".vs-useref", { hasText: "Build on this" }).count()) === 1,
+    await legacyRound.locator(".vs-useref", { hasText: "Build on this" }).count());
+  check("and no longer needs a disabled explanation instead",
+    (await page.locator(".vs-useref-unavailable").count()) === 0, await page.locator(".vs-useref-unavailable").count());
   await buildOnThis.first().click();
   await waitFor(async () => (await page.locator(".vs-ref").count()) === 1 || null, { label: "result becomes a reference" });
   check("the composer now carries that image as a reference", (await page.locator(".vs-ref img").count()) === 1);

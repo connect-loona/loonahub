@@ -244,7 +244,7 @@ exports.handler = async (event) => {
     statusCode: 200,
     headers: cors(),
     body: JSON.stringify({
-      id, brandId, chatId, provider: result.provider, model: result.model, createdAt,
+      id, brandId, chatId, prompt, provider: result.provider, model: result.model, createdAt,
       images: result.images,
       // So the UI can show exactly which rules shaped this image rather than asserting it.
       appliedRules: rules.applied,
