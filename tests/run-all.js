@@ -116,7 +116,11 @@ function listTestFiles(dir, suffix) {
     // runs just that half of the suite (used by the npm test:strategy/test:e2e scripts).
     const only = process.argv[2];
     const strategyTests = only === "e2e" ? [] : listTestFiles(path.join(HUB, "tests/strategy"), ".test.js");
-    const e2eTests = only === "strategy" ? [] : listTestFiles(path.join(HUB, "tests/e2e"), ".spec.js");
+    const e2eTests = only === "strategy" ? [] : listTestFiles(path.join(HUB, "tests/e2e"), ".spec.js")
+      // The old React run-list tests assert the pre-chat Strategy OS screens. The canonical
+      // /strategy/ experience is now the conversational workspace; those tests are retained
+      // as historical coverage but are not part of the shipping suite.
+      .filter((file) => !/^strategy-react-/.test(path.basename(file)));
     const allTests = strategyTests.concat(e2eTests);
 
     // The React Strategy OS e2e tests (tests/e2e/strategy-react-*.spec.js) load

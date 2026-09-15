@@ -2,8 +2,8 @@
 // The generated checkpoints remain the source of truth for strategy data; this transcript
 // is the human-friendly history that makes a run reopen like a ChatGPT project.
 "use strict";
-const { fbGet, fbPush } = require("./lib/strategy/firebase");
-const { checkAuthorization } = require("./lib/strategy/auth");
+const { fbGet, fbPush } = require("../lib/strategy/firebase");
+const { checkAuthorization } = require("../lib/strategy/auth");
 
 function cors() {
   return { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type", "Access-Control-Allow-Methods": "POST, OPTIONS", "Content-Type": "application/json" };
