@@ -39,6 +39,10 @@ async function recordGeneration(brandId, round) {
     chatId: round.chatId || null,
     provider: round.provider || "unknown",
     model: round.model || null,
+    // The shape this round was actually made at — never stored before this, so a follow-up had
+    // no way to ask for the same one back except the person remembering to reselect it. See
+    // image-shapes.js for the key; null for anything recorded before shapes existed at all.
+    size: round.size || null,
     operation: round.operation || "generate",
     providerTaskId: round.providerTaskId || null,
     actor: round.actor || "unknown",

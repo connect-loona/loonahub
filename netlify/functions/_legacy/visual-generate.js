@@ -192,6 +192,10 @@ exports.handler = async (event) => {
       chatId,
       provider: result.provider,
       model: result.model,
+      // The normalized key, not whatever the caller sent — shapeKey() collapses a legacy name
+      // like "portrait" to what it actually resolves to (2x3), so a follow-up reading this back
+      // asks for the ratio this image really is, not the ratio a stale label once claimed.
+      size: shapeKey(body.size),
       operation: "generate",
       providerTaskId: result.taskId || null,
       actor: actor.name,

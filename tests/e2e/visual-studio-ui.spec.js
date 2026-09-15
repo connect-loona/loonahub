@@ -51,6 +51,10 @@ const HOUR = 60 * 60 * 1000;
     "gen-1": {
       chatId: "chat-rro-1", prompt: "Primio bottle on a marble counter, warm morning light",
       provider: "openai", model: "gpt-image-1", actor: "Anjali", createdAt: fresh,
+      // A 9:16 final: distinct from the composer's own defaults (4:5 draft), so carrying it
+      // forward via "Build on this" is actually observable rather than a no-op that happens to
+      // match what was already selected.
+      size: "9x16", quality: "final",
       // Asset keys present: this is a round from after Visual Studio began keeping its own
       // copies, which is what makes "Build on this" available on it.
       images: [
@@ -228,6 +232,19 @@ const HOUR = 60 * 60 * 1000;
   // The composer should say it is now editing rather than generating from nothing.
   check("the send button says it is an edit now",
     /Edit/.test(await page.locator(".vs-send").textContent()), await page.locator(".vs-send").textContent());
+
+  // "Build on this" carries the round's shape and quality along with the image — a follow-up
+  // on this 9:16 final shouldn't quietly land back on the composer's own defaults (4:5, draft).
+  const shapeSelect = page.locator("label", { hasText: "Shape" }).locator("select");
+  const qualitySelect = page.locator("label", { hasText: "Quality" }).locator("select");
+  check("the shape carried forward from the round being built on", await shapeSelect.inputValue() === "9x16", await shapeSelect.inputValue());
+  check("and so did the quality", await qualitySelect.inputValue() === "final", await qualitySelect.inputValue());
+
+  // Which specific model made this — necessary now that "ChatGPT" in the picker covers two
+  // real models with genuinely different behaviour, not one model at a fixed quality.
+  check("the round says which model actually made it",
+    /Made with gpt-image-1/.test(await marbleRound.locator(".vs-model").first().textContent()),
+    await marbleRound.locator(".vs-model").first().textContent());
 
   await page.locator(".vs-ref-remove").click();
   await waitFor(async () => (await page.locator(".vs-ref").count()) === 0 || null, { label: "reference removed" });

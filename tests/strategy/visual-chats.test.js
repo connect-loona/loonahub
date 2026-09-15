@@ -214,9 +214,25 @@ const json = (res) => JSON.parse(res.body);
     check("and no irrelevant product badges are stored alongside it",
       (casaRow.appliedRules || []).length === 0, casaRow.appliedRules);
     check("the round is tied to its chat", casaRow.chatId === casaChat, casaRow.chatId);
+    // Not null: a caller that names no shape still generates AT a real one — the app's default,
+    // 4:5 — so recording that is honest about what actually happened, not a guess dressed up
+    // as a choice. (recordGeneration itself stores exactly null when given no size at all; this
+    // is the endpoint always resolving one before recordGeneration ever sees it.)
+    check("a round sent with no shape records the app's default shape, not nothing",
+      casaRow.size === "4x5", casaRow.size);
 
     const touched = await resolveChat(casaChat);
     check("the chat's activity moves when a round lands in it", touched.generationCount === 1, touched.generationCount);
+
+    // Sent through the real endpoint, not recordGeneration directly, so this is what a browser
+    // actually gets back: the shape it asked for, normalized to a real key even when it used a
+    // retired legacy name. A second round on purpose, and after the count check above, so it
+    // doesn't skew what that check is actually verifying.
+    const shaped = await call(generateFn, { chatId: casaChat, prompt: "a wide banner shot", size: "landscape" });
+    check("a round succeeds with a legacy shape name", shaped.statusCode === 200, shaped.body);
+    const shapedRow = Object.values(await fbGet("strategy_visual/casa-waters")).find((r) => /wide banner/.test(r.prompt || ""));
+    check("the legacy name is normalized to the ratio it actually produces, not stored verbatim",
+      shapedRow.size === "3x2", shapedRow.size);
 
     // ---- References reach the provider, and their ROLES reach Loona Brain ----
     // The bytes are deliberately never stored: Visual Studio hosts nothing. What has to

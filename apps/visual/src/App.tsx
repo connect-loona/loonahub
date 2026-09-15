@@ -47,6 +47,9 @@ export function App() {
   const [retryable, setRetryable] = useState(false);
   const [suggestedPrompt, setSuggestedPrompt] = useState<string | null>(null);
   const [parent, setParent] = useState<{ generationId: string; imageIndex: number } | null>(null);
+  // Carried into the composer alongside a reference — see carryForward. Either field may be
+  // undefined (an older round recorded no shape), and Composer applies only what's present.
+  const [seedShape, setSeedShape] = useState<{ size?: string | null; quality?: string | null } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [usageOpen, setUsageOpen] = useState(false);
@@ -187,7 +190,10 @@ export function App() {
   // Carrying a generated image back up as the next reference IS the iteration loop — it's how
   // "now make the table warmer" works without re-uploading anything, and it costs nothing
   // because the image is already in the browser.
-  function useAsReference(generation: Generation, index: number) {
+  // "Build on this" carries more than the image now: its round becomes the parent for
+  // provenance, and its shape and quality ride along too, so a follow-up on a 9:16 final
+  // doesn't quietly land back on the composer's own default of 4:5 draft.
+  function carryForward(generation: Generation, index: number) {
     const image = (generation.images || [])[index];
     if (!image || !image.url) return;
     setReferences((prev) => (prev.length >= 4 ? prev : [...prev, {
@@ -198,8 +204,10 @@ export function App() {
       contentType: image.contentType || undefined,
     }]));
     setParent({ generationId: generation.id, imageIndex: index });
+    setSeedShape({ size: generation.size, quality: generation.quality });
     setNotice(null);
   }
+  const useAsReference = carryForward;
 
   async function commitRename(id: string) {
     const title = renameDraft.trim();
@@ -283,6 +291,14 @@ export function App() {
       setGenerations((prev) => prev.map((g) => (g.id === generation.id
         ? { ...g, pickedIndex: index, pickedBy: actor, pickedAt: new Date().toISOString() }
         : g)));
+      // Deliberately NOT carried forward automatically here. It looks tempting — a pick is an
+      // unambiguous "this is the one" signal — but references stack (up to 4, each with its own
+      // role), while a pick is a single choice, and the two collide the moment someone picks
+      // one round and then explicitly builds on a different one: do they now have one reference
+      // or two? That's a real product decision, not a safe default for a small pass, so picking
+      // stays exactly what it was — a record of taste — and carrying an image forward stays an
+      // explicit "Build on this" (below), which now also brings the round's shape and quality
+      // with it.
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -440,6 +456,7 @@ export function App() {
         <Composer
           onSend={send} busy={busy} disabled={!brand} references={references} setReferences={setReferences}
           suggestedPrompt={suggestedPrompt} onSuggestionUsed={() => setSuggestedPrompt(null)}
+          seedShape={seedShape} onSeedUsed={() => setSeedShape(null)}
         />
       </main>
 

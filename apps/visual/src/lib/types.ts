@@ -71,6 +71,10 @@ export interface Generation {
   // "draft" or "final" — a soft-looking image is explained by this rather than looking like
   // the model underperforming.
   quality?: "draft" | "final";
+  // The shape key this round was made at — matches a key in Composer's SIZES / the functions'
+  // image-shapes.js. Absent on anything recorded before shapes existed. Read back to carry the
+  // same shape into a follow-up rather than making someone reselect it every round.
+  size?: string | null;
   createdAt: string;
   // Provider image URLs expire (OpenAI's in about an hour). The backend says plainly whether
   // a preview is still worth rendering, so this shows an honest "expired" state rather than

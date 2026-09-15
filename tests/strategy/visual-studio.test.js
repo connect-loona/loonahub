@@ -22,7 +22,10 @@ const {
   recordGeneration, recordPick, loadVisualHistory, visualHistoryToPromptText,
   isPreviewLive, PREVIEW_TTL_MS,
 } = require(path.join(HUB, "netlify/functions/lib/strategy/visual-memory"));
-const { generateImages, resolveSize, resolveQuality, listProviders, decodeDataUrl, classifyOpenAIFailure, QUALITY_MODES, MAX_IMAGES, MAX_REFERENCES, MAX_REFERENCE_BYTES } = require(path.join(HUB, "netlify/functions/lib/strategy/image-providers"));
+const {
+  generateImages, resolveSize, resolveQuality, listProviders, decodeDataUrl, classifyOpenAIFailure, QUALITY_MODES,
+  MAX_IMAGES, MAX_REFERENCES, MAX_REFERENCE_BYTES, DEFAULT_OPENAI_DRAFT_MODEL, DEFAULT_OPENAI_EDIT_MODEL,
+} = require(path.join(HUB, "netlify/functions/lib/strategy/image-providers"));
 const crypto = require("crypto");
 
 process.env.BASIC_AUTH_CREDENTIALS = "gokul:supersecret";
@@ -145,10 +148,12 @@ function okFetch(payload) {
     /MB — the limit is/.test(tooBig || ""), tooBig);
 
   // With references this must hit the EDIT endpoint, not generations — a different URL, and
-  // multipart rather than JSON.
+  // multipart rather than JSON. Pinned to gpt-image-1 explicitly: this is testing what that
+  // model needs (the edits endpoint, multipart, input_fidelity), not what the default happens
+  // to be today — see the model-selection block below for that.
   let editCall = null;
   const edited = await generateImages(
-    { prompt: "keep the bottle, warmer table", count: 2, references: [{ dataUrl: PIXEL, role: "Product identity" }] },
+    { prompt: "keep the bottle, warmer table", count: 2, model: "gpt-image-1", references: [{ dataUrl: PIXEL, role: "Product identity" }] },
     { fetch: async (url, options) => { editCall = { url, options }; return { ok: true, status: 200, json: async () => ({ data: [{ b64_json: "QUJD" }] }) }; } },
   );
   check("a round with references goes to the edits endpoint", /\/images\/edits$/.test(editCall.url), editCall.url);
@@ -172,6 +177,43 @@ function okFetch(payload) {
   await generateImages({ prompt: "a bottle", count: 1 },
     { fetch: async (url, options) => { plainCall = { url, options }; return { ok: true, status: 200, json: async () => ({ data: [{ url: "https://x/a.png" }] }) }; } });
   check("a round with no references stays on the generations endpoint", /\/images\/generations$/.test(plainCall.url), plainCall.url);
+
+  // ---- Which real model answers, when nothing pins one ----
+  // OpenAI positions these the same way this app already splits its own endpoints: Sunburst
+  // for "premium visual workflows that benefit from tighter control across edits", Flare as
+  // the fast default otherwise. references.length is exactly that split already being made —
+  // this just stops throwing the distinction away once it's decided.
+  check("a fresh generation with no reference defaults to the fast model",
+    JSON.parse(plainCall.options.body).model === DEFAULT_OPENAI_DRAFT_MODEL, JSON.parse(plainCall.options.body).model);
+
+  let defaultEditCall = null;
+  await generateImages(
+    { prompt: "x", references: [{ dataUrl: PIXEL }] },
+    { fetch: async (url, options) => { defaultEditCall = { url, options }; return { ok: true, status: 200, json: async () => ({ data: [{ b64_json: "QQ==" }] }) }; } },
+  );
+  check("an edit with no pinned model defaults to the precision one",
+    defaultEditCall.options.body.get("model") === DEFAULT_OPENAI_EDIT_MODEL, defaultEditCall.options.body.get("model"));
+  // input_fidelity is a gpt-image-1 knob; the 2.5 line describes fidelity as built in rather
+  // than a separate switch, and sending a parameter a model doesn't expect risks a 400. So the
+  // new default must NOT carry it, even though the model="gpt-image-1" case above does.
+  check("but does not send gpt-image-1's input_fidelity switch to it",
+    defaultEditCall.options.body.get("input_fidelity") === null, defaultEditCall.options.body.get("input_fidelity"));
+
+  // An explicit model, or the site-wide env override, still wins outright over either default —
+  // this is a fallback, not a forced choice.
+  let pinnedCall = null;
+  await generateImages({ prompt: "x", model: "gpt-image-1", references: [{ dataUrl: PIXEL }] },
+    { fetch: async (url, options) => { pinnedCall = { url, options }; return { ok: true, status: 200, json: async () => ({ data: [{ b64_json: "QQ==" }] }) }; } });
+  check("an explicit model on an edit overrides the new default",
+    pinnedCall.options.body.get("model") === "gpt-image-1", pinnedCall.options.body.get("model"));
+
+  process.env.VISUAL_OPENAI_MODEL = "gpt-image-1";
+  let envCall = null;
+  await generateImages({ prompt: "x", count: 1 },
+    { fetch: async (url, options) => { envCall = { url, options }; return { ok: true, status: 200, json: async () => ({ data: [{ url: "https://x/a.png" }] }) }; } });
+  check("the site-wide env override outranks the new default too",
+    JSON.parse(envCall.options.body).model === "gpt-image-1", JSON.parse(envCall.options.body).model);
+  delete process.env.VISUAL_OPENAI_MODEL;
 
   let tooManyRefs = null;
   try {
@@ -275,7 +317,7 @@ function okFetch(payload) {
   // ---- recordGeneration: written before anybody picks ----
   const { id } = await recordGeneration("rro", {
     prompt: "Primio bottle on a marble counter, warm morning light",
-    provider: "openai", model: "gpt-image-1", actor: "Anjali",
+    provider: "openai", model: "gpt-image-1", actor: "Anjali", size: "9x16",
     referenceCount: 2, referenceNote: "kept the label exactly",
     images: [{ url: "https://example.com/1.png" }, { url: "https://example.com/2.png" }],
   });
@@ -286,6 +328,17 @@ function okFetch(payload) {
   check("what they started from is kept", stored.referenceCount === 2 && /kept the label/.test(stored.referenceNote), stored);
   check("an unpicked round is recorded anyway — a rejected attempt is still evidence",
     stored.pickedIndex === null, stored.pickedIndex);
+  // The shape a round was made at, so a follow-up can read it back and ask for the same one —
+  // never stored before this, so a designer had no way to continue in the same shape except
+  // remembering to reselect it every single round.
+  check("the shape it was made at is kept", stored.size === "9x16", stored.size);
+  // A brand nobody else touches in this file, deliberately: "rro" is used below by tests that
+  // assume its history holds exactly one record in a known order (see the preview-expiry
+  // block), and a second record here would silently break that ordering rather than this check.
+  const noShapeGiven = await recordGeneration("rro-shapeless-test", { prompt: "x", provider: "openai", actor: "A", images: [] });
+  check("a round recorded with no shape stores null, not undefined or a guess",
+    (await fbGet(`strategy_visual/rro-shapeless-test/${noShapeGiven.id}`)).size === null,
+    (await fbGet(`strategy_visual/rro-shapeless-test/${noShapeGiven.id}`)).size);
 
   // ---- recordPick: the signal worth the most ----
   const picked = await recordPick("rro", id, { index: 1, actor: "Gokul", note: "cleaner label read" });
