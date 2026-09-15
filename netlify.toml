@@ -16,6 +16,17 @@
   publish = "dist"
   functions = "netlify/functions"
 
+# Pinned, because nothing here pinned it and the build has a hard floor.
+#
+# Both apps build with Vite 8, which requires Node ^20.19 or >=22.12 and fails outright below
+# that. With no .nvmrc, no engines field and no NODE_VERSION, the version was whatever Netlify's
+# default happened to be that day — so the deploy could break without a single line of this
+# repo changing, and the failure would look like a code problem rather than an environment one.
+#
+# 22 is what the suite and both production builds are verified against.
+[build.environment]
+  NODE_VERSION = "22"
+
 # The Strategy rule must come before the general fallback (there isn't one for the legacy
 # Hub — it's plain multi-page static files, not a client-routed SPA, so no /* -> /index.html
 # catch-all exists or should exist here). This one's scoped to exactly /strategy/* so a
