@@ -12,10 +12,19 @@
 import { useEffect, useRef, useState } from "react";
 import type { PendingReference } from "../lib/types";
 
+// Named by ratio, and by the placement the ratio is actually for.
+//
+// These used to be "Portrait (reel, story)", "Square (feed)" and "Landscape (banner)" — which
+// generated 2:3, 1:1 and 3:2. Only the square was honest: a reel is 9:16, not 2:3, and a banner
+// is 16:9, not 3:2. Nothing cropped afterwards, so the wrong shape is what got posted and the
+// platform cropped it however it liked. Keep the ratio in the label so that can't quietly
+// happen again. Must stay in step with SHAPES in netlify/functions/lib/strategy/image-shapes.js.
 const SIZES = [
-  { key: "portrait", label: "Portrait (reel, story)" },
-  { key: "square", label: "Square (feed)" },
-  { key: "landscape", label: "Landscape (banner)" },
+  { key: "9x16", label: "Story / Reel (9:16)" },
+  { key: "4x5", label: "Feed portrait (4:5)" },
+  { key: "3x4", label: "Portrait (3:4)" },
+  { key: "1x1", label: "Square (1:1)" },
+  { key: "16x9", label: "Landscape (16:9)" },
 ];
 
 // Matches MAX_REFERENCES / MAX_REFERENCE_BYTES in image-providers.js. Checked here too so an
@@ -48,7 +57,9 @@ export function Composer({ onSend, busy, disabled, references, setReferences, su
 }) {
   const [prompt, setPrompt] = useState("");
   const [count, setCount] = useState(2);
-  const [size, setSize] = useState("portrait");
+  // 4:5 rather than the story cut: it is the highest-reach feed placement, and it's the one
+  // most rounds here are actually for.
+  const [size, setSize] = useState("4x5");
   // Draft by default, on purpose. Most rounds are somebody working out what they want, and
   // generating four takes at production quality to reject three of them is how this gets both
   // expensive and slow.

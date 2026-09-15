@@ -3,6 +3,7 @@
 "use strict";
 const { ConfigurationError } = require("./errors");
 const { referenceForProvider } = require("./visual-assets");
+const { baseRatioForMagnific, promptForShape } = require("./image-shapes");
 
 const API = "https://api.magnific.com/v1/ai";
 const POLL_MS = 4000;
@@ -10,8 +11,16 @@ const MAX_POLLS = 180; // twelve minutes, inside Netlify background-function lim
 
 function apiKey() { return process.env.MAGNIFIC_API_KEY || ""; }
 function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+// Which of Magnific's own aspect ratios to GENERATE at. The exact shape is reached by cropping
+// afterwards, the same way it is for OpenAI, so only the three ratio names this codebase has
+// actually seen Magnific accept are ever sent.
+//
+// This used to end `|| "square_1_1"`, which meant an unrecognised shape came back silently
+// square. That is the precise failure the provider was written to avoid — a portrait asset
+// delivered square reaches a client before anyone notices, because nothing errored and the
+// image looks fine on its own. An unknown shape is now a loud failure at the shape table.
 function aspectRatio(size) {
-  return ({ square: "square_1_1", portrait: "portrait_2_3", landscape: "standard_3_2" })[size] || "square_1_1";
+  return baseRatioForMagnific(size);
 }
 
 async function magnificRequest(path, options = {}, deps = {}) {
@@ -58,7 +67,7 @@ async function generateWithMystic(request, deps = {}) {
   const structure = references.find((r) => !/style|lighting|colour|color/i.test(r.role || "")) || references[0];
   const style = references.find((r) => /style|lighting|colour|color/i.test(r.role || "") && r !== structure);
   const body = {
-    prompt: request.prompt,
+    prompt: promptForShape(request.prompt, request.size),
     resolution: request.quality === "final" ? "2k" : "1k",
     aspect_ratio: aspectRatio(request.size),
     model: request.magnificModel || "realism",

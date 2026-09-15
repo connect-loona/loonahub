@@ -47,15 +47,25 @@ function okFetch(payload) {
   await req("PUT", `${RTDB_URL}/strategy_visual.json`, null);
   await req("PUT", `${RTDB_URL}/brands.json`, { rro: { brand: "RRO Foods" } });
 
-  // ---- Sizes are named for what they're for, not in pixels ----
-  check("a named size resolves", resolveSize("portrait") === "1024x1536", resolveSize("portrait"));
-  check("no size means square", resolveSize() === "1024x1024");
-  check("a raw WxH is allowed through so the UI can add presets without a backend change",
-    resolveSize("1200x628") === "1200x628");
+  // ---- resolveSize returns what to GENERATE at, not the final shape ----
+  // gpt-image-1 accepts exactly three sizes, so a 4:5 or 9:16 request generates at the nearest
+  // one and is cropped afterwards (see image-shapes.test.js). This function is only the first
+  // half of that; it answers "what do we ask OpenAI for", never "what shape comes out".
+  check("a shape resolves to the nearest size OpenAI can actually produce",
+    resolveSize("9x16") === "1024x1536", resolveSize("9x16"));
+  check("a legacy stored key still resolves, so old chats re-render",
+    resolveSize("portrait") === "1024x1536", resolveSize("portrait"));
+  check("no size means the app's default shape, 4:5", resolveSize() === "1024x1536", resolveSize());
+  // This used to let a raw WIDTHxHEIGHT through, on the reasoning that the UI could then add
+  // presets without a backend change. It couldn't: OpenAI rejects anything outside its three
+  // sizes, so that escape hatch turned a new preset into a 400 rather than a new shape.
+  let rawError = null;
+  try { resolveSize("1200x628"); } catch (e) { rawError = e.message; }
+  check("a raw WxH is refused, because OpenAI would refuse it too", Boolean(rawError), rawError);
   let sizeError = null;
   try { resolveSize("enormous"); } catch (e) { sizeError = e.message; }
   check("a nonsense size fails loudly instead of silently becoming a square",
-    /Unknown image size/.test(sizeError || ""), sizeError);
+    /Unknown image shape/.test(sizeError || ""), sizeError);
 
   // ---- The provider layer ----
   const providers = listProviders();
@@ -147,7 +157,12 @@ function okFetch(payload) {
     !Object.keys(editCall.options.headers).some((h) => /content-type/i.test(h)), Object.keys(editCall.options.headers));
   check("the reference is attached under image[] — how gpt-image-1 takes more than one",
     editCall.options.body.getAll("image[]").length === 1, editCall.options.body.getAll("image[]").length);
-  check("the prompt travels with it", editCall.options.body.get("prompt") === "keep the bottle, warmer table", editCall.options.body.get("prompt"));
+  // The person's words lead; the shape note is appended to the prompt SENT, never to the one
+  // stored. The model has to know a crop is coming or it composes into edges that get trimmed.
+  check("the prompt travels with it", editCall.options.body.get("prompt").startsWith("keep the bottle, warmer table"),
+    editCall.options.body.get("prompt"));
+  check("and carries the crop the image will be trimmed to",
+    /cropped to exactly \d+:\d+/.test(editCall.options.body.get("prompt")), editCall.options.body.get("prompt"));
   check("an edit still returns usable images", edited.images.length === 1 && /^data:image\/[a-z]+;base64,/.test(edited.images[0].url), edited.images[0].url.slice(0, 40));
 
   // Without references it must stay on the plain generations endpoint.

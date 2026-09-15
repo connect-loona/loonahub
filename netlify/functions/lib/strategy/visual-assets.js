@@ -5,6 +5,7 @@
 // lets a chat grow for years without turning one Firebase read into hundreds of megabytes.
 "use strict";
 const crypto = require("crypto");
+const { cropToShape } = require("./image-shapes");
 
 const STORE_NAME = "loona-visual-assets";
 const MAX_ASSET_BYTES = 5 * 1024 * 1024;
@@ -189,13 +190,43 @@ async function saveBuffer({ buffer, contentType, brandId, chatId, generationId, 
   };
 }
 
+// Both providers land here, which is why the crop to the exact requested shape happens here
+// rather than inside either one. Neither OpenAI nor Magnific can be asked for 4:5 or 9:16
+// directly (see image-shapes.js), so the image arrives at the nearest ratio they do offer and
+// is trimmed to the real one before it is stored — the asset, its recorded dimensions and
+// anything read back later are all the final shape, with no second version to keep straight.
+//
+// context.shape is what was asked for. Its absence means a caller that predates shapes, so the
+// bytes pass through untouched rather than being cropped to a guess.
 async function preserveGeneratedImages(images, context, deps = {}) {
   const saved = [];
   for (let index = 0; index < (images || []).length; index += 1) {
     const source = images[index];
-    const { buffer, contentType } = await bytesForImage(source, deps);
+    let { buffer, contentType } = await bytesForImage(source, deps);
+    let cropped = false;
+    let cropReason = null;
+    if (context && context.shape) {
+      // THE IMAGE ALWAYS SURVIVES THE CROP. cropToShape is written not to throw, and this
+      // catch is the second lock on the same door: by this point the generation has been
+      // waited on for up to ninety seconds and billed, and anything thrown here would escape
+      // into the background worker's own catch, mark the whole job failed, and discard the one
+      // copy of the image. A wrong-shaped image is a complaint; a lost one is unrecoverable.
+      try {
+        const result = await cropToShape(buffer, contentType, context.shape, deps);
+        buffer = result.buffer;
+        contentType = result.contentType;
+        cropped = result.cropped;
+        cropReason = result.reason || null;
+      } catch (error) {
+        cropReason = `Kept the original frame — cropping failed: ${error.message}`;
+      }
+    }
     const asset = await saveBuffer({ ...context, buffer, contentType, kind: "generations", index }, deps);
-    saved.push({ ...asset, revisedPrompt: source.revisedPrompt || null });
+    // A crop that couldn't happen rides along as a warning next to the image rather than
+    // disappearing: the image is still worth having, and whoever is looking at it should know
+    // it isn't the shape they asked for.
+    const warnings = cropReason ? [...(asset.warnings || []), cropReason] : asset.warnings;
+    saved.push({ ...asset, warnings, revisedPrompt: source.revisedPrompt || null, cropped });
   }
   return saved;
 }

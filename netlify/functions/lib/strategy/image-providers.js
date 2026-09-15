@@ -12,6 +12,7 @@
 const { ConfigurationError } = require("./errors");
 const { referenceForProvider } = require("./visual-assets");
 const { apiKey: magnificApiKey, generateWithMystic } = require("./magnific-provider");
+const { baseSizeForOpenAI, promptForShape } = require("./image-shapes");
 
 // Configurable because a gateway or proxy in front of OpenAI is a normal production
 // arrangement — and because it is what lets the whole generation path, job and all, be
@@ -32,8 +33,10 @@ function openaiApiKey() {
   return process.env.OPENAI_API_KEY || "";
 }
 
-// Sizes the team actually needs, named for what they're for rather than in pixels — the point
-// of Visual Studio is that someone making a reel cover shouldn't have to remember 1024x1536.
+// The three sizes gpt-image-1 will actually accept. This is the whole menu — there is no 4:5
+// and no 9:16 to ask for — so the shapes the team picks from are reached by generating at the
+// nearest of these and cropping afterwards. See lib/strategy/image-shapes.js, which owns the
+// ratio table and the crop; this constant is only the provider's own vocabulary.
 const SIZES = {
   square: "1024x1024",
   portrait: "1024x1536",
@@ -59,14 +62,15 @@ function resolveQuality(mode) {
   return chosen;
 }
 
+// The size to GENERATE at for a requested shape — not the shape itself. A 4:5 request generates
+// at 1024x1536 here and is cropped to 1024x1280 after the provider returns.
+//
+// This used to let a raw "WIDTHxHEIGHT" through, on the stated reasoning that the UI could then
+// grow new presets without a backend change. It could not: gpt-image-1 rejects anything outside
+// the three sizes above, so that escape hatch turned a new preset into a 400 rather than a new
+// shape. Shapes now come from one table that knows what each provider can really produce.
 function resolveSize(size) {
-  if (!size) return SIZES.square;
-  if (SIZES[size]) return SIZES[size];
-  // A raw "WIDTHxHEIGHT" is allowed through so the UI can grow new presets without a backend
-  // change, but anything else is a mistake worth failing loudly on rather than silently
-  // substituting a square for.
-  if (/^\d{3,4}x\d{3,4}$/.test(size)) return size;
-  throw new Error(`Unknown image size "${size}". Use one of: ${Object.keys(SIZES).join(", ")}.`);
+  return baseSizeForOpenAI(size);
 }
 
 // A data: URL as the browser sends it, turned into something multipart/form-data can carry.
@@ -126,7 +130,7 @@ async function generateWithOpenAI(request, deps = {}) {
     }
     const form = new FormData();
     form.append("model", model);
-    form.append("prompt", request.prompt);
+    form.append("prompt", promptForShape(request.prompt, request.size));
     form.append("n", String(count));
     form.append("size", resolveSize(request.size));
     form.append("quality", tier.quality);
@@ -153,7 +157,7 @@ async function generateWithOpenAI(request, deps = {}) {
     headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
       model,
-      prompt: request.prompt,
+      prompt: promptForShape(request.prompt, request.size),
       n: count,
       size: resolveSize(request.size),
       quality: tier.quality,
