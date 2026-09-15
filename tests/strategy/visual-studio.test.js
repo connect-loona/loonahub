@@ -157,6 +157,8 @@ function okFetch(payload) {
     !Object.keys(editCall.options.headers).some((h) => /content-type/i.test(h)), Object.keys(editCall.options.headers));
   check("the reference is attached under image[] — how gpt-image-1 takes more than one",
     editCall.options.body.getAll("image[]").length === 1, editCall.options.body.getAll("image[]").length);
+  check("reference edits use high input fidelity on gpt-image-1",
+    editCall.options.body.get("input_fidelity") === "high", editCall.options.body.get("input_fidelity"));
   // The person's words lead; the shape note is appended to the prompt SENT, never to the one
   // stored. The model has to know a crop is coming or it composes into edges that get trimmed.
   check("the prompt travels with it", editCall.options.body.get("prompt").startsWith("keep the bottle, warmer table"),

@@ -14,7 +14,8 @@ process.env.FIREBASE_DB_URL = require("../harness/shared").RTDB_URL;
 const path = require("path");
 const { HUB, check, finish } = require("../harness/shared");
 const {
-  expandPrompt, historyForPrompt, MAX_HISTORY_TURNS, DEFAULT_PROMPT_MODEL,
+  expandPrompt, historyForPrompt, promptForReferenceEdit,
+  MAX_HISTORY_TURNS, DEFAULT_PROMPT_MODEL,
 } = require(path.join(HUB, "netlify/functions/lib/strategy/visual-prompt"));
 
 // The seam production actually uses: instructions in, text out. Deliberately provider-neutral
@@ -57,7 +58,6 @@ function fakeRewriter(log, reply) {
     history,
     brandBrain: "# What we know\n- RRO's approved work is warm and domestic.",
     brandRules: [{ key: "no_label_regeneration", label: "No label regeneration" }],
-    referenceRoles: ["Product identity", ""],
   }, { generateText: fakeRewriter(log) });
 
   check("the prompt is rewritten", result.expanded === true && result.prompt === "A long, specific rewritten prompt.", result);
@@ -66,16 +66,37 @@ function fakeRewriter(log, reply) {
   check("and the conversation it belongs to", /marble counter/.test(sent), sent.slice(0, 200));
   check("and what the brand's memory says", /warm and domestic/.test(sent), sent.slice(0, 200));
   check("and the rules it must not contradict", /No label regeneration/.test(sent), sent.slice(0, 300));
-  check("and what each attached reference is for", /Reference 1: Product identity/.test(sent), sent);
-  check("a reference with no stated role asks the model to infer it rather than dropping it",
-    /Reference 2: \(not specified — infer it\)/.test(sent), sent);
-
   // The instruction that does the actual work: resolving "make the table warmer" into a whole
   // scene, and keeping everything the designer didn't ask to change.
   check("it is told to resolve references to earlier turns", /Resolve every reference to earlier turns/.test(log[0].system), log[0].system.slice(0, 400));
   check("and to carry forward what wasn't asked to change", /they want kept/.test(log[0].system), log[0].system);
   check("and never to contradict the brand's rules", /Never contradict them/.test(log[0].system), log[0].system);
   check("and to output the prompt only, with no preamble", /Output the prompt only/.test(log[0].system), log[0].system);
+
+  // ---- References are strict edits, not creative rewrites ----
+  // Regression for the real 2100 failure: the helper invented a gym, warm tones, a tighter
+  // upper-body crop and blurred equipment even though the person said keep the colours same.
+  const editLog = [];
+  const edit = await expandPrompt({
+    prompt: "change the guy to an American man in his mid-20s, doing heavy training, keep the colors same",
+    history,
+    brandBrain: "Make every image dark, warm and dramatic.",
+    referenceRoles: ["Base image"],
+  }, { generateText: fakeRewriter(editLog, "Put him in a dark gym with warm tones.") });
+  check("a reference request enters deterministic edit mode", edit.expanded === true && edit.mode === "edit", edit);
+  check("the blind text rewriter is never called for a reference edit", editLog.length === 0, editLog.length);
+  check("invented gym, warm-tone and tighter-crop directions cannot leak into the edit",
+    !/dark gym|warm tones|upper.body crop|blurred equipment/i.test(edit.prompt), edit.prompt);
+  check("the person's exact requested change remains in the edit prompt",
+    /change the guy to an American man/.test(edit.prompt), edit.prompt);
+  check("the edit prompt makes unrequested background, colour, crop and lighting changes forbidden",
+    /Do not invent a new setting, background, prop, crop, mood, lighting treatment, colour treatment/.test(edit.prompt), edit.prompt);
+  check("brand memory cannot redesign unrelated reference details",
+    /must never alter unrelated reference details/.test(edit.prompt), edit.prompt);
+  check("a reference role is preserved without asking a blind model to infer the image",
+    /Reference 1: Base image/.test(edit.prompt), edit.prompt);
+  check("the deterministic helper applies the same contract directly",
+    promptForReferenceEdit("replace only the person", [""]).startsWith("Edit the attached reference image"));
 
   // In front of every single generation, so it has to be cheap. Asserted against the constant
   // production actually uses rather than against a parameter the test double was handed —

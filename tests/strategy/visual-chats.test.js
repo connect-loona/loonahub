@@ -21,7 +21,8 @@ const {
   createChat, resolveChat, touchChat, renameChat, listChatsForBrand, titleFromPrompt,
 } = require(path.join(HUB, "netlify/functions/lib/strategy/visual-chats"));
 const {
-  buildRulePreamble, applyRules, brandRuleLinesFrom, selectStandardRules, STANDARD_RULES,
+  buildRulePreamble, applyRules, brandRuleLinesFrom, selectStandardRules,
+  shouldApplyProductRules, STANDARD_RULES,
 } = require(path.join(HUB, "netlify/functions/lib/strategy/visual-rules"));
 const crypto = require("crypto");
 
@@ -118,6 +119,12 @@ const json = (res) => JSON.parse(res.body);
   check("a rule can be switched off", selectStandardRules(["no_invented_claims"]).length === STANDARD_RULES.length - 1);
   check("an unknown rule key is ignored rather than breaking generation",
     selectStandardRules(["not_a_rule"]).length === STANDARD_RULES.length);
+  check("product rules apply when the request identifies packaging",
+    shouldApplyProductRules("replace this oil bottle", [""]) === true);
+  check("a product reference role activates the same protection",
+    shouldApplyProductRules("change the background", ["Product identity"]) === true);
+  check("an ordinary fitness reference does not get irrelevant product rules",
+    shouldApplyProductRules("change the guy and keep the colors same", ["Base image"]) === false);
 
   // Only lines that read as prohibitions or requirements are lifted from the guidelines — a
   // paragraph about brand values is true but useless to an image model and costs prompt room.
@@ -150,6 +157,9 @@ const json = (res) => JSON.parse(res.body);
   const noBrain = await buildRulePreamble("casa-waters");
   check("a brand with nothing distilled still gets the standard rules",
     noBrain.applied.length === STANDARD_RULES.length && noBrain.preamble.length > 0, noBrain.applied.length);
+  const lifestyle = await buildRulePreamble("casa-waters", { includeStandardRules: false, skipBrandRules: true });
+  check("standard product badges can be omitted for a non-product image",
+    lifestyle.applied.length === 0 && lifestyle.preamble === "", lifestyle);
 
   // ---- THE SECURITY RULE, end to end ----
   // Stub the provider so no key or network is needed, and capture what it was sent.
@@ -189,10 +199,11 @@ const json = (res) => JSON.parse(res.body);
     const missingChat = await call(generateFn, { chatId: "nope", prompt: "x" });
     check("generating into a chat that doesn't exist 404s", missingChat.statusCode === 404, missingChat.body);
 
-    // The rules really reach the provider, rather than being a label in the UI.
+    // Product rules must not decorate an unrelated lifestyle generation. They are real prompt
+    // constraints when relevant, not universal badges that pretend every image is packaging.
     const lastSent = sent[sent.length - 1];
-    check("the prompt sent to the provider carries the rules",
-      /Never invent, redraw or alter text/.test(lastSent.prompt), lastSent.prompt.slice(0, 160));
+    check("an ordinary lifestyle generation does not carry product-only rules",
+      !/Never invent, redraw or alter text/.test(lastSent.prompt), lastSent.prompt.slice(0, 160));
     check("and still contains what the person actually asked for",
       /villa at blue hour/.test(lastSent.prompt), lastSent.prompt.slice(-80));
     // The PERSON's prompt is what's remembered — the rules are identical every round, so
@@ -200,8 +211,8 @@ const json = (res) => JSON.parse(res.body);
     const casaRow = Object.values(await fbGet("strategy_visual/casa-waters")).find((r) => /villa/.test(r.prompt));
     check("the stored prompt is what the person wrote, not the rule-prefixed version",
       casaRow.prompt === "a villa at blue hour", casaRow.prompt);
-    check("but which rules applied is stored alongside it",
-      (casaRow.appliedRules || []).length > 0, casaRow.appliedRules);
+    check("and no irrelevant product badges are stored alongside it",
+      (casaRow.appliedRules || []).length === 0, casaRow.appliedRules);
     check("the round is tied to its chat", casaRow.chatId === casaChat, casaRow.chatId);
 
     const touched = await resolveChat(casaChat);
@@ -222,6 +233,11 @@ const json = (res) => JSON.parse(res.body);
     });
     check("a round with references succeeds", withRefs.statusCode === 200, withRefs.body);
     const refRow = Object.values(await fbGet("strategy_visual/rro-foods")).find((r) => /warmer table/.test(r.prompt || ""));
+    const referencePrompt = sent[sent.length - 1].prompt;
+    check("a product reference still receives the real product safeguards",
+      /Never invent, redraw or alter text/.test(referencePrompt), referencePrompt.slice(0, 240));
+    check("a reference edit receives the strict preservation contract",
+      /Change only what the designer explicitly requested/.test(referencePrompt), referencePrompt.slice(0, 500));
     check("how many references were used is remembered", refRow.referenceCount === 2, refRow.referenceCount);
     check("and what each was for", refRow.referenceNote === "Product identity · Lighting", refRow.referenceNote);
     // The images themselves must NOT be in the record — that would be hosting them by accident,

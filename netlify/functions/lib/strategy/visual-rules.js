@@ -43,6 +43,19 @@ const STANDARD_RULES = [
 
 const STANDARD_BY_KEY = new Map(STANDARD_RULES.map((rule) => [rule.key, rule]));
 
+// Product rules are valuable when a product is actually present and noisy everywhere else.
+// A fitness photograph should not claim "Exact product geometry" merely because it has a
+// reference image. Text is the only signal available here, so keep the vocabulary deliberately
+// concrete and let reference-role labels provide the strongest signal.
+const PRODUCT_SIGNAL = /\b(product|pack(?:age|aging)?|label|logo|brand(?:ing)?|sku|bottle|jar|box|carton|pouch|sachet|tube|tin|can|container|packet|wrapper|claim|badge|certification)\b/i;
+
+function shouldApplyProductRules(prompt, referenceRoles = []) {
+  return PRODUCT_SIGNAL.test([
+    String(prompt || ""),
+    ...(referenceRoles || []).map((role) => String(role || "")),
+  ].join("\n"));
+}
+
 // The brand's own hard rules, taken from the guidelines Loona Brain already distilled. Only
 // lines that read as prohibitions or requirements are lifted — a paragraph about brand values
 // is true but useless to an image model, and padding the prompt with it costs quality.
@@ -79,7 +92,9 @@ function selectStandardRules(disabledKeys) {
 // Returns both the text to prepend and the list of rules that produced it, so the UI can show
 // exactly what was applied and the record can store it.
 async function buildRulePreamble(brandId, options = {}) {
-  const standard = selectStandardRules(options.disabledRules);
+  const standard = options.includeStandardRules === false
+    ? []
+    : selectStandardRules(options.disabledRules);
   const brandLines = options.skipBrandRules ? [] : await brandRulesFor(brandId, options);
 
   const applied = [
@@ -105,5 +120,6 @@ function applyRules(preamble, prompt) {
 
 module.exports = {
   buildRulePreamble, applyRules, brandRulesFor, brandRuleLinesFrom,
-  selectStandardRules, STANDARD_RULES, STANDARD_BY_KEY,
+  selectStandardRules, shouldApplyProductRules,
+  STANDARD_RULES, STANDARD_BY_KEY,
 };
