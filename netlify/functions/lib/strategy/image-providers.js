@@ -6,16 +6,20 @@
 // streaming, and why a provider is free to be slow. Nothing above this layer should ever need
 // to know which one produced an image.
 //
-// What this deliberately does NOT do is host anything. Providers hand back URLs that expire
-// (OpenAI's in roughly an hour); the team saves the finals they want into the brand's Drive
-// folder by hand, exactly as they do today, and visual-memory.js keeps the prompt and the
-// pick forever regardless of what happens to the URL.
+// The provider returns finished bytes; Visual Studio preserves them in its asset store before
+// recording the searchable conversation ledger.
 "use strict";
 const { ConfigurationError } = require("./errors");
+const { referenceForProvider } = require("./visual-assets");
+const { apiKey: magnificApiKey, generateWithMystic } = require("./magnific-provider");
 
-const OPENAI_IMAGE_URL = "https://api.openai.com/v1/images/generations";
+// Configurable because a gateway or proxy in front of OpenAI is a normal production
+// arrangement — and because it is what lets the whole generation path, job and all, be
+// exercised locally against a stub instead of being skipped or faked further up the stack.
+const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/, "");
+const OPENAI_IMAGE_URL = `${OPENAI_BASE_URL}/images/generations`;
 // Working from a reference is a different endpoint, not a different parameter.
-const OPENAI_EDIT_URL = "https://api.openai.com/v1/images/edits";
+const OPENAI_EDIT_URL = `${OPENAI_BASE_URL}/images/edits`;
 const DEFAULT_OPENAI_MODEL = "gpt-image-1";
 const MAX_IMAGES = 4;
 // References travel base64 through a Netlify function, which has a hard request-size ceiling
@@ -66,8 +70,9 @@ function resolveSize(size) {
 }
 
 // A data: URL as the browser sends it, turned into something multipart/form-data can carry.
-// References arrive base64 because nothing is hosted — the bytes go straight from the person's
-// machine, through this function, to the provider, and are never stored anywhere in between.
+// References arrive as bytes: either read back from the asset store by key, or — for a
+// reference that has not been uploaded yet — inline. Either way this layer hands the provider
+// the actual image rather than a URL it would have to fetch.
 function decodeDataUrl(dataUrl, index) {
   const match = /^data:([a-z0-9.+/-]+);base64,(.+)$/i.exec(String(dataUrl || ""));
   if (!match) throw new Error(`Reference ${index + 1} is not a readable image.`);
@@ -80,6 +85,22 @@ function decodeDataUrl(dataUrl, index) {
   }
   const ext = mediaType.split("/")[1].replace("jpeg", "jpg").replace(/[^a-z0-9]/gi, "") || "png";
   return { bytes, mediaType, filename: `reference-${index + 1}.${ext}` };
+}
+
+function decodeReference(reference, index) {
+  if (reference && reference.data) {
+    const bytes = Buffer.isBuffer(reference.data) ? reference.data : Buffer.from(reference.data);
+    const mediaType = reference.contentType || "image/png";
+    if (!SAFE_IMAGE_TYPE(mediaType)) throw new Error(`Reference ${index + 1} is a ${mediaType}, not a supported image.`);
+    if (!bytes.length) throw new Error(`Reference ${index + 1} is empty.`);
+    if (bytes.length > MAX_REFERENCE_BYTES) throw new Error(`Reference ${index + 1} is larger than the ${Math.round(MAX_REFERENCE_BYTES / 1024 / 1024)}MB limit.`);
+    return { bytes, mediaType, filename: reference.filename || `reference-${index + 1}.${mediaType.split("/")[1] || "png"}` };
+  }
+  return decodeDataUrl(reference && reference.dataUrl, index);
+}
+
+function SAFE_IMAGE_TYPE(mediaType) {
+  return /^(image\/(png|jpeg|webp|gif))$/i.test(String(mediaType || ""));
 }
 
 // deps.fetch is injected by tests so this is exercisable without a key or a network.
@@ -110,8 +131,10 @@ async function generateWithOpenAI(request, deps = {}) {
     form.append("size", resolveSize(request.size));
     form.append("quality", tier.quality);
     form.append("output_format", tier.output_format);
-    references.forEach((reference, i) => {
-      const { bytes, mediaType, filename } = decodeDataUrl(reference && reference.dataUrl, i);
+    const resolvedReferences = [];
+    for (const reference of references) resolvedReferences.push(await referenceForProvider(reference, deps));
+    resolvedReferences.forEach((reference, i) => {
+      const { bytes, mediaType, filename } = decodeReference(reference, i);
       // image[] (repeated) is how gpt-image-1 takes more than one reference.
       form.append("image[]", new Blob([bytes], { type: mediaType }), filename);
     });
@@ -209,6 +232,7 @@ async function readOpenAIImages(response, model, mode, outputFormat) {
 
 const PROVIDERS = {
   openai: { label: "ChatGPT (OpenAI)", generate: generateWithOpenAI, configured: () => Boolean(openaiApiKey()) },
+  magnific: { label: "Magnific Mystic", generate: generateWithMystic, configured: () => Boolean(magnificApiKey()) },
 };
 
 function listProviders() {
@@ -245,6 +269,6 @@ async function generateImages(request, deps = {}) {
 }
 
 module.exports = {
-  generateImages, listProviders, resolveSize, resolveQuality, decodeDataUrl, classifyOpenAIFailure,
+  generateImages, listProviders, resolveSize, resolveQuality, decodeDataUrl, decodeReference, classifyOpenAIFailure,
   SIZES, QUALITY_MODES, MAX_IMAGES, MAX_REFERENCES, MAX_REFERENCE_BYTES, RETRY_DELAY_MS, PROVIDERS,
 };

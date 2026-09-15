@@ -8,6 +8,7 @@
 const { fbGet, fbSet, fbSafeKey } = require("./lib/strategy/firebase");
 const { checkAuthorization } = require("./lib/strategy/auth");
 const { siteBaseUrl } = require("./lib/site-base-url");
+const { signedBackgroundHeaders } = require("./lib/strategy/background-auth");
 
 function cors() {
   return {
@@ -48,10 +49,12 @@ exports.handler = async (event) => {
   await fbSet(draftPath, { brandId, name, folderId, status: "drafting", startedAt: new Date().toISOString(), error: null, draft: null });
 
   try {
+    const backgroundName = "strategy-brand-draft-background";
+    const backgroundBody = JSON.stringify({ brandId, name, folderId });
     await fetch(`${siteBaseUrl(event)}/.netlify/functions/strategy-brand-draft-background`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ brandId, name, folderId }),
+      headers: signedBackgroundHeaders(backgroundName, backgroundBody),
+      body: backgroundBody,
     });
   } catch (error) {
     await fbSet(draftPath, { brandId, name, folderId, status: "failed", error: `Could not start drafting: ${error.message || error}`, draft: null });

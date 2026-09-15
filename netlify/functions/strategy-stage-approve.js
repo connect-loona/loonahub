@@ -18,6 +18,8 @@ const { fbGet, fbSet, fbUpdate } = require("./lib/strategy/firebase");
 const { logActivity, applyLockFilterOnApprove } = require("./lib/strategy/pipeline");
 const { checkAuthorization } = require("./lib/strategy/auth");
 const { saveStageVersion, saveFeedbackEvent } = require("./lib/strategy/observability");
+const { resolveVisualActor } = require("./lib/strategy/visual-actor");
+const { signedBackgroundHeaders } = require("./lib/strategy/background-auth");
 
 const NEXT_STAGE = {
   research: "strategy",
@@ -64,6 +66,7 @@ exports.handler = async (event) => {
   }
 
   try {
+    const actorIdentity = await resolveVisualActor(event, actor);
     const run = await fbGet(`strategy_runs/${runId}`);
     if (!run) return { statusCode: 404, headers: cors(), body: JSON.stringify({ error: "Run not found." }) };
     const stageState = run.stages && run.stages[stage];
@@ -111,15 +114,17 @@ exports.handler = async (event) => {
       return { statusCode: 200, headers: cors(), body: JSON.stringify({ ok: true, status: `${stage}_approved` }) };
     }
 
-    await fbUpdate(`strategy_runs/${runId}/stages/${nextStage}`, { status: "queued", updatedAt: now });
+    await fbUpdate(`strategy_runs/${runId}/stages/${nextStage}`, { status: "queued", triggeredBy: actorIdentity, updatedAt: now });
     await fbUpdate(`strategy_runs/${runId}`, { status: `${stage}_approved`, updatedAt: now });
 
     const base = siteBaseUrl(event);
     try {
+      const backgroundName = `strategy-${nextStage}-background`;
+      const backgroundBody = JSON.stringify({ runId });
       await fetch(`${base}/.netlify/functions/strategy-${nextStage}-background`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ runId }),
+        headers: signedBackgroundHeaders(backgroundName, backgroundBody),
+        body: backgroundBody,
       });
     } catch (e) {
       console.error(`Failed to trigger ${nextStage} background function:`, e);
@@ -132,4 +137,3 @@ exports.handler = async (event) => {
     return { statusCode: 500, headers: cors(), body: JSON.stringify({ error: error.message }) };
   }
 };
-

@@ -11,6 +11,11 @@
 import { getIdTokenOrNull } from "./firebase";
 import type { Generation, PendingReference, VisualChat } from "./types";
 
+async function authHeaders(extra: Record<string, string> = {}): Promise<Record<string, string>> {
+  const token = await getIdTokenOrNull();
+  return token ? { ...extra, Authorization: `Bearer ${token}` } : extra;
+}
+
 async function post(path: string, body: unknown): Promise<unknown> {
   const token = await getIdTokenOrNull();
   const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -29,6 +34,19 @@ async function post(path: string, body: unknown): Promise<unknown> {
   return data;
 }
 
+export async function uploadReference(chatId: string, reference: PendingReference): Promise<PendingReference> {
+  if (reference.assetKey) return reference;
+  if (!reference.file) throw new Error(`${reference.name || "Reference"} is no longer available to upload.`);
+  const query = new URLSearchParams({ chatId, filename: reference.name || "reference", role: reference.role || "" });
+  const headers = await authHeaders({ "Content-Type": reference.file.type || "image/png" });
+  const res = await fetch(`/.netlify/functions/visual-reference-upload?${query}`, {
+    method: "POST", headers, body: reference.file,
+  });
+  const data = await res.json().catch(() => ({})) as { asset?: { assetKey: string; url: string; contentType?: string; warnings?: string[] }; error?: string };
+  if (!res.ok || !data.asset) throw new Error(data.error || "Could not upload the reference.");
+  return { ...reference, assetKey: data.asset.assetKey, dataUrl: data.asset.url, contentType: data.asset.contentType, warnings: data.asset.warnings, file: undefined };
+}
+
 export function listChats(brandId: string): Promise<{ chats: VisualChat[] }> {
   return post("visual-chat", { action: "list", brandId }) as Promise<{ chats: VisualChat[] }>;
 }
@@ -41,8 +59,64 @@ export function renameChat(chatId: string, title: string): Promise<{ ok: true; c
   return post("visual-chat", { action: "rename", chatId, title }) as Promise<{ ok: true; chat: VisualChat }>;
 }
 
-export function chatHistory(chatId: string): Promise<{ chat: VisualChat; generations: Generation[] }> {
-  return post("visual-chat", { action: "history", chatId }) as Promise<{ chat: VisualChat; generations: Generation[] }>;
+export function chatHistory(chatId: string, before?: string): Promise<{ chat: VisualChat; generations: Generation[]; hasMore?: boolean }> {
+  return post("visual-chat", { action: "history", chatId, before, limit: 20 }) as Promise<{ chat: VisualChat; generations: Generation[]; hasMore?: boolean }>;
+}
+
+export type VisualJob = {
+  id: string;
+  chatId?: string;
+  status: "queued" | "running" | "succeeded" | "failed";
+  progress?: string;
+  result?: Generation & { recorded: boolean; brandId: string };
+  error?: string;
+  // Present on jobs returned by activeJobs, so a job found still queued can be started.
+  workerToken?: string;
+};
+
+// The jobs still running in this chat. Asked when a chat opens, so a refresh mid-generation
+// reconnects to the round rather than losing sight of it — the worker never stopped, and the
+// generation is paid for whether or not a browser was watching.
+export function activeJobs(chatId: string): Promise<{ jobs: VisualJob[] }> {
+  return post("visual-job", { action: "active", chatId }) as Promise<{ jobs: VisualJob[] }>;
+}
+
+// Exported so a reconnected job can be waited on exactly like a freshly started one — there is
+// one polling implementation, not a second one for the resume path.
+export async function waitForJob(jobId: string): Promise<Generation & { recorded: boolean; brandId: string }> {
+  const deadline = Date.now() + 15 * 60 * 1000;
+  while (Date.now() < deadline) {
+    const { job } = await post("visual-job", { action: "status", jobId }) as { job: VisualJob };
+    if (job.status === "succeeded" && job.result) return job.result;
+    if (job.status === "failed") throw new Error(job.error || "Image generation failed.");
+    await new Promise((resolve) => window.setTimeout(resolve, 1500));
+  }
+  throw new Error("Generation is still running. It is safe to refresh; this job remains in Visual Studio.");
+}
+
+// Kicks the background worker for a job that exists but has not started.
+//
+// Safe to call twice: visual-generate-background ignores a job that is no longer queued. That
+// matters because a tab can die between creating a job and starting it, leaving it queued with
+// nobody running it — so whoever finds it next starts it.
+export async function startJob(jobId: string, workerToken: string): Promise<void> {
+  const headers = await authHeaders({ "Content-Type": "application/json" });
+  const started = await fetch("/.netlify/functions/visual-generate-background", {
+    method: "POST", headers, body: JSON.stringify({ jobId, workerToken }),
+  });
+  // A background function answers 202 and nothing else. Anything outside the 2xx range means
+  // the worker was never kicked, so the job would sit queued for ever if we started polling.
+  if (!started.ok && started.status !== 202) throw new Error("Could not start the generation job.");
+}
+
+// Creating a job, kicking its worker, and waiting for it. Shared by generation and by Magnific
+// enhancement because they are the same lifecycle with a different request body — and, since
+// the test-mode bypass was removed, this is the ONLY path either of them takes. What the
+// browser tests exercise is what production runs.
+async function runJob(request: Record<string, unknown>, actor: string): Promise<Generation & { recorded: boolean; brandId: string }> {
+  const { job, workerToken } = await post("visual-job", { action: "create", request, actor }) as { job: VisualJob; workerToken: string };
+  await startJob(job.id, workerToken);
+  return waitForJob(job.id);
 }
 
 export function generate(args: {
@@ -52,11 +126,42 @@ export function generate(args: {
   size?: string;
   // "draft" (medium quality, JPEG — fast and cheap for exploring) or "final" (high, PNG).
   quality?: string;
+  provider?: "openai" | "magnific";
   actor: string;
-  // Passed straight through to the provider and never stored — see visual-generate.js.
+  // These contain durable asset keys, never multi-megabyte data URLs.
   references?: PendingReference[];
+  parentGenerationId?: string | null;
+  parentImageIndex?: number | null;
 }): Promise<Generation & { recorded: boolean; brandId: string }> {
-  return post("visual-generate", args) as Promise<Generation & { recorded: boolean; brandId: string }>;
+  return runJob(args as unknown as Record<string, unknown>, args.actor);
+}
+
+export function enhanceImage(args: { chatId: string; generationId: string; imageIndex: number; actor: string }): Promise<Generation & { recorded: boolean; brandId: string }> {
+  return runJob({
+    operation: "magnific_precision", chatId: args.chatId, prompt: "Enhance with Magnific Precision",
+    sourceGenerationId: args.generationId, sourceImageIndex: args.imageIndex, actor: args.actor,
+  }, args.actor);
+}
+
+export interface UsageRow {
+  key: string; name?: string; email?: string | null; verified?: boolean;
+  requests: number; outputs: number; generations: number; enhancements: number; strategyRuns: number; picks: number; reviews: number; failures: number;
+}
+
+export interface UsageReport {
+  month: string;
+  coverage: string;
+  totals: UsageRow;
+  users: UsageRow[];
+  providers: UsageRow[];
+  accounts: {
+    openai: { connected: boolean; spendUsd?: number; imageCount?: number; budgetUsd?: number | null; remainingBudgetUsd?: number | null; reason?: string };
+    magnific: { connected: boolean; analyticsConnected?: boolean; operations: number; creditsUsed?: number; uses?: number; allowance?: number | null; remainingCredits?: number | null; reason?: string; note: string };
+  };
+}
+
+export function usageReport(month?: string): Promise<UsageReport> {
+  return post("api-usage", { month }) as Promise<UsageReport>;
 }
 
 // 🧠 Mani, asked from inside the studio. The brandId is sent explicitly here rather than
@@ -82,6 +187,11 @@ export function pickImage(args: {
   index: number;
   actor: string;
   note?: string;
+  tags?: string[];
 }): Promise<{ ok: true }> {
   return post("visual-pick", args) as Promise<{ ok: true }>;
+}
+
+export function reviewImage(args: { chatId: string; generationId: string; imageIndex: number }): Promise<{ qc: import("./types").VisualQc }> {
+  return post("visual-qc", args) as Promise<{ qc: import("./types").VisualQc }>;
 }

@@ -1,12 +1,8 @@
 // The right-hand panel: what this project has actually accumulated.
 //
-// This is where both prototypes put a QC panel reading "5 of 6 checks passed · Identity Pass ·
-// Palette Pass". Nothing computed any of it. Shipping that would put a confident green tick
-// next to a real client asset on the strength of nothing at all, and somebody would rely on
-// it — so it isn't here, and it isn't here in a weaker form either.
-//
-// What IS here is counted from the rounds on screen. Every number below is derived from real
-// records, and the panel says plainly that a human does the judging.
+// Every number is derived from a real record. AI review is shown only after the review
+// endpoint has actually inspected a stored image and its available evidence — no verdict is
+// ever drawn that nothing computed.
 import { useState } from "react";
 import { askMani } from "../lib/api";
 import type { Generation, VisualBrand } from "../lib/types";
@@ -85,13 +81,13 @@ export function ProjectMemory({ brand, generations }: { brand: VisualBrand | nul
   // The rules that shaped the most recent round — the live answer to "what is being enforced
   // right now?", rather than a static list of switches.
   const latestRules = generations.length ? (generations[generations.length - 1].appliedRules || []) : [];
+  const reviewed = generations.filter((g) => g.qc).length;
 
   return (
     <aside className="vs-memory">
-      <h2>Project memory</h2>
+      <h2>Mani · Brand memory agent</h2>
       <p className="vs-muted vs-muted-sm">
-        Everything in this chat is saved to {brand.name}&apos;s memory in Loona Brain, and read by Strategy OS
-        on its next run.
+        Mani reads {brand.name}&apos;s stored choices, feedback and visual reviews when answering the team or supporting Strategy OS.
       </p>
 
       <div className="vs-stats">
@@ -123,11 +119,8 @@ export function ProjectMemory({ brand, generations }: { brand: VisualBrand | nul
       <AskMani brand={brand} />
 
       <p className="vs-section-label">Review</p>
-      {/* Said plainly, because the alternative — a fabricated pass/fail — is the one thing
-          this panel must never do. */}
       <p className="vs-muted vs-muted-sm">
-        Nothing here is automatically checked. A person decides which image is usable, and that choice is
-        what gets recorded.
+        A person decides which image is usable; AI review is supporting evidence, never approval. {reviewed ? `${reviewed} round${reviewed === 1 ? " has" : "s have"} been reviewed.` : "No AI quality review has been run in this chat yet."}
       </p>
     </aside>
   );

@@ -7,7 +7,7 @@
 // reach the model so the draft can admit what it doesn't know.
 process.env.FIREBASE_DB_URL = require("../harness/shared").RTDB_URL;
 const path = require("path");
-const { HUB, RTDB_URL, req, check, finish } = require("../harness/shared");
+const { HUB, RTDB_URL, req, check, finish, waitForBackgroundIdle } = require("../harness/shared");
 const { fbGet, fbSet } = require(path.join(HUB, "netlify/functions/lib/strategy/firebase"));
 const { BrandDraftSchema, draftBrandFromLibrary, orderedFiles, buildInput } = require(path.join(HUB, "netlify/functions/lib/strategy/brand-draft"));
 const draftEndpoint = require(path.join(HUB, "netlify/functions/strategy-brand-draft.js"));
@@ -96,11 +96,14 @@ const library = {
 
   const started = await call({ brandId: "casa-waters", name: "Casa Waters", folderId: "18LlPPn68OZc2XdfIJLE0VbW4LtAkl-Ul" });
   check("starts a draft for a brand that doesn't exist yet", started.statusCode === 202, started.body);
+  // The background half is genuinely asynchronous now — the harness answers 202 and works
+  // afterwards, as Netlify does — so wait for it rather than assuming it already finished.
+  // The 202 above is exactly the point: the endpoint returns before the work is done.
+  await waitForBackgroundIdle();
   const stored = await fbGet("strategy_brand_drafts/casa-waters");
   check("the draft record names the folder it will read", stored.folderId === "18LlPPn68OZc2XdfIJLE0VbW4LtAkl-Ul", stored.folderId);
-  // The background half ran synchronously in this harness and failed (no Drive credentials
-  // here) — which is the half worth pinning: a failed draft must record why, not sit at
-  // "drafting" forever.
+  // That background half failed (no Drive credentials here), which is the half worth pinning:
+  // a failed draft must record why, not sit at "drafting" for ever.
   check("a failed draft records its reason", stored.status === "failed" && Boolean(stored.error), stored);
 
   finish();

@@ -18,6 +18,10 @@ export interface PendingReference {
   dataUrl: string;
   name: string;
   role: string;
+  file?: File;
+  assetKey?: string;
+  contentType?: string;
+  warnings?: string[];
 }
 
 export interface VisualChat {
@@ -32,6 +36,10 @@ export interface VisualChat {
 
 export interface GeneratedImage {
   url: string | null;
+  assetKey?: string | null;
+  durable?: boolean;
+  contentType?: string | null;
+  byteLength?: number | null;
   // What the provider decided to actually generate, when it rewrites the prompt. Worth showing
   // — it's often the explanation for why an image came out the way it did.
   revisedPrompt?: string | null;
@@ -50,6 +58,8 @@ export interface Generation {
   chatId: string | null;
   prompt: string;
   provider: string;
+  operation?: "generate" | "magnific_precision";
+  providerTaskId?: string | null;
   model?: string | null;
   actor: string;
   images: GeneratedImage[];
@@ -70,6 +80,24 @@ export interface Generation {
   pickedAt?: string | null;
   pickedBy?: string | null;
   pickNote?: string | null;
+  pickTags?: string[];
   referenceCount?: number;
   referenceNote?: string | null;
+  referenceAssets?: Array<{ assetKey: string; name?: string; role?: string; contentType?: string }>;
+  parentGenerationId?: string | null;
+  parentImageIndex?: number | null;
+  suggestions?: string[];
+  qc?: VisualQc | null;
+}
+
+export interface VisualQcCheck {
+  status: "pass" | "warn" | "fail" | "not_checked";
+  issues: string[];
+}
+
+export interface VisualQc {
+  checkedAt: string;
+  checkedByModel?: string;
+  summary: string;
+  checks: Record<string, VisualQcCheck>;
 }

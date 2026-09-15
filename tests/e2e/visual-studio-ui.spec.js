@@ -51,7 +51,12 @@ const HOUR = 60 * 60 * 1000;
     "gen-1": {
       chatId: "chat-rro-1", prompt: "Primio bottle on a marble counter, warm morning light",
       provider: "openai", model: "gpt-image-1", actor: "Anjali", createdAt: fresh,
-      images: [{ url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=" }, { url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=" }],
+      // Asset keys present: this is a round from after Visual Studio began keeping its own
+      // copies, which is what makes "Build on this" available on it.
+      images: [
+        { url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=", assetKey: "brands/rro-foods/chats/chat-rro-1/generations/gen-1/00-a.png", durable: true },
+        { url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=", assetKey: "brands/rro-foods/chats/chat-rro-1/generations/gen-1/01-b.png", durable: true },
+      ],
       appliedRules: [
         { key: "no_label_regeneration", label: "No label regeneration", source: "standard" },
         { key: "brand_0", label: "Never show the cap removed from the bottle.", source: "brand" },
@@ -59,6 +64,15 @@ const HOUR = 60 * 60 * 1000;
       referenceCount: 2,
       referenceNote: "Product identity · Lighting",
       expandedPrompt: "An editorial product photograph of the Primio bottle on a warm marble counter, soft morning light from the left, shallow depth of field.",
+      pickedIndex: null,
+    },
+    // A round from before durable storage whose preview is still within its hour: the image
+    // renders, but there is nothing stored to send a model, so "Build on this" must explain
+    // itself rather than fail at send time with "no longer available to upload".
+    "gen-legacy": {
+      chatId: "chat-rro-1", prompt: "A round from before images were kept",
+      provider: "openai", actor: "Anjali", createdAt: fresh,
+      images: [{ url: "data:image/gif;base64,R0lGODlhAQABAAAAACw=" }],
       pickedIndex: null,
     },
     // An hours-old round: its provider URLs are dead, and the UI has to say so rather than
@@ -139,9 +153,23 @@ const HOUR = 60 * 60 * 1000;
   check("and says the prompt and the choice survive", /kept permanently/.test(expiredText), expiredText);
 
   // ---- Picking: the thing this app exists to record ----
-  const useButtons = page.locator(".vs-image figcaption button", { hasText: "Use this" });
+  // Scoped to the round under test: other rounds in this thread have takes of their own, and
+  // counting across all of them would assert something about the fixture rather than the UI.
+  const marbleRound = page.locator(".vs-round", { hasText: "marble counter" });
+  const useButtons = marbleRound.locator(".vs-image figcaption button", { hasText: "Use this" });
   check("an un-picked round offers a choice on each take", (await useButtons.count()) === 2, await useButtons.count());
   await useButtons.first().click();
+
+  // Choosing is now two steps, and deliberately so. "Use this" opens the panel and records
+  // NOTHING; the write happens once, on Save. Recording on both wrote the pick twice — bare,
+  // then again with the tags — and Cancel left the bare one behind, so changing your mind
+  // silently taught the brand's memory a take somebody had rejected.
+  await waitFor(async () => (await page.locator(".vs-feedback").count()) === 1 || null, { label: "the reasons panel opens" });
+  const beforeSave = (await req("GET", `${RTDB_URL}/strategy_visual/rro-foods/gen-1.json`)).body;
+  check("opening the panel records nothing yet",
+    beforeSave.pickedIndex === null || beforeSave.pickedIndex === undefined, beforeSave.pickedIndex);
+
+  await page.locator('.vs-feedback button:text("Save choice")').click();
   // One flag, on the take just chosen. The other round on screen is expired, so it renders no
   // images at all and therefore carries no flag of its own.
   await waitFor(async () => (await page.locator(".vs-picked-flag").count()) === 1 || null, { label: "pick registers" });
@@ -150,7 +178,7 @@ const HOUR = 60 * 60 * 1000;
   check("the pick is recorded against the generation", picked.pickedIndex === 0, picked.pickedIndex);
   check("and who made it", picked.pickedBy === "Gokul", picked.pickedBy);
 
-  // Every take is downloadable, not only the chosen one — nothing is hosted, so downloading
+  // Every take is downloadable, not only the chosen one — a download is how a take leaves
   // is the only way anything survives.
   check("every take can be downloaded", (await page.locator('.vs-image figcaption a:text("Download")').count()) >= 2,
     await page.locator('.vs-image figcaption a:text("Download")').count());
@@ -179,7 +207,7 @@ const HOUR = 60 * 60 * 1000;
     /soft morning light from the left/.test(expandedText), expandedText);
 
   // ---- References: what a round was built from, and building on a result ----
-  // The bytes are never stored, so what has to survive in the thread is the count and what
+  // Beyond the stored bytes, what has to survive in the thread is the count and what
   // each reference was FOR — that is what explains a prompt six months later.
   check("the thread says what the round was worked from",
     /Worked from 2 references/.test(threadText2), threadText2.slice(0, 400));
@@ -188,7 +216,11 @@ const HOUR = 60 * 60 * 1000;
 
   // Carrying a take back up as the next reference is the iteration loop — "now make the table
   // warmer" without re-uploading anything.
-  check("every take offers to be built on", (await page.locator(".vs-useref").count()) >= 2, await page.locator(".vs-useref").count());
+  check("every stored take offers to be built on", (await page.locator(".vs-useref").count()) >= 2, await page.locator(".vs-useref").count());
+  // A round made before Visual Studio kept its own copies has no bytes to send, so the button
+  // is replaced by an explanation rather than left to fail when somebody presses Generate.
+  check("a round with no stored image says why it can't be built on instead",
+    (await page.locator(".vs-useref-unavailable").count()) === 1, await page.locator(".vs-useref-unavailable").count());
   await page.locator(".vs-useref").first().click();
   await waitFor(async () => (await page.locator(".vs-ref").count()) === 1 || null, { label: "result becomes a reference" });
   check("the composer now carries that image as a reference", (await page.locator(".vs-ref img").count()) === 1);

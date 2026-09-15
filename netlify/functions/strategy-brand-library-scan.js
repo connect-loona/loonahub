@@ -17,6 +17,7 @@
 const { fbGet, fbSet, fbSafeKey } = require("./lib/strategy/firebase");
 const { checkAuthorization } = require("./lib/strategy/auth");
 const { siteBaseUrl } = require("./lib/site-base-url");
+const { signedBackgroundHeaders } = require("./lib/strategy/background-auth");
 
 function cors() {
   return {
@@ -57,10 +58,12 @@ exports.handler = async (event) => {
   }));
 
   try {
+    const backgroundName = "strategy-brand-library-scan-background";
+    const backgroundBody = JSON.stringify({ brandId, actor: String(body.actor || "Unknown").trim() });
     await fetch(`${siteBaseUrl(event)}/.netlify/functions/strategy-brand-library-scan-background`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ brandId, actor: String(body.actor || "Unknown").trim() }),
+      headers: signedBackgroundHeaders(backgroundName, backgroundBody),
+      body: backgroundBody,
     });
   } catch (error) {
     // Same reasoning as strategy-run-start.js: record the failure where the UI can see it

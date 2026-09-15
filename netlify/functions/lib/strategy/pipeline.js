@@ -19,6 +19,7 @@ const { StageValidationError } = require("./errors");
 const { saveStageVersion, saveStageMetrics, saveFeedbackEvent, saveSystemLearningEvent } = require("./observability");
 const { reviewStage, verdictToIssues, averageScore } = require("./critic");
 const { mergeByScore } = require("./competition");
+const { recordApiUsage } = require("./api-usage");
 
 const MAX_REPAIRS = 2;
 
@@ -189,6 +190,34 @@ async function setStageStatus(runId, stage, patch) {
   await fbUpdate(`strategy_runs/${runId}/stages/${stage}`, Object.assign({ updatedAt: new Date().toISOString() }, patch));
 }
 
+// Usage reporting is operational telemetry, never part of the strategy itself. A failure
+// to write this small event must not destroy a completed client run, so it is deliberately
+// best-effort. The provider account remains the source of truth for billed tokens/cost;
+// this event answers the management question: which person initiated which useful stage?
+async function recordStageUsage(runId, def, run, input) {
+  try {
+    const stageState = run && run.stages && run.stages[def.stage];
+    const actor = stageState && stageState.triggeredBy || run && run.ownerIdentity || {};
+    await recordApiUsage({
+      id: `${runId}-${def.stage}-${Date.now()}`,
+      userId: actor.id || null,
+      userEmail: actor.email || null,
+      userName: actor.name || run && run.owner || "Unknown Hub user",
+      identityVerified: Boolean(actor.verified),
+      provider: input.provider || providerForStage(run || {}, def.stage),
+      model: input.model || null,
+      feature: "strategy_os",
+      operation: "strategy_stage",
+      brandId: run && run.brandId || null,
+      status: input.status,
+      requests: 1,
+      outputCount: 0,
+    });
+  } catch (error) {
+    console.error(`[${def.stage}] could not record API usage:`, error.message || error);
+  }
+}
+
 // Small object helpers used by the section-scoped asset refine flow (see
 // ASSET_STAGE_CONFIG.copy.sections, proposeAssetCandidate and acceptAssetCandidate).
 function omit(obj, keys) {
@@ -238,6 +267,8 @@ async function finalizeStage(runId, def, { parsed, attempt, escalated, servedBy,
   await setStageStatus(runId, def.stage, { status: "needs_review", detail: "Validated. Awaiting review.", checkpoint: finalOutput, error: null });
   await fbUpdate(`strategy_runs/${runId}`, { status: def.reviewStatus, coordinator: { name: "BB Loona", currentStage: def.stage, specialist: def.agentName, status: "awaiting_human_review" }, updatedAt: new Date().toISOString() });
   await logActivity(runId, "system", `${def.stage}.completed`, `Passed on attempt ${attempt + 1}.`);
+  const run = await fbGet(`strategy_runs/${runId}`);
+  await recordStageUsage(runId, def, run, { provider: servedBy, model: tier, status: "succeeded" });
   return finalOutput;
 }
 
@@ -252,6 +283,7 @@ async function failStage(runId, def, { run, lastError, attempts, startedAt }) {
   await setStageStatus(runId, def.stage, { status: "failed", detail: message });
   await fbUpdate(`strategy_runs/${runId}`, { status: "failed", coordinator: { name: "BB Loona", currentStage: def.stage, specialist: def.agentName, status: "blocked" }, updatedAt: new Date().toISOString() });
   await logActivity(runId, "system", `${def.stage}.failed`, message);
+  await recordStageUsage(runId, def, run, { provider: null, model: null, status: "failed" });
   // A dead run used to just vanish into "failed" with nothing to show for the attempt — no
   // trace of why once the run itself got retried or archived. This is the one exception to
   // "operational, not content" living outside the brand's actual learnings text: it's kept
@@ -1389,4 +1421,3 @@ module.exports = {
   // object at call time rather than capturing it at module load.
   soloRuntime, otherProvider, reviewWithCritic, executeCompetitiveStage, PROVIDER_FACTORIES,
 };
-

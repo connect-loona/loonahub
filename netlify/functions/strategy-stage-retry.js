@@ -13,6 +13,8 @@
 const { fbGet, fbSet, fbUpdate } = require("./lib/strategy/firebase");
 const { logActivity } = require("./lib/strategy/pipeline");
 const { checkAuthorization } = require("./lib/strategy/auth");
+const { resolveVisualActor } = require("./lib/strategy/visual-actor");
+const { signedBackgroundHeaders } = require("./lib/strategy/background-auth");
 
 const STAGE_ORDER = ["research", "strategy", "copy", "creative-direction", "deck-builder"];
 
@@ -49,6 +51,7 @@ exports.handler = async (event) => {
   if (!runId || !STAGE_ORDER.includes(stage)) return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "runId and a valid stage are required." }) };
 
   try {
+    const actorIdentity = await resolveVisualActor(event, actor);
     const run = await fbGet(`strategy_runs/${runId}`);
     if (!run) return { statusCode: 404, headers: cors(), body: JSON.stringify({ error: "Run not found." }) };
     const stageState = run.stages && run.stages[stage];
@@ -59,16 +62,18 @@ exports.handler = async (event) => {
     const now = new Date().toISOString();
     // Clear the failure — a fresh 3-attempt cycle starts as if this were the first try,
     // same as the original run. The old attempts stay under attempts/<stage>/ for history.
-    await fbUpdate(`strategy_runs/${runId}/stages/${stage}`, { status: "queued", detail: "Retry requested.", error: null, updatedAt: now });
+    await fbUpdate(`strategy_runs/${runId}/stages/${stage}`, { status: "queued", detail: "Retry requested.", error: null, triggeredBy: actorIdentity, updatedAt: now });
     await fbUpdate(`strategy_runs/${runId}`, { status: "draft", updatedAt: now });
     await logActivity(runId, actor, `${stage}.retry`, null);
 
     const base = siteBaseUrl(event);
     try {
+      const backgroundName = `strategy-${stage}-background`;
+      const backgroundBody = JSON.stringify({ runId });
       await fetch(`${base}/.netlify/functions/strategy-${stage}-background`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ runId }),
+        headers: signedBackgroundHeaders(backgroundName, backgroundBody),
+        body: backgroundBody,
       });
     } catch (e) {
       console.error(`Failed to trigger ${stage} retry background function:`, e);

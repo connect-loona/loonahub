@@ -9,7 +9,7 @@
 // and "art-direction strength 84%"; no image API this app talks to accepts anything of the
 // kind, so those would be sent and silently ignored. A control that does nothing is worse than
 // no control, because people plan around it.
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PendingReference } from "../lib/types";
 
 const SIZES = [
@@ -21,7 +21,7 @@ const SIZES = [
 // Matches MAX_REFERENCES / MAX_REFERENCE_BYTES in image-providers.js. Checked here too so an
 // oversized file is refused before it's read and posted, rather than after a slow upload.
 const MAX_REFERENCES = 4;
-const MAX_REFERENCE_BYTES = 4 * 1024 * 1024;
+const MAX_REFERENCE_BYTES = 5 * 1024 * 1024;
 
 // What a reference is FOR. Six months later "2 references" says nothing, but "kept the
 // product, took the lighting from the second" explains the entire round — and it's the half
@@ -37,12 +37,14 @@ function readAsDataUrl(file: File): Promise<string> {
   });
 }
 
-export function Composer({ onSend, busy, disabled, references, setReferences }: {
-  onSend: (prompt: string, count: number, size: string, quality: string) => void;
+export function Composer({ onSend, busy, disabled, references, setReferences, suggestedPrompt, onSuggestionUsed }: {
+  onSend: (prompt: string, count: number, size: string, quality: string, provider: "openai" | "magnific") => void;
   busy: boolean;
   disabled: boolean;
   references: PendingReference[];
   setReferences: (next: PendingReference[]) => void;
+  suggestedPrompt?: string | null;
+  onSuggestionUsed?: () => void;
 }) {
   const [prompt, setPrompt] = useState("");
   const [count, setCount] = useState(2);
@@ -51,8 +53,15 @@ export function Composer({ onSend, busy, disabled, references, setReferences }: 
   // generating four takes at production quality to reject three of them is how this gets both
   // expensive and slow.
   const [quality, setQuality] = useState("draft");
+  const [provider, setProvider] = useState<"openai" | "magnific">("openai");
   const [fileError, setFileError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!suggestedPrompt) return;
+    setPrompt(suggestedPrompt);
+    onSuggestionUsed?.();
+  }, [suggestedPrompt, onSuggestionUsed]);
 
   async function addFiles(files: FileList | File[]) {
     setFileError(null);
@@ -71,7 +80,7 @@ export function Composer({ onSend, busy, disabled, references, setReferences }: 
         continue;
       }
       try {
-        next.push({ dataUrl: await readAsDataUrl(file), name: file.name, role: "" });
+        next.push({ dataUrl: await readAsDataUrl(file), name: file.name, role: "", file, contentType: file.type });
       } catch (e) {
         setFileError(e instanceof Error ? e.message : String(e));
       }
@@ -83,7 +92,7 @@ export function Composer({ onSend, busy, disabled, references, setReferences }: 
   function submit() {
     const clean = prompt.trim();
     if (!clean || busy || disabled) return;
-    onSend(clean, count, size, quality);
+    onSend(clean, provider === "magnific" ? 1 : count, size, quality, provider);
     setPrompt("");
   }
 
@@ -107,6 +116,7 @@ export function Composer({ onSend, busy, disabled, references, setReferences }: 
               <img src={reference.dataUrl} alt={reference.name || `Reference ${i + 1}`} />
               <div className="vs-ref-body">
                 <span className="vs-ref-name" title={reference.name}>{reference.name || `Reference ${i + 1}`}</span>
+                {reference.warnings?.map((warning) => <span key={warning} className="vs-ref-warning">{warning}</span>)}
                 {/* Free text, with the common answers offered — the role is what makes this
                     record readable later, but a fixed list would be wrong the first time
                     somebody needs "keep the model's face". */}
@@ -166,11 +176,19 @@ export function Composer({ onSend, busy, disabled, references, setReferences }: 
           + Reference
         </button>
         <label>
+          Create with
+          <select value={provider} onChange={(e) => { const next = e.target.value as "openai" | "magnific"; setProvider(next); if (next === "magnific") setCount(1); }} disabled={disabled}>
+            <option value="openai">ChatGPT</option>
+            <option value="magnific">Magnific Mystic</option>
+          </select>
+        </label>
+        <label>
           Takes
-          <select value={count} onChange={(e) => setCount(Number(e.target.value))} disabled={disabled}>
+          <select value={count} onChange={(e) => setCount(Number(e.target.value))} disabled={disabled || provider === "magnific"}>
             {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
         </label>
+        {provider === "magnific" && <span className="vs-provider-note">Mystic creates one paid take at a time.</span>}
         <label>
           Quality
           <select value={quality} onChange={(e) => setQuality(e.target.value)} disabled={disabled}>

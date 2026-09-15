@@ -7,7 +7,7 @@
 // once buys the same reading twice).
 process.env.FIREBASE_DB_URL = require("../harness/shared").RTDB_URL;
 const path = require("path");
-const { HUB, RTDB_URL, req, check, finish } = require("../harness/shared");
+const { HUB, RTDB_URL, req, check, finish, waitForBackgroundIdle } = require("../harness/shared");
 const { fbGet, fbSet } = require(path.join(HUB, "netlify/functions/lib/strategy/firebase"));
 const scan = require(path.join(HUB, "netlify/functions/strategy-brand-library-scan.js"));
 const crypto = require("crypto");
@@ -39,7 +39,7 @@ function call(body, headers) {
   const missing = await call({ brandId: "not-a-brand" });
   check("404s for a brand that doesn't exist", missing.statusCode === 404, missing.body);
 
-  // NOTE ON TIMING: this harness runs "-background" functions synchronously (see
+  // NOTE ON TIMING: this harness waits for "-background" work after returning 202 (see
   // tests/harness/netlify-dev-lite.js), so by the time handler() returns, the background
   // scan has already run to completion. In production it is genuinely asynchronous. That
   // means the in-flight `scanning: true` marker can't be observed here after the call — so
@@ -49,6 +49,10 @@ function call(body, headers) {
   // ---- A real scan is accepted, and the start is recorded ----
   const ok = await call({ brandId: "rro", actor: "Gokul" });
   check("accepts a scan for a real brand", ok.statusCode === 202, ok.body);
+  // The 202 is the whole point: the scan has been accepted, not completed. The harness now
+  // answers a background function immediately and works afterwards, exactly as Netlify does,
+  // so the background half has to be waited for rather than assumed to have already run.
+  await waitForBackgroundIdle();
   const marked = await fbGet("strategy_brand_library/rro");
   check("the start time is recorded for the app to show", Boolean(marked.scanStartedAt), marked.scanStartedAt);
 

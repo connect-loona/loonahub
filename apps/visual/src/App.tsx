@@ -23,6 +23,7 @@ import type { Generation, PendingReference, VisualBrand, VisualChat } from "./li
 import { ChatThread } from "./components/ChatThread";
 import { Composer } from "./components/Composer";
 import { ProjectMemory } from "./components/ProjectMemory";
+import { UsagePanel } from "./components/UsagePanel";
 import loonaLogo from "./assets/loona-logo.png";
 
 export function App() {
@@ -32,19 +33,25 @@ export function App() {
   const [chats, setChats] = useState<VisualChat[]>([]);
   const [chatId, setChatId] = useState<string | null>(null);
   const [generations, setGenerations] = useState<Generation[]>([]);
+  const [hasMore, setHasMore] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
-  // References the person has attached but not sent. Browser-only — nothing is hosted, so
+  // References the person has attached but not sent yet. Browser-only until upload, so
   // these go straight through the function to the provider and are never written down.
   const [references, setReferences] = useState<PendingReference[]>([]);
   // Whether the last failure was the kind that clears on its own — a burst limit or a blip at
   // OpenAI's end — so the error can offer a retry instead of just sitting there.
   const [retryable, setRetryable] = useState(false);
+  const [suggestedPrompt, setSuggestedPrompt] = useState<string | null>(null);
+  const [parent, setParent] = useState<{ generationId: string; imageIndex: number } | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [memoryOpen, setMemoryOpen] = useState(false);
+  const [usageOpen, setUsageOpen] = useState(false);
   // Kept so a transient failure can be retried without making the person retype the prompt.
-  const [lastSend, setLastSend] = useState<{ prompt: string; count: number; size: string; quality: string } | null>(null);
+  const [lastSend, setLastSend] = useState<{ prompt: string; count: number; size: string; quality: string; provider: "openai" | "magnific" } | null>(null);
 
   useEffect(() => onAuthChange(setUser), []);
   const actor = user?.displayName || user?.email || "Hub";
@@ -52,7 +59,10 @@ export function App() {
   // Pick the first brand once Hub's list arrives, so the app opens on something real rather
   // than an empty frame.
   useEffect(() => {
-    if (!brand && brands.length) setBrand(brands[0]);
+    if (!brand && brands.length) {
+      const wanted = new URLSearchParams(window.location.search).get("brand");
+      setBrand(brands.find((b) => b.id === wanted) || brands[0]);
+    }
   }, [brands, brand]);
 
   const loadChats = useCallback(async (b: VisualBrand) => {
@@ -73,23 +83,93 @@ export function App() {
     setChatId(null);
     setGenerations([]);
     setReferences([]);
+    setParent(null);
     void loadChats(brand);
   }, [brand, loadChats]);
+
+  // Waits on a job that is already running and drops its round into the thread when it lands.
+  //
+  // This is the same waitForJob the send path uses, deliberately — there is one definition of
+  // "a job finished" rather than a second one for the resume case that could drift from it.
+  const attachToJob = useCallback(async (job: api.VisualJob) => {
+    setBusy(true);
+    setError(null);
+    setNotice("Reconnected to a generation that was already running.");
+    try {
+      // A job can be found still QUEUED: created, but never started, because the tab that
+      // created it went away in the moment between those two calls. Nothing else will ever
+      // pick it up, so it would sit queued for ever while somebody waits for a round that is
+      // not coming. Starting it here is safe — the worker ignores a job already running.
+      if (job.status === "queued" && job.workerToken) await api.startJob(job.id, job.workerToken);
+      const result = await api.waitForJob(job.id);
+      // Guard against a job that finished while the person was off looking at another chat:
+      // only append if it isn't already in the thread.
+      setGenerations((prev) => (prev.some((g) => g.id === result.id) ? prev : prev.concat([{ ...result, pickedIndex: null }])));
+      setNotice(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }, []);
 
   const openChat = useCallback(async (id: string) => {
     setChatId(id);
     setGenerations([]);
     setReferences([]);
     setError(null);
+    // Written before the history call, not after: if the page is refreshed while that request
+    // is still in flight, the URL already points at the right chat.
+    const query = new URLSearchParams({ brand: brand?.id || "", chat: id });
+    window.history.replaceState(null, "", `${window.location.pathname}?${query}`);
+    // Running jobs are read BEFORE the history, and the order is load-bearing.
+    //
+    // A generation outlives the tab that started it: the worker keeps going and the round is
+    // paid for either way. Reading history first opened a window where a job finishing in
+    // between belonged to neither list — not yet recorded when history was read, no longer
+    // "active" when jobs were. The round simply vanished, and somebody had been charged for it.
+    //
+    // This way round there is no such gap: if nothing is running, everything that exists is
+    // already in the record, and the history read below will contain it.
+    let running: api.VisualJob[] = [];
     try {
-      const { generations: rounds } = await api.chatHistory(id);
+      const { jobs } = await api.activeJobs(id);
+      running = jobs;
+    } catch {
+      // Not being able to check for running jobs is not a reason to fail opening the chat.
+    }
+
+    try {
+      const { generations: rounds, hasMore: more } = await api.chatHistory(id);
       // Oldest first: a conversation reads downward, and the newest round belongs at the
       // bottom next to the composer you're about to type in again.
       setGenerations(rounds.slice().sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt))));
+      setHasMore(Boolean(more));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      return;
     }
-  }, []);
+
+    // attachToJob de-duplicates by id, so a job that lands in history while we were waiting
+    // cannot produce the same round twice.
+    if (running.length) void attachToJob(running[running.length - 1]);
+  }, [brand, attachToJob]);
+
+  useEffect(() => {
+    if (chatId || !chats.length) return;
+    const wanted = new URLSearchParams(window.location.search).get("chat");
+    if (wanted && chats.some((chat) => chat.id === wanted)) void openChat(wanted);
+  }, [chats, chatId, openChat]);
+
+  async function loadOlder() {
+    if (!chatId || !generations.length) return;
+    try {
+      const oldest = generations[0].createdAt;
+      const { generations: older, hasMore: more } = await api.chatHistory(chatId, oldest);
+      setGenerations((current) => older.slice().sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt))).concat(current));
+      setHasMore(Boolean(more));
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+  }
 
   // Deliberately does NOT create anything yet — send() creates the chat on the first real
   // message. Creating up front meant every click left an "Untitled visual chat · Empty" row
@@ -100,6 +180,8 @@ export function App() {
     setReferences([]);
     setError(null);
     setNotice(null);
+    setParent(null);
+    if (brand) window.history.replaceState(null, "", `${window.location.pathname}?brand=${encodeURIComponent(brand.id)}`);
   }
 
   // Carrying a generated image back up as the next reference IS the iteration loop — it's how
@@ -111,8 +193,11 @@ export function App() {
     setReferences((prev) => (prev.length >= 4 ? prev : [...prev, {
       dataUrl: image.url as string,
       name: `Take ${index + 1} from this chat`,
-      role: "",
+      role: "Composition and current scene",
+      assetKey: image.assetKey || undefined,
+      contentType: image.contentType || undefined,
     }]));
+    setParent({ generationId: generation.id, imageIndex: index });
     setNotice(null);
   }
 
@@ -130,12 +215,12 @@ export function App() {
     }
   }
 
-  async function send(prompt: string, count: number, size: string, quality: string) {
+  async function send(prompt: string, count: number, size: string, quality: string, provider: "openai" | "magnific") {
     if (!brand) return;
     setError(null);
     setNotice(null);
     setRetryable(false);
-    setLastSend({ prompt, count, size, quality });
+    setLastSend({ prompt, count, size, quality, provider });
     setBusy(true);
     try {
       // A chat is created on first send rather than up front, so opening Visual Studio and
@@ -145,12 +230,30 @@ export function App() {
         const created = await api.createChat(brand.id, actor);
         id = created.id;
         setChatId(id);
+        // Routed immediately, before the job is even created. A generation can run for well
+        // over a minute, and if the tab is refreshed in that window the URL has to already
+        // name this chat — otherwise the reconnect below has nothing to reconnect to and the
+        // round looks lost while the worker is still finishing it.
+        const query = new URLSearchParams({ brand: brand.id, chat: id });
+        window.history.replaceState(null, "", `${window.location.pathname}?${query}`);
+        // The sidebar should show the new chat straight away, not only once it has a round.
+        void loadChats(brand);
       }
-      const result = await api.generate({ chatId: id, prompt, count, size, quality, actor, references });
+      setNotice(references.length ? "Uploading references securely…" : "Generation queued — you can safely refresh this page.");
+      const uploaded = await Promise.all(references.map((reference) => api.uploadReference(id as string, reference)));
+      setReferences(uploaded);
+      const result = await api.generate({
+        chatId: id, prompt, count, size, quality, provider, actor,
+        references: uploaded,
+        parentGenerationId: parent?.generationId || null,
+        parentImageIndex: parent?.imageIndex ?? null,
+      });
       setGenerations((prev) => prev.concat([{ ...result, pickedIndex: null }]));
       // Cleared on success only: a failed round should keep what was attached so the person
       // can fix the prompt and try again without re-uploading everything.
       setReferences([]);
+      setParent(null);
+      setNotice(null);
       // The images exist either way — say so plainly if the memory write was what failed,
       // rather than letting the round silently vanish from history later.
       if (result.recorded === false) {
@@ -172,11 +275,11 @@ export function App() {
     }
   }
 
-  async function pick(generation: Generation, index: number) {
+  async function pick(generation: Generation, index: number, note?: string, tags?: string[]) {
     if (!brand) return;
     setError(null);
     try {
-      await api.pickImage({ brandId: brand.id, generationId: generation.id, index, actor });
+      await api.pickImage({ brandId: brand.id, generationId: generation.id, index, actor, note, tags });
       setGenerations((prev) => prev.map((g) => (g.id === generation.id
         ? { ...g, pickedIndex: index, pickedBy: actor, pickedAt: new Date().toISOString() }
         : g)));
@@ -185,9 +288,21 @@ export function App() {
     }
   }
 
+  async function enhance(generation: Generation, index: number) {
+    if (!chatId) return;
+    setError(null); setNotice("Magnific Precision enhancement queued — this can take several minutes."); setBusy(true);
+    try {
+      const result = await api.enhanceImage({ chatId, generationId: generation.id, imageIndex: index, actor });
+      setGenerations((prev) => prev.concat([{ ...result, pickedIndex: null }]));
+      setNotice(null);
+      if (brand) await loadChats(brand);
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
+  }
+
   return (
     <div className="vs-shell">
-      <aside className="vs-sidebar">
+      <aside className={`vs-sidebar${sidebarOpen ? " is-open" : ""}`}>
         <div className="vs-logo"><img src={loonaLogo} alt="Loona" /></div>
         <nav className="vs-topnav">
           <a href="/">Hub</a>
@@ -209,7 +324,10 @@ export function App() {
                 <button
                   type="button"
                   className={`vs-project${open ? " is-active" : ""}`}
-                  onClick={() => setBrand(b)}
+                  onClick={() => {
+                    window.history.replaceState(null, "", `${window.location.pathname}?brand=${encodeURIComponent(b.id)}`);
+                    setBrand(b); setSidebarOpen(false);
+                  }}
                 >
                   {/* Hub's own brand logo where there is one, the same way its brand cards do
                       it — falling back to a coloured initial for brands nobody has uploaded
@@ -246,7 +364,7 @@ export function App() {
                         <button
                           type="button"
                           className="vs-chatlink"
-                          onClick={() => openChat(c.id)}
+                          onClick={() => { void openChat(c.id); setSidebarOpen(false); }}
                           // Double-click to rename, the way a file name works everywhere else.
                           onDoubleClick={() => { setRenamingId(c.id); setRenameDraft(c.title); }}
                         >
@@ -275,15 +393,20 @@ export function App() {
         </div>
 
         <div className="vs-spacer" />
+        <button type="button" className="vs-usage-link" onClick={() => setUsageOpen(true)}>API usage</button>
         <div className="vs-user">{actor}</div>
       </aside>
 
+      {(sidebarOpen || memoryOpen || usageOpen) && <button className="vs-scrim" aria-label="Close side panel" onClick={() => { setSidebarOpen(false); setMemoryOpen(false); setUsageOpen(false); }} />}
       <main className="vs-main">
         <header className="vs-header">
+          <button type="button" className="vs-mobile-tool" onClick={() => setSidebarOpen(true)} aria-label="Open projects">☰</button>
           <div>
             <h1>{brand ? brand.name : "Visual Studio"}</h1>
             <p>{chats.find((c) => c.id === chatId)?.title || "New visual chat"}</p>
           </div>
+          <button type="button" className="vs-mobile-tool" onClick={() => setMemoryOpen(true)} aria-label="Open brand memory">Mani</button>
+          <button type="button" className="vs-header-tool" onClick={() => setUsageOpen(true)}>API usage</button>
         </header>
 
         {error && (
@@ -292,19 +415,39 @@ export function App() {
             {retryable && lastSend && !busy && (
               // The references are still attached (they're only cleared on success), so this
               // really is the same round again rather than a half-rebuilt one.
-              <button type="button" className="vs-retry" onClick={() => send(lastSend.prompt, lastSend.count, lastSend.size, lastSend.quality)}>
+              <button type="button" className="vs-retry" onClick={() => send(lastSend.prompt, lastSend.count, lastSend.size, lastSend.quality, lastSend.provider)}>
                 Try again
               </button>
             )}
           </div>
         )}
         {notice && <div className="vs-notice" role="status">{notice}</div>}
+        {hasMore && <button type="button" className="vs-load-older" onClick={() => void loadOlder()}>Load older rounds</button>}
 
-        <ChatThread generations={generations} onPick={pick} onUseAsReference={useAsReference} busy={busy} />
-        <Composer onSend={send} busy={busy} disabled={!brand} references={references} setReferences={setReferences} />
+        <ChatThread
+          generations={generations}
+          onPick={pick}
+          onUseAsReference={useAsReference}
+          onSuggestion={setSuggestedPrompt}
+          onReview={async (generation, imageIndex) => {
+            if (!chatId) return;
+            const { qc } = await api.reviewImage({ chatId, generationId: generation.id, imageIndex });
+            setGenerations((prev) => prev.map((g) => g.id === generation.id ? { ...g, qc } : g));
+          }}
+          onEnhance={enhance}
+          busy={busy}
+        />
+        <Composer
+          onSend={send} busy={busy} disabled={!brand} references={references} setReferences={setReferences}
+          suggestedPrompt={suggestedPrompt} onSuggestionUsed={() => setSuggestedPrompt(null)}
+        />
       </main>
 
-      <ProjectMemory brand={brand} generations={generations} />
+      <div className={`vs-memory-drawer${memoryOpen ? " is-open" : ""}`}>
+        <button type="button" className="vs-drawer-close" onClick={() => setMemoryOpen(false)}>Close</button>
+        <ProjectMemory brand={brand} generations={generations} />
+      </div>
+      <UsagePanel open={usageOpen} onClose={() => setUsageOpen(false)} />
     </div>
   );
 }

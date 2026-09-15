@@ -25,7 +25,15 @@ const AUTH_TOKEN = crypto.createHash("sha256").update("gokul:supersecret").diges
 // talking to the fake RTDB directly and for calling netlify-dev-lite's function routes
 // from Node-based (non-browser) tests. `auth: true` adds the same loona_auth cookie +
 // x-forwarded-proto header a real authenticated browser session would send.
-function req(method, url, body, { auth = false } = {}) {
+async function req(method, url, body, options = {}) {
+  const result = await rawJsonReq(method, url, body, options);
+  // Only for function calls — a read straight from the fake RTDB has no background work behind
+  // it, and draining there would just add latency to every assertion.
+  if (url.includes("/.netlify/functions/")) await waitForBackgroundIdle();
+  return result;
+}
+
+function rawJsonReq(method, url, body, { auth = false } = {}) {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
     const data = body !== undefined ? JSON.stringify(body) : null;
@@ -42,6 +50,27 @@ function req(method, url, body, { auth = false } = {}) {
     });
     r.on("error", reject);
     if (data) r.write(data);
+    r.end();
+  });
+}
+
+// Wait until no background function is still running in the local harness.
+//
+// The harness now answers a background function with 202 and works afterwards, exactly as
+// Netlify does — which is what lets the Visual Studio browser tests watch a job while it is
+// queued or running. Node-based tests, though, were all written when the harness finished the
+// work before replying, so for them "the response came back" meant "the stage has run".
+//
+// Draining here keeps those tests in their original, simpler shape without pretending
+// background work is synchronous anywhere the browser can see.
+function waitForBackgroundIdle() {
+  return new Promise((resolve) => {
+    const u = new URL(`${DEV_LITE_URL}/__dev/background-idle`);
+    const r = http.request({ method: "GET", hostname: u.hostname, port: u.port, path: u.pathname }, (res) => {
+      res.resume();
+      res.on("end", resolve);
+    });
+    r.on("error", resolve);
     r.end();
   });
 }
@@ -190,9 +219,50 @@ function finish() {
   process.exit(allPass ? 0 : 1);
 }
 
+// Raw request helper: bytes in, bytes and headers out.
+//
+// req() above speaks JSON and accumulates the response as a string, which is exactly wrong for
+// the two endpoints that move image bytes — a PNG round-tripped through a JS string comes back
+// corrupt, and a corrupt PNG failing its own signature check is indistinguishable from the
+// validation working. Header access matters too: nosniff and content-type are part of what
+// those endpoints are supposed to get right.
+function rawReq(method, url, bodyBuffer, { auth = false, contentType = null } = {}) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    const headers = {};
+    if (contentType) headers["Content-Type"] = contentType;
+    if (bodyBuffer) headers["Content-Length"] = bodyBuffer.length;
+    if (auth) { headers.Cookie = `loona_auth=${AUTH_TOKEN}`; headers["X-Forwarded-Proto"] = "http"; }
+    const r = http.request({ method, hostname: u.hostname, port: u.port, path: u.pathname + u.search, headers }, (res) => {
+      const chunks = [];
+      res.on("data", (c) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
+      res.on("end", () => {
+        const buf = Buffer.concat(chunks);
+        let parsed = null;
+        try { parsed = JSON.parse(buf.toString("utf8")); } catch { parsed = null; }
+        resolve({ status: res.statusCode, headers: res.headers, buffer: buf, json: parsed });
+      });
+    });
+    r.on("error", reject);
+    if (bodyBuffer) r.write(bodyBuffer);
+    r.end();
+  });
+}
+
+// A valid PNG header with real dimensions — enough for inspectImage, which reads the IHDR and
+// nothing after it. Built rather than committed as a fixture so the dimensions can vary per
+// assertion (too small, comfortably large) without carrying binary files in the repo.
+function pngOfSize(width, height) {
+  const buffer = Buffer.alloc(64);
+  Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).copy(buffer, 0);
+  buffer.writeUInt32BE(width, 16);
+  buffer.writeUInt32BE(height, 20);
+  return buffer;
+}
+
 module.exports = {
   HUB, RTDB_URL, DEV_LITE_URL, AUTH_TOKEN, FIXED_NOW,
-  req, sleep, waitFor, wipeFirebase,
+  req, rawReq, pngOfSize, waitForBackgroundIdle, sleep, waitFor, wipeFirebase,
   chromiumLaunchOptions, combinedInit, blockRealFirebaseSdk, authCookie, loginAsGokul,
   check, resetCheckState, allChecksPassed, finish,
 };

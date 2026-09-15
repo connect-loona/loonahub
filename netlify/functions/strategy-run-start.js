@@ -23,6 +23,8 @@ const { fbGet, fbSet } = require("./lib/strategy/firebase");
 const { loadBrandConfig, loadMonthInput } = require("./lib/strategy/store");
 const { checkAuthorization } = require("./lib/strategy/auth");
 const { siteBaseUrl } = require("./lib/site-base-url");
+const { resolveVisualActor } = require("./lib/strategy/visual-actor");
+const { signedBackgroundHeaders } = require("./lib/strategy/background-auth");
 
 // The five pipeline stages, in order — the only keys a per-stage `runtimes` map may use.
 const STAGE_NAMES = ["research", "strategy", "copy", "creative-direction", "deck-builder"];
@@ -84,6 +86,7 @@ exports.handler = async (event) => {
   }
 
   try {
+    const actorIdentity = await resolveVisualActor(event, actor);
     // Fail fast with a clear error if the brand isn't configured, rather than creating a
     // run doc that can never start.
     await loadBrandConfig(brandId);
@@ -149,11 +152,12 @@ exports.handler = async (event) => {
       runType,
       deliverablesOverride,
       owner: actor,
+      ownerIdentity: actorIdentity,
       createdAt: now,
       updatedAt: now,
       status: "draft",
       stages: {
-        research: { status: "queued" },
+        research: { status: "queued", triggeredBy: actorIdentity },
         strategy: { status: "locked" },
         copy: { status: "locked" },
         "creative-direction": { status: "locked" },
@@ -164,10 +168,11 @@ exports.handler = async (event) => {
 
     const base = siteBaseUrl(event);
     try {
+      const backgroundBody = JSON.stringify({ runId: id });
       await fetch(`${base}/.netlify/functions/strategy-research-background`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ runId: id }),
+        headers: signedBackgroundHeaders("strategy-research-background", backgroundBody),
+        body: backgroundBody,
       });
     } catch (e) {
       // Write the failure into the run doc itself — previously this was only

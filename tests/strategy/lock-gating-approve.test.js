@@ -5,7 +5,7 @@
 // checkpoint specifically. Approving with nothing locked advances everything, unchanged
 // from before this feature existed.
 const path = require("path");
-const { HUB, RTDB_URL, DEV_LITE_URL, req } = require("../harness/shared");
+const { HUB, RTDB_URL, DEV_LITE_URL, req, waitForBackgroundIdle } = require("../harness/shared");
 const apiReq = (method, url, body) => req(method, url, body, { auth: true });
 
 let allPass = true;
@@ -46,7 +46,7 @@ function lockOf(actor) { return { lockedAt: new Date().toISOString(), lockedBy: 
     const run = (await req("GET", `${RTDB_URL}/strategy_runs/${runId}.json`)).body;
     check(`nothing locked -> all ${TOTAL} assets still there`, run.stages.strategy.checkpoint.assets.length === TOTAL, run.stages.strategy.checkpoint.assets.length);
     // Nothing was trimmed, so the trimmed count (13) still matches copy.json's own fixture
-    // size — the background trigger runs synchronously in this harness, so real generation
+    // size — the harness waits for the background trigger, so real generation
     // has already completed by the time we check.
     check("copy stage advanced and generated for real (nothing locked -> nothing trimmed -> fixture size still matches)", run.stages.copy.status === "needs_review", run.stages.copy.status);
   }
