@@ -110,6 +110,8 @@ button { cursor: pointer; }
 .vs-image figcaption button { padding: 3px 10px; border: 1px solid var(--line); border-radius: 20px; background: transparent; font-size: 11.5px; font-weight: 600; }
 .vs-image figcaption button:hover { border-color: var(--accent); color: var(--accent); }
 .vs-image figcaption a { color: var(--muted); font-size: 11.5px; }
+.vs-image figcaption button.vs-download { border: 0; padding: 0; background: none; font-weight: 400; color: var(--muted); text-decoration: underline; }
+.vs-image figcaption button.vs-download:hover { border: 0; color: var(--accent); }
 .vs-picked-flag { color: var(--green); font-weight: 600; font-size: 11.5px; }
 
 .vs-expired { max-width: 640px; padding: 11px 13px; border: 1px dashed var(--line); border-radius: 10px; color: var(--muted); font-size: 12.5px; }

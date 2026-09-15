@@ -18,6 +18,35 @@ function when(iso: string): string {
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
+const EXTENSION_FOR_TYPE: Record<string, string> = {
+  "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif",
+};
+
+// A plain `<a href download>` was naming every file ".png" regardless of what it actually was —
+// a Draft round is a JPEG, so the browser (correctly) appended its own ".jpeg" on top of that,
+// producing "name.png.jpeg" and, on some devices, nothing usable at all once that mismatch hits
+// the OS's own save handling. Fetching the bytes into a real Blob first means the filename can
+// be built from what the file actually is, and a Blob URL survives the save far more reliably
+// than a raw (often multi-megabyte) data: URI does — the case a round with no durable copy
+// yet always is.
+async function downloadImage(url: string, baseName: string) {
+  try {
+    const blob = await (await fetch(url)).blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = `${baseName}.${EXTENSION_FOR_TYPE[blob.type] || "png"}`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 30000);
+  } catch {
+    // Fetching or saving failed — opening it directly at least gets the person to the image,
+    // where a long-press/right-click can still save it by hand.
+    window.open(url, "_blank");
+  }
+}
+
 function Round({ generation, onPick, onUseAsReference, onSuggestion, onReview, onEnhance }: {
   generation: Generation;
   onPick: (g: Generation, i: number, note?: string, tags?: string[]) => void;
@@ -115,13 +144,9 @@ function Round({ generation, onPick, onUseAsReference, onSuggestion, onReview, o
                           finally { setEnhancing(null); }
                         }}>{enhancing === i ? "Enhancing…" : "Enhance in Magnific"}</button>
                       )}
-                      {/* No target="_blank" — that combined with download is a known dead end in
-                          Safari/WebKit: the browser can't decide whether to open a tab or save a
-                          file, and silently does neither. A plain same-tab link lets it just
-                          save, which is the only thing this button is for. */}
-                      <a href={image.url} download={`${generation.id}-${i + 1}.png`}>
+                      <button type="button" className="vs-download" onClick={() => downloadImage(image.url as string, `${generation.id}-${i + 1}`)}>
                         Download
-                      </a>
+                      </button>
                     </>
                   )}
                 </figcaption>
