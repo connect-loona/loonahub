@@ -190,19 +190,26 @@ export function App() {
   // Carrying a generated image back up as the next reference IS the iteration loop — it's how
   // "now make the table warmer" works without re-uploading anything, and it costs nothing
   // because the image is already in the browser.
-  // "Build on this" carries more than the image now: its round becomes the parent for
-  // provenance, and its shape and quality ride along too, so a follow-up on a 9:16 final
-  // doesn't quietly land back on the composer's own default of 4:5 draft.
+  // Continuing on ONE take, exclusively — whichever was just picked, or just explicitly built
+  // on, replaces whatever was there before rather than piling onto it. Picking option A out of
+  // a round means working on A, not A-plus-whatever-was-already-attached; building on a
+  // different take later means moving on to that one, not accumulating both. Someone who wants
+  // to genuinely combine two different sources still can, through the ordinary "+ Reference"
+  // upload — this only governs what a PICK or a BUILD-ON-THIS action itself carries.
+  //
+  // It also carries the round's shape and quality forward, not just the image — a follow-up on
+  // a 9:16 final shouldn't quietly land back on the composer's own defaults (4:5, draft) just
+  // because nobody remembered to reselect them.
   function carryForward(generation: Generation, index: number) {
     const image = (generation.images || [])[index];
     if (!image || !image.url) return;
-    setReferences((prev) => (prev.length >= 4 ? prev : [...prev, {
+    setReferences([{
       dataUrl: image.url as string,
       name: `Take ${index + 1} from this chat`,
       role: "Composition and current scene",
       assetKey: image.assetKey || undefined,
       contentType: image.contentType || undefined,
-    }]));
+    }]);
     setParent({ generationId: generation.id, imageIndex: index });
     setSeedShape({ size: generation.size, quality: generation.quality });
     setNotice(null);
@@ -291,14 +298,12 @@ export function App() {
       setGenerations((prev) => prev.map((g) => (g.id === generation.id
         ? { ...g, pickedIndex: index, pickedBy: actor, pickedAt: new Date().toISOString() }
         : g)));
-      // Deliberately NOT carried forward automatically here. It looks tempting — a pick is an
-      // unambiguous "this is the one" signal — but references stack (up to 4, each with its own
-      // role), while a pick is a single choice, and the two collide the moment someone picks
-      // one round and then explicitly builds on a different one: do they now have one reference
-      // or two? That's a real product decision, not a safe default for a small pass, so picking
-      // stays exactly what it was — a record of taste — and carrying an image forward stays an
-      // explicit "Build on this" (below), which now also brings the round's shape and quality
-      // with it.
+      // Picking option A out of a round means continuing on A, not leaving somebody to click
+      // "Build on this" a second time for the choice they just made. carryForward REPLACES
+      // rather than stacks, so this is safe even when the take just picked is the same one
+      // already carried by an earlier explicit click — picking it again is a no-op, not a
+      // second copy of the same reference.
+      carryForward(generation, index);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
