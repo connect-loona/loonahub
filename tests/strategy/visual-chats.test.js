@@ -27,8 +27,8 @@ const crypto = require("crypto");
 
 process.env.BASIC_AUTH_CREDENTIALS = "gokul:supersecret";
 const authCookie = `loona_auth=${crypto.createHash("sha256").update("gokul:supersecret").digest("hex")}`;
-const chatFn = require(path.join(HUB, "netlify/functions/visual-chat.js"));
-const generateFn = require(path.join(HUB, "netlify/functions/visual-generate.js"));
+const chatFn = require(path.join(HUB, "netlify/functions/_legacy/visual-chat.js"));
+const generateFn = require(path.join(HUB, "netlify/functions/_legacy/visual-generate.js"));
 
 function call(fn, body) {
   return fn.handler({

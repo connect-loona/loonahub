@@ -9,8 +9,8 @@ process.env.BASIC_AUTH_CREDENTIALS = "gokul:supersecret";
 
 const crypto = require("crypto");
 const { fbSet, fbGet } = require(path.join(HUB, "netlify/functions/lib/strategy/firebase"));
-const assetLock = require(path.join(HUB, "netlify/functions/strategy-asset-lock.js"));
-const candidateReject = require(path.join(HUB, "netlify/functions/strategy-concept-candidate-reject.js"));
+const assetLock = require(path.join(HUB, "netlify/functions/_legacy/strategy-asset-lock.js"));
+const candidateReject = require(path.join(HUB, "netlify/functions/_legacy/strategy-concept-candidate-reject.js"));
 
 let allPass = true;
 function check(name, cond, extra) {

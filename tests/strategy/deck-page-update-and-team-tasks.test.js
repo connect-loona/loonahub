@@ -9,8 +9,8 @@ process.env.BASIC_AUTH_CREDENTIALS = "gokul:supersecret";
 
 const crypto = require("crypto");
 const { fbSet, fbGet } = require(path.join(HUB, "netlify/functions/lib/strategy/firebase"));
-const deckPageUpdate = require(path.join(HUB, "netlify/functions/strategy-deck-page-update.js"));
-const teamTasksCreate = require(path.join(HUB, "netlify/functions/strategy-team-tasks-create.js"));
+const deckPageUpdate = require(path.join(HUB, "netlify/functions/_legacy/strategy-deck-page-update.js"));
+const teamTasksCreate = require(path.join(HUB, "netlify/functions/_legacy/strategy-team-tasks-create.js"));
 
 let allPass = true;
 function check(name, cond, extra) {

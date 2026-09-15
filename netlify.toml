@@ -16,16 +16,13 @@
   publish = "dist"
   functions = "netlify/functions"
 
-# Pinned, because nothing here pinned it and the build has a hard floor.
+# Node is pinned in .nvmrc rather than as NODE_VERSION here, deliberately.
 #
-# Both apps build with Vite 8, which requires Node ^20.19 or >=22.12 and fails outright below
-# that. With no .nvmrc, no engines field and no NODE_VERSION, the version was whatever Netlify's
-# default happened to be that day — so the deploy could break without a single line of this
-# repo changing, and the failure would look like a code problem rather than an environment one.
-#
-# 22 is what the suite and both production builds are verified against.
-[build.environment]
-  NODE_VERSION = "22"
+# Both apps build with Vite 8, which needs Node ^20.19 or >=22.12, so the version must be
+# pinned somewhere. But a build.environment entry also becomes part of every function's
+# environment, and this site is already at AWS Lambda's 4KB environment limit — the limit that
+# was failing every function upload at deploy time. .nvmrc pins the build identically and costs
+# the function environment nothing.
 
 # The Strategy rule must come before the general fallback (there isn't one for the legacy
 # Hub — it's plain multi-page static files, not a client-routed SPA, so no /* -> /index.html

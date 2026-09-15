@@ -156,6 +156,14 @@ function webRequestFor(req, rawBody) {
   const proto = req.headers["x-forwarded-proto"] || "http";
   const url = `${proto}://${req.headers.host || "127.0.0.1"}${req.url}`;
   const headers = new Headers();
+  // Same reason as the legacy branch in handleFunction below: this stand-in is plain http,
+  // but siteBaseUrl() in strategy-stage-approve / strategy-stage-retry /
+  // strategy-concept-propose / strategy-concept-discard defaults to "https" when this header
+  // is missing — correct on Netlify's always-https edge, fatal here, because the background
+  // trigger fetch would then attempt a TLS handshake against an http server and the stage
+  // would simply never start. Fill it in for every function the browser reaches, whichever
+  // generation it is written in.
+  headers.set("x-forwarded-proto", "http");
   for (const [key, value] of Object.entries(req.headers)) {
     if (Array.isArray(value)) value.forEach((v) => headers.append(key, v));
     else if (value !== undefined) headers.set(key, String(value));

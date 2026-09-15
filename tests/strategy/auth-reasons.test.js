@@ -44,7 +44,7 @@ withEnv("gokul:supersecret", () => {
 
 // ---- End-to-end through the actual function handler ----
 withEnv(undefined, () => {
-  const modPath = path.join(HUB, "netlify/functions/strategy-run-start.js");
+  const modPath = path.join(HUB, "netlify/functions/_legacy/strategy-run-start.js");
   delete require.cache[require.resolve(modPath)];
   const mod = require(modPath);
   return mod.handler({ httpMethod: "POST", headers: {}, body: JSON.stringify({ brandId: "rro", month: "2026-10", actor: "Gokul" }) })

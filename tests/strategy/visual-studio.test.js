@@ -28,8 +28,8 @@ const crypto = require("crypto");
 process.env.BASIC_AUTH_CREDENTIALS = "gokul:supersecret";
 const token = crypto.createHash("sha256").update("gokul:supersecret").digest("hex");
 const authCookie = `loona_auth=${token}`;
-const generate = require(path.join(HUB, "netlify/functions/visual-generate.js"));
-const pick = require(path.join(HUB, "netlify/functions/visual-pick.js"));
+const generate = require(path.join(HUB, "netlify/functions/_legacy/visual-generate.js"));
+const pick = require(path.join(HUB, "netlify/functions/_legacy/visual-pick.js"));
 
 function call(fn, body, headers) {
   return fn.handler({

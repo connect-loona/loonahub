@@ -17,7 +17,7 @@ const crypto = require("crypto");
 
 process.env.BASIC_AUTH_CREDENTIALS = "gokul:supersecret";
 const authCookie = `loona_auth=${crypto.createHash("sha256").update("gokul:supersecret").digest("hex")}`;
-const ask = require(path.join(HUB, "netlify/functions/strategy-mani-ask.js"));
+const ask = require(path.join(HUB, "netlify/functions/_legacy/strategy-mani-ask.js"));
 
 function call(body) {
   return ask.handler({

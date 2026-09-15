@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import generation from "./visual-generate.js";
+import generation from "./_legacy/visual-generate.js";
 import auth from "./lib/strategy/auth.js";
 import visualJobs from "./lib/strategy/visual-jobs.js";
 import visualAssets from "./lib/strategy/visual-assets.js";

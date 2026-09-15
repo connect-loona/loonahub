@@ -21,8 +21,8 @@ const authCookie = `loona_auth=${token}`;
 const fixtureDir = path.join(HUB, "netlify/functions/lib/strategy/fixtures/rro-2026-10");
 
 function startRun() {
-  delete require.cache[require.resolve(path.join(HUB, "netlify/functions/strategy-run-start.js"))];
-  const runStart = require(path.join(HUB, "netlify/functions/strategy-run-start.js"));
+  delete require.cache[require.resolve(path.join(HUB, "netlify/functions/_legacy/strategy-run-start.js"))];
+  const runStart = require(path.join(HUB, "netlify/functions/_legacy/strategy-run-start.js"));
   return runStart.handler({
     httpMethod: "POST",
     headers: { cookie: authCookie },
