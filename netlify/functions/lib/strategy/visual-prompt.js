@@ -46,6 +46,13 @@ function promptForReferenceEdit(typed, referenceRoles = []) {
     // own default finish, not something anyone asked for. Naming it as a constraint like any
     // other stops that default from overriding the reference.
     "Match the reference's own level of skin and surface texture exactly — same pores, fine lines, fabric weave and material grain, same amount of natural asymmetry. Do not smooth, airbrush or add a glossy, waxy or plastic finish that is not present in the reference.",
+    // Named actions and exercises are a specific case of the same "invent nothing" rule: asked
+    // for "make him do Leg Curl", a model with no domain knowledge of gym equipment folded the
+    // whole leg backward instead of the correct isolated knee flexion. Naming real-world
+    // correctness as a constraint — not the anatomy itself, since that varies by request — gives
+    // the model a reason to reach for the standard, recognisable form of a named action, sport,
+    // exercise or equipment instead of a plausible-looking guess.
+    "If the request names a specific action, exercise, sport, tool or piece of equipment, depict it in its correct, real-world, anatomically accurate form — the way it actually looks when done or used correctly — rather than a generic or exaggerated interpretation of the words alone.",
   ];
   if (roles.length) lines.push(`Use the references only for these stated roles:\n${roles.join("\n")}`);
   else if (referenceRoles.length > 1) lines.push("Use each reference only as evidence for the designer's explicit request; do not blend unrelated visual details between them.");
