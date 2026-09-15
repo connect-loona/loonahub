@@ -135,6 +135,10 @@ async function generateWithOpenAI(request, deps = {}) {
     form.append("size", resolveSize(request.size));
     form.append("quality", tier.quality);
     form.append("output_format", tier.output_format);
+    // GPT Image models before v2 default to lower reference fidelity. This is an editing
+    // product, so preserving the supplied pixels is worth the additional input-image cost.
+    // v2 and later reject this switch because high fidelity is automatic there.
+    if (/^gpt-image-1(?:$|[.-])/.test(model)) form.append("input_fidelity", "high");
     const resolvedReferences = [];
     for (const reference of references) resolvedReferences.push(await referenceForProvider(reference, deps));
     resolvedReferences.forEach((reference, i) => {

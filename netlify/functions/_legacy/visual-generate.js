@@ -13,7 +13,7 @@ const { checkAuthorization } = require("../lib/strategy/auth");
 const { generateImages, MAX_IMAGES, MAX_REFERENCES } = require("../lib/strategy/image-providers");
 const { recordGeneration } = require("../lib/strategy/visual-memory");
 const { resolveChat, touchChat, titleFromPrompt } = require("../lib/strategy/visual-chats");
-const { buildRulePreamble, applyRules } = require("../lib/strategy/visual-rules");
+const { buildRulePreamble, applyRules, shouldApplyProductRules } = require("../lib/strategy/visual-rules");
 const { hubBrandExists } = require("../lib/strategy/hub-brands");
 const { expandPrompt, historyForPrompt } = require("../lib/strategy/visual-prompt");
 const { loadVisualHistory } = require("../lib/strategy/visual-memory");
@@ -92,7 +92,14 @@ exports.handler = async (event) => {
   // The brand's hard rules become a real prompt preamble — see visual-rules.js for why these
   // are sentences prepended to the prompt rather than toggles that change nothing.
   let rules = { preamble: "", applied: [] };
-  try { rules = await buildRulePreamble(brandId, { disabledRules: body.disabledRules }); }
+  const referenceRoles = references.map((r) => (r && r.role) || "");
+  const includeProductRules = references.length > 0 && shouldApplyProductRules(prompt, referenceRoles);
+  try {
+    rules = await buildRulePreamble(brandId, {
+      disabledRules: body.disabledRules,
+      includeStandardRules: includeProductRules,
+    });
+  }
   catch (error) { console.error(`Could not build rules for ${brandId}:`, error.message); }
 
   // THE PART THAT CLOSES THE GAP WITH CHATGPT.
@@ -122,7 +129,7 @@ exports.handler = async (event) => {
     history,
     brandBrain,
     brandRules: rules.applied,
-    referenceRoles: references.map((r) => (r && r.role) || ""),
+    referenceRoles,
   });
 
   // The rules still go in front of the rewritten prompt rather than being folded into it: a

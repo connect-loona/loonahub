@@ -26,6 +26,26 @@ const MAX_HISTORY_TURNS = 6;
 const MAX_EXPANDED_CHARS = 3000;
 const MAX_BRAIN_CHARS = 2000;
 
+// Reference-led work is an edit, not a blank canvas. The text rewriter cannot see the
+// attached pixels, so asking it to "describe the whole scene" invites it to invent a scene —
+// exactly how "keep the colours same" became a dark gym with warm light. Build this prompt
+// deterministically instead. The image model can see the references; the helper model cannot.
+function promptForReferenceEdit(typed, referenceRoles = []) {
+  const roles = referenceRoles
+    .map((role, i) => String(role || "").trim() ? `Reference ${i + 1}: ${String(role).trim()}` : null)
+    .filter(Boolean);
+  const referenceWord = referenceRoles.length === 1 ? "image" : "images";
+  const lines = [
+    `Edit the attached reference ${referenceWord}. Follow this requested change exactly: ${typed}`,
+    "Change only what the designer explicitly requested. Preserve every other visible detail from the reference, including the setting and background, colour palette and grade, lighting, camera angle, crop and composition, pose and action, wardrobe, objects, text, logos and surface details.",
+    "Do not invent a new setting, background, prop, crop, mood, lighting treatment, colour treatment or styling direction. Do not reinterpret descriptive words as permission to redesign unrelated parts of the image.",
+    "If the request says an element must remain the same, treat that as a hard constraint. Brand memory may constrain the requested change, but it must never alter unrelated reference details.",
+  ];
+  if (roles.length) lines.push(`Use the references only for these stated roles:\n${roles.join("\n")}`);
+  else if (referenceRoles.length > 1) lines.push("Use each reference only as evidence for the designer's explicit request; do not blend unrelated visual details between them.");
+  return lines.join("\n\n").slice(0, MAX_EXPANDED_CHARS);
+}
+
 const SYSTEM = [
   "You write prompts for an image generation model. You are given what a designer typed, the conversation it belongs to, and what is known about the brand.",
   "Rewrite their request into ONE self-contained image prompt that the model can act on without seeing any of the context you were given.",
@@ -96,6 +116,13 @@ async function expandPrompt({ prompt, history, brandBrain, referenceRoles, brand
   const typed = String(prompt || "").trim();
   if (!typed) return { prompt: typed, expanded: false };
 
+  // Never let a blind text model creatively rewrite a reference edit. This path is also
+  // independent of API-key availability, so the same preservation contract reaches the image
+  // model in production, local development and fail-open conditions.
+  if (referenceRoles && referenceRoles.length) {
+    return { prompt: promptForReferenceEdit(typed, referenceRoles), expanded: true, mode: "edit" };
+  }
+
   const generateText = deps.generateText || null;
   const apiKey = openaiApiKey();
   // No key is not an error. The person's own words still generate an image.
@@ -123,4 +150,7 @@ async function expandPrompt({ prompt, history, brandBrain, referenceRoles, brand
   }
 }
 
-module.exports = { expandPrompt, historyForPrompt, SYSTEM, MAX_HISTORY_TURNS, DEFAULT_PROMPT_MODEL };
+module.exports = {
+  expandPrompt, historyForPrompt, promptForReferenceEdit,
+  SYSTEM, MAX_HISTORY_TURNS, DEFAULT_PROMPT_MODEL,
+};
