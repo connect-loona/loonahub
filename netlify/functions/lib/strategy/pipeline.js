@@ -800,6 +800,45 @@ async function runDirectionStage(runId) {
   });
 }
 
+// Chat-based Strategy OS deliberately has no approval wall between agents. The team sees
+// one concept at a time in the conversation and logs the decisions there, so Research,
+// Strategy, Copy and Creative Direction can run as one private backend pass. Deck Builder
+// is intentionally not part of this path: the final output is copied into Canva or another
+// production tool by the team.
+async function runChatPipeline(runId) {
+  const stages = [
+    ["research", runResearchStage],
+    ["strategy", runStrategyStage],
+    ["copy", runCopyStage],
+    ["creative-direction", runDirectionStage],
+  ];
+  for (const [stage, runner] of stages) {
+    await runner(runId);
+    const now = new Date().toISOString();
+    await fbUpdate(`strategy_runs/${runId}/stages/${stage}`, {
+      status: "needs_review",
+      chatReady: true,
+      detail: "Completed in chat mode; team review happens concept by concept.",
+      updatedAt: now,
+    });
+    await fbUpdate(`strategy_runs/${runId}`, {
+      status: `${stage}_approved`,
+      updatedAt: now,
+    });
+  }
+  const now = new Date().toISOString();
+  await fbUpdate(`strategy_runs/${runId}`, {
+    status: "creative-direction_approved",
+    coordinator: { name: "BB Loona", currentStage: "creative-direction", specialist: "Strategy OS", status: "ready_for_team_review" },
+    updatedAt: now,
+  });
+  await fbUpdate(`strategy_runs/${runId}/stages/deck-builder`, {
+    status: "skipped",
+    detail: "Deck building is disabled for chat-based planning.",
+    updatedAt: now,
+  });
+}
+
 async function runDeckStage(runId) {
   const run = await fbGet(`strategy_runs/${runId}`);
   if (!run) throw new Error(`Run ${runId} not found.`);
@@ -1407,7 +1446,7 @@ function applyLockFilterOnApprove(run, stage) {
 }
 
 module.exports = {
-  runResearchStage, runStrategyStage, runCopyStage, runDirectionStage, runDeckStage,
+  runResearchStage, runStrategyStage, runCopyStage, runDirectionStage, runDeckStage, runChatPipeline,
   proposeAssetCandidate, proposeAssetVariations, acceptAssetCandidate, replaceAsset, reopenStage,
   applyLockFilterOnApprove,
   logActivity, buildStrategyResearchBrief,

@@ -33,12 +33,17 @@ export function startRun(args: {
   month: string;
   actor: string;
   runType?: "monthly" | "campaign";
+  chatMode?: boolean;
   runtime?: "openai" | "claude";
   runtimes?: Record<string, "openai" | "claude">;
   deliverablesOverride?: DeliverablesCount;
   sourceContext?: string[];
 }): Promise<{ runId: string }> {
   return post("strategy-run-start", args) as Promise<{ runId: string }>;
+}
+
+export function saveStrategyChatMessage(args: { runId: string; role: "user" | "assistant"; text: string; actor: string }): Promise<{ ok: true; id: string }> {
+  return post("strategy-chat-message", args) as Promise<{ ok: true; id: string }>;
 }
 
 // Re-reads a brand's Drive folder now, instead of waiting for the next strategy run to do it
