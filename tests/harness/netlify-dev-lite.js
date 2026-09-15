@@ -149,12 +149,10 @@ async function waitForBackgroundIdle(timeoutMs = 30000) {
   return inFlight.size === 0;
 }
 
-// A v2 (.mjs) function: build a real Request, run it, stream the Response back.
-//
-// The body is kept as a Buffer throughout. Reference upload posts raw image bytes, and the
-// old string concatenation corrupted every one of them — a PNG that arrived through here would
-// fail its own signature check, which is indistinguishable from the validation working.
-async function handleEsmFunction(file, name, req, res, rawBody) {
+// A modern (.mjs) function receives a real Web Request. Keep the body as a Buffer throughout:
+// reference upload posts raw image bytes, and round-tripping those through a string corrupts
+// the image before its signature validation can even run.
+function webRequestFor(req, rawBody) {
   const proto = req.headers["x-forwarded-proto"] || "http";
   const url = `${proto}://${req.headers.host || "127.0.0.1"}${req.url}`;
   const headers = new Headers();
@@ -163,12 +161,19 @@ async function handleEsmFunction(file, name, req, res, rawBody) {
     else if (value !== undefined) headers.set(key, String(value));
   }
   const hasBody = req.method !== "GET" && req.method !== "HEAD" && rawBody.length > 0;
-  const request = new Request(url, { method: req.method, headers, body: hasBody ? rawBody : undefined });
+  return new Request(url, { method: req.method, headers, body: hasBody ? rawBody : undefined });
+}
 
+async function invokeEsmFunction(file, name, req, rawBody) {
   const mod = await import(`${pathToFileURL(file).href}?v=${Date.now()}`);
   const handler = mod.default;
   if (typeof handler !== "function") throw new Error(`${name}.mjs has no default export to call.`);
-  const response = await handler(request, { requestId: `local-${Date.now()}` });
+  return handler(webRequestFor(req, rawBody), { requestId: `local-${Date.now()}` });
+}
+
+async function handleEsmFunction(file, name, req, res, rawBody) {
+  const response = await invokeEsmFunction(file, name, req, rawBody);
+  if (!(response instanceof Response)) throw new Error(`${name}.mjs did not return a Response.`);
 
   res.statusCode = response.status;
   response.headers.forEach((value, key) => res.setHeader(key, value));
@@ -190,12 +195,22 @@ async function handleFunction(name, req, res, queryStringParameters) {
     if (target && isBackground(name)) {
       res.statusCode = 202;
       res.end("");
-      const mod = require(target.file);
       const headers = Object.assign({ "x-forwarded-proto": "http" }, req.headers);
-      trackBackground(
-        mod.handler({ httpMethod: req.method, headers, body, queryStringParameters: queryStringParameters || {} })
-          .catch((e) => console.error(`[dev-lite] background ${name} failed:`, e && e.stack ? e.stack : e)),
-      );
+      let backgroundWork;
+      if (target.esm) {
+        backgroundWork = invokeEsmFunction(target.file, name, req, rawBody);
+      } else {
+        const mod = require(target.file);
+        backgroundWork = mod.handler({
+          httpMethod: req.method,
+          headers,
+          body,
+          queryStringParameters: queryStringParameters || {},
+        });
+      }
+      trackBackground(Promise.resolve(backgroundWork).catch((e) => {
+        console.error(`[dev-lite] background ${name} failed:`, e && e.stack ? e.stack : e);
+      }));
       return;
     }
     try {

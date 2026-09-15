@@ -39,7 +39,7 @@ function call(body, headers) {
   const missing = await call({ brandId: "not-a-brand" });
   check("404s for a brand that doesn't exist", missing.statusCode === 404, missing.body);
 
-  // NOTE ON TIMING: this harness runs "-background" functions synchronously (see
+  // NOTE ON TIMING: this harness waits for "-background" work after returning 202 (see
   // tests/harness/netlify-dev-lite.js), so by the time handler() returns, the background
   // scan has already run to completion. In production it is genuinely asynchronous. That
   // means the in-flight `scanning: true` marker can't be observed here after the call — so

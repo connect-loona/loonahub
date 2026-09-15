@@ -19,6 +19,7 @@ const { logActivity, applyLockFilterOnApprove } = require("./lib/strategy/pipeli
 const { checkAuthorization } = require("./lib/strategy/auth");
 const { saveStageVersion, saveFeedbackEvent } = require("./lib/strategy/observability");
 const { resolveVisualActor } = require("./lib/strategy/visual-actor");
+const { signedBackgroundHeaders } = require("./lib/strategy/background-auth");
 
 const NEXT_STAGE = {
   research: "strategy",
@@ -118,10 +119,12 @@ exports.handler = async (event) => {
 
     const base = siteBaseUrl(event);
     try {
+      const backgroundName = `strategy-${nextStage}-background`;
+      const backgroundBody = JSON.stringify({ runId });
       await fetch(`${base}/.netlify/functions/strategy-${nextStage}-background`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ runId }),
+        headers: signedBackgroundHeaders(backgroundName, backgroundBody),
+        body: backgroundBody,
       });
     } catch (e) {
       console.error(`Failed to trigger ${nextStage} background function:`, e);

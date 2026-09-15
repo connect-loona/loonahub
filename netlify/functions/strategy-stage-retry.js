@@ -14,6 +14,7 @@ const { fbGet, fbSet, fbUpdate } = require("./lib/strategy/firebase");
 const { logActivity } = require("./lib/strategy/pipeline");
 const { checkAuthorization } = require("./lib/strategy/auth");
 const { resolveVisualActor } = require("./lib/strategy/visual-actor");
+const { signedBackgroundHeaders } = require("./lib/strategy/background-auth");
 
 const STAGE_ORDER = ["research", "strategy", "copy", "creative-direction", "deck-builder"];
 
@@ -67,10 +68,12 @@ exports.handler = async (event) => {
 
     const base = siteBaseUrl(event);
     try {
+      const backgroundName = `strategy-${stage}-background`;
+      const backgroundBody = JSON.stringify({ runId });
       await fetch(`${base}/.netlify/functions/strategy-${stage}-background`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ runId }),
+        headers: signedBackgroundHeaders(backgroundName, backgroundBody),
+        body: backgroundBody,
       });
     } catch (e) {
       console.error(`Failed to trigger ${stage} retry background function:`, e);

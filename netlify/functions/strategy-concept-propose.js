@@ -21,6 +21,7 @@
 "use strict";
 const { fbGet, fbSet } = require("./lib/strategy/firebase");
 const { checkAuthorization } = require("./lib/strategy/auth");
+const { signedBackgroundHeaders } = require("./lib/strategy/background-auth");
 
 // Which review-first request types each stage supports (its "kill it, no review needed"
 // type — strategy's "discard", copy's "replace" — goes through strategy-concept-discard.js
@@ -92,10 +93,12 @@ exports.handler = async (event) => {
 
     const base = siteBaseUrl(event);
     try {
+      const backgroundName = "strategy-concept-propose-background";
+      const backgroundBody = JSON.stringify({ runId, stage, assetId, action, notes, focus, section });
       await fetch(`${base}/.netlify/functions/strategy-concept-propose-background`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ runId, stage, assetId, action, notes, focus, section }),
+        headers: signedBackgroundHeaders(backgroundName, backgroundBody),
+        body: backgroundBody,
       });
     } catch (e) {
       console.error("Failed to trigger strategy-concept-propose-background:", e);

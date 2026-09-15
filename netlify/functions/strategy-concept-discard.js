@@ -7,6 +7,7 @@
 "use strict";
 const { fbGet, fbSet } = require("./lib/strategy/firebase");
 const { checkAuthorization } = require("./lib/strategy/auth");
+const { signedBackgroundHeaders } = require("./lib/strategy/background-auth");
 
 function siteBaseUrl(event) {
   const host = (event.headers && (event.headers.host || event.headers.Host || event.headers["x-forwarded-host"])) || "";
@@ -54,10 +55,12 @@ exports.handler = async (event) => {
 
     const base = siteBaseUrl(event);
     try {
+      const backgroundName = "strategy-concept-discard-background";
+      const backgroundBody = JSON.stringify({ runId, stage, assetId, notes, actor });
       await fetch(`${base}/.netlify/functions/strategy-concept-discard-background`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ runId, stage, assetId, notes, actor }),
+        headers: signedBackgroundHeaders(backgroundName, backgroundBody),
+        body: backgroundBody,
       });
     } catch (e) {
       console.error("Failed to trigger strategy-concept-discard-background:", e);
