@@ -219,9 +219,6 @@ button { cursor: pointer; }
 .vs-attach:disabled { opacity: .5; cursor: not-allowed; }
 .vs-useref { padding: 3px 9px; border: 1px solid var(--line); border-radius: 20px; background: transparent; font-size: 11.5px; }
 .vs-useref:hover { border-color: var(--accent); color: var(--accent); }
-/* A round with no stored image can't be built on. Styled as plain text rather than a dead
-   button, so it reads as an explanation instead of something that ought to be clickable. */
-.vs-useref-unavailable { padding: 3px 9px; color: var(--muted); font-size: 11.5px; font-style: italic; cursor: help; }
 /* Three controls plus two buttons is more than fits one phone-width row. */
 .vs-image figcaption { flex-wrap: wrap; }
 @media (max-width: 560px) {
