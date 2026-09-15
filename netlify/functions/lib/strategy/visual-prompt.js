@@ -40,6 +40,12 @@ function promptForReferenceEdit(typed, referenceRoles = []) {
     "Change only what the designer explicitly requested. Preserve every other visible detail from the reference, including the setting and background, colour palette and grade, lighting, camera angle, crop and composition, pose and action, wardrobe, objects, text, logos and surface details.",
     "Do not invent a new setting, background, prop, crop, mood, lighting treatment, colour treatment or styling direction. Do not reinterpret descriptive words as permission to redesign unrelated parts of the image.",
     "If the request says an element must remain the same, treat that as a hard constraint. Brand memory may constrain the requested change, but it must never alter unrelated reference details.",
+    // The reference's own skin and material texture is one of the details that must survive
+    // the edit — a model asked only to "keep everything else the same" will still often
+    // re-render skin and surfaces smoother and glossier than the source, because that is its
+    // own default finish, not something anyone asked for. Naming it as a constraint like any
+    // other stops that default from overriding the reference.
+    "Match the reference's own level of skin and surface texture exactly — same pores, fine lines, fabric weave and material grain, same amount of natural asymmetry. Do not smooth, airbrush or add a glossy, waxy or plastic finish that is not present in the reference.",
   ];
   if (roles.length) lines.push(`Use the references only for these stated roles:\n${roles.join("\n")}`);
   else if (referenceRoles.length > 1) lines.push("Use each reference only as evidence for the designer's explicit request; do not blend unrelated visual details between them.");
@@ -54,6 +60,7 @@ const SYSTEM = [
   "- Resolve every reference to earlier turns. \"Make the table warmer\" must become a full description of the whole scene with a warmer table, not the phrase itself.",
   "- Carry forward everything from the previous round the designer did not ask to change. What they didn't mention, they want kept.",
   "- Be concrete and visual: subject, setting, composition, lighting, camera framing, mood, finish. Describe what is in the frame, not the intent behind it.",
+  "- Ask explicitly for photographic skin and surface texture — visible pores, fine lines, natural asymmetry, real fabric weave and material grain. This is a photograph, not a retouched beauty-ad render: never let the description imply airbrushed, waxy, glossy or plastic-smooth skin unless that look was actually requested.",
   "- When reference images are attached, describe what to do WITH them and what must stay untouched. Never describe the reference's contents as if generating them from scratch.",
   "- Respect the brand's own rules absolutely. Never contradict them to satisfy the request.",
   "- No preamble, no explanation, no quotes, no markdown. Output the prompt only.",
