@@ -55,6 +55,17 @@
 
 [functions]
   node_bundler = "esbuild"
+  # strategy-run-start crashed live with "Cannot find module 'zod'" — a bundler failure to
+  # trace a plain `require("zod")` two hops deep (an .mjs wrapper statically importing a
+  # CommonJS _legacy handler, which itself requires zod), even though a standalone esbuild
+  # bundle of the exact same entry file inlines zod without any warning. Forcing zod to stay
+  # an external, physically-copied node_modules package sidesteps whatever esbuild's bundling
+  # does differently under Netlify's own build vs. a plain local bundle, at the cost of a few
+  # hundred KB in the deploy — a schema-validation library with no native bindings, so there's
+  # nothing this could plausibly break. contracts.js, critic.js, brand-draft.js and
+  # campaign-planner.js all require it the same direct way, so this covers every function
+  # that touches any of them, not just strategy-run-start.
+  external_node_modules = ["zod"]
   # Strategy OS's brand config/prompts/learnings data used to be read at runtime via
   # fs.readFileSync(path.join(__dirname, ...)) from netlify/functions/lib/strategy/{seed,
   # prompts}/* — that broke live (verified: "No brand config found ... not in Firebase,
