@@ -35,6 +35,16 @@
   to = "/strategy/index.html"
   status = 200
 
+# Strategy is an internal, fast-moving application. Its HTML must never be restored from a
+# stale browser/CDN cache: an older document can point at a stylesheet from a prior atomic
+# deploy and leave the React UI mounted but completely unstyled. Hashed JavaScript remains
+# safe to cache on its own; this scoped response header prioritises correctness for every
+# Strategy route and asset fallback over a negligible amount of transfer.
+[[headers]]
+  for = "/strategy/*"
+  [headers.values]
+    Cache-Control = "no-store, max-age=0, must-revalidate"
+
 # Visual Studio, same arrangement as Strategy OS above and for the same reason: scoped to
 # exactly /visual/* so a client-side route inside it still resolves to its index.html, while
 # every other path on this site keeps resolving to a real file.
