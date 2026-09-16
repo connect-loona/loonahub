@@ -59,6 +59,19 @@ const buildApp = (dir) => execSync("npm ci --include=dev && npm run build", {
 console.log("Building Strategy OS (apps/strategy)...");
 buildApp("apps/strategy");
 
+// Do not allow a future Vite/config change to silently restore Strategy's fragile external
+// stylesheet. This guard runs in every Netlify/CI production build and catches the exact
+// failure mode that otherwise leaves the React app functional but visually reduced to raw
+// HTML on a user's device.
+const strategyHtmlPath = path.join(DIST, "strategy", "index.html");
+const strategyHtml = fs.readFileSync(strategyHtmlPath, "utf8");
+if (!strategyHtml.includes("data-loona-strategy-css")) {
+  throw new Error("Strategy OS build is missing its inline stylesheet marker.");
+}
+if (/<link\b[^>]*rel=["']stylesheet["']/i.test(strategyHtml)) {
+  throw new Error("Strategy OS build unexpectedly depends on an external stylesheet.");
+}
+
 // Visual Studio, on the same footing as Strategy OS: its own Vite build, landing at
 // dist/visual/. Both run before the legacy files are copied in, so a legacy file can never
 // clobber an app's output.
