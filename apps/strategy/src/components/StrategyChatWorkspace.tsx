@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAllHubBrands, useBrands, useRun, useRuns, type HubBrandOption } from "../lib/useRuns";
-import { askMani, discardConcept, proposeConcept, saveStrategyChatMessage, startRun, toggleAssetLock } from "../lib/api";
+import { askMani, discardConcept, proposeConcept, retryStage, saveStrategyChatMessage, startRun, toggleAssetLock } from "../lib/api";
 import { listenPath } from "../lib/firebase";
 import type { CopyCheckpoint, StrategyAsset, StrategyBrand, StrategyCheckpoint, StrategyRun } from "../lib/types";
 import { CampaignBrief, CampaignRunChat } from "./CampaignPlanning";
@@ -42,6 +42,26 @@ function captionFor(run: StrategyRun | null, assetId: string): string | null {
 
 function stageStatus(run: StrategyRun | null, stage: string) {
   return run?.stages[stage as keyof StrategyRun["stages"]]?.status || "queued";
+}
+
+// The Mani panel's "Plan status" line used to always read the monthly pipeline's concept
+// count, so a campaign run — which never populates strategy.checkpoint.assets — sat at
+// "0 concepts available" for its entire lifetime, through locking an identity, a thought,
+// a route and building assets. This mirrors the same locked-so-far state CampaignRunChat
+// itself renders, just condensed to one line.
+function planStatusText(run: StrategyRun | undefined): string {
+  if (!run) return "No active plan";
+  if (run.runType === "campaign") {
+    const campaign = run.campaign || {};
+    const assetCount = campaign.assets?.length || 0;
+    if (assetCount) return `${assetCount} campaign asset${assetCount === 1 ? "" : "s"} ready`;
+    if (campaign.lockedRoute) return "Creative route locked · building assets";
+    if (campaign.lockedThought) return "Campaign thought locked · choosing a route";
+    if (campaign.lockedIdentity) return "Campaign identity locked · developing the thought";
+    return "Campaign identities in progress";
+  }
+  const conceptCount = strategyAssets(run).length;
+  return `${conceptCount} concept${conceptCount === 1 ? "" : "s"} available`;
 }
 
 function StatusLine({ run }: { run: StrategyRun | null }) {
@@ -181,7 +201,21 @@ function RunChat({ runId, actor }: { runId: string; actor: string }) {
   const [note, setNote] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [finished, setFinished] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
   const asset = assets[cursor];
+  // Whichever of the two stages a fresh concept depends on actually failed — unlike the
+  // campaign flow's per-step retry buttons, this used to leave a failed research or
+  // strategy stage with no way back into the chat at all beyond "check the run status".
+  const failedStage = stageStatus(run, "research").includes("failed") ? "research"
+    : stageStatus(run, "strategy").includes("failed") ? "strategy" : null;
+  async function retryFailedStage() {
+    if (!failedStage || retrying) return;
+    setRetrying(true); setRetryError(null);
+    try { await retryStage({ runId, stage: failedStage, actor }); }
+    catch (e) { setRetryError(e instanceof Error ? e.message : String(e)); }
+    finally { setRetrying(false); }
+  }
   useEffect(() => {
     const locks = run?.stages.strategy?.locks || {};
     setLogged(Object.keys(locks));
@@ -222,7 +256,13 @@ function RunChat({ runId, actor }: { runId: string; actor: string }) {
     {messages.filter((message) => message.role === "user").map((message, index) => <div className="sc-user-bubble" key={`user-${index}`}>{message.text}</div>)}
     {!messages.length && <div className="sc-user-bubble">I’ve submitted the brief. Start the monthly planning.</div>}
     <StatusLine run={run} />
-    {!asset && <div className="sc-assistant-block"><p>{stageStatus(run, "strategy").includes("running") || stageStatus(run, "research").includes("running") ? "I’m working through the research now. The concepts will appear here as soon as they are ready." : "No concepts are available yet. Check the run status or retry the strategy stage."}</p></div>}
+    {!asset && <div className="sc-assistant-block">
+      <p>{stageStatus(run, "strategy").includes("running") || stageStatus(run, "research").includes("running")
+        ? "I’m working through the research now. The concepts will appear here as soon as they are ready."
+        : failedStage ? `The ${failedStage} stage needs attention before concepts can be shown.` : "No concepts are available yet."}</p>
+      {failedStage && <button type="button" className="sc-secondary" disabled={retrying} onClick={() => void retryFailedStage()}>{retrying ? "Retrying…" : `Retry ${failedStage}`}</button>}
+      {retryError && <p className="sc-error">{retryError}</p>}
+    </div>}
     {asset && <>
       <div className="sc-assistant-block"><p>Here’s the next concept. Read it, refine it, or log it when it feels right.</p></div>
       <ConceptCard asset={asset} caption={captionFor(run, asset.assetId)} candidate={run?.stages.strategy?.candidates?.[asset.assetId] as { status?: string; detail?: string; candidate?: Partial<StrategyAsset> } | undefined} index={cursor} total={assets.length} logged={logged.includes(asset.assetId)} busy={busy} onLog={() => void logAsset()} onRefine={(value) => void refineAsset(value)} onReject={(value) => void rejectAsset(value)} />
@@ -272,6 +312,6 @@ export function StrategyChatWorkspace({ actor }: { actor: string }) {
       </section>
       <div className="sc-bottom-hint">Everything logged here stays with {selectedBrand?.name || "this brand"} and is available to Mani and the next strategy run.</div>
     </main>
-    <aside className="vs-memory-drawer sc-memory-static"><h2>Mani · Brand memory agent</h2><p className="vs-muted vs-muted-sm">Mani reads stored choices, feedback and rejected directions when supporting Strategy OS.</p><p className="vs-section-label">Plan status</p><p className="vs-muted vs-muted-sm">{activeRun ? `${strategyAssets(activeRun).length} concepts available` : "No active plan"}</p><p className="vs-section-label">Brand configuration</p><p className="vs-muted vs-muted-sm">{strategyBrand ? "Ready for planning" : "Needs setup"}</p></aside>
+    <aside className="vs-memory-drawer sc-memory-static"><h2>Mani · Brand memory agent</h2><p className="vs-muted vs-muted-sm">Mani reads stored choices, feedback and rejected directions when supporting Strategy OS.</p><p className="vs-section-label">Plan status</p><p className="vs-muted vs-muted-sm">{planStatusText(activeRun)}</p><p className="vs-section-label">Brand configuration</p><p className="vs-muted vs-muted-sm">{strategyBrand ? "Ready for planning" : "Needs setup"}</p></aside>
   </div>;
 }
