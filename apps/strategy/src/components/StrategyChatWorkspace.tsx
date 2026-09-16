@@ -132,7 +132,7 @@ function BrandSidebar({ brands, active, runs, open, onBrand, onNew, onOpen }: {
   </aside>;
 }
 
-function Welcome({ onMode }: { onMode: (mode: Mode) => void }) {
+function Welcome({ onMode, configured }: { onMode: (mode: Mode) => void; configured: boolean }) {
   return <div className="sc-welcome">
     <p className="sc-eyebrow">Strategy OS</p>
     <h2>Welcome</h2>
@@ -146,8 +146,12 @@ function Welcome({ onMode }: { onMode: (mode: Mode) => void }) {
       ))}
     </div>
     <div className="sc-suggestions">
-      <button type="button" onClick={() => onMode("monthly")}><b>Monthly planning</b><span>Build this month’s content one concept at a time.</span></button>
-      <button type="button" onClick={() => onMode("campaign")}><b>Campaign planning</b><span>Shape a launch, event or campaign through conversation.</span></button>
+      {/* Both of these kick off a real research run, which needs a saved Strategy OS brand
+          config to read — starting one for an unconfigured brand is a guaranteed failure, so
+          it isn't offered at all rather than offered and left to fail after the fact (see
+          NewRunWizard, the screen this chat rework replaced, which made the same call). */}
+      <button type="button" disabled={!configured} onClick={() => onMode("monthly")}><b>Monthly planning</b><span>{configured ? "Build this month’s content one concept at a time." : "Needs a completed brand configuration first."}</span></button>
+      <button type="button" disabled={!configured} onClick={() => onMode("campaign")}><b>Campaign planning</b><span>{configured ? "Shape a launch, event or campaign through conversation." : "Needs a completed brand configuration first."}</span></button>
       <button type="button" onClick={() => onMode("mani")}><b>Chat with Mani</b><span>Ask what the brand has learned, approved or rejected.</span></button>
     </div>
   </div>;
@@ -333,7 +337,12 @@ export function StrategyChatWorkspace({ actor }: { actor: string }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [maniOpen, setManiOpen] = useState(false);
   const activeRun = runId ? runs.find((run) => run.runId === runId) : undefined;
-  const selectedBrand = brand || (allBrands.length ? allBrands[0] : undefined);
+  // Default to the first CONFIGURED brand, not just the first in the list — an unconfigured
+  // brand can't start a run yet anyway (see the NewRunWizard this chat rework replaced,
+  // which made the same choice for the same reason). Landing on whichever brand happens to
+  // sort first otherwise means opening Strategy OS can silently drop someone onto a brand
+  // that's guaranteed to fail the moment they try to plan anything.
+  const selectedBrand = brand || allBrands.find((b) => b.configured) || (allBrands.length ? allBrands[0] : undefined);
   const strategyBrand = configuredBrands.find((item: StrategyBrand) => item.id === selectedBrand?.id);
 
   function chooseBrand(next: HubBrandOption) { setBrand(next); setMode("home"); setRunId(null); setSidebarOpen(false); }
@@ -348,7 +357,7 @@ export function StrategyChatWorkspace({ actor }: { actor: string }) {
       <section className="vs-thread sc-thread">
         {!selectedBrand && <div className="sc-assistant-block"><p>Add a brand in Hub before starting a strategy chat.</p></div>}
         {selectedBrand && !selectedBrand.configured && <div className="sc-assistant-block sc-warning"><p>{selectedBrand.name} needs a completed Strategy OS brand configuration before research can start.</p></div>}
-        {selectedBrand && !runId && mode === "home" && <Welcome onMode={setMode} />}
+        {selectedBrand && !runId && mode === "home" && <Welcome onMode={setMode} configured={Boolean(selectedBrand.configured)} />}
         {selectedBrand && !runId && mode === "monthly" && <Brief mode="monthly" brand={selectedBrand} actor={actor} onStarted={(id) => setRunId(id)} onCancel={() => setMode("home")} />}
         {selectedBrand && !runId && mode === "campaign" && <CampaignBrief brand={selectedBrand} actor={actor} onStarted={(id) => setRunId(id)} onCancel={() => setMode("home")} />}
         {selectedBrand && !runId && mode === "mani" && <ManiChat brand={selectedBrand} />}
