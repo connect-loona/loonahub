@@ -18,7 +18,7 @@ const { hubBrandExists } = require("../lib/strategy/hub-brands");
 const { expandPrompt, historyForPrompt } = require("../lib/strategy/visual-prompt");
 const { loadVisualHistory } = require("../lib/strategy/visual-memory");
 const { loadBrain, brainToPromptText } = require("../lib/strategy/brand-brain");
-const { preserveGeneratedImages } = require("../lib/strategy/visual-assets");
+const { preserveGeneratedImages, assetUrl } = require("../lib/strategy/visual-assets");
 const { shapeKey } = require("../lib/strategy/image-shapes");
 const { resolveVisualActor } = require("../lib/strategy/visual-actor");
 const { recordApiUsage } = require("../lib/strategy/api-usage");
@@ -57,13 +57,21 @@ exports.handler = async (event) => {
 
   // References are the whole point of working this way: a base scene plus the exact product,
   // "keep the label, change the background". They arrive as data: URLs and are passed straight
-  // through to the provider — never written anywhere, in keeping with Visual Studio not hosting
-  // images. What IS remembered is that there were references and what they were for, which is
-  // the part that explains a prompt later.
+  // through to the provider. Each one already has a durable assetKey (the browser uploaded it
+  // via visual-reference-upload before this call ever ran) — a servable URL is computed from
+  // that key here rather than trusted from whatever the client sent, the same way a generated
+  // output image's own url is always computed server-side.
   const references = Array.isArray(body.references) ? body.references : [];
   if (references.length > MAX_REFERENCES) {
     return fail(400, `Up to ${MAX_REFERENCES} reference images at a time.`);
   }
+  const referenceAssets = references.map((r) => ({
+    assetKey: r && r.assetKey || null,
+    dataUrl: r && r.assetKey ? assetUrl(r.assetKey) : (r && r.dataUrl) || null,
+    name: (r && r.name) || null,
+    role: (r && r.role) || null,
+    contentType: (r && r.contentType) || null,
+  }));
 
   // WHICH BRAND THIS IS FOR IS DECIDED SERVER-SIDE, NOT BY THE CALLER.
   //
@@ -204,7 +212,7 @@ exports.handler = async (event) => {
       // roles are the useful half — six months on, "2 references" says nothing, but "kept the
       // product, took the lighting from the second" explains the whole round.
       referenceNote: references.map((r) => String((r && r.role) || "").trim()).filter(Boolean).join(" · ") || body.referenceNote || null,
-      referenceAssets: references,
+      referenceAssets,
       images: result.images,
       appliedRules: rules.applied,
       // What the model was actually asked for, kept alongside what the person typed. Six
@@ -252,6 +260,12 @@ exports.handler = async (event) => {
       quality: body.quality === "final" ? "final" : "draft",
       suggestions,
       recorded: Boolean(id),
+      // Mirrors what recordGeneration wrote above — without these, a freshly generated round
+      // showed no sign of the reference it was built from until the page was reloaded and
+      // re-read the stored record instead of this response.
+      referenceCount: references.length,
+      referenceNote: references.map((r) => String((r && r.role) || "").trim()).filter(Boolean).join(" · ") || body.referenceNote || null,
+      referenceAssets,
     }),
   };
 };

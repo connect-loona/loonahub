@@ -87,7 +87,10 @@ export interface Generation {
   pickTags?: string[];
   referenceCount?: number;
   referenceNote?: string | null;
-  referenceAssets?: Array<{ assetKey: string; name?: string; role?: string; contentType?: string }>;
+  // dataUrl here is never a raw base64 blob — it's the durable /.netlify/functions/visual-asset
+  // URL computed at upload time (see visual-assets.js's assetUrl()), so it's cheap to render
+  // and doesn't expire the way a provider's own image URLs do.
+  referenceAssets?: Array<{ assetKey: string; dataUrl: string; name?: string; role?: string; contentType?: string }>;
   parentGenerationId?: string | null;
   parentImageIndex?: number | null;
   suggestions?: string[];

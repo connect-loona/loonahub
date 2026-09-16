@@ -70,6 +70,10 @@ async function recordGeneration(brandId, round) {
     })),
     referenceAssets: (round.referenceAssets || []).map((reference) => ({
       assetKey: reference.assetKey || null,
+      // Dropped here previously, unlike the durable url already kept for generated output
+      // images above — the reference itself was stored and servable, but nothing recorded how
+      // to actually show it once a round became history.
+      dataUrl: reference.dataUrl || null,
       name: reference.name || null,
       role: reference.role || null,
       contentType: reference.contentType || null,
