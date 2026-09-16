@@ -10,7 +10,11 @@ export default async function (request) {
   if (!body || !body.runId) return;
   try {
     const run = await fbGet(`strategy_runs/${body.runId}`);
-    if (run && run.chatMode) await runChatPipeline(body.runId);
+    // Campaign chat has its own identity -> thought -> routes -> assets state machine.
+    // It needs the Research evidence, but running the monthly Strategy/Copy/Direction
+    // chain here would generate the wrong artefacts and spend three unnecessary calls.
+    if (run && run.chatMode && run.runType === "campaign") await runResearchStage(body.runId);
+    else if (run && run.chatMode) await runChatPipeline(body.runId);
     else await runResearchStage(body.runId);
   } catch (error) {
     console.error(`${FUNCTION_NAME} failed for run ${body.runId}:`, error);

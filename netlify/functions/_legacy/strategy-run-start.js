@@ -166,6 +166,10 @@ exports.handler = async (event) => {
         "creative-direction": { status: "locked" },
         "deck-builder": { status: chatMode ? "skipped" : "locked", detail: chatMode ? "Deck building is disabled for chat-based planning." : undefined },
       },
+      campaign: runType === "campaign" ? {
+        brief: body.campaignBrief && typeof body.campaignBrief === "object" ? body.campaignBrief : null,
+        job: null,
+      } : null,
       approvals: {},
     });
 
