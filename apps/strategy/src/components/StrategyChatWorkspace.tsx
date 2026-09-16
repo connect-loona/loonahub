@@ -3,6 +3,7 @@ import { useAllHubBrands, useBrands, useRun, useRuns, type HubBrandOption } from
 import { askMani, discardConcept, proposeConcept, saveStrategyChatMessage, startRun, toggleAssetLock } from "../lib/api";
 import { listenPath } from "../lib/firebase";
 import type { CopyCheckpoint, StrategyAsset, StrategyBrand, StrategyCheckpoint, StrategyRun } from "../lib/types";
+import { CampaignBrief, CampaignRunChat } from "./CampaignPlanning";
 
 type Mode = "home" | "monthly" | "campaign" | "mani";
 type ChatMessage = { role: "user" | "assistant"; text: string; actor?: string; createdAt?: string };
@@ -82,7 +83,7 @@ function BrandSidebar({ brands, active, runs, open, onBrand, onNew, onOpen }: {
           {isActive && <div className="vs-chatlist">
             <button type="button" className="vs-newchat" onClick={onNew}>+ New strategy chat</button>
             {brandRuns.map((run) => <button key={run.runId} type="button" className="vs-chatlink" onClick={() => onOpen(run.runId)}>
-              {run.runType === "campaign" ? "Campaign planning" : monthLabel(run.month)}
+              {run.runType === "campaign" ? (run.campaign?.lockedIdentity?.name || run.campaign?.brief?.occasion || "Campaign planning") : monthLabel(run.month)}
               <span>{run.status === "complete" ? "Complete" : (run.status || "In progress")}</span>
             </button>)}
             {!brandRuns.length && <span className="vs-muted vs-muted-sm">No strategy chats yet.</span>}
@@ -256,16 +257,18 @@ export function StrategyChatWorkspace({ actor }: { actor: string }) {
 
   if (brandsLoading) return <div className="vs-shell"><main className="vs-main sc-loading">Loading brands…</main></div>;
   return <div className="vs-shell sc-shell">
-    <BrandSidebar brands={allBrands} active={selectedBrand} runs={runs} open={sidebarOpen} onBrand={chooseBrand} onNew={newChat} onOpen={(id) => { setRunId(id); setMode("monthly"); setSidebarOpen(false); }} />
+    <BrandSidebar brands={allBrands} active={selectedBrand} runs={runs} open={sidebarOpen} onBrand={chooseBrand} onNew={newChat} onOpen={(id) => { const opened = runs.find((item) => item.runId === id); setRunId(id); setMode(opened?.runType === "campaign" ? "campaign" : "monthly"); setSidebarOpen(false); }} />
     <main className="vs-main">
       <header className="vs-header"><button type="button" className="vs-mobile-tool" aria-label="Open projects" onClick={() => setSidebarOpen(true)}>☰</button><div><h1>{selectedBrand?.name || "Strategy OS"}</h1><p>{activeRun ? (activeRun.runType === "campaign" ? "Campaign planning" : monthLabel(activeRun.month)) : mode === "home" ? "New strategy chat" : mode === "mani" ? "Chat with Mani" : mode === "campaign" ? "Campaign planning" : "Monthly planning"}</p></div><button type="button" className="vs-header-tool" onClick={() => setMode("mani")}>Mani</button></header>
       <section className="vs-thread sc-thread">
         {!selectedBrand && <div className="sc-assistant-block"><p>Add a brand in Hub before starting a strategy chat.</p></div>}
         {selectedBrand && !selectedBrand.configured && <div className="sc-assistant-block sc-warning"><p>{selectedBrand.name} needs a completed Strategy OS brand configuration before research can start.</p></div>}
         {selectedBrand && !runId && mode === "home" && <Welcome onMode={setMode} />}
-        {selectedBrand && !runId && (mode === "monthly" || mode === "campaign") && <Brief mode={mode} brand={selectedBrand} actor={actor} onStarted={(id) => setRunId(id)} onCancel={() => setMode("home")} />}
+        {selectedBrand && !runId && mode === "monthly" && <Brief mode="monthly" brand={selectedBrand} actor={actor} onStarted={(id) => setRunId(id)} onCancel={() => setMode("home")} />}
+        {selectedBrand && !runId && mode === "campaign" && <CampaignBrief brand={selectedBrand} actor={actor} onStarted={(id) => setRunId(id)} onCancel={() => setMode("home")} />}
         {selectedBrand && !runId && mode === "mani" && <ManiChat brand={selectedBrand} />}
-        {runId && <RunChat runId={runId} actor={actor} />}
+        {runId && (mode === "campaign" || activeRun?.runType === "campaign") ? <CampaignRunChat runId={runId} actor={actor} /> : null}
+        {runId && mode !== "campaign" && activeRun?.runType !== "campaign" ? <RunChat runId={runId} actor={actor} /> : null}
       </section>
       <div className="sc-bottom-hint">Everything logged here stays with {selectedBrand?.name || "this brand"} and is available to Mani and the next strategy run.</div>
     </main>

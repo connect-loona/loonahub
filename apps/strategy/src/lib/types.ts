@@ -136,7 +136,65 @@ export interface StrategyRun {
   runType?: "monthly" | "campaign";
   deliverablesOverride?: DeliverablesCount | null;
   sourceContext?: string[];
+  chatMode?: boolean;
+  campaign?: CampaignState | null;
   metrics?: Partial<Record<StageKey, StageMetrics>>;
+}
+
+export interface CampaignIdentity {
+  id: string;
+  name: string;
+  tagline: string;
+  objective: string;
+  territory: string;
+  lockedAt?: string;
+  lockedBy?: string;
+}
+
+export interface CampaignThought {
+  thought: string;
+  strategicRole: string;
+  brandConnection: string;
+  audienceTakeaway: string;
+  instruction?: string | null;
+  createdAt?: string;
+  lockedAt?: string;
+  lockedBy?: string;
+}
+
+export interface CampaignRoute {
+  id: string;
+  name: string;
+  coreIdea: string;
+  howItComesAlive: string;
+  heroExecution: string;
+  whyItWorks: string;
+  lockedAt?: string;
+  lockedBy?: string;
+}
+
+export interface CampaignAsset {
+  id: string;
+  format: string;
+  title: string;
+  idea: string;
+  onCreativeCopy: string;
+  caption: string;
+  creativeDirection: string;
+}
+
+export interface CampaignState {
+  brief?: Record<string, string> | null;
+  job?: { status: "running" | "ready" | "failed"; action: string; detail?: string; instruction?: string | null } | null;
+  identityBatches?: Record<string, { options: CampaignIdentity[]; instruction?: string | null; createdAt?: string }>;
+  savedIdentityIds?: string[];
+  lockedIdentity?: CampaignIdentity | null;
+  thoughtCandidate?: CampaignThought | null;
+  lockedThought?: CampaignThought | null;
+  routeBatches?: Record<string, { routes: CampaignRoute[]; instruction?: string | null; createdAt?: string }>;
+  lockedRoute?: CampaignRoute | null;
+  assetRequest?: string;
+  assets?: CampaignAsset[] | null;
 }
 
 // Written by saveStageMetrics() (observability.js) each time a stage finishes — see

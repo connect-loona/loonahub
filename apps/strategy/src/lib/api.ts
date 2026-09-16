@@ -38,8 +38,25 @@ export function startRun(args: {
   runtimes?: Record<string, "openai" | "claude">;
   deliverablesOverride?: DeliverablesCount;
   sourceContext?: string[];
+  campaignBrief?: Record<string, string>;
 }): Promise<{ runId: string }> {
   return post("strategy-run-start", args) as Promise<{ runId: string }>;
+}
+
+export type CampaignAction = "generate_identities" | "save_identity" | "lock_identity" | "generate_thought" | "lock_thought" | "generate_routes" | "lock_route" | "generate_assets";
+
+export function campaignAction(args: {
+  runId: string;
+  action: CampaignAction;
+  actor: string;
+  optionId?: string;
+  routeId?: string;
+  instruction?: string;
+  assetRequest?: string;
+  customIdentity?: { name: string; tagline: string; objective?: string; territory?: string };
+  thought?: Record<string, unknown>;
+}): Promise<{ ok: true; status?: string }> {
+  return post("strategy-campaign-action", args) as Promise<{ ok: true; status?: string }>;
 }
 
 export function saveStrategyChatMessage(args: { runId: string; role: "user" | "assistant"; text: string; actor: string }): Promise<{ ok: true; id: string }> {
