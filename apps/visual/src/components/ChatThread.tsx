@@ -65,6 +65,24 @@ function Round({ generation, onPick, onUseAsReference, onSuggestion, onReview, o
     <article className="vs-round">
       <div className="vs-ask">
         <p>{generation.prompt}</p>
+        {/* The reference itself, not just a count of it — a round built from a reference used
+            to say only "Worked from 1 reference", which meant the one thing that actually
+            explained an unexpected result (which photo, which role) was invisible unless you
+            still had the original file. dataUrl is the durable asset-store URL from upload
+            time, not a live provider URL, so this keeps working long after the round happened. */}
+        {generation.referenceAssets && generation.referenceAssets.length > 0 && (
+          <div className="vs-round-refs">
+            {generation.referenceAssets.map((ref, i) => (
+              <img
+                key={ref.assetKey || i}
+                className="vs-round-ref-thumb"
+                src={ref.dataUrl}
+                alt={ref.role || ref.name || `Reference ${i + 1}`}
+                title={ref.role || ref.name || undefined}
+              />
+            ))}
+          </div>
+        )}
         {/* What this round was built from remains attached to the permanent record. */}
         {generation.referenceCount ? (
           <span className="vs-meta">

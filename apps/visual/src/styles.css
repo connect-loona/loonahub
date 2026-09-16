@@ -92,6 +92,8 @@ button { cursor: pointer; }
 .vs-round { margin-bottom: 26px; }
 .vs-ask { max-width: 640px; margin-left: auto; padding: 10px 13px; border-radius: 13px 13px 3px 13px; background: var(--selected); }
 .vs-ask p { margin: 0; white-space: pre-wrap; }
+.vs-round-refs { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; margin-top: 8px; }
+.vs-round-ref-thumb { flex: 0 0 40px; width: 40px; height: 40px; border-radius: 6px; object-fit: cover; background: #fff; border: 1px solid var(--line); }
 .vs-meta { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
 .vs-reply { margin-top: 14px; }
 

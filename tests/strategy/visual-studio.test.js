@@ -327,6 +327,7 @@ function okFetch(payload) {
     prompt: "Primio bottle on a marble counter, warm morning light",
     provider: "openai", model: "gpt-image-1", actor: "Anjali", size: "9x16",
     referenceCount: 2, referenceNote: "kept the label exactly",
+    referenceAssets: [{ assetKey: "brands/rro/chats/x/references/00-abc.png", dataUrl: "/.netlify/functions/visual-asset?key=abc", name: "bottle.png", role: "Product identity" }],
     images: [{ url: "https://example.com/1.png" }, { url: "https://example.com/2.png" }],
   });
   check("a generation is recorded and gets an id", Boolean(id), id);
@@ -334,6 +335,11 @@ function okFetch(payload) {
   check("the prompt is kept", /marble counter/.test(stored.prompt), stored.prompt);
   check("who made it is kept", stored.actor === "Anjali", stored.actor);
   check("what they started from is kept", stored.referenceCount === 2 && /kept the label/.test(stored.referenceNote), stored);
+  // A round used to remember only that a reference existed, never the reference itself — the
+  // asset was durably stored and servable, but nothing recorded how to show it once the round
+  // became history.
+  check("the reference image itself is kept, not just its metadata",
+    stored.referenceAssets?.[0]?.dataUrl === "/.netlify/functions/visual-asset?key=abc", stored.referenceAssets);
   check("an unpicked round is recorded anyway — a rejected attempt is still evidence",
     stored.pickedIndex === null, stored.pickedIndex);
   // The shape a round was made at, so a follow-up can read it back and ask for the same one —
