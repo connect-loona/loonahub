@@ -69,13 +69,15 @@ export interface HubBrandOption {
   name: string;
   configured: boolean;
   deliverables?: unknown; // only meaningful once configured — see DeliverablesFields
+  logo?: string | null; // Hub's own per-brand logo (see apps/visual's useBrands.ts) — falls
+  // back to an initials avatar when a brand has never had one uploaded.
 }
 
 export function useAllHubBrands(): { brands: HubBrandOption[]; loading: boolean } {
-  const [hubBrands, setHubBrands] = useState<Record<string, { brand?: string; inactive?: boolean }> | null>(null);
+  const [hubBrands, setHubBrands] = useState<Record<string, { brand?: string; inactive?: boolean; logo?: string }> | null>(null);
   const [configured, setConfigured] = useState<Record<string, StrategyBrand> | null>(null);
 
-  useEffect(() => listenPath<Record<string, { brand?: string; inactive?: boolean }>>("brands", setHubBrands), []);
+  useEffect(() => listenPath<Record<string, { brand?: string; inactive?: boolean; logo?: string }>>("brands", setHubBrands), []);
   useEffect(() => listenPath<Record<string, StrategyBrand>>("strategy_brands", setConfigured), []);
 
   const loading = hubBrands === null || configured === null;
@@ -98,8 +100,8 @@ export function useAllHubBrands(): { brands: HubBrandOption[]; loading: boolean 
     const match = configuredBySlug.get(brandSlug);
     merged.push(
       match
-        ? { id: match.id, name: match.name || record.brand, configured: true, deliverables: match.deliverables }
-        : { id: brandSlug, name: record.brand, configured: false },
+        ? { id: match.id, name: match.name || record.brand, configured: true, deliverables: match.deliverables, logo: record.logo || null }
+        : { id: brandSlug, name: record.brand, configured: false, logo: record.logo || null },
     );
   }
   merged.sort((a, b) => a.name.localeCompare(b.name));

@@ -28,7 +28,7 @@ button { cursor: pointer; }
    copied verbatim from apps/visual/src/styles.css so this shell actually matches the one
    Visual Studio ships, not just its class names. */
 .sc-shell {
-  display: grid; grid-template-columns: 236px minmax(0, 1fr) 300px; min-height: 100vh;
+  display: grid; grid-template-columns: 236px minmax(0, 1fr); min-height: 100vh;
   color: var(--sc-ink); background: var(--sc-page);
 }
 .sc-sidebar {
@@ -37,12 +37,16 @@ button { cursor: pointer; }
   background: #fbfaf7; color: var(--sc-ink);
 }
 .sc-sidebar .vs-logo { padding: 2px 6px 14px; }
-.sc-sidebar .vs-logo a { text-decoration: none; }
+.sc-sidebar .vs-logo a { display: inline-block; text-decoration: none; }
+/* The source asset is a solid-white wordmark on transparency, drawn for a dark surface —
+   invisible as-is against this sidebar's light background. brightness(0) recolours any
+   opaque pixel to black regardless of its original colour, without needing a second asset. */
+.sc-sidebar .vs-logo img { display: block; height: 22px; width: auto; filter: brightness(0) saturate(100%); }
 .sc-wordmark { color: var(--sc-ink); font-family: Georgia, serif; font-size: 18px; letter-spacing: .08em; }
 .sc-sidebar .vs-topnav { display: flex; flex-direction: column; gap: 2px; padding-bottom: 10px; border-bottom: 1px solid var(--sc-line); }
 .sc-sidebar .vs-topnav a, .sc-sidebar .vs-topnav span { padding: 6px 8px; border-radius: 7px; text-decoration: none; font-size: 13px; color: var(--sc-muted); }
 .sc-sidebar .vs-topnav .is-active { color: var(--sc-ink); background: var(--sc-selected); font-weight: 600; }
-.sc-sidebar .vs-section-label, .sc-memory-static .vs-section-label {
+.sc-sidebar .vs-section-label, .vs-memory-drawer .vs-section-label {
   margin: 14px 0 6px; padding: 0 6px; font-size: 10px; letter-spacing: .09em; text-transform: uppercase;
   color: var(--sc-muted);
 }
@@ -56,6 +60,7 @@ button { cursor: pointer; }
   display: grid; place-items: center; flex: 0 0 24px; width: 24px; height: 24px;
   border-radius: 50%; color: #fff; font-size: 11px; font-weight: 600;
 }
+.sc-sidebar .vs-project-logo { flex: 0 0 24px; width: 24px; height: 24px; border-radius: 6px; object-fit: cover; background: #fff; }
 .sc-sidebar .vs-project-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sc-sidebar .vs-project:hover, .sc-sidebar .vs-chatlink:hover, .sc-sidebar .vs-newchat:hover, .sc-sidebar .vs-usage-link:hover { background: var(--sc-hover); }
 .sc-sidebar .vs-project.is-active, .sc-sidebar .vs-chatrow.is-active { background: var(--sc-selected); font-weight: 600; }
@@ -88,6 +93,12 @@ button { cursor: pointer; }
 .sc-eyebrow { margin: 0 0 8px; color: var(--sc-accent); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
 .sc-welcome h2 { margin: 0; font-family: Georgia, serif; font-size: clamp(25px, 4vw, 36px); font-weight: 500; }
 .sc-muted, .sc-welcome .sc-muted { color: var(--sc-muted); }
+.sc-agent-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; margin-top: 30px; }
+.sc-agent-chip { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 78px; }
+.sc-agent-emoji { font-size: 26px; line-height: 1; }
+.sc-agent-name { font-size: 11px; font-weight: 600; color: var(--sc-muted); animation: sc-agent-blink 2.6s ease-in-out infinite; }
+@keyframes sc-agent-blink { 0%, 60%, 100% { opacity: 1; } 30% { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { .sc-agent-name { animation: none; } }
 .sc-suggestions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 28px; text-align: left; }
 .sc-suggestions button { min-height: 116px; padding: 15px; border: 1px solid var(--sc-line); border-radius: 12px; background: #fff; text-align: left; transition: border-color .15s, background .15s, transform .15s; }
 .sc-suggestions button:hover { border-color: var(--sc-accent); background: #fffaf6; transform: translateY(-1px); }
@@ -151,10 +162,21 @@ button { cursor: pointer; }
 .sc-final-item b, .sc-final-item span { display: block; }
 .sc-final-item span { margin-top: 3px; color: var(--sc-muted); font-size: 11px; }
 .sc-final-item p { margin: 7px 0 0; white-space: pre-wrap; }
-.sc-memory-static { position: relative; display: block; transform: none; width: auto; max-height: none; padding: 22px 16px; border-left: 1px solid var(--sc-line); background: #fbfaf7; color: var(--sc-ink); overflow: auto; }
-.sc-memory-static h2 { margin: 0 0 8px; font-family: Georgia, serif; font-size: 15px; font-weight: 500; }
-.sc-memory-static .vs-muted { color: var(--sc-muted); }
-.sc-memory-static .vs-section-label { margin-top: 22px; }
+/* The Mani panel used to be "static" — always occupying a third grid column, whether or
+   not anyone asked for it. It's a drawer instead, matching Visual Studio's own vs-memory-drawer
+   exactly: hidden off-screen until the header's Mani button opens it, dismissed by the close
+   button or the scrim behind it. */
+.vs-memory-drawer {
+  position: fixed; z-index: 30; top: 0; right: 0; bottom: 0; width: min(86vw, 320px);
+  padding: 22px 16px; border-left: 1px solid var(--sc-line); background: #fbfaf7; color: var(--sc-ink);
+  overflow-y: auto; transform: translateX(105%); transition: transform .2s ease;
+}
+.vs-memory-drawer.is-open { transform: translateX(0); box-shadow: -8px 0 30px rgba(0,0,0,.12); }
+.vs-memory-drawer h2 { margin: 0 0 8px; font-family: Georgia, serif; font-size: 15px; font-weight: 500; }
+.vs-memory-drawer .vs-muted { color: var(--sc-muted); }
+.vs-memory-drawer .vs-section-label { margin-top: 22px; }
+.vs-drawer-close { display: inline-block; position: absolute; z-index: 2; top: 10px; right: 10px; padding: 5px 9px; border: 1px solid var(--sc-line); border-radius: 8px; background: #fff; color: var(--sc-ink); }
+.vs-scrim { display: block; position: fixed; z-index: 20; inset: 0; border: 0; background: rgba(25,24,21,.28); }
 .sc-progress { height: 3px; margin: 0 0 28px; border-radius: 10px; background: var(--sc-hover); overflow: hidden; }
 .sc-progress span { display: block; height: 100%; border-radius: inherit; background: var(--sc-accent); transition: width .2s ease; }
 .sc-question-count, .sc-card-kicker { margin: 0 0 7px !important; color: var(--sc-accent); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
@@ -200,5 +222,5 @@ button { cursor: pointer; }
 .sc-asset-request { display: flex; align-items: flex-end; gap: 8px; margin-bottom: 20px; }
 .sc-asset-request textarea { flex: 1; min-height: 74px; padding: 11px 12px; border: 1px solid var(--sc-line); border-radius: 11px; resize: vertical; outline: none; }
 .sc-asset-request textarea:focus { border-color: var(--sc-accent); }
-@media (max-width: 900px) { .sc-shell { grid-template-columns: 220px minmax(0, 1fr); } .sc-memory-static { display: none; } }
+@media (max-width: 900px) { .sc-shell { grid-template-columns: 220px minmax(0, 1fr); } }
 @media (max-width: 640px) { .sc-shell { grid-template-columns: 1fr; } .sc-sidebar { position: fixed; z-index: 30; inset: 0 auto 0 0; width: min(86vw, 320px); transform: translateX(-105%); transition: transform .2s ease; } .sc-sidebar.is-open { transform: translateX(0); } .sc-shell .vs-mobile-tool { display: inline-flex; align-items: center; justify-content: center; min-width: 38px; height: 34px; } .sc-suggestions { grid-template-columns: 1fr; } .sc-count-grid { grid-template-columns: 1fr; } .sc-input-row, .sc-asset-request { display: block; } .sc-input-row .sc-primary, .sc-asset-request .sc-primary { margin-top: 8px; width: 100%; } .sc-custom-identity { grid-template-columns: 1fr; } .sc-research-chip p { grid-template-columns: 1fr; gap: 1px; } }
