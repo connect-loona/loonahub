@@ -21,10 +21,18 @@ async function resolveVisualActor(event, fallback = "Hub", deps = {}) {
   }
   if (token) {
     try {
+      // Every run-start (and every other caller of this function) blocks on this call
+      // before doing anything else — a slow or unreachable identitytoolkit endpoint would
+      // otherwise stall the whole request until the platform itself times it out, which
+      // surfaces to the person as an opaque "Request failed." with no real error message
+      // anywhere (see api.ts's post() — that fallback text only appears when the response
+      // has no parseable .error, exactly what a raw platform timeout looks like). Usage
+      // attribution is a nice-to-have, never worth taking the whole request down for.
       const response = await (deps.fetch || fetch)(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(FIREBASE_API_KEY)}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ idToken: token }),
+        signal: AbortSignal.timeout(5000),
       });
       const data = await response.json().catch(() => ({}));
       const user = response.ok && Array.isArray(data.users) ? data.users[0] : null;
