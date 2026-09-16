@@ -14,11 +14,17 @@ async function post(path: string, body: unknown): Promise<unknown> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers.Authorization = `Bearer ${token}`;
   const res = await fetch(`/.netlify/functions/${path}`, { method: "POST", headers, body: JSON.stringify(body) });
-  const data = await res.json().catch(() => ({}));
+  const raw = await res.text();
+  let data: { error?: string; reason?: string } = {};
+  try { data = JSON.parse(raw); } catch { /* not JSON — handled below */ }
   if (!res.ok) {
-    const message = (data as { error?: string; reason?: string }).error || "Request failed.";
-    const reason = (data as { error?: string; reason?: string }).reason;
-    throw new Error(reason ? `${message} — ${reason}` : message);
+    // A response with no parseable .error means the platform itself rejected this before
+    // this endpoint's own error handling ever ran (a raw gateway error, a timeout, a body
+    // that isn't JSON at all) — "Request failed." alone gave no way to tell that apart from
+    // an ordinary validation rejection, so surface exactly what came back instead of hiding
+    // it behind one fixed string every time.
+    if (data.error) throw new Error(data.reason ? `${data.error} — ${data.reason}` : data.error);
+    throw new Error(`Request failed (HTTP ${res.status}): ${raw.slice(0, 300) || "empty response"}`);
   }
   return data;
 }
