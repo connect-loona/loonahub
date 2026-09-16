@@ -4,11 +4,26 @@ import { askMani, discardConcept, proposeConcept, retryStage, saveStrategyChatMe
 import { listenPath } from "../lib/firebase";
 import type { CopyCheckpoint, StrategyAsset, StrategyBrand, StrategyCheckpoint, StrategyRun } from "../lib/types";
 import { CampaignBrief, CampaignRunChat } from "./CampaignPlanning";
+import loonaLogo from "../assets/loona-logo.png";
 
 type Mode = "home" | "monthly" | "campaign" | "mani";
 type ChatMessage = { role: "user" | "assistant"; text: string; actor?: string; createdAt?: string };
 
 const DEFAULT_COUNTS = { reel: 6, carousel: 4, static: 3 };
+
+// The five pipeline specialists plus Mani, brand memory — the same six identities and
+// emoji the backend already assigns one-to-one with a pipeline stage (or, for Mani, with
+// answering questions about the brand instead of owning a stage). See
+// netlify/functions/lib/strategy/agents/agent-registry.js, which this mirrors rather than
+// imports: that file lives in the Netlify functions bundle, not this Vite app.
+const STRATEGY_AGENTS = [
+  { emoji: "👨🏻‍✈️", name: "Columbus", role: "Research" },
+  { emoji: "🧕🏻", name: "Dora", role: "Strategy" },
+  { emoji: "👩‍🎨", name: "Matilda", role: "Copy" },
+  { emoji: "👩🏼‍🎤", name: "Barbie", role: "Creative Direction" },
+  { emoji: "👷🏾", name: "Bob", role: "Deck Builder" },
+  { emoji: "🧠", name: "Mani", role: "Brand Memory" },
+] as const;
 
 function initials(name: string) {
   return name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "?";
@@ -84,7 +99,7 @@ function BrandSidebar({ brands, active, runs, open, onBrand, onNew, onOpen }: {
   open?: boolean;
 }) {
   return <aside className={`vs-sidebar sc-sidebar${open ? " is-open" : ""}`}>
-    <div className="vs-logo"><a href="/"><span className="sc-wordmark">LOONA</span></a></div>
+    <div className="vs-logo"><a href="/"><img src={loonaLogo} alt="Loona" /></a></div>
     <nav className="vs-topnav">
       <a href="/">Hub</a>
       <span className="is-active">Strategy OS</span>
@@ -97,7 +112,9 @@ function BrandSidebar({ brands, active, runs, open, onBrand, onNew, onOpen }: {
         const isActive = active?.id === brand.id;
         return <div key={brand.id} className={`vs-project-block${isActive ? " is-open" : ""}`}>
           <button type="button" className={`vs-project${isActive ? " is-active" : ""}`} onClick={() => onBrand(brand)}>
-            <span className="vs-project-icon" style={{ background: tint(brand.id) }}>{initials(brand.name)}</span>
+            {brand.logo
+              ? <img className="vs-project-logo" src={brand.logo} alt="" />
+              : <span className="vs-project-icon" style={{ background: tint(brand.id) }}>{initials(brand.name)}</span>}
             <span className="vs-project-name">{brand.name}</span>
           </button>
           {isActive && <div className="vs-chatlist">
@@ -119,8 +136,16 @@ function BrandSidebar({ brands, active, runs, open, onBrand, onNew, onOpen }: {
 function Welcome({ onMode }: { onMode: (mode: Mode) => void }) {
   return <div className="sc-welcome">
     <p className="sc-eyebrow">Strategy OS</p>
-    <h2>What are we building today?</h2>
+    <h2>Welcome</h2>
     <p className="sc-muted">A conversation with the brand, its memory and the Loona strategy agents.</p>
+    <div className="sc-agent-row">
+      {STRATEGY_AGENTS.map((agent, index) => (
+        <div key={agent.name} className="sc-agent-chip" title={agent.role}>
+          <span className="sc-agent-emoji">{agent.emoji}</span>
+          <span className="sc-agent-name" style={{ animationDelay: `${index * 0.25}s` }}>{agent.name}</span>
+        </div>
+      ))}
+    </div>
     <div className="sc-suggestions">
       <button type="button" onClick={() => onMode("monthly")}><b>Monthly planning</b><span>Build this month’s content one concept at a time.</span></button>
       <button type="button" onClick={() => onMode("campaign")}><b>Campaign planning</b><span>Shape a launch, event or campaign through conversation.</span></button>
@@ -288,6 +313,7 @@ export function StrategyChatWorkspace({ actor }: { actor: string }) {
   const [mode, setMode] = useState<Mode>("home");
   const [runId, setRunId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [maniOpen, setManiOpen] = useState(false);
   const activeRun = runId ? runs.find((run) => run.runId === runId) : undefined;
   const selectedBrand = brand || (allBrands.length ? allBrands[0] : undefined);
   const strategyBrand = configuredBrands.find((item: StrategyBrand) => item.id === selectedBrand?.id);
@@ -298,8 +324,9 @@ export function StrategyChatWorkspace({ actor }: { actor: string }) {
   if (brandsLoading) return <div className="vs-shell"><main className="vs-main sc-loading">Loading brands…</main></div>;
   return <div className="vs-shell sc-shell">
     <BrandSidebar brands={allBrands} active={selectedBrand} runs={runs} open={sidebarOpen} onBrand={chooseBrand} onNew={newChat} onOpen={(id) => { const opened = runs.find((item) => item.runId === id); setRunId(id); setMode(opened?.runType === "campaign" ? "campaign" : "monthly"); setSidebarOpen(false); }} />
+    {(sidebarOpen || maniOpen) && <button type="button" className="vs-scrim" aria-label="Close" onClick={() => { setSidebarOpen(false); setManiOpen(false); }} />}
     <main className="vs-main">
-      <header className="vs-header"><button type="button" className="vs-mobile-tool" aria-label="Open projects" onClick={() => setSidebarOpen(true)}>☰</button><div><h1>{selectedBrand?.name || "Strategy OS"}</h1><p>{activeRun ? (activeRun.runType === "campaign" ? "Campaign planning" : monthLabel(activeRun.month)) : mode === "home" ? "New strategy chat" : mode === "mani" ? "Chat with Mani" : mode === "campaign" ? "Campaign planning" : "Monthly planning"}</p></div><button type="button" className="vs-header-tool" onClick={() => setMode("mani")}>Mani</button></header>
+      <header className="vs-header"><button type="button" className="vs-mobile-tool" aria-label="Open projects" onClick={() => setSidebarOpen(true)}>☰</button><div><h1>{selectedBrand?.name || "Strategy OS"}</h1><p>{activeRun ? (activeRun.runType === "campaign" ? "Campaign planning" : monthLabel(activeRun.month)) : mode === "home" ? "New strategy chat" : mode === "mani" ? "Chat with Mani" : mode === "campaign" ? "Campaign planning" : "Monthly planning"}</p></div><button type="button" className="vs-header-tool" onClick={() => setManiOpen(true)}>Mani</button></header>
       <section className="vs-thread sc-thread">
         {!selectedBrand && <div className="sc-assistant-block"><p>Add a brand in Hub before starting a strategy chat.</p></div>}
         {selectedBrand && !selectedBrand.configured && <div className="sc-assistant-block sc-warning"><p>{selectedBrand.name} needs a completed Strategy OS brand configuration before research can start.</p></div>}
@@ -312,6 +339,12 @@ export function StrategyChatWorkspace({ actor }: { actor: string }) {
       </section>
       <div className="sc-bottom-hint">Everything logged here stays with {selectedBrand?.name || "this brand"} and is available to Mani and the next strategy run.</div>
     </main>
-    <aside className="vs-memory-drawer sc-memory-static"><h2>Mani · Brand memory agent</h2><p className="vs-muted vs-muted-sm">Mani reads stored choices, feedback and rejected directions when supporting Strategy OS.</p><p className="vs-section-label">Plan status</p><p className="vs-muted vs-muted-sm">{planStatusText(activeRun)}</p><p className="vs-section-label">Brand configuration</p><p className="vs-muted vs-muted-sm">{strategyBrand ? "Ready for planning" : "Needs setup"}</p></aside>
+    <aside className={`vs-memory-drawer${maniOpen ? " is-open" : ""}`}>
+      <button type="button" className="vs-drawer-close" onClick={() => setManiOpen(false)}>Close</button>
+      <h2>Mani · Brand memory agent</h2>
+      <p className="vs-muted vs-muted-sm">Mani reads stored choices, feedback and rejected directions when supporting Strategy OS.</p>
+      <p className="vs-section-label">Plan status</p><p className="vs-muted vs-muted-sm">{planStatusText(activeRun)}</p>
+      <p className="vs-section-label">Brand configuration</p><p className="vs-muted vs-muted-sm">{strategyBrand ? "Ready for planning" : "Needs setup"}</p>
+    </aside>
   </div>;
 }
