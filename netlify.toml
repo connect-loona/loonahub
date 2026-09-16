@@ -35,6 +35,16 @@
   to = "/strategy/index.html"
   status = 200
 
+# Strategy is an internal, fast-moving application. Its HTML must never be restored from a
+# stale browser/CDN cache: an older document can point at a stylesheet from a prior atomic
+# deploy and leave the React UI mounted but completely unstyled. Hashed JavaScript remains
+# safe to cache on its own; this scoped response header prioritises correctness for every
+# Strategy route and asset fallback over a negligible amount of transfer.
+[[headers]]
+  for = "/strategy/*"
+  [headers.values]
+    Cache-Control = "no-store, max-age=0, must-revalidate"
+
 # Visual Studio, same arrangement as Strategy OS above and for the same reason: scoped to
 # exactly /visual/* so a client-side route inside it still resolves to its index.html, while
 # every other path on this site keeps resolving to a real file.
@@ -248,84 +258,3 @@
 #                               https://www.googleapis.com/auth/calendar.readonly
 #                               https://www.googleapis.com/auth/calendar.events
 #                               https://www.googleapis.com/auth/documents
-#                               https://www.googleapis.com/auth/drive.file
-#                             calendar.events is only needed for "+ New Meeting" / editing
-#                             (calendar-create.js / calendar-update.js). documents +
-#                             drive.file are only needed for Loona Notes' "Export as Doc"
-#                             (calendar-sync.js is read-only and works with just the first
-#                             scope) — see docs-export.js.)
-#   GOOGLE_EMPLOYEE_SHEET_ID   (the live-tracking employee Google Sheet — see
-#                             netlify/functions/employee-sheet-sync.js. Reuses the SAME
-#                             GOOGLE_CALENDAR_SERVICE_ACCOUNT above, but does NOT need
-#                             domain-wide delegation — it authenticates as the service
-#                             account itself, not an impersonated user. One-time setup:
-#                               1. Create a blank Google Sheet.
-#                               2. Share it (top-right "Share" button) with the
-#                                  service account's own email — the "client_email"
-#                                  field inside the GOOGLE_CALENDAR_SERVICE_ACCOUNT JSON
-#                                  key — as an Editor.
-#                               3. Copy the sheet's ID out of its URL: the long segment
-#                                  between /d/ and /edit in
-#                                  https://docs.google.com/spreadsheets/d/THIS_PART/edit
-#                               4. Set that as GOOGLE_EMPLOYEE_SHEET_ID here.
-#                             The function creates its own "Master Employee Data" tab on
-#                             first run and fully rewrites that tab's data every 15
-#                             minutes — safe to leave other tabs/notes elsewhere in the
-#                             same spreadsheet.)
-#   FIREBASE_ADMIN_SERVICE_ACCOUNT   (optional — full JSON key contents for a Firebase
-#                             Admin service account on THIS project. Only needed to
-#                             include PAN/Aadhar/bank details in the employee sheet above
-#                             (they live in /members_sensitive, which has a tighter
-#                             database rule the plain unauthenticated reads elsewhere in
-#                             employee-sheet-sync.js can't get past). Without this set,
-#                             the sync still runs fine — those columns are just left
-#                             blank. One-time setup: Firebase Console -> Project Settings
-#                             -> Service Accounts -> "Generate new private key", then
-#                             paste the downloaded JSON's full contents here. Unlike
-#                             GOOGLE_CALENDAR_SERVICE_ACCOUNT, this key does NOT need to
-#                             be shared with anything — Admin SDK credentials bypass
-#                             database rules by design, on their own.)
-#   GOOGLE_ATTENDANCE_SHEET_ID   (the "Attendance Master Loona" spreadsheet — see
-#                             netlify/functions/attendance-sheet-sync.js. Same one-time
-#                             setup as GOOGLE_EMPLOYEE_SHEET_ID above, just a DIFFERENT
-#                             spreadsheet: create/open it, share it with the Sheets
-#                             service account's client_email as Editor, copy its ID out
-#                             of its URL, set it here. The function creates its own
-#                             "Yearly Summary" tab plus one tab per month with real punch
-#                             data on first run — a dark-themed layout matching Gokul's
-#                             own design (colors/fonts/column widths, not just plain
-#                             values) — fully rewriting all of them hourly.)
-#   FIREBASE_WEB_API_KEY     (optional — defaults to the same public Web API key already
-#                             embedded in index.html's client-side Firebase config. Used by
-#                             add-to-playlist.js/remove-from-playlist.js to verify a caller's
-#                             Firebase ID token via the Identity Toolkit REST API. Not a
-#                             secret — Firebase web API keys are meant to be public; real
-#                             access control is Firebase Auth + database rules.)
-#
-# Loona Radio (netlify/functions/resolve-track.js, add-to-playlist.js,
-# remove-from-playlist.js) — every track add/remove goes through ONE Spotify
-# account (Gokul's) so teammates never need their own Spotify login, since
-# Spotify Dev Mode caps a new app at 5 authorized users:
-#   SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET   (from a Spotify Developer Dashboard app —
-#                             https://developer.spotify.com/dashboard)
-#   SPOTIFY_REFRESH_TOKEN    (Gokul's own — see one-time setup below)
-#   SPOTIFY_PLAYLIST_ID      (fallback only — radio/config/spotifyPlaylistId in Firebase
-#                             is checked FIRST, so the playlist can be swapped without a
-#                             redeploy; set this env var too so there's still a working
-#                             default if that Firebase value is ever cleared)
-#
-#   One-time setup for SPOTIFY_REFRESH_TOKEN (do this once, as Gokul, from any machine —
-#   there's no in-app UI for this on purpose, it's a one-time credential exchange):
-#     1. Create an app at https://developer.spotify.com/dashboard, add a redirect URI of
-#        http://127.0.0.1:8080/callback (or any URI you can catch locally).
-#     2. Visit (as Gokul, logged into open.spotify.com with the account that owns/can edit
-#        the Loona Radio playlist):
-#          https://accounts.spotify.com/authorize?client_id=YOUR_CLIENT_ID&response_type=code&redirect_uri=http://127.0.0.1:8080/callback&scope=playlist-modify-public%20playlist-modify-private
-#     3. Copy the "code" query param from the redirect, then exchange it for tokens:
-#          curl -X POST https://accounts.spotify.com/api/token \
-#            -H "Authorization: Basic $(echo -n CLIENT_ID:CLIENT_SECRET | base64)" \
-#            -d grant_type=authorization_code -d code=THE_CODE \
-#            -d redirect_uri=http://127.0.0.1:8080/callback
-#     4. Paste the response's "refresh_token" into Netlify as SPOTIFY_REFRESH_TOKEN.
-#   Also set radio/config/spotifyPlaylistId (and optionally appleMusicPlaylistUrl) directly
-#   in the Firebase Realtime Database console — no admin UI for these either, by design.
