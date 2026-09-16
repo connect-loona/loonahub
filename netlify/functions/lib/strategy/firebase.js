@@ -13,6 +13,17 @@ const { authedUrl } = require("../firebase-auth");
 
 const FB = (process.env.FIREBASE_DB_URL || "https://loona-hub-c85d7-default-rtdb.firebaseio.com").replace(/\/+$/, "");
 
+// A socket that never gets a response otherwise hangs forever — Node sets no default
+// timeout — and every endpoint built on this file calls fbGet/fbSet synchronously before
+// it can answer at all. Left unbounded, a single slow or stuck connection to Firebase
+// stalls the request until the platform's own hard timeout kills it, which reaches the
+// person as a raw, bodyless error rather than anything this file's own callers ever get a
+// chance to turn into a real message (see strategy-run-start.js and its "Request failed."
+// fallback in the frontend's api.ts — that text is exactly what a platform timeout with no
+// JSON body produces). Bounding it here means a hung connection fails fast, as a normal
+// rejected Error every caller already knows how to handle.
+const REQUEST_TIMEOUT_MS = 10000;
+
 function req(method, urlStr, bodyObj) {
   return new Promise((resolve, reject) => {
     const u = new URL(urlStr);
@@ -34,6 +45,7 @@ function req(method, urlStr, bodyObj) {
       });
     });
     r.on("error", reject);
+    r.setTimeout(REQUEST_TIMEOUT_MS, () => r.destroy(new Error(`Firebase ${method} ${u.pathname} timed out after ${REQUEST_TIMEOUT_MS}ms.`)));
     if (data) r.write(data);
     r.end();
   });
