@@ -38,9 +38,14 @@ export function CampaignBrief({ brand, actor, onStarted, onCancel }: { brand: Hu
     const value = draft.trim();
     if (!value) { setError("Add an answer before moving on."); return; }
     const next = { ...answers, [item.key]: value };
-    setAnswers(next); setDraft(""); setError(null);
-    if (step === QUESTIONS.length - 1) setConfirming(true);
-    else setStep(step + 1);
+    setAnswers(next); setError(null);
+    // Editing an earlier answer and stepping forward again used to show every later
+    // question's textarea empty, even though it had already been answered — the draft was
+    // always reset to "", never restored from what was already recorded for that question.
+    // Prefilling from `next` (not the stale `answers`) means the just-saved edit is visible
+    // immediately if the next question happens to be the one just edited.
+    if (step === QUESTIONS.length - 1) { setDraft(""); setConfirming(true); }
+    else { setStep(step + 1); setDraft(next[QUESTIONS[step + 1].key] || ""); }
   }
 
   function edit(index: number) {

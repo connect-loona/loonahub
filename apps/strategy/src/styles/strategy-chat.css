@@ -18,23 +18,69 @@
 body { background: var(--sc-page); color: var(--sc-ink); font: 14px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
 button, textarea, input { font: inherit; color: inherit; }
 button { cursor: pointer; }
-.sc-shell { color: var(--sc-ink); background: var(--sc-page); }
-.sc-sidebar { background: #fbfaf7; color: var(--sc-ink); }
+/* These selectors mirror Visual Studio's own vs-* rules in NAME, but the two apps are
+   separate Vite bundles that never share a stylesheet — the rules below were only ever
+   supplying colour on top of vs-* structural CSS that lives solely in apps/visual and was
+   never actually reachable here, so the whole shell rendered as unstyled stacked blocks
+   (no grid, no sidebar column, the "Mani" panel falling below the thread instead of beside
+   it, the mobile menu button showing at every width). Every structural declaration below —
+   display, grid-template-columns, flex, padding, border-radius, text-decoration — is
+   copied verbatim from apps/visual/src/styles.css so this shell actually matches the one
+   Visual Studio ships, not just its class names. */
+.sc-shell {
+  display: grid; grid-template-columns: 236px minmax(0, 1fr) 300px; min-height: 100vh;
+  color: var(--sc-ink); background: var(--sc-page);
+}
+.sc-sidebar {
+  display: flex; flex-direction: column; gap: 4px; padding: 16px 12px;
+  border-right: 1px solid var(--sc-line); max-height: 100vh; overflow-y: auto;
+  background: #fbfaf7; color: var(--sc-ink);
+}
+.sc-sidebar .vs-logo { padding: 2px 6px 14px; }
+.sc-sidebar .vs-logo a { text-decoration: none; }
 .sc-wordmark { color: var(--sc-ink); font-family: Georgia, serif; font-size: 18px; letter-spacing: .08em; }
-.sc-sidebar .vs-topnav a, .sc-sidebar .vs-topnav span { color: var(--sc-muted); }
-.sc-sidebar .vs-topnav .is-active { color: var(--sc-ink); background: var(--sc-selected); }
-.sc-sidebar .vs-project, .sc-sidebar .vs-newchat, .sc-sidebar .vs-chatlink, .sc-sidebar .vs-usage-link { color: var(--sc-ink); }
+.sc-sidebar .vs-topnav { display: flex; flex-direction: column; gap: 2px; padding-bottom: 10px; border-bottom: 1px solid var(--sc-line); }
+.sc-sidebar .vs-topnav a, .sc-sidebar .vs-topnav span { padding: 6px 8px; border-radius: 7px; text-decoration: none; font-size: 13px; color: var(--sc-muted); }
+.sc-sidebar .vs-topnav .is-active { color: var(--sc-ink); background: var(--sc-selected); font-weight: 600; }
+.sc-sidebar .vs-section-label, .sc-memory-static .vs-section-label {
+  margin: 14px 0 6px; padding: 0 6px; font-size: 10px; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--sc-muted);
+}
+.sc-sidebar .vs-projects { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+.sc-sidebar .vs-project {
+  display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px 8px;
+  border: 0; border-radius: 8px; background: transparent; text-align: left;
+  color: var(--sc-ink);
+}
+.sc-sidebar .vs-project-icon {
+  display: grid; place-items: center; flex: 0 0 24px; width: 24px; height: 24px;
+  border-radius: 50%; color: #fff; font-size: 11px; font-weight: 600;
+}
+.sc-sidebar .vs-project-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sc-sidebar .vs-project:hover, .sc-sidebar .vs-chatlink:hover, .sc-sidebar .vs-newchat:hover, .sc-sidebar .vs-usage-link:hover { background: var(--sc-hover); }
-.sc-sidebar .vs-project.is-active, .sc-sidebar .vs-chatrow.is-active { background: var(--sc-selected); }
+.sc-sidebar .vs-project.is-active, .sc-sidebar .vs-chatrow.is-active { background: var(--sc-selected); font-weight: 600; }
+.sc-sidebar .vs-chatlist {
+  display: flex; flex-direction: column; gap: 1px; margin: 2px 0 8px 18px; padding-left: 10px;
+  border-left: 1px solid var(--sc-line);
+}
+.sc-sidebar .vs-newchat, .sc-sidebar .vs-chatlink { padding: 6px 8px; border: 0; border-radius: 7px; background: transparent; text-align: left; color: var(--sc-ink); }
+.sc-sidebar .vs-newchat { font-size: 12px; font-weight: 600; color: var(--sc-accent); }
+.sc-sidebar .vs-chatlink { display: flex; flex-direction: column; gap: 1px; font-size: 12.5px; }
 .sc-sidebar .vs-chatlink span, .sc-sidebar .vs-muted, .sc-sidebar .vs-muted-sm { color: var(--sc-muted); }
-.sc-sidebar .vs-chatlist { border-color: var(--sc-line); }
-.sc-sidebar .vs-section-label, .sc-memory-static .vs-section-label { color: var(--sc-muted); }
-.sc-main, .sc-shell .vs-main { background: var(--sc-panel); }
-.sc-shell .vs-header { border-color: var(--sc-line); background: var(--sc-panel); }
-.sc-shell .vs-header h1 { color: var(--sc-ink); }
-.sc-shell .vs-header p, .sc-shell .vs-muted { color: var(--sc-muted); }
-.sc-shell .vs-header-tool, .sc-shell .vs-mobile-tool { border: 1px solid var(--sc-line); border-radius: 8px; background: #fff; color: var(--sc-ink); }
-.sc-thread { padding: 28px clamp(18px, 5vw, 72px); }
+.sc-sidebar .vs-muted-sm { font-size: 12px; }
+.sc-sidebar .vs-spacer { flex: 1; }
+.sc-sidebar .vs-usage-link { padding: 8px; border: 0; border-radius: 8px; background: transparent; text-align: left; color: var(--sc-ink); }
+.sc-main, .sc-shell .vs-main { display: flex; flex-direction: column; min-width: 0; max-height: 100vh; background: var(--sc-panel); }
+.sc-shell .vs-header {
+  display: flex; align-items: center; gap: 12px; flex: 0 0 auto; padding: 14px 20px;
+  border-bottom: 1px solid var(--sc-line); background: var(--sc-panel);
+}
+.sc-shell .vs-header > div { flex: 1; }
+.sc-shell .vs-header h1 { margin: 0; font-family: Georgia, serif; font-size: 19px; font-weight: 500; color: var(--sc-ink); }
+.sc-shell .vs-header p, .sc-shell .vs-muted { margin: 2px 0 0; color: var(--sc-muted); }
+.sc-shell .vs-header-tool, .sc-shell .vs-mobile-tool { padding: 6px 10px; border: 1px solid var(--sc-line); border-radius: 8px; background: #fff; color: var(--sc-ink); font-size: 12px; }
+.sc-shell .vs-mobile-tool { display: none; }
+.sc-thread { flex: 1 1 auto; overflow-y: auto; padding: 28px clamp(18px, 5vw, 72px); }
 .sc-loading, .sc-signed-out { display: grid; place-content: center; min-height: 100vh; padding: 32px; text-align: center; color: var(--sc-muted); }
 .sc-signed-out h1 { margin: 0 0 8px; color: var(--sc-ink); font-family: Georgia, serif; font-weight: 500; }
 .sc-signed-out a { color: var(--sc-accent); }
@@ -155,4 +201,4 @@ button { cursor: pointer; }
 .sc-asset-request textarea { flex: 1; min-height: 74px; padding: 11px 12px; border: 1px solid var(--sc-line); border-radius: 11px; resize: vertical; outline: none; }
 .sc-asset-request textarea:focus { border-color: var(--sc-accent); }
 @media (max-width: 900px) { .sc-shell { grid-template-columns: 220px minmax(0, 1fr); } .sc-memory-static { display: none; } }
-@media (max-width: 640px) { .sc-shell { grid-template-columns: 1fr; } .sc-sidebar { position: fixed; z-index: 30; inset: 0 auto 0 0; width: min(86vw, 320px); transform: translateX(-105%); transition: transform .2s ease; } .sc-sidebar.is-open { transform: translateX(0); } .sc-suggestions { grid-template-columns: 1fr; } .sc-count-grid { grid-template-columns: 1fr; } .sc-input-row, .sc-asset-request { display: block; } .sc-input-row .sc-primary, .sc-asset-request .sc-primary { margin-top: 8px; width: 100%; } .sc-custom-identity { grid-template-columns: 1fr; } .sc-research-chip p { grid-template-columns: 1fr; gap: 1px; } }
+@media (max-width: 640px) { .sc-shell { grid-template-columns: 1fr; } .sc-sidebar { position: fixed; z-index: 30; inset: 0 auto 0 0; width: min(86vw, 320px); transform: translateX(-105%); transition: transform .2s ease; } .sc-sidebar.is-open { transform: translateX(0); } .sc-shell .vs-mobile-tool { display: inline-flex; align-items: center; justify-content: center; min-width: 38px; height: 34px; } .sc-suggestions { grid-template-columns: 1fr; } .sc-count-grid { grid-template-columns: 1fr; } .sc-input-row, .sc-asset-request { display: block; } .sc-input-row .sc-primary, .sc-asset-request .sc-primary { margin-top: 8px; width: 100%; } .sc-custom-identity { grid-template-columns: 1fr; } .sc-research-chip p { grid-template-columns: 1fr; gap: 1px; } }
