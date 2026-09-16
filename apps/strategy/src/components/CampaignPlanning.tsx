@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { campaignAction, saveStrategyChatMessage, startRun } from "../lib/api";
+import { listenPath } from "../lib/firebase";
 import { useRun, type HubBrandOption } from "../lib/useRuns";
-import type { CampaignIdentity, CampaignRoute, CampaignThought } from "../lib/types";
+import type { CampaignIdentity, CampaignRoute, CampaignThought, ChatMessage } from "../lib/types";
 
 const QUESTIONS = [
   { key: "occasion", label: "Campaign or occasion", question: "What is the campaign or occasion?", placeholder: "For example: a product launch, festive campaign or brand moment…" },
@@ -116,9 +117,22 @@ export function CampaignRunChat({ runId, actor }: { runId: string; actor: string
   const [customName, setCustomName] = useState("");
   const [customTagline, setCustomTagline] = useState("");
   const [copied, setCopied] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const autoRequested = useRef(false);
   const researchReady = Boolean(run?.stages?.research?.checkpoint);
   const busy = campaign.job?.status === "running";
+
+  // Reopening a campaign chat used to show only whatever state it currently sits at — the
+  // locked identity, the selected route — with no visible record of the conversation that
+  // got there, even though every refinement instruction was already being written to
+  // chatMessages. It was written, never read.
+  useEffect(() => listenPath<Record<string, ChatMessage>>(`strategy_runs/${runId}/chatMessages`, (value) => {
+    setMessages(Object.values(value || {}).sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt))));
+  }), [runId]);
+  async function record(role: "user" | "assistant", text: string) {
+    setMessages((items) => items.concat({ role, text, actor, createdAt: new Date().toISOString() }));
+    try { await saveStrategyChatMessage({ runId, role, text, actor }); } catch { /* the campaign checkpoint remains safe if transcript writing is unavailable */ }
+  }
 
   useEffect(() => {
     if (!run || !researchReady || identities.length || busy || autoRequested.current) return;
@@ -130,11 +144,12 @@ export function CampaignRunChat({ runId, actor }: { runId: string; actor: string
     setError(null);
     try {
       await campaignAction(args);
-      if (transcript) await saveStrategyChatMessage({ runId, role: "user", text: transcript, actor }).catch(() => undefined);
+      if (transcript) void record("user", transcript);
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
   }
 
   async function lockIdentity(option?: CampaignIdentity, custom?: boolean) {
+    const name = custom ? customName.trim() : option?.name;
     const args = custom
       ? { runId, action: "lock_identity" as const, actor, customIdentity: { name: customName.trim(), tagline: customTagline.trim() } }
       : { runId, action: "lock_identity" as const, actor, optionId: option?.id };
@@ -142,6 +157,7 @@ export function CampaignRunChat({ runId, actor }: { runId: string; actor: string
     try {
       await campaignAction(args);
       setPendingIdentity(null); setCustomOpen(false);
+      void record("assistant", `Campaign identity locked: ${name}`);
       await campaignAction({ runId, action: "generate_thought", actor });
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
   }
@@ -150,6 +166,7 @@ export function CampaignRunChat({ runId, actor }: { runId: string; actor: string
     setError(null);
     try {
       await campaignAction({ runId, action: "lock_thought", actor, thought: thought as unknown as Record<string, unknown> });
+      void record("assistant", "Campaign thought locked.");
       await campaignAction({ runId, action: "generate_routes", actor });
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
   }
@@ -168,6 +185,9 @@ export function CampaignRunChat({ runId, actor }: { runId: string; actor: string
 
   if (!run) return <div className="sc-status">Opening campaign…</div>;
   return <div className="sc-run-chat sc-campaign-run">
+    {messages.map((message, index) => message.role === "user"
+      ? <div className="sc-user-bubble" key={`msg-${index}`}>{message.text}</div>
+      : <div className="sc-assistant-block" key={`msg-${index}`}><p>{message.text}</p></div>)}
     {campaign.brief && <details className="sc-research-chip"><summary>Campaign brief · confirmed</summary><div>{QUESTIONS.map((question) => <p key={question.key}><b>{question.label}</b><span>{campaign.brief?.[question.key]}</span></p>)}</div></details>}
     {campaign.lockedIdentity && <div className="sc-identity-pin"><span>Locked campaign</span><h2>{campaign.lockedIdentity.name}</h2><p>{campaign.lockedIdentity.tagline}</p></div>}
     {!researchReady && <div className="sc-status">Research is happening privately in the background <span className="sc-dots">•••</span></div>}

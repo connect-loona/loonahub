@@ -452,3 +452,13 @@ export function latestReviewableStage(run: StrategyRun): StageKey | null {
   }
   return null;
 }
+
+// A single turn in a run's chat transcript (strategy_runs/<id>/chatMessages) — shared
+// between the monthly and campaign chat surfaces so a reopened run can render its actual
+// conversation back, not just the plan state it currently sits at.
+export interface ChatMessage {
+  role: "user" | "assistant";
+  text: string;
+  actor?: string;
+  createdAt?: string;
+}

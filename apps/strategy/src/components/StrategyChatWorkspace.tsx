@@ -1,13 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAllHubBrands, useBrands, useRun, useRuns, type HubBrandOption } from "../lib/useRuns";
 import { askMani, discardConcept, proposeConcept, retryStage, saveStrategyChatMessage, startRun, toggleAssetLock } from "../lib/api";
 import { listenPath } from "../lib/firebase";
-import type { CopyCheckpoint, StrategyAsset, StrategyBrand, StrategyCheckpoint, StrategyRun } from "../lib/types";
+import type { ChatMessage, CopyCheckpoint, StrategyAsset, StrategyBrand, StrategyCheckpoint, StrategyRun } from "../lib/types";
 import { CampaignBrief, CampaignRunChat } from "./CampaignPlanning";
 import loonaLogo from "../assets/loona-logo.png";
 
 type Mode = "home" | "monthly" | "campaign" | "mani";
-type ChatMessage = { role: "user" | "assistant"; text: string; actor?: string; createdAt?: string };
 
 const DEFAULT_COUNTS = { reel: 6, carousel: 4, static: 3 };
 
@@ -221,6 +220,7 @@ function RunChat({ runId, actor }: { runId: string; actor: string }) {
   const { run } = useRun(runId);
   const assets = useMemo(() => strategyAssets(run), [run]);
   const [cursor, setCursor] = useState(0);
+  const cursorInitialized = useRef(false);
   const [busy, setBusy] = useState(false);
   const [logged, setLogged] = useState<string[]>([]);
   const [note, setNote] = useState<string | null>(null);
@@ -245,6 +245,18 @@ function RunChat({ runId, actor }: { runId: string; actor: string }) {
     const locks = run?.stages.strategy?.locks || {};
     setLogged(Object.keys(locks));
   }, [run]);
+  // Reopening a chat with concepts already logged used to always land back on Concept 1,
+  // forcing a click through everything already reviewed just to reach where the
+  // conversation actually left off. Only ever runs once, the first time real assets and
+  // lock state are both available — after that the cursor is purely the person's own
+  // Previous/Next navigation.
+  useEffect(() => {
+    if (cursorInitialized.current || !run || !assets.length) return;
+    const locks = run.stages.strategy?.locks || {};
+    const firstUnlogged = assets.findIndex((item) => !locks[item.assetId]);
+    setCursor(firstUnlogged >= 0 ? firstUnlogged : assets.length - 1);
+    cursorInitialized.current = true;
+  }, [run, assets]);
   useEffect(() => listenPath<Record<string, ChatMessage>>(`strategy_runs/${runId}/chatMessages`, (value) => {
     setMessages(Object.values(value || {}).sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt))));
   }), [runId]);
@@ -278,8 +290,14 @@ function RunChat({ runId, actor }: { runId: string; actor: string }) {
     finally { setBusy(false); }
   }
   return <div className="sc-run-chat">
-    {messages.filter((message) => message.role === "user").map((message, index) => <div className="sc-user-bubble" key={`user-${index}`}>{message.text}</div>)}
-    {!messages.length && <div className="sc-user-bubble">I’ve submitted the brief. Start the monthly planning.</div>}
+    {/* The full transcript, not just the user's turns — reopening this chat used to show
+        only the current concept, with every earlier exchange (what was refined, what got
+        logged and why) recorded to chatMessages but never rendered back. */}
+    {messages.length > 0
+      ? messages.map((message, index) => message.role === "user"
+        ? <div className="sc-user-bubble" key={`msg-${index}`}>{message.text}</div>
+        : <div className="sc-assistant-block" key={`msg-${index}`}><p>{message.text}</p></div>)
+      : <div className="sc-user-bubble">I’ve submitted the brief. Start the monthly planning.</div>}
     <StatusLine run={run} />
     {!asset && <div className="sc-assistant-block">
       <p>{stageStatus(run, "strategy").includes("running") || stageStatus(run, "research").includes("running")
