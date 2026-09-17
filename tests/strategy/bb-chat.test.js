@@ -34,7 +34,7 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
   }, { client: fakeClient(log) });
   check("BB returns a conversational answer", /new recommendation/.test(result.answer), result.answer);
   check("the current message follows the earlier conversation", /launch idea/.test(log[0].messages[0].content) && /founder-led/.test(log[0].messages[0].content), log[0].messages);
-  check("BB uses a reasoning model", !/haiku/.test(log[0].model), log[0].model);
+  check("BB uses the fast conversational model by default", /sonnet/.test(log[0].model), log[0].model);
   check("BB can use the bounded live web-search tool for current questions",
     log[0].tools.some((tool) => tool.type === "web_search_20260209" && tool.max_uses === 6), log[0].tools);
 

@@ -9,8 +9,9 @@
 const { BB_LOONA_SOUL, LOONA_SOUL } = require("./souls-data");
 
 const MAX_MESSAGE_CHARS = 4000;
-const MAX_HISTORY_MESSAGES = 24;
+const MAX_HISTORY_MESSAGES = 12;
 const MAX_ANSWER_CHARS = 8000;
+const MAX_MEMORY_CHARS = 18000;
 
 function anthropicApiKey() {
   return process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || "";
@@ -37,7 +38,7 @@ function instructions({ brandName, memory }) {
     "- You can search the live web when the team asks for current news, competitors, culture, trends, public facts or examples. Use it when freshness matters; distinguish what you found on the web from what Mani has recorded about the brand, and name the source when it helps the team verify a claim.",
     "",
     `# Mani's current memory for ${brandName}`,
-    memory && String(memory).trim() ? String(memory) : "Nothing has been recorded for this brand yet.",
+    memory && String(memory).trim() ? String(memory).slice(-MAX_MEMORY_CHARS) : "Nothing has been recorded for this brand yet.",
   ].join("\n");
 }
 
@@ -79,7 +80,10 @@ async function askBB({ brandName, message, memory, history, attachments }, deps 
     const apiKey = anthropicApiKey();
     if (!apiKey) throw new Error("ANTHROPIC_API_KEY is required to ask BB.");
     const Anthropic = require("@anthropic-ai/sdk");
-    client = new Anthropic({ apiKey });
+    // BB is a chat surface. A silent request that runs longer than the function's response
+    // window becomes an opaque Netlify 504 on iPad, so keep one model attempt inside a
+    // short, explicit budget and let the UI offer a normal retry instead.
+    client = new Anthropic({ apiKey, timeout: 20000, maxRetries: 0 });
   }
 
   const messages = cleanHistory(history);
@@ -92,8 +96,11 @@ async function askBB({ brandName, message, memory, history, attachments }, deps 
     current.content = [{ type: "text", text: current.content }, ...blocks];
   }
   const response = await client.messages.create({
-    model: process.env.STRATEGY_BB_MODEL || process.env.STRATEGY_CLAUDE_MODEL || "claude-opus-5",
-    max_tokens: 2200,
+    // BB is intentionally independent from the long-form Strategy OS pipeline model.
+    // Sonnet gives a near-immediate conversational first token; an explicit BB override is
+    // still available for a workspace that deliberately wants a different model.
+    model: process.env.STRATEGY_BB_MODEL || "claude-sonnet-4-5-20250929",
+    max_tokens: 1000,
     system: instructions({ brandName, memory }),
     // BB is a conversational strategist, but a team will naturally ask it what is happening
     // now. Give it the same bounded live-research tool the Research stage uses; the model can
@@ -110,4 +117,4 @@ async function askBB({ brandName, message, memory, history, attachments }, deps 
   return { answer: answer.slice(0, MAX_ANSWER_CHARS) };
 }
 
-module.exports = { askBB, instructions, cleanHistory, attachmentBlocks, MAX_MESSAGE_CHARS, MAX_HISTORY_MESSAGES };
+module.exports = { askBB, instructions, cleanHistory, attachmentBlocks, MAX_MESSAGE_CHARS, MAX_HISTORY_MESSAGES, MAX_MEMORY_CHARS };
