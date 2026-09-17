@@ -48,7 +48,7 @@ function isProviderError(error) {
   // Anthropic's raw JSON error instead of quietly moving to OpenAI. Matching on the
   // billing-specific wording here (not the 400 status itself — an ordinary bad request is
   // still not a provider error, see the test for that) closes exactly that gap.
-  return /fetch failed|socket hang up|network error|timed out|timeout|econnreset|service unavailable|rate limit|quota|insufficient[_ ]quota|no credits|credit balance|purchase credits|plans\s*&\s*billing/.test(message);
+  return /fetch failed|socket hang up|network error|timed out|timeout|econnreset|service unavailable|rate limit|quota|insufficient[_ ]quota|usage[_ ]exceeded|no credits|credit balance|purchase credits|plans\s*&\s*billing/.test(message);
 }
 
 class AllProvidersFailedError extends Error {

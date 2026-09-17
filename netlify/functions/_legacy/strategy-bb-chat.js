@@ -67,8 +67,10 @@ exports.handler = async (event) => {
     }
     return { statusCode: 200, headers: cors(), body: JSON.stringify(result) };
   } catch (error) {
-    const missingKey = /ANTHROPIC_API_KEY/.test(error.message || "");
+    const message = error.message || "";
+    const missingKey = /ANTHROPIC_API_KEY/.test(message);
     const timedOut = /timed out|timeout|aborted/i.test(error.message || "");
-    return fail(missingKey ? 503 : timedOut ? 504 : 502, timedOut ? "BB took too long to answer. Please tap send once more — your message is still in the chat." : (error.message || "BB could not answer."));
+    const exhausted = /usage[_ ]exceeded|quota|no credits|credit balance|purchase credits|billing/i.test(message);
+    return fail(missingKey ? 503 : timedOut ? 504 : exhausted ? 503 : 502, timedOut ? "BB took too long to answer. Please tap send once more — your message is still in the chat." : exhausted ? "BB’s AI providers have reached their current usage limit. Please top up either connected provider, then try again." : (message || "BB could not answer."));
   }
 };
