@@ -40,6 +40,11 @@ button { cursor: pointer; }
   border-right: 1px solid var(--sc-line); max-height: 100vh; max-height: 100dvh; overflow-y: auto;
   background: #fbfaf7; color: var(--sc-ink);
 }
+.sc-bb-opening { display: grid; place-items: center; min-height: 100%; text-align: center; color: var(--sc-ink); }
+.sc-bb-opening span { font-size: 48px; animation: sc-bb-wave 1.4s ease-in-out infinite; }
+.sc-bb-opening h1 { margin: 13px 0 3px; font-family: Georgia, serif; font-size: 28px; font-weight: 500; }
+.sc-bb-opening p { margin: 0; color: var(--sc-muted); font-size: 13px; }
+@keyframes sc-bb-wave { 0%,100% { transform: rotate(-8deg) scale(1); } 50% { transform: rotate(9deg) scale(1.12); } }
 .sc-sidebar .vs-logo { padding: 2px 6px 14px; }
 .sc-sidebar .vs-logo a { display: inline-block; text-decoration: none; }
 /* The source asset is a solid-white wordmark on transparency, drawn for a dark surface —

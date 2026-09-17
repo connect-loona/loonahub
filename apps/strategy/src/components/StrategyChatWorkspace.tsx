@@ -415,7 +415,7 @@ export function StrategyChatWorkspace({ actor }: { actor: string }) {
   function newChat() { setRunId(null); setMode("home"); setSidebarOpen(false); }
   function openGlobalBB() { setRunId(null); setMode("global-bb"); setSidebarOpen(false); }
 
-  if (brandsLoading) return <div className="vs-shell"><main className="vs-main sc-loading">Loading brands…</main></div>;
+  if (brandsLoading) return <div className="vs-shell sc-shell"><main className="vs-main sc-loading"><div className="sc-bb-opening"><span>🦦</span><h1>Say hello to BB</h1><p>Getting your Loona workspace ready…</p></div></main></div>;
   return <div className="vs-shell sc-shell">
     <BrandSidebar brands={allBrands} active={selectedBrand} runs={runs} open={sidebarOpen} onBrand={chooseBrand} onNew={newChat} onGlobalBB={openGlobalBB} globalThreads={globalThreads} onGlobalThread={(id) => { setGlobalThreadId(id); openGlobalBB(); }} onOpen={(id) => { const opened = runs.find((item) => item.runId === id); setRunId(id); setMode(opened?.runType === "campaign" ? "campaign" : "monthly"); setSidebarOpen(false); }} />
     {(sidebarOpen || maniOpen) && <button type="button" className="vs-scrim" aria-label="Close" onClick={() => { setSidebarOpen(false); setManiOpen(false); }} />}
