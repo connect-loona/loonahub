@@ -59,6 +59,20 @@ function promptForReferenceEdit(typed, referenceRoles = []) {
   return lines.join("\n\n").slice(0, MAX_EXPANDED_CHARS);
 }
 
+// A bare text request gives the image model no visual evidence to work from. Its default is
+// often the polished, symmetrical, over-smoothed look people immediately recognise as AI.
+// Give original generations a concrete production baseline, while leaving illustrations,
+// graphics and deliberate renders alone when the designer explicitly asks for one.
+function originalGenerationDirection(prompt) {
+  const typed = String(prompt || "").trim();
+  const deliberatelyNonPhotographic = /\b(illustration|illustrated|drawing|sketch|watercolou?r|painting|anime|cartoon|comic|vector|logo|icon|typography|poster|graphic design|3d render|cgi|isometric)\b/i.test(typed);
+  if (deliberatelyNonPhotographic) return typed;
+  return [
+    typed,
+    "Create this as a believable commissioned editorial or commercial photograph, not a generic AI render. Use a specific real-world setting, physically plausible light, natural perspective and an intentional camera viewpoint. Preserve honest material texture, small imperfections and natural asymmetry; avoid plastic surfaces, waxy skin, excessive glow, oversaturated colour, floating objects, impossible geometry and stock-image posing. Keep the composition focused and leave no invented text in the image.",
+  ].join("\n\n").slice(0, MAX_EXPANDED_CHARS);
+}
+
 const SYSTEM = [
   "You write prompts for an image generation model. You are given what a designer typed, the conversation it belongs to, and what is known about the brand.",
   "Rewrite their request into ONE self-contained image prompt that the model can act on without seeing any of the context you were given.",
@@ -67,6 +81,7 @@ const SYSTEM = [
   "- Resolve every reference to earlier turns. \"Make the table warmer\" must become a full description of the whole scene with a warmer table, not the phrase itself.",
   "- Carry forward everything from the previous round the designer did not ask to change. What they didn't mention, they want kept.",
   "- Be concrete and visual: subject, setting, composition, lighting, camera framing, mood, finish. Describe what is in the frame, not the intent behind it.",
+  "- For an original photographic image with no reference, anchor it in a believable real-world setting and camera viewpoint. Ask for physically plausible light, natural material texture and small imperfections; avoid generic AI polish, plastic or waxy surfaces, excessive glow, oversaturated colour, impossible geometry and stock-image posing. Do not impose photography if the designer explicitly asks for illustration, graphics or a render.",
   "- Ask explicitly for photographic skin and surface texture — visible pores, fine lines, natural asymmetry, real fabric weave and material grain. This is a photograph, not a retouched beauty-ad render: never let the description imply airbrushed, waxy, glossy or plastic-smooth skin unless that look was actually requested.",
   "- When reference images are attached, describe what to do WITH them and what must stay untouched. Never describe the reference's contents as if generating them from scratch.",
   "- Respect the brand's own rules absolutely. Never contradict them to satisfy the request.",
@@ -140,7 +155,7 @@ async function expandPrompt({ prompt, history, brandBrain, referenceRoles, brand
   const generateText = deps.generateText || null;
   const apiKey = openaiApiKey();
   // No key is not an error. The person's own words still generate an image.
-  if (!generateText && !apiKey) return { prompt: typed, expanded: false, reason: "No OpenAI key configured." };
+  if (!generateText && !apiKey) return { prompt: originalGenerationDirection(typed), expanded: true, mode: "original", reason: "No OpenAI key configured." };
 
   const parts = [];
   if (brandBrain) parts.push(`What we know about this brand:\n${String(brandBrain).slice(0, MAX_BRAIN_CHARS)}`);
@@ -155,16 +170,16 @@ async function expandPrompt({ prompt, history, brandBrain, referenceRoles, brand
     // One call, one shape, whether it is a test double or the real thing — so what the tests
     // exercise is the same control flow production takes.
     const text = String(await (generateText || callOpenAI)(SYSTEM, parts.join("\n\n"), deps) || "").trim();
-    if (!text) return { prompt: typed, expanded: false, reason: "The rewrite came back empty." };
-    return { prompt: text.slice(0, MAX_EXPANDED_CHARS), expanded: true };
+    if (!text) return { prompt: originalGenerationDirection(typed), expanded: true, mode: "original", reason: "The rewrite came back empty." };
+    return { prompt: originalGenerationDirection(text), expanded: true, mode: "original" };
   } catch (error) {
     // Fail open, loudly in the logs and silently on screen: a worse image beats no image.
     console.error("Could not expand the image prompt:", error.message);
-    return { prompt: typed, expanded: false, reason: error.message };
+    return { prompt: originalGenerationDirection(typed), expanded: true, mode: "original", reason: error.message };
   }
 }
 
 module.exports = {
-  expandPrompt, historyForPrompt, promptForReferenceEdit,
+  expandPrompt, historyForPrompt, promptForReferenceEdit, originalGenerationDirection,
   SYSTEM, MAX_HISTORY_TURNS, DEFAULT_PROMPT_MODEL,
 };

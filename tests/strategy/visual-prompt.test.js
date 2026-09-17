@@ -14,7 +14,7 @@ process.env.FIREBASE_DB_URL = require("../harness/shared").RTDB_URL;
 const path = require("path");
 const { HUB, check, finish } = require("../harness/shared");
 const {
-  expandPrompt, historyForPrompt, promptForReferenceEdit,
+  expandPrompt, historyForPrompt, promptForReferenceEdit, originalGenerationDirection,
   MAX_HISTORY_TURNS, DEFAULT_PROMPT_MODEL,
 } = require(path.join(HUB, "netlify/functions/lib/strategy/visual-prompt"));
 
@@ -60,7 +60,8 @@ function fakeRewriter(log, reply) {
     brandRules: [{ key: "no_label_regeneration", label: "No label regeneration" }],
   }, { generateText: fakeRewriter(log) });
 
-  check("the prompt is rewritten", result.expanded === true && result.prompt === "A long, specific rewritten prompt.", result);
+  check("the prompt is rewritten and gets the grounded original-generation art direction",
+    result.expanded === true && /A long, specific rewritten prompt/.test(result.prompt) && /believable commissioned/.test(result.prompt), result);
   const sent = log[0].user;
   check("the rewriter is given what the designer typed", /make the table warmer/.test(sent), sent.slice(-120));
   check("and the conversation it belongs to", /marble counter/.test(sent), sent.slice(0, 200));
@@ -97,6 +98,11 @@ function fakeRewriter(log, reply) {
     /Reference 1: Base image/.test(edit.prompt), edit.prompt);
   check("the deterministic helper applies the same contract directly",
     promptForReferenceEdit("replace only the person", [""]).startsWith("Edit the attached reference image"));
+  const original = originalGenerationDirection("a bottle on a kitchen table");
+  check("an original text-only request gets a grounded photographic art-direction baseline",
+    /believable commissioned editorial or commercial photograph/.test(original) && /plastic surfaces/.test(original), original);
+  check("an explicitly requested illustration keeps its requested medium",
+    originalGenerationDirection("a vector illustration of a bottle") === "a vector illustration of a bottle");
 
   // In front of every single generation, so it has to be cheap. Asserted against the constant
   // production actually uses rather than against a parameter the test double was handed —
@@ -113,20 +119,20 @@ function fakeRewriter(log, reply) {
     { prompt: "make the table warmer" },
     { generateText: async () => { throw new Error("model exploded"); } },
   );
-  check("a failed rewrite falls back to exactly what the person typed",
-    broken.prompt === "make the table warmer" && broken.expanded === false, broken);
+  check("a failed rewrite still adds a grounded visual baseline instead of sending a bare prompt",
+    /make the table warmer/.test(broken.prompt) && /believable commissioned/.test(broken.prompt) && broken.expanded === true, broken);
   check("and records why, for the logs", /model exploded/.test(broken.reason || ""), broken.reason);
 
   const empty = await expandPrompt({ prompt: "make the table warmer" }, { generateText: fakeRewriter([], "") });
-  check("an empty rewrite falls back too rather than sending nothing",
-    empty.prompt === "make the table warmer" && empty.expanded === false, empty);
+  check("an empty rewrite still sends a grounded original-generation prompt",
+    /make the table warmer/.test(empty.prompt) && /believable commissioned/.test(empty.prompt) && empty.expanded === true, empty);
 
   // No key configured is a normal state, not a failure — the app still generates.
   const savedKey = process.env.OPENAI_API_KEY;
   delete process.env.OPENAI_API_KEY;
   const noKey = await expandPrompt({ prompt: "make the table warmer" });
-  check("with no key the person's own words are used, and nothing breaks",
-    noKey.prompt === "make the table warmer" && noKey.expanded === false, noKey);
+  check("with no key the person still gets the original-generation art direction",
+    /make the table warmer/.test(noKey.prompt) && /believable commissioned/.test(noKey.prompt) && noKey.expanded === true, noKey);
   check("and it says why", /No OpenAI key/.test(noKey.reason || ""), noKey.reason);
   if (savedKey) process.env.OPENAI_API_KEY = savedKey;
 
