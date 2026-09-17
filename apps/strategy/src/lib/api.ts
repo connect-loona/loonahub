@@ -70,6 +70,13 @@ export function saveStrategyChatMessage(args: { runId: string; role: "user" | "a
   return post("strategy-chat-message", args) as Promise<{ ok: true; id: string }>;
 }
 
+// Clears only the visible transcript for one monthly or campaign run. The run brief,
+// research and approved work remain intact, so a team can tidy the conversation without
+// deleting the actual plan.
+export function clearStrategyChat(args: { runId: string; actor: string }): Promise<{ ok: true }> {
+  return post("strategy-chat-message", { ...args, action: "clear" }) as Promise<{ ok: true }>;
+}
+
 // Re-reads a brand's Drive folder now, instead of waiting for the next strategy run to do it
 // as a side effect. Returns as soon as the scan is queued — the work happens in a background
 // function and progress shows up on the strategy_brand_library/<brandId> listener.

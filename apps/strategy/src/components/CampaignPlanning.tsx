@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { campaignAction, saveStrategyChatMessage, startRun } from "../lib/api";
+import { campaignAction, clearStrategyChat, saveStrategyChatMessage, startRun } from "../lib/api";
 import { listenPath } from "../lib/firebase";
 import { useRun, type HubBrandOption } from "../lib/useRuns";
 import type { CampaignIdentity, CampaignRoute, CampaignThought, ChatMessage } from "../lib/types";
@@ -118,6 +118,7 @@ export function CampaignRunChat({ runId, actor }: { runId: string; actor: string
   const [customTagline, setCustomTagline] = useState("");
   const [copied, setCopied] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [clearingChat, setClearingChat] = useState(false);
   const autoRequested = useRef(false);
   const researchReady = Boolean(run?.stages?.research?.checkpoint);
   const busy = campaign.job?.status === "running";
@@ -132,6 +133,13 @@ export function CampaignRunChat({ runId, actor }: { runId: string; actor: string
   async function record(role: "user" | "assistant", text: string) {
     setMessages((items) => items.concat({ role, text, actor, createdAt: new Date().toISOString() }));
     try { await saveStrategyChatMessage({ runId, role, text, actor }); } catch { /* the campaign checkpoint remains safe if transcript writing is unavailable */ }
+  }
+  async function clearChat() {
+    if (!messages.length || !confirm("Clear this campaign chat? The campaign brief and approved work will stay.")) return;
+    setClearingChat(true); setError(null);
+    try { await clearStrategyChat({ runId, actor }); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setClearingChat(false); }
   }
 
   useEffect(() => {
@@ -185,6 +193,7 @@ export function CampaignRunChat({ runId, actor }: { runId: string; actor: string
 
   if (!run) return <div className="sc-status">Opening campaign…</div>;
   return <div className="sc-run-chat sc-campaign-run">
+    <div className="sc-bb-toolbar"><span>Campaign conversation</span><button type="button" onClick={() => void clearChat()} disabled={clearingChat || !messages.length} aria-label="Clear campaign chat">🗑 Clear chat</button></div>
     {messages.map((message, index) => message.role === "user"
       ? <div className="sc-user-bubble" key={`msg-${index}`}>{message.text}</div>
       : <div className="sc-assistant-block" key={`msg-${index}`}><p>{message.text}</p></div>)}

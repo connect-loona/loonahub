@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAllHubBrands, useBrands, useRun, useRuns, type HubBrandOption } from "../lib/useRuns";
-import { askBB, clearBB, discardConcept, proposeConcept, retryStage, saveStrategyChatMessage, startRun, toggleAssetLock, uploadBBAttachment } from "../lib/api";
+import { askBB, clearBB, clearStrategyChat, discardConcept, proposeConcept, retryStage, saveStrategyChatMessage, startRun, toggleAssetLock, uploadBBAttachment } from "../lib/api";
 import { listenPath } from "../lib/firebase";
 import type { ChatMessage, CopyCheckpoint, StrategyAsset, StrategyBrand, StrategyCheckpoint, StrategyRun } from "../lib/types";
 import { CampaignBrief, CampaignRunChat } from "./CampaignPlanning";
@@ -298,6 +298,7 @@ function RunChat({ runId, actor }: { runId: string; actor: string }) {
   const [finished, setFinished] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
+  const [clearingChat, setClearingChat] = useState(false);
   const asset = assets[cursor];
   // Whichever of the two stages a fresh concept depends on actually failed — unlike the
   // campaign flow's per-step retry buttons, this used to leave a failed research or
@@ -334,6 +335,13 @@ function RunChat({ runId, actor }: { runId: string; actor: string }) {
     setMessages((items) => items.concat({ role, text, actor, createdAt: new Date().toISOString() }));
     try { await saveStrategyChatMessage({ runId, role, text, actor }); } catch { /* the strategy checkpoint remains safe if transcript writing is unavailable */ }
   }
+  async function clearChat() {
+    if (!messages.length || !confirm("Clear this strategy chat? The plan, research and approved concepts will stay.")) return;
+    setClearingChat(true); setNote(null);
+    try { await clearStrategyChat({ runId, actor }); }
+    catch (e) { setNote(e instanceof Error ? e.message : String(e)); }
+    finally { setClearingChat(false); }
+  }
   async function logAsset() {
     if (!asset || busy) return;
     setBusy(true); setNote(null);
@@ -360,6 +368,7 @@ function RunChat({ runId, actor }: { runId: string; actor: string }) {
     finally { setBusy(false); }
   }
   return <div className="sc-run-chat">
+    <div className="sc-bb-toolbar"><span>Strategy conversation</span><button type="button" onClick={() => void clearChat()} disabled={clearingChat || !messages.length} aria-label="Clear strategy chat">🗑 Clear chat</button></div>
     {/* The full transcript, not just the user's turns — reopening this chat used to show
         only the current concept, with every earlier exchange (what was refined, what got
         logged and why) recorded to chatMessages but never rendered back. */}
