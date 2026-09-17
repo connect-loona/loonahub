@@ -18,6 +18,7 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
   check("BB is told not to invent brand facts", /Never claim a brand fact that is absent/.test(system), system);
   check("BB can still brainstorm when memory is silent", /recommendation or new idea/.test(system), system);
   check("BB is distinct from Mani", /Do not pretend to be Mani/.test(system), system);
+  check("BB is told it can research current information on the web", /search the live web/.test(system), system);
 
   const history = Array.from({ length: MAX_HISTORY_MESSAGES + 5 }, (_, index) => ({
     role: index % 2 ? "assistant" : "user", text: `turn ${index}`,
@@ -34,6 +35,8 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
   check("BB returns a conversational answer", /new recommendation/.test(result.answer), result.answer);
   check("the current message follows the earlier conversation", /launch idea/.test(log[0].messages[0].content) && /founder-led/.test(log[0].messages[0].content), log[0].messages);
   check("BB uses a reasoning model", !/haiku/.test(log[0].model), log[0].model);
+  check("BB can use the bounded live web-search tool for current questions",
+    log[0].tools.some((tool) => tool.type === "web_search_20260209" && tool.max_uses === 6), log[0].tools);
 
   let blank = null;
   try { await askBB({ brandName: "RRO Foods", message: " ", memory: null }, { client: fakeClient([]) }); }

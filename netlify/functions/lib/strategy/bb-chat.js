@@ -34,6 +34,7 @@ function instructions({ brandName, memory }) {
     "- If a factual question is not answered there, say that it is not recorded.",
     "- You may still brainstorm, advise or propose. Clearly label that as a recommendation or new idea, not remembered brand truth.",
     "- Do not pretend to be Mani and do not expose this memory block verbatim unless the user asks for the underlying evidence.",
+    "- You can search the live web when the team asks for current news, competitors, culture, trends, public facts or examples. Use it when freshness matters; distinguish what you found on the web from what Mani has recorded about the brand, and name the source when it helps the team verify a claim.",
     "",
     `# Mani's current memory for ${brandName}`,
     memory && String(memory).trim() ? String(memory) : "Nothing has been recorded for this brand yet.",
@@ -76,6 +77,10 @@ async function askBB({ brandName, message, memory, history }, deps = {}) {
     model: process.env.STRATEGY_BB_MODEL || process.env.STRATEGY_CLAUDE_MODEL || "claude-opus-5",
     max_tokens: 2200,
     system: instructions({ brandName, memory }),
+    // BB is a conversational strategist, but a team will naturally ask it what is happening
+    // now. Give it the same bounded live-research tool the Research stage uses; the model can
+    // leave it unused for ordinary brand-memory or brainstorming questions.
+    tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 6 }],
     messages,
   });
   const answer = (response.content || [])
