@@ -85,7 +85,7 @@ function StatusLine({ run }: { run: StrategyRun | null }) {
   if (research === "running" || research === "queued") return <div className="sc-status">Research is happening in the background <span className="sc-dots">•••</span></div>;
   if (research.includes("failed")) return <div className="sc-status is-error">Research needs attention before concepts can be shown.</div>;
   if (strategy === "running" || strategy === "queued") return <div className="sc-status">Turning the research into concepts <span className="sc-dots">•••</span></div>;
-  return <div className="sc-status is-ready">Research is ready · concepts are appearing below</div>;
+  return <div className="sc-status is-ready">Research is ready · Dora is sharing one concept at a time below</div>;
 }
 
 function BrandSidebar({ brands, active, runs, open, onBrand, onBrandThread, onNew, onOpen, onArchive, onGlobalBB, globalThreads, onGlobalThread }: {
@@ -425,13 +425,13 @@ function RunChat({ runId, actor, onArchived }: { runId: string; actor: string; o
     <WorkingAgent run={run} />
     {!asset && <div className="sc-assistant-block">
       <p>{stageStatus(run, "strategy").includes("running") || stageStatus(run, "research").includes("running")
-        ? "I’m working through the research now. The concepts will appear here as soon as they are ready."
+        ? "Columbus is researching first. Then Dora will bring you the first concept — not a whole batch at once."
         : failedStage ? `The ${failedStage} stage needs attention before concepts can be shown.` : "No concepts are available yet."}</p>
       {failedStage && <button type="button" className="sc-secondary" disabled={retrying} onClick={() => void retryFailedStage()}>{retrying ? "Retrying…" : `Retry ${failedStage}`}</button>}
       {retryError && <p className="sc-error">{retryError}</p>}
     </div>}
     {asset && <>
-      <div className="sc-assistant-block"><p>Here’s the next concept. Read it, refine it, or log it when it feels right.</p></div>
+      <div className="sc-assistant-block"><p>Here’s concept {cursor + 1}. Read it, refine it, or log it when it feels right. Dora will only bring the next one after this decision.</p></div>
       <ConceptCard asset={asset} caption={captionFor(run, asset.assetId)} candidate={run?.stages.strategy?.candidates?.[asset.assetId] as { status?: string; detail?: string; candidate?: Partial<StrategyAsset> } | undefined} index={cursor} total={assets.length} logged={logged.includes(asset.assetId)} busy={busy} onLog={() => void logAsset()} onRefine={(value) => void refineAsset(value)} onReject={(value) => void rejectAsset(value)} />
       {note && <div className="sc-assistant-block sc-note-block"><p>{note}</p></div>}
       <div className="sc-next-row">{cursor > 0 && <button type="button" className="sc-secondary" onClick={() => setCursor(cursor - 1)}>Previous</button>}{cursor < assets.length - 1 ? <button type="button" className="sc-secondary" disabled={!logged.includes(asset.assetId)} onClick={() => setCursor(cursor + 1)}>Move to next</button> : <button type="button" className="sc-primary" disabled={logged.length < assets.length} onClick={() => { setFinished(true); void record("assistant", "Monthly planning is complete. All concepts are logged."); }}>Finish monthly planning</button>}</div>

@@ -800,17 +800,19 @@ async function runDirectionStage(runId) {
   });
 }
 
-// Chat-based Strategy OS deliberately has no approval wall between agents. The team sees
-// one concept at a time in the conversation and logs the decisions there, so Research,
-// Strategy, Copy and Creative Direction can run as one private backend pass. Deck Builder
-// is intentionally not part of this path: the final output is copied into Canva or another
-// production tool by the team.
+// Chat-based Strategy OS stops once Dora has prepared the concepts.  Earlier versions ran
+// Research, Strategy, Copy and Creative Direction as one long private batch before the
+// team saw anything.  That made a monthly plan feel stalled and, more importantly, meant
+// people were presented with a finished batch instead of being able to decide one concept
+// at a time.  Columbus researches first; Dora then prepares the concept queue.  The chat
+// workspace reveals one item from that queue only after the preceding item has been
+// resolved and logged.  Refinement and rejection stay focused on that one item until it
+// is ready. Copy and creative direction belong after the team has
+// chosen the concepts, not in front of that decision.
 async function runChatPipeline(runId) {
   const stages = [
     ["research", runResearchStage],
     ["strategy", runStrategyStage],
-    ["copy", runCopyStage],
-    ["creative-direction", runDirectionStage],
   ];
   for (const [stage, runner] of stages) {
     await runner(runId);
@@ -828,8 +830,18 @@ async function runChatPipeline(runId) {
   }
   const now = new Date().toISOString();
   await fbUpdate(`strategy_runs/${runId}`, {
-    status: "creative-direction_approved",
-    coordinator: { name: "BB Loona", currentStage: "creative-direction", specialist: "Strategy OS", status: "ready_for_team_review" },
+    status: "strategy_approved",
+    coordinator: { name: "BB Loona", currentStage: "strategy", specialist: "Dora", status: "ready_for_concept_review" },
+    updatedAt: now,
+  });
+  await fbUpdate(`strategy_runs/${runId}/stages/copy`, {
+    status: "locked",
+    detail: "Copy starts after the team has chosen the concepts.",
+    updatedAt: now,
+  });
+  await fbUpdate(`strategy_runs/${runId}/stages/creative-direction`, {
+    status: "locked",
+    detail: "Creative direction starts after the team has chosen the concepts.",
     updatedAt: now,
   });
   await fbUpdate(`strategy_runs/${runId}/stages/deck-builder`, {
