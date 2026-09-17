@@ -88,11 +88,12 @@ function StatusLine({ run }: { run: StrategyRun | null }) {
   return <div className="sc-status is-ready">Research is ready · concepts are appearing below</div>;
 }
 
-function BrandSidebar({ brands, active, runs, open, onBrand, onNew, onOpen, onGlobalBB, globalThreads, onGlobalThread }: {
+function BrandSidebar({ brands, active, runs, open, onBrand, onBrandThread, onNew, onOpen, onGlobalBB, globalThreads, onGlobalThread }: {
   brands: HubBrandOption[];
   active: HubBrandOption | undefined;
   runs: StrategyRun[];
   onBrand: (brand: HubBrandOption) => void;
+  onBrandThread: (brand: HubBrandOption, threadId: string) => void;
   onNew: () => void;
   onOpen: (runId: string) => void;
   onGlobalBB: () => void;
@@ -101,6 +102,8 @@ function BrandSidebar({ brands, active, runs, open, onBrand, onNew, onOpen, onGl
   open?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [brandThreads, setBrandThreads] = useState<Array<{ id: string; title?: string; updatedAt?: string }>>([]);
+  useEffect(() => listenPath<Record<string, { title?: string; updatedAt?: string }>>(`strategy_bb_chats/${active?.id || "none"}/threads`, (value) => setBrandThreads(Object.entries(value || {}).map(([id, thread]) => ({ id, ...thread })).sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""))))), [active?.id]);
   return <aside className={`vs-sidebar sc-sidebar${open ? " is-open" : ""}`}>
     <div className="vs-logo"><a href="/"><img src={loonaLogo} alt="Loona" /></a></div>
     <nav className="vs-topnav">
@@ -121,6 +124,8 @@ function BrandSidebar({ brands, active, runs, open, onBrand, onNew, onOpen, onGl
             <span className="vs-project-name">{brand.name}</span>
           </button>
           {isActive && <div className="vs-chatlist">
+            {brandThreads.slice(0, 8).map((thread) => <button key={thread.id} type="button" className="vs-chatlink" onClick={() => onBrandThread(brand, thread.id)}>{thread.title || "New BB chat"}<span>BB chat</span></button>)}
+            <button type="button" className="vs-newchat" onClick={() => onBrandThread(brand, `chat-${Date.now()}`)}>+ New BB chat</button>
             <button type="button" className="vs-newchat" onClick={onNew}>+ New strategy chat</button>
             {brandRuns.map((run) => <button key={run.runId} type="button" className="vs-chatlink" onClick={() => onOpen(run.runId)}>
               {run.runType === "campaign" ? (run.campaign?.lockedIdentity?.name || run.campaign?.brief?.occasion || "Campaign planning") : monthLabel(run.month)}
@@ -246,7 +251,7 @@ function BBChat({ brand, actor, global = false, threadId = "main", onNewThread }
   async function clear() {
     if (!messages.length || !confirm(`Clear this ${global ? "Loona Hub" : label} BB chat? Mani’s saved memory will stay.`)) return;
     setBusy(true); setError(null);
-    try { await clearBB({ brandId: global ? undefined : brandId, scope: global ? "global" : undefined, threadId: global ? threadId : undefined, actor }); }
+    try { await clearBB({ brandId: global ? undefined : brandId, scope: global ? "global" : undefined, threadId, actor }); }
     catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
@@ -412,13 +417,13 @@ export function StrategyChatWorkspace({ actor }: { actor: string }) {
   const selectedBrand = brand;
   const strategyBrand = configuredBrands.find((item: StrategyBrand) => item.id === selectedBrand?.id);
 
-  function chooseBrand(next: HubBrandOption) { setBrand(next); setMode("home"); setRunId(null); setSidebarOpen(false); }
+  function chooseBrand(next: HubBrandOption) { setBrand(next); setBrandThreadId("main"); setMode("home"); setRunId(null); setSidebarOpen(false); }
   function newChat() { setRunId(null); setMode("home"); setSidebarOpen(false); }
   function openGlobalBB(fresh = false) { if (fresh) setGlobalThreadId(`chat-${Date.now()}`); setRunId(null); setMode("global-bb"); setSidebarOpen(false); }
 
   if (brandsLoading) return <div className="vs-shell sc-shell"><main className="vs-main sc-loading"><div className="sc-bb-opening"><span>🦦</span><h1>Say hello to BB</h1><p>Getting your Loona workspace ready…</p></div></main></div>;
   return <div className="vs-shell sc-shell">
-    <BrandSidebar brands={allBrands} active={selectedBrand} runs={runs} open={sidebarOpen} onBrand={chooseBrand} onNew={newChat} onGlobalBB={openGlobalBB} globalThreads={globalThreads} onGlobalThread={(id) => { setGlobalThreadId(id); openGlobalBB(); }} onOpen={(id) => { const opened = runs.find((item) => item.runId === id); setRunId(id); setMode(opened?.runType === "campaign" ? "campaign" : "monthly"); setSidebarOpen(false); }} />
+    <BrandSidebar brands={allBrands} active={selectedBrand} runs={runs} open={sidebarOpen} onBrand={chooseBrand} onBrandThread={(next, id) => { setBrand(next); setBrandThreadId(id); setRunId(null); setMode("bb"); setSidebarOpen(false); }} onNew={newChat} onGlobalBB={openGlobalBB} globalThreads={globalThreads} onGlobalThread={(id) => { setGlobalThreadId(id); openGlobalBB(); }} onOpen={(id) => { const opened = runs.find((item) => item.runId === id); setRunId(id); setMode(opened?.runType === "campaign" ? "campaign" : "monthly"); setSidebarOpen(false); }} />
     {(sidebarOpen || maniOpen) && <button type="button" className="vs-scrim" aria-label="Close" onClick={() => { setSidebarOpen(false); setManiOpen(false); }} />}
     <main className="vs-main">
       <header className="vs-header"><button type="button" className="vs-mobile-tool" aria-label="Open projects" onClick={() => setSidebarOpen(true)}>☰</button><div><h1>{mode === "global-bb" ? "Loona Hub" : selectedBrand?.name || "Strategy OS"}</h1><p>{activeRun ? (activeRun.runType === "campaign" ? "Campaign planning" : monthLabel(activeRun.month)) : mode === "home" ? "New strategy chat" : mode === "global-bb" ? "Ask BB · Global" : mode === "bb" ? "Ask BB" : mode === "campaign" ? "Campaign planning" : "Monthly planning"}</p></div><button type="button" className="vs-header-tool" onClick={() => setManiOpen(true)}>Memory</button></header>
