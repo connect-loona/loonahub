@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { BrandForm } from "./BrandForm";
-import { useBrands } from "../lib/useRuns";
+import { useBrandDraft, useBrands } from "../lib/useRuns";
+import { draftBrandFromManiMemory } from "../lib/api";
 import type { StrategyBrand } from "../lib/types";
 
 // Brand Directory is intentionally entered from a selected brand workspace. Existing
@@ -9,8 +10,17 @@ import type { StrategyBrand } from "../lib/types";
 export function BrandDirectory({ brandId, brandName, onClose }: { brandId: string; brandName: string; onClose: () => void }) {
   const { brands, loading } = useBrands();
   const [showDirectory, setShowDirectory] = useState(false);
+  const [drafting, setDrafting] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
   const existing = brands.find((brand) => brand.id === brandId);
-  const seed = existing || ({ id: brandId, name: brandName } as StrategyBrand);
+  const memoryDraft = useBrandDraft(brandId);
+  const fromMemory = memoryDraft?.status === "ready" && memoryDraft.draft ? memoryDraft.draft as Record<string, unknown> : null;
+  const seed = existing || ({ id: brandId, name: brandName, ...(fromMemory || {}) } as StrategyBrand);
+  async function draftFromMemory() {
+    setDrafting(true); setDraftError(null);
+    try { await draftBrandFromManiMemory({ brandId, name: brandName, actor: "Hub team" }); }
+    catch (error) { setDraftError(error instanceof Error ? error.message : String(error)); setDrafting(false); }
+  }
 
   if (loading) return <div className="vs-shell sc-shell"><main className="vs-main sc-loading">Opening Brand Directory…</main></div>;
 
@@ -24,7 +34,7 @@ export function BrandDirectory({ brandId, brandName, onClose }: { brandId: strin
   </main></div>;
 
   return <div className="vs-shell sc-shell"><main className="vs-main sc-directory">
-    <header className="vs-header"><div><h1>Brand Directory</h1><p>{existing ? `Review ${brandName}'s configuration.` : `Set up ${brandName} so planning and brand memory can begin.`}</p></div><button type="button" className="vs-header-tool" onClick={() => setShowDirectory(true)}>All brands</button><button type="button" className="vs-header-tool" onClick={onClose}>Close</button></header>
-    <section className="vs-thread"><BrandForm key={existing?.id || `new-${brandId}`} brandId={existing?.id || "__new__"} initialBrand={seed} onCancel={onClose} onSaved={onClose} /></section>
+    <header className="vs-header"><div><h1>Brand Directory</h1><p>{existing ? `Review ${brandName}'s configuration.` : `Set up ${brandName} so planning and brand memory can begin.`}</p></div>{!existing && <button type="button" className="vs-header-tool" disabled={drafting || memoryDraft?.status === "drafting"} onClick={() => void draftFromMemory()}>{drafting || memoryDraft?.status === "drafting" ? "Drafting…" : fromMemory ? "Refresh from Mani" : "Draft from Mani"}</button>}<button type="button" className="vs-header-tool" onClick={() => setShowDirectory(true)}>All brands</button><button type="button" className="vs-header-tool" onClick={onClose}>Close</button></header>
+    <section className="vs-thread">{!existing && <p className="sc-directory-note">Paste context in Mani memory first, then use “Draft from Mani”. Review and edit every generated field before saving.</p>}{memoryDraft?.status === "failed" && <p className="sc-error">{memoryDraft.error || "Mani could not draft this configuration."}</p>}{draftError && <p className="sc-error">{draftError}</p>}<BrandForm key={`${existing?.id || `new-${brandId}`}-${memoryDraft?.status === "ready" ? "ready" : "blank"}`} brandId={existing?.id || "__new__"} initialBrand={seed} onCancel={onClose} onSaved={onClose} /></section>
   </main></div>;
 }
