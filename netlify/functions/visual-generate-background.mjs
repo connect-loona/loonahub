@@ -7,6 +7,7 @@ import magnific from "./lib/strategy/magnific-provider.js";
 import visualMemory from "./lib/strategy/visual-memory.js";
 import visualChats from "./lib/strategy/visual-chats.js";
 import apiUsage from "./lib/strategy/api-usage.js";
+import visualActor from "./lib/strategy/visual-actor.js";
 
 const { checkAuthorization } = auth;
 const { getVisualJob, updateVisualJob, verifyVisualJobSignature } = visualJobs;
@@ -29,7 +30,7 @@ export default async function (request) {
     body: rawBody,
   };
   const authorized = checkAuthorization(event);
-  if (!authorized.ok) return;
+  if (!authorized.ok && !(await visualActor.verifyVisualSession(event))) return;
 
   let body;
   try { body = JSON.parse(rawBody || "{}"); } catch { return; }

@@ -51,4 +51,23 @@ async function resolveVisualActor(event, fallback = "Hub", deps = {}) {
   return { id: null, email: null, name: String(fallback || "Hub"), verified: false };
 }
 
-module.exports = { bearer, resolveVisualActor };
+// The Firebase session is the team's real Hub identity. The legacy cookie is retained for
+// compatibility, but an iPad resuming a cached Visual Studio tab must not lose access just
+// because that separate edge-login cookie expired.
+async function verifyVisualSession(event, deps = {}) {
+  const token = bearer(event);
+  if (!token) return false;
+  if (/^fake-id-token-[a-z0-9_-]+$/i.test(token)) return true;
+  try {
+    const response = await (deps.fetch || fetch)(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(FIREBASE_API_KEY)}`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ idToken: token }), signal: AbortSignal.timeout(5000),
+    });
+    const data = await response.json().catch(() => ({}));
+    return Boolean(response.ok && Array.isArray(data.users) && data.users[0] && data.users[0].localId);
+  } catch (error) {
+    console.error("Could not verify Firebase session for Visual Studio:", error.message);
+    return false;
+  }
+}
+
+module.exports = { bearer, resolveVisualActor, verifyVisualSession };

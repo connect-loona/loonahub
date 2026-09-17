@@ -4,10 +4,10 @@
 import crypto from "node:crypto";
 import chats from "./lib/strategy/visual-chats.js";
 import assets from "./_shared/visual-blob-store.mjs";
-import { authorizeVisualRequest, json } from "./_shared/visual-auth.mjs";
+import { authorizeVisualSession, json } from "./_shared/visual-auth.mjs";
 
 export default async function uploadReference(request) {
-  if (!authorizeVisualRequest(request)) return json({ error: "Unauthorized" }, 401);
+  if (!(await authorizeVisualSession(request))) return json({ error: "Unauthorized" }, 401);
   if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
   const url = new URL(request.url);
   const chatId = url.searchParams.get("chatId") || "";

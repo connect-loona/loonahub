@@ -18,6 +18,7 @@ const { checkAuthorization } = require("../lib/strategy/auth");
 const { createChat, resolveChat, renameChat, listChatsForBrand } = require("../lib/strategy/visual-chats");
 const { loadVisualHistory } = require("../lib/strategy/visual-memory");
 const { hubBrandExists } = require("../lib/strategy/hub-brands");
+const { verifyVisualSession } = require("../lib/strategy/visual-actor");
 
 function cors() {
   return {
@@ -40,7 +41,7 @@ exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: cors(), body: "" };
   if (event.httpMethod !== "POST") return fail(405, "Method not allowed");
   const auth = checkAuthorization(event);
-  if (!auth.ok) return { statusCode: 401, headers: cors(), body: JSON.stringify({ error: "Unauthorized", reason: auth.reason }) };
+  if (!auth.ok && !(await verifyVisualSession(event))) return { statusCode: 401, headers: cors(), body: JSON.stringify({ error: "Unauthorized", reason: auth.reason }) };
 
   let body;
   try { body = JSON.parse(event.body || "{}"); } catch { return fail(400, "Invalid JSON"); }

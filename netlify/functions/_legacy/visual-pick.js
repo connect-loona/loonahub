@@ -7,7 +7,7 @@
 "use strict";
 const { checkAuthorization } = require("../lib/strategy/auth");
 const { recordPick } = require("../lib/strategy/visual-memory");
-const { resolveVisualActor } = require("../lib/strategy/visual-actor");
+const { resolveVisualActor, verifyVisualSession } = require("../lib/strategy/visual-actor");
 const { recordApiUsage } = require("../lib/strategy/api-usage");
 
 function cors() {
@@ -27,7 +27,7 @@ exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: cors(), body: "" };
   if (event.httpMethod !== "POST") return fail(405, "Method not allowed");
   const auth = checkAuthorization(event);
-  if (!auth.ok) return { statusCode: 401, headers: cors(), body: JSON.stringify({ error: "Unauthorized", reason: auth.reason }) };
+  if (!auth.ok && !(await verifyVisualSession(event))) return { statusCode: 401, headers: cors(), body: JSON.stringify({ error: "Unauthorized", reason: auth.reason }) };
 
   let body;
   try { body = JSON.parse(event.body || "{}"); } catch { return fail(400, "Invalid JSON"); }

@@ -1,7 +1,7 @@
 "use strict";
 const { checkAuthorization } = require("../lib/strategy/auth");
 const { createVisualJob, getVisualJob, signVisualJob, activeVisualJobsForChat } = require("../lib/strategy/visual-jobs");
-const { resolveVisualActor } = require("../lib/strategy/visual-actor");
+const { resolveVisualActor, verifyVisualSession } = require("../lib/strategy/visual-actor");
 
 const headers = { "Content-Type": "application/json", "Cache-Control": "no-store" };
 const reply = (statusCode, value) => ({ statusCode, headers, body: JSON.stringify(value) });
@@ -9,7 +9,7 @@ const reply = (statusCode, value) => ({ statusCode, headers, body: JSON.stringif
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") return reply(405, { error: "Method not allowed" });
   const auth = checkAuthorization(event);
-  if (!auth.ok) return reply(401, { error: "Unauthorized", reason: auth.reason });
+  if (!auth.ok && !(await verifyVisualSession(event))) return reply(401, { error: "Unauthorized", reason: auth.reason });
   let body;
   try { body = JSON.parse(event.body || "{}"); } catch { return reply(400, { error: "Invalid JSON" }); }
   try {

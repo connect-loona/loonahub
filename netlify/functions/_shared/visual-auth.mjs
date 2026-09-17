@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import visualActor from "../lib/strategy/visual-actor.js";
 
 function env(name) {
   return globalThis.Netlify?.env?.get(name) || process.env[name] || "";
@@ -15,6 +16,11 @@ export function authorizeVisualRequest(request) {
   const actualBuffer = Buffer.from(actual);
   const expectedBuffer = Buffer.from(expected);
   return actualBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(actualBuffer, expectedBuffer);
+}
+
+export async function authorizeVisualSession(request) {
+  if (authorizeVisualRequest(request)) return true;
+  return visualActor.verifyVisualSession({ headers: Object.fromEntries(request.headers.entries()) });
 }
 
 export function json(payload, status = 200) {

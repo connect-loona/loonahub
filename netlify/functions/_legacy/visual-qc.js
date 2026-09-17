@@ -5,7 +5,7 @@ const { checkAuthorization } = require("../lib/strategy/auth");
 const { resolveChat } = require("../lib/strategy/visual-chats");
 const { loadVisualHistory, recordQc } = require("../lib/strategy/visual-memory");
 const { loadAsset } = require("../lib/strategy/visual-assets");
-const { resolveVisualActor } = require("../lib/strategy/visual-actor");
+const { resolveVisualActor, verifyVisualSession } = require("../lib/strategy/visual-actor");
 const { recordApiUsage } = require("../lib/strategy/api-usage");
 
 const reply = (statusCode, value) => ({ statusCode, headers: { "Content-Type": "application/json" }, body: JSON.stringify(value) });
@@ -65,7 +65,7 @@ function outputText(data) {
 
 exports.handler = async (event) => {
   const auth = checkAuthorization(event);
-  if (!auth.ok) return reply(401, { error: "Unauthorized" });
+  if (!auth.ok && !(await verifyVisualSession(event))) return reply(401, { error: "Unauthorized" });
   let body;
   try { body = JSON.parse(event.body || "{}"); } catch { return reply(400, { error: "Invalid JSON" }); }
   try {

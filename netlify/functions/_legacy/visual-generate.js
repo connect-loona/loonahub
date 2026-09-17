@@ -10,6 +10,7 @@
 "use strict";
 const crypto = require("crypto");
 const { checkAuthorization } = require("../lib/strategy/auth");
+const { verifyVisualSession } = require("../lib/strategy/visual-actor");
 const { generateImages, MAX_IMAGES, MAX_REFERENCES } = require("../lib/strategy/image-providers");
 const { recordGeneration } = require("../lib/strategy/visual-memory");
 const { resolveChat, touchChat, titleFromPrompt } = require("../lib/strategy/visual-chats");
@@ -41,7 +42,7 @@ exports.handler = async (event) => {
   if (event.httpMethod !== "POST") return fail(405, "Method not allowed");
   // This spends real money per call, so it is never open.
   const auth = checkAuthorization(event);
-  if (!auth.ok) return { statusCode: 401, headers: cors(), body: JSON.stringify({ error: "Unauthorized", reason: auth.reason }) };
+  if (!auth.ok && !(await verifyVisualSession(event))) return { statusCode: 401, headers: cors(), body: JSON.stringify({ error: "Unauthorized", reason: auth.reason }) };
 
   let body;
   try { body = JSON.parse(event.body || "{}"); } catch { return fail(400, "Invalid JSON"); }
