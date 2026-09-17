@@ -4,6 +4,8 @@
 // Request into the Lambda-style event it expects, and its response back again.
 // See _legacy/README.md for why this wrapper exists.
 import { withLambda } from "@netlify/aws-lambda-compat";
+import PptxGenJS from "pptxgenjs";
+globalThis.__pptxgenjsBundled = PptxGenJS;
 import legacy from "./_legacy/strategy-deck-download.js";
 
 export default withLambda(legacy.handler);

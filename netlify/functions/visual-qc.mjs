@@ -5,6 +5,14 @@
 // See _legacy/README.md for why this wrapper exists.
 import { withLambda } from "@netlify/aws-lambda-compat";
 import "./_shared/visual-blob-store.mjs";
+import { createJimp } from "@jimp/core";
+globalThis.__jimpCoreBundled = createJimp;
+import jimpPng from "@jimp/js-png";
+globalThis.__jimpPngBundled = jimpPng;
+import jimpJpeg from "@jimp/js-jpeg";
+globalThis.__jimpJpegBundled = jimpJpeg;
+import { methods } from "@jimp/plugin-crop";
+globalThis.__jimpCropBundled = methods;
 import legacy from "./_legacy/visual-qc.js";
 
 export default withLambda(legacy.handler);
