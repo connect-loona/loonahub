@@ -177,7 +177,12 @@ exports.handler = async (event) => {
     // Production always preserves. Locally it is opt-in, and VISUAL_ASSET_LOCAL_DIR counts —
     // otherwise the browser tests would exercise a generation whose images are never stored,
     // which is not the shape that ships and would leave every asset-key path untested.
-    const durable = process.env.NETLIFY === "true"
+    // A Visual Studio job is always executed by the Runtime V2 background worker, which has
+    // already configured the Blob store.  Do not infer that worker's capabilities from the
+    // legacy NETLIFY env flag: it is absent in some V2 executions, and that used to leave a
+    // perfectly successful job with only an expiring provider URL.
+    const durable = body.persistImages === true
+      || process.env.NETLIFY === "true"
       || process.env.VISUAL_ASSET_STORE === "blobs"
       || Boolean(process.env.VISUAL_ASSET_LOCAL_DIR);
     if (durable) {

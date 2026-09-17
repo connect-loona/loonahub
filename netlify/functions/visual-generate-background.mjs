@@ -115,7 +115,10 @@ export default async function (request) {
       const response = await generation.handler({
         httpMethod: "POST",
         headers: { cookie: internalCookie() },
-        body: JSON.stringify(job.request),
+        // This worker has a statically bundled, configured Netlify Blob store. Requiring the
+        // legacy generation handler to preserve the bytes here prevents a completed job from
+        // becoming an "older preview" when the provider's temporary URL expires.
+        body: JSON.stringify({ ...job.request, persistImages: true }),
       });
       payload = JSON.parse(response.body || "{}");
       if (response.statusCode < 200 || response.statusCode >= 300) {

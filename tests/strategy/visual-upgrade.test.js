@@ -60,6 +60,9 @@ function pngHeader(width, height) {
     const source = fs.readFileSync(path.join(HUB, "netlify/functions", file), "utf8");
     check(`${file} configures the static Blobs bridge`, source.includes("visual-blob-store.mjs"));
   }
+  const backgroundSource = fs.readFileSync(path.join(HUB, "netlify/functions/visual-generate-background.mjs"), "utf8");
+  check("the background worker explicitly requires durable generation storage",
+    /persistImages:\s*true/.test(backgroundSource));
 
   process.env.BASIC_AUTH_CREDENTIALS = "loona:test-secret";
   const signature = signVisualJob("job-123");
