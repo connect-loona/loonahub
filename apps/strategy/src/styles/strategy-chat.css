@@ -178,6 +178,9 @@ button { cursor: pointer; }
 .sc-bb-queued { display: flex; gap: 6px; width: min(760px, 100%); margin: 0 auto 8px; overflow-x: auto; }
 .sc-bb-queued span { white-space: nowrap; padding: 5px 8px; border: 1px solid var(--sc-line); border-radius: 10px; background: #fff; font-size: 12px; }
 .sc-bb-queued button { margin-left: 5px; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.sc-bb-assistant-message p { margin: 0 0 15px; }
+.sc-bb-list-item { margin: 5px 0; padding-left: 18px; text-indent: -18px; }
+.sc-bb-list-item::before { content: "•"; padding-right: 9px; }
 .sc-bb-thinking { margin: 0 0 28px; color: var(--sc-muted); font-size: 13px; }
 .sc-bb-composer-wrap { flex: 0 0 auto; padding: 14px clamp(18px, 5vw, 34px) calc(13px + env(safe-area-inset-bottom)); border-top: 1px solid rgba(230,226,217,.72); background: rgba(255,255,255,.92); backdrop-filter: blur(12px); }
 .sc-bb-composer { display: flex; align-items: flex-end; gap: 9px; width: min(760px, 100%); margin: 0 auto; padding: 8px 9px 8px 15px; border: 1px solid var(--sc-line); border-radius: 25px; background: #fff; box-shadow: 0 8px 28px rgba(35,28,18,.08); }

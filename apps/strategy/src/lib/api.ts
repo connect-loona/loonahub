@@ -24,6 +24,7 @@ async function post(path: string, body: unknown): Promise<unknown> {
     // an ordinary validation rejection, so surface exactly what came back instead of hiding
     // it behind one fixed string every time.
     if (data.error) throw new Error(data.reason ? `${data.error} — ${data.reason}` : data.error);
+    if (/inactivity timeout|<title>/i.test(raw)) throw new Error("BB took too long to answer. Please send that message once more.");
     throw new Error(`Request failed (HTTP ${res.status}): ${raw.slice(0, 300) || "empty response"}`);
   }
   return data;

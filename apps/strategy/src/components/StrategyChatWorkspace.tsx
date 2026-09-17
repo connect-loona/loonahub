@@ -244,7 +244,7 @@ function BBChat({ brand, actor, global = false }: { brand?: HubBrandOption; acto
         {!messages.length && <div className="sc-bb-empty"><p>I’m BB. What are we working on today?</p><span>{global ? "I can help across Loona Hub. I’ll ask which brand matters whenever it is needed." : "I know this brand’s context through Mani, and I’ll make it clear when I’m suggesting something new."}</span></div>}
         {messages.map((message: ChatMessage & { attachments?: Array<{ url: string; filename?: string }> }, index) => message.role === "user"
           ? <div className="sc-user-bubble sc-bb-user-message" key={`${message.createdAt || index}-user`}>{message.text}{message.attachments?.map((item, i) => <a key={i} href={item.url} target="_blank" rel="noreferrer" className="sc-bb-attachment">📎 {item.filename || "Attachment"}</a>)}<button type="button" className="sc-bb-action" onClick={() => setQuestion(message.text)}>Edit</button></div>
-          : <div className="sc-bb-assistant-message" key={`${message.createdAt || index}-assistant`}>{message.text}<button type="button" className="sc-bb-action" onClick={() => void navigator.clipboard.writeText(message.text)}>Copy</button></div>)}
+          : <div className="sc-bb-assistant-message" key={`${message.createdAt || index}-assistant`}><BBText text={message.text} /><button type="button" className="sc-bb-action" onClick={() => void navigator.clipboard.writeText(message.text)}>Copy</button></div>)}
         {busy && <div className="sc-bb-thinking">BB is thinking <span className="sc-dots">•••</span></div>}
         {error && <p className="sc-error">{error}</p>}
         <div ref={endRef} />
@@ -252,6 +252,11 @@ function BBChat({ brand, actor, global = false }: { brand?: HubBrandOption; acto
     </div>
     <div className="sc-bb-composer-wrap">{attachments.length > 0 && <div className="sc-bb-queued">{attachments.map((item, i) => <span key={i}>📎 {item.filename || "Attachment"}<button type="button" onClick={() => setAttachments((items) => items.filter((_, index) => index !== i))}>×</button></span>)}</div>}<div className="sc-bb-composer"><input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain,text/markdown,text/csv,application/json,.md,.txt,.csv,.json,.pdf" hidden onChange={async (e) => { const file = e.target.files?.[0]; if (!file) return; setUploading(true); try { const asset = await uploadBBAttachment(global ? undefined : brandId, scope, file); setAttachments((current) => [...current, asset]); } catch (error) { setError(error instanceof Error ? error.message : String(error)); } finally { setUploading(false); e.currentTarget.value = ""; } }} /><button type="button" onClick={() => fileInput.current?.click()} aria-label="Attach image or document">+</button><textarea value={question} onChange={(e) => setQuestion(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void ask(); } }} placeholder={`Message BB about ${label}…`} rows={1} /><button type="button" className="sc-bb-send" aria-label="Send message" disabled={busy || uploading || (!question.trim() && !attachments.length)} onClick={() => void ask()}>{busy || uploading ? "…" : "↑"}</button></div><p>{global ? "BB keeps this Loona Hub conversation separate from individual brand memory." : "BB uses Mani’s brand memory to keep the conversation grounded."}</p></div>
   </div>;
+}
+
+function BBText({ text }: { text: string }) {
+  const line = (value: string) => value.split(/(\*\*[^*]+\*\*)/g).map((part, i) => /^\*\*[^*]+\*\*$/.test(part) ? <strong key={i}>{part.slice(2, -2)}</strong> : part);
+  return <>{text.split("\n").map((value, i) => { const item = /^\s*(?:\d+[.)]|[-*])\s+(.+)$/.exec(value); return !value.trim() ? null : item ? <div className="sc-bb-list-item" key={i}>{line(item[1])}</div> : <p key={i}>{line(value.replace(/^#{1,3}\s+/, ""))}</p>; })}</>;
 }
 
 function RunChat({ runId, actor }: { runId: string; actor: string }) {
