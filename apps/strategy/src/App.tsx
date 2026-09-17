@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { onAuthChange, type CurrentUser } from "./lib/firebase";
 import { StrategyChatWorkspace } from "./components/StrategyChatWorkspace";
+import { BrandDirectory } from "./pages/BrandDirectory";
 // Strategy OS deliberately reuses Visual Studio's shell primitives. Import the actual
 // source of those primitives so the shared vs-* class names have their layout, spacing,
 // navigation and mobile-drawer rules—not only Strategy's sc-* colour overrides.
@@ -27,5 +28,13 @@ export default function App() {
   if (authStatus === "signed-out") return <div className="vs-shell sc-shell"><main className="vs-main sc-signed-out"><h1>Strategy OS</h1><p>You’re not signed into Hub on this device yet.</p><a href="/">Go to Hub</a></main></div>;
 
   const actor = user?.displayName || user?.email?.split("@")[0] || "Hub";
+  const query = new URLSearchParams(window.location.search);
+  if (query.get("directory") === "1") {
+    const brandId = query.get("brandId") || "";
+    const brandName = query.get("brandName") || "New brand";
+    return brandId
+      ? <BrandDirectory brandId={brandId} brandName={brandName} onClose={() => window.location.assign("/strategy/")} />
+      : <StrategyChatWorkspace actor={actor} />;
+  }
   return <StrategyChatWorkspace actor={actor} />;
 }

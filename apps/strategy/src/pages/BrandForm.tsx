@@ -41,7 +41,10 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
   const isNew = brandId === "__new__";
   const b = initialBrand as (StrategyBrand & Record<string, any>) | undefined; // eslint-disable-line @typescript-eslint/no-explicit-any
 
-  const [id, setId] = useState(isNew ? "" : brandId);
+  // A Hub brand can be visible in Ask BB before it has a Strategy configuration.
+  // When Brand Directory opens for one of those brands, retain its known Hub slug so
+  // the team does not have to retype (or accidentally create) a different brand id.
+  const [id, setId] = useState(isNew ? (b?.id || "") : brandId);
   const [name, setName] = useState(b?.name || "");
   const [category, setCategory] = useState(b?.category || "");
   const [market, setMarket] = useState(csvLine(b?.market));
