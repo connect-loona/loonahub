@@ -71,6 +71,15 @@ if (!strategyHtml.includes("data-loona-strategy-css")) {
 if (/<link\b[^>]*rel=["']stylesheet["']/i.test(strategyHtml)) {
   throw new Error("Strategy OS build unexpectedly depends on an external stylesheet.");
 }
+// The conversational Strategy workspace renders with the same vs-* shell classes as
+// Visual Studio. The sc-* stylesheet only supplies Strategy-specific colour and content
+// treatment; without these base primitives the authenticated app becomes a column of raw
+// controls even though an inline stylesheet is technically present.
+for (const selector of [".vs-shell", ".vs-sidebar", ".vs-main", ".vs-header"]) {
+  if (!strategyHtml.includes(selector)) {
+    throw new Error(`Strategy OS build is missing the shared Visual Studio primitive ${selector}.`);
+  }
+}
 
 // Visual Studio, on the same footing as Strategy OS: its own Vite build, landing at
 // dist/visual/. Both run before the legacy files are copied in, so a legacy file can never
