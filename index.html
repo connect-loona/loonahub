@@ -5750,7 +5750,8 @@
         </div>
         <textarea id="mani-question" rows="3" placeholder="What is Anjali working on? Has anyone made anything for Casa this week? What worked on RRO's reels?"
           style="width:100%;padding:10px 12px;border:1px solid var(--border,#ddd);border-radius:10px;font:inherit;resize:vertical"></textarea>
-        <div style="margin-top:8px"><button class="btn" id="mani-ask-btn" onclick="maniAsk()">Ask Mani</button></div>
+        <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="mani-ask-btn" onclick="maniAsk()">Ask Mani</button><button class="btn btn-ghost" id="mani-save-btn" onclick="maniSaveMemory()">Save to memory</button></div>
+        <p style="color:var(--muted);font-size:11px;margin:8px 0 0">Choose one brand, then paste notes, client feedback or a previous ChatGPT conversation and save it as Mani memory.</p>
         <div id="mani-result" style="margin-top:14px"></div>
       </div>
     </div>
@@ -18388,6 +18389,24 @@
         btn.disabled = false;
         btn.textContent = 'Ask Mani';
       }
+    }
+
+    async function maniSaveMemory() {
+      const box = document.getElementById('mani-result');
+      const btn = document.getElementById('mani-save-btn');
+      const content = (document.getElementById('mani-question').value || '').trim();
+      const brandId = document.getElementById('mani-brand').value || '';
+      if (!brandId) { box.innerHTML = '<div style="color:var(--red,#a32f22);font-size:13px">Choose a brand before saving to Mani memory.</div>'; return; }
+      if (!content) return;
+      btn.disabled = true; btn.textContent = 'Saving…'; box.innerHTML = '';
+      try {
+        const res = await fetch('/.netlify/functions/strategy-mani-memory', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ brandId, content, actor: (currentUser && (currentUser.name || currentUser.email)) || 'Hub team' }) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+        document.getElementById('mani-question').value = '';
+        box.innerHTML = '<div style="padding:12px 14px;border-radius:10px;background:rgba(71,142,94,.12);font-size:13px">Saved to Mani memory for this brand.</div>';
+      } catch (e) { box.innerHTML = `<div style="color:var(--red,#a32f22);font-size:13px">${escHtml(e.message || String(e))}</div>`; }
+      finally { btn.disabled = false; btn.textContent = 'Save to memory'; }
     }
 
     function lnBrandOptionList() {
