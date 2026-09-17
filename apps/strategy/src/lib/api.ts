@@ -96,6 +96,10 @@ export function askBB(args: { brandId?: string; scope?: "global"; message: strin
   return post("strategy-bb-chat", args) as Promise<{ answer: string }>;
 }
 
+export function clearBB(args: { brandId?: string; scope?: "global"; actor: string }): Promise<{ ok: true }> {
+  return post("strategy-bb-chat", { ...args, action: "clear", message: "clear" }) as Promise<{ ok: true }>;
+}
+
 export async function uploadBBAttachment(brandId: string | undefined, scope: "brand" | "global", file: File): Promise<{ assetKey: string; url: string; filename?: string }> {
   const token = await getIdTokenOrNull();
   const headers: Record<string, string> = { "Content-Type": file.type };

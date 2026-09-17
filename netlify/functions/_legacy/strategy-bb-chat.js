@@ -8,7 +8,7 @@
 const { checkAuthorization } = require("../lib/strategy/auth");
 const { hubBrandExists, findHubBrand } = require("../lib/strategy/hub-brands");
 const { loadBrandBrain } = require("../lib/strategy/store");
-const { fbGet, fbPush } = require("../lib/strategy/firebase");
+const { fbGet, fbPush, fbSet } = require("../lib/strategy/firebase");
 const { askBB, MAX_MESSAGE_CHARS, MAX_HISTORY_MESSAGES } = require("../lib/strategy/bb-chat");
 const { recordManiEventSafe } = require("../lib/strategy/mani-events");
 const { loadAsset } = require("../lib/strategy/visual-assets");
@@ -31,6 +31,7 @@ exports.handler = async (event) => {
   const brandId = scope === "global" ? "global" : String(body.brandId || "").trim();
   const message = String(body.message || "").trim();
   const actor = String(body.actor || "Team").trim().slice(0, 120) || "Team";
+  const action = body.action === "clear" ? "clear" : "ask";
   if (scope === "brand" && !/^[a-z0-9-]+$/.test(brandId)) return fail(400, "brandId must be lowercase letters, numbers or hyphens.");
   if (!message) return fail(400, "Ask BB something.");
   if (message.length > MAX_MESSAGE_CHARS) return fail(400, `Keep the message under ${MAX_MESSAGE_CHARS} characters.`);
@@ -39,6 +40,10 @@ exports.handler = async (event) => {
   try {
     const brand = scope === "brand" ? await findHubBrand(brandId) : null;
     const path = `strategy_bb_chats/${brandId}/messages`;
+    if (action === "clear") {
+      await fbSet(path, null);
+      return { statusCode: 200, headers: cors(), body: JSON.stringify({ ok: true }) };
+    }
     const existing = (await fbGet(path)) || {};
     const history = Object.values(existing)
       .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")))

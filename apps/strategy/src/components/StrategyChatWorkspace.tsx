@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAllHubBrands, useBrands, useRun, useRuns, type HubBrandOption } from "../lib/useRuns";
-import { askBB, discardConcept, proposeConcept, retryStage, saveStrategyChatMessage, startRun, toggleAssetLock, uploadBBAttachment } from "../lib/api";
+import { askBB, clearBB, discardConcept, proposeConcept, retryStage, saveStrategyChatMessage, startRun, toggleAssetLock, uploadBBAttachment } from "../lib/api";
 import { listenPath } from "../lib/firebase";
 import type { ChatMessage, CopyCheckpoint, StrategyAsset, StrategyBrand, StrategyCheckpoint, StrategyRun } from "../lib/types";
 import { CampaignBrief, CampaignRunChat } from "./CampaignPlanning";
@@ -238,7 +238,15 @@ function BBChat({ brand, actor, global = false }: { brand?: HubBrandOption; acto
     catch (e) { setError(e instanceof Error ? e.message : String(e)); setQuestion(message); }
     finally { setBusy(false); }
   }
+  async function clear() {
+    if (!messages.length || !confirm(`Clear this ${global ? "Loona Hub" : label} BB chat? Mani’s saved memory will stay.`)) return;
+    setBusy(true); setError(null);
+    try { await clearBB({ brandId: global ? undefined : brandId, scope: global ? "global" : undefined, actor }); }
+    catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
+  }
   return <div className="sc-bb-chat">
+    <div className="sc-bb-toolbar"><span>{global ? "Global BB conversation" : "Brand BB conversation"}</span><button type="button" onClick={() => void clear()} disabled={busy || !messages.length} aria-label="Clear chat">🗑 Clear chat</button></div>
     <div className="sc-bb-message-list">
       <div className="sc-bb-messages">
         {!messages.length && <div className="sc-bb-empty"><p>I’m BB. What are we working on today?</p><span>{global ? "I can help across Loona Hub. I’ll ask which brand matters whenever it is needed." : "I know this brand’s context through Mani, and I’ll make it clear when I’m suggesting something new."}</span></div>}
