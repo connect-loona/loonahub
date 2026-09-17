@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAllHubBrands, useBrands, useRun, useRuns, type HubBrandOption } from "../lib/useRuns";
-import { askBB, clearBB, clearStrategyChat, discardConcept, proposeConcept, retryStage, saveManiMemory, saveStrategyChatMessage, startRun, toggleAssetLock, uploadBBAttachment } from "../lib/api";
+import { archiveRun, askBB, clearBB, clearStrategyChat, discardConcept, proposeConcept, retryStage, saveManiMemory, saveStrategyChatMessage, startRun, toggleAssetLock, uploadBBAttachment } from "../lib/api";
 import { listenPath } from "../lib/firebase";
 import type { ChatMessage, CopyCheckpoint, StrategyAsset, StrategyBrand, StrategyCheckpoint, StrategyRun } from "../lib/types";
 import { CampaignBrief, CampaignRunChat } from "./CampaignPlanning";
@@ -302,7 +302,7 @@ function BBText({ text }: { text: string }) {
   return <>{text.split("\n").map((value, i) => { const item = /^\s*(?:\d+[.)]|[-*])\s+(.+)$/.exec(value); return !value.trim() ? null : item ? <div className="sc-bb-list-item" key={i}>{line(item[1])}</div> : <p key={i}>{line(value.replace(/^#{1,3}\s+/, ""))}</p>; })}</>;
 }
 
-function RunChat({ runId, actor }: { runId: string; actor: string }) {
+function RunChat({ runId, actor, onArchived }: { runId: string; actor: string; onArchived: () => void }) {
   const { run } = useRun(runId);
   const assets = useMemo(() => strategyAssets(run), [run]);
   const [cursor, setCursor] = useState(0);
@@ -315,6 +315,7 @@ function RunChat({ runId, actor }: { runId: string; actor: string }) {
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
   const [clearingChat, setClearingChat] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const asset = assets[cursor];
   // Whichever of the two stages a fresh concept depends on actually failed — unlike the
   // campaign flow's per-step retry buttons, this used to leave a failed research or
@@ -358,6 +359,12 @@ function RunChat({ runId, actor }: { runId: string; actor: string }) {
     catch (e) { setNote(e instanceof Error ? e.message : String(e)); }
     finally { setClearingChat(false); }
   }
+  async function archivePlan() {
+    if (archiving || !confirm("Archive this monthly plan? It stays safely in history, but will no longer block starting a new plan for this month.")) return;
+    setArchiving(true); setNote(null);
+    try { await archiveRun({ runId, actor, reason: "Archived from monthly planning" }); onArchived(); }
+    catch (e) { setNote(e instanceof Error ? e.message : String(e)); setArchiving(false); }
+  }
   async function logAsset() {
     if (!asset || busy) return;
     setBusy(true); setNote(null);
@@ -384,7 +391,7 @@ function RunChat({ runId, actor }: { runId: string; actor: string }) {
     finally { setBusy(false); }
   }
   return <div className="sc-run-chat">
-    <div className="sc-bb-toolbar"><span>Strategy conversation</span><button type="button" onClick={() => void clearChat()} disabled={clearingChat || !messages.length} aria-label="Clear strategy chat">🗑 Clear chat</button></div>
+    <div className="sc-bb-toolbar"><span>Strategy conversation</span><span className="sc-run-actions"><button type="button" onClick={() => void clearChat()} disabled={clearingChat || !messages.length} aria-label="Clear strategy chat">🗑 Clear chat</button><button type="button" onClick={() => void archivePlan()} disabled={archiving} aria-label="Archive monthly plan">Archive plan</button></span></div>
     {/* The full transcript, not just the user's turns — reopening this chat used to show
         only the current concept, with every earlier exchange (what was refined, what got
         logged and why) recorded to chatMessages but never rendered back. */}
@@ -461,7 +468,7 @@ export function StrategyChatWorkspace({ actor }: { actor: string }) {
         {selectedBrand && !runId && mode === "bb" && <BBChat brand={selectedBrand} actor={actor} threadId={brandThreadId} onNewThread={() => setBrandThreadId(`chat-${Date.now()}`)} />}
         {mode === "global-bb" && <BBChat actor={actor} global threadId={globalThreadId} onNewThread={() => setGlobalThreadId(`chat-${Date.now()}`)} />}
         {runId && (mode === "campaign" || activeRun?.runType === "campaign") ? <CampaignRunChat runId={runId} actor={actor} /> : null}
-        {runId && mode !== "campaign" && activeRun?.runType !== "campaign" ? <RunChat runId={runId} actor={actor} /> : null}
+        {runId && mode !== "campaign" && activeRun?.runType !== "campaign" ? <RunChat runId={runId} actor={actor} onArchived={() => { setRunId(null); setMode("home"); }} /> : null}
       </section>
       <div className="sc-bottom-hint">{mode === "global-bb" ? "This global BB chat stays in Loona Hub. Brand-specific work is kept with its own brand and Mani." : `Everything logged here stays with ${selectedBrand?.name || "this brand"} and is available to Mani and the next strategy run.`}</div>
     </main>

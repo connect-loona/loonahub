@@ -182,6 +182,8 @@ button { cursor: pointer; }
 .sc-bb-toolbar { display: flex; justify-content: space-between; align-items: center; width: min(760px, 100%); margin: 0 auto; padding: 10px clamp(18px, 5vw, 34px); color: var(--sc-muted); font-size: 11px; }
 .sc-bb-toolbar button { border: 0; background: transparent; color: var(--sc-muted); font: inherit; cursor: pointer; }
 .sc-bb-toolbar button:disabled { opacity: .4; cursor: default; }
+.sc-run-actions { display: inline-flex; align-items: center; gap: 14px; }
+.sc-run-actions button:last-child { color: #a54b3d; }
 .sc-bb-message-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; scroll-behavior: smooth; }
 .sc-bb-messages { width: min(760px, 100%); margin: 0 auto; padding: clamp(28px, 5vw, 64px) clamp(18px, 5vw, 34px) 30px; }
 .sc-bb-empty { margin-top: clamp(18px, 3vh, 36px); color: var(--sc-ink); font-size: 20px; line-height: 1.5; }
