@@ -8,6 +8,10 @@ import { withLambda } from "@netlify/aws-lambda-compat";
 // the transitive `require("zod")` two CJS hops down wasn't enough on its own.
 import { z } from "zod";
 globalThis.__zodBundled = z;
+import Anthropic from "@anthropic-ai/sdk";
+globalThis.__anthropicSdkBundled = Anthropic;
+import { Agent } from "@openai/agents";
+globalThis.__openaiAgentsBundled = Agent;
 import legacy from "./_legacy/strategy-stage-approve.js";
 
 export default withLambda(legacy.handler);

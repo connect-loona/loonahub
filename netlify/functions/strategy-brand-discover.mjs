@@ -4,6 +4,8 @@
 // Request into the Lambda-style event it expects, and its response back again.
 // See _legacy/README.md for why this wrapper exists.
 import { withLambda } from "@netlify/aws-lambda-compat";
+import Anthropic from "@anthropic-ai/sdk";
+globalThis.__anthropicSdkBundled = Anthropic;
 import legacy from "./_legacy/strategy-brand-discover.js";
 
 export default withLambda(legacy.handler);

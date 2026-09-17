@@ -17,6 +17,8 @@ import { withLambda } from "@netlify/aws-lambda-compat";
 // strategy-stage-approve, strategy-stage-reopen, strategy-stage-retry.
 import { z } from "zod";
 globalThis.__zodBundled = z;
+import Anthropic from "@anthropic-ai/sdk";
+globalThis.__anthropicSdkBundled = Anthropic;
 import legacy from "./_legacy/strategy-run-start.js";
 
 export default withLambda(legacy.handler);
