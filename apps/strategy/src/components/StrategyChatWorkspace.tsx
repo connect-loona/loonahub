@@ -262,6 +262,15 @@ function BBChat({ brand, actor, global = false }: { brand?: HubBrandOption; acto
   </div>;
 }
 
+function StrategyHome({ onGlobalBB }: { onGlobalBB: () => void }) {
+  return <div className="sc-welcome">
+    <p className="sc-eyebrow">Strategy OS</p><h2>Welcome</h2>
+    <p className="sc-muted">A shared home for Loona’s strategy agents, brand memory and active work.</p>
+    <div className="sc-agent-row">{STRATEGY_AGENTS.map((agent, index) => <div key={agent.name} className="sc-agent-chip" title={agent.role}><span className="sc-agent-emoji">{agent.emoji}</span><span className="sc-agent-name" style={{ animationDelay: `${index * .25}s` }}>{agent.name}</span></div>)}</div>
+    <div className="sc-suggestions"><button type="button" onClick={onGlobalBB}><b>Ask BB</b><span>Start a Loona-wide conversation, or choose a brand from the menu to plan with its memory.</span></button></div>
+  </div>;
+}
+
 function BBText({ text }: { text: string }) {
   const line = (value: string) => value.split(/(\*\*[^*]+\*\*)/g).map((part, i) => /^\*\*[^*]+\*\*$/.test(part) ? <strong key={i}>{part.slice(2, -2)}</strong> : part);
   return <>{text.split("\n").map((value, i) => { const item = /^\s*(?:\d+[.)]|[-*])\s+(.+)$/.exec(value); return !value.trim() ? null : item ? <div className="sc-bb-list-item" key={i}>{line(item[1])}</div> : <p key={i}>{line(value.replace(/^#{1,3}\s+/, ""))}</p>; })}</>;
@@ -389,7 +398,9 @@ export function StrategyChatWorkspace({ actor }: { actor: string }) {
   // which made the same choice for the same reason). Landing on whichever brand happens to
   // sort first otherwise means opening Strategy OS can silently drop someone onto a brand
   // that's guaranteed to fail the moment they try to plan anything.
-  const selectedBrand = brand || allBrands.find((b) => b.configured) || (allBrands.length ? allBrands[0] : undefined);
+  // Do not drop people into the first alphabetical client. Strategy OS opens as the Loona
+  // home; a client workspace is an intentional choice from the sidebar.
+  const selectedBrand = brand;
   const strategyBrand = configuredBrands.find((item: StrategyBrand) => item.id === selectedBrand?.id);
 
   function chooseBrand(next: HubBrandOption) { setBrand(next); setMode("home"); setRunId(null); setSidebarOpen(false); }
@@ -403,7 +414,7 @@ export function StrategyChatWorkspace({ actor }: { actor: string }) {
     <main className="vs-main">
       <header className="vs-header"><button type="button" className="vs-mobile-tool" aria-label="Open projects" onClick={() => setSidebarOpen(true)}>☰</button><div><h1>{mode === "global-bb" ? "Loona Hub" : selectedBrand?.name || "Strategy OS"}</h1><p>{activeRun ? (activeRun.runType === "campaign" ? "Campaign planning" : monthLabel(activeRun.month)) : mode === "home" ? "New strategy chat" : mode === "global-bb" ? "Ask BB · Global" : mode === "bb" ? "Ask BB" : mode === "campaign" ? "Campaign planning" : "Monthly planning"}</p></div><button type="button" className="vs-header-tool" onClick={() => setManiOpen(true)}>Memory</button></header>
       <section className="vs-thread sc-thread">
-        {mode !== "global-bb" && !selectedBrand && <div className="sc-assistant-block"><p>Add a brand in Hub before starting a strategy chat.</p></div>}
+        {mode !== "global-bb" && !selectedBrand && <StrategyHome onGlobalBB={openGlobalBB} />}
         {selectedBrand && !selectedBrand.configured && <div className="sc-assistant-block sc-warning"><p>{selectedBrand.name} needs a completed Strategy OS brand configuration before research can start.</p></div>}
         {selectedBrand && !runId && mode === "home" && <Welcome onMode={setMode} configured={Boolean(selectedBrand.configured)} />}
         {selectedBrand && !runId && mode === "monthly" && <Brief mode="monthly" brand={selectedBrand} actor={actor} onStarted={(id) => setRunId(id)} onCancel={() => setMode("home")} />}
