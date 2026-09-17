@@ -92,11 +92,11 @@ export function askMani(args: { brandId: string; question: string }): Promise<{
 
 // BB is the team-facing conversational strategist. The endpoint supplies Mani's composed
 // brand memory server-side, so the browser never has to assemble or transmit that context.
-export function askBB(args: { brandId?: string; scope?: "global"; message: string; actor: string; attachments?: Array<{ assetKey: string; url: string; filename?: string }> }): Promise<{ answer: string }> {
+export function askBB(args: { brandId?: string; scope?: "global"; threadId?: string; message: string; actor: string; attachments?: Array<{ assetKey: string; url: string; filename?: string }> }): Promise<{ answer: string }> {
   return post("strategy-bb-chat", args) as Promise<{ answer: string }>;
 }
 
-export function clearBB(args: { brandId?: string; scope?: "global"; actor: string }): Promise<{ ok: true }> {
+export function clearBB(args: { brandId?: string; scope?: "global"; threadId?: string; actor: string }): Promise<{ ok: true }> {
   return post("strategy-bb-chat", { ...args, action: "clear", message: "clear" }) as Promise<{ ok: true }>;
 }
 

@@ -88,7 +88,7 @@ function StatusLine({ run }: { run: StrategyRun | null }) {
   return <div className="sc-status is-ready">Research is ready · concepts are appearing below</div>;
 }
 
-function BrandSidebar({ brands, active, runs, open, onBrand, onNew, onOpen, onGlobalBB }: {
+function BrandSidebar({ brands, active, runs, open, onBrand, onNew, onOpen, onGlobalBB, globalThreads, onGlobalThread }: {
   brands: HubBrandOption[];
   active: HubBrandOption | undefined;
   runs: StrategyRun[];
@@ -96,6 +96,8 @@ function BrandSidebar({ brands, active, runs, open, onBrand, onNew, onOpen, onGl
   onNew: () => void;
   onOpen: (runId: string) => void;
   onGlobalBB: () => void;
+  globalThreads: Array<{ id: string; title?: string; updatedAt?: string }>;
+  onGlobalThread: (id: string) => void;
   open?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -131,6 +133,7 @@ function BrandSidebar({ brands, active, runs, open, onBrand, onNew, onOpen, onGl
       {brands.length > 5 && <button type="button" className="vs-newchat" onClick={() => setExpanded(!expanded)}>{expanded ? "Show recent brands" : "Expand brands"}</button>}
     </div>
     <button type="button" className="vs-newchat" onClick={onGlobalBB}>✦ Global BB</button>
+    <div className="vs-chatlist">{globalThreads.slice(0, 8).map((thread) => <button key={thread.id} type="button" className="vs-chatlink" onClick={() => onGlobalThread(thread.id)}>{thread.title || "New chat"}</button>)}</div>
     <div className="vs-spacer" />
     <a className="vs-usage-link" href="/visual/">API usage</a>
   </aside>;
@@ -216,7 +219,7 @@ function ConceptCard({ asset, caption, candidate, index, total, logged, busy, on
   </div>;
 }
 
-function BBChat({ brand, actor, global = false }: { brand?: HubBrandOption; actor: string; global?: boolean }) {
+function BBChat({ brand, actor, global = false, threadId = "main", onNewThread }: { brand?: HubBrandOption; actor: string; global?: boolean; threadId?: string; onNewThread?: () => void }) {
   const brandId = global ? "global" : brand?.id || "";
   const scope = global ? "global" as const : "brand" as const;
   const label = global ? "Loona Hub" : brand?.name || "this brand";
@@ -228,27 +231,27 @@ function BBChat({ brand, actor, global = false }: { brand?: HubBrandOption; acto
   const fileInput = useRef<HTMLInputElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => listenPath<Record<string, ChatMessage>>(`strategy_bb_chats/${brandId}/messages`, (value) => {
+  useEffect(() => listenPath<Record<string, ChatMessage>>(global ? `strategy_bb_chats/global/${threadId}/messages` : `strategy_bb_chats/${brandId}/messages`, (value) => {
     setMessages(Object.values(value || {}).sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt))));
-  }), [brandId]);
+  }), [brandId, global, threadId]);
   useEffect(() => { endRef.current?.scrollIntoView({ block: "end", behavior: "smooth" }); }, [messages, busy]);
   async function ask() {
     const message = question.trim();
     if ((!message && !attachments.length) || busy || uploading) return;
     setBusy(true); setError(null); setQuestion("");
-    try { await askBB({ brandId: global ? undefined : brandId, scope: global ? "global" : undefined, message: message || "Please analyse the attached file.", actor, attachments }); setAttachments([]); }
+    try { await askBB({ brandId: global ? undefined : brandId, scope: global ? "global" : undefined, threadId: global ? threadId : undefined, message: message || "Please analyse the attached file.", actor, attachments }); setAttachments([]); }
     catch (e) { setError(e instanceof Error ? e.message : String(e)); setQuestion(message); }
     finally { setBusy(false); }
   }
   async function clear() {
     if (!messages.length || !confirm(`Clear this ${global ? "Loona Hub" : label} BB chat? Mani’s saved memory will stay.`)) return;
     setBusy(true); setError(null);
-    try { await clearBB({ brandId: global ? undefined : brandId, scope: global ? "global" : undefined, actor }); }
+    try { await clearBB({ brandId: global ? undefined : brandId, scope: global ? "global" : undefined, threadId: global ? threadId : undefined, actor }); }
     catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
   return <div className="sc-bb-chat">
-    <div className="sc-bb-toolbar"><span>{global ? "Global BB conversation" : "Brand BB conversation"}</span><button type="button" onClick={() => void clear()} disabled={busy || !messages.length} aria-label="Clear chat">🗑 Clear chat</button></div>
+    <div className="sc-bb-toolbar"><span>{global ? "Global BB conversation" : "Brand BB conversation"}</span>{global && <button type="button" onClick={onNewThread}>+ New chat</button>}<button type="button" onClick={() => void clear()} disabled={busy || !messages.length} aria-label="Clear chat">🗑 Clear chat</button></div>
     <div className="sc-bb-message-list">
       <div className="sc-bb-messages">
         {!messages.length && <div className="sc-bb-empty"><p>I’m BB. What are we working on today?</p><span>{global ? "I can help across Loona Hub. I’ll ask which brand matters whenever it is needed." : "I know this brand’s context through Mani, and I’ll make it clear when I’m suggesting something new."}</span></div>}
@@ -394,6 +397,9 @@ export function StrategyChatWorkspace({ actor }: { actor: string }) {
   const [runId, setRunId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [maniOpen, setManiOpen] = useState(false);
+  const [globalThreadId, setGlobalThreadId] = useState("main");
+  const [globalThreads, setGlobalThreads] = useState<Array<{ id: string; title?: string; updatedAt?: string }>>([]);
+  useEffect(() => listenPath<Record<string, { title?: string; updatedAt?: string }>>("strategy_bb_chats/global/threads", (value) => setGlobalThreads(Object.entries(value || {}).map(([id, thread]) => ({ id, ...thread })).sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""))))), []);
   const activeRun = runId ? runs.find((run) => run.runId === runId) : undefined;
   // Default to the first CONFIGURED brand, not just the first in the list — an unconfigured
   // brand can't start a run yet anyway (see the NewRunWizard this chat rework replaced,
@@ -411,7 +417,7 @@ export function StrategyChatWorkspace({ actor }: { actor: string }) {
 
   if (brandsLoading) return <div className="vs-shell"><main className="vs-main sc-loading">Loading brands…</main></div>;
   return <div className="vs-shell sc-shell">
-    <BrandSidebar brands={allBrands} active={selectedBrand} runs={runs} open={sidebarOpen} onBrand={chooseBrand} onNew={newChat} onGlobalBB={openGlobalBB} onOpen={(id) => { const opened = runs.find((item) => item.runId === id); setRunId(id); setMode(opened?.runType === "campaign" ? "campaign" : "monthly"); setSidebarOpen(false); }} />
+    <BrandSidebar brands={allBrands} active={selectedBrand} runs={runs} open={sidebarOpen} onBrand={chooseBrand} onNew={newChat} onGlobalBB={openGlobalBB} globalThreads={globalThreads} onGlobalThread={(id) => { setGlobalThreadId(id); openGlobalBB(); }} onOpen={(id) => { const opened = runs.find((item) => item.runId === id); setRunId(id); setMode(opened?.runType === "campaign" ? "campaign" : "monthly"); setSidebarOpen(false); }} />
     {(sidebarOpen || maniOpen) && <button type="button" className="vs-scrim" aria-label="Close" onClick={() => { setSidebarOpen(false); setManiOpen(false); }} />}
     <main className="vs-main">
       <header className="vs-header"><button type="button" className="vs-mobile-tool" aria-label="Open projects" onClick={() => setSidebarOpen(true)}>☰</button><div><h1>{mode === "global-bb" ? "Loona Hub" : selectedBrand?.name || "Strategy OS"}</h1><p>{activeRun ? (activeRun.runType === "campaign" ? "Campaign planning" : monthLabel(activeRun.month)) : mode === "home" ? "New strategy chat" : mode === "global-bb" ? "Ask BB · Global" : mode === "bb" ? "Ask BB" : mode === "campaign" ? "Campaign planning" : "Monthly planning"}</p></div><button type="button" className="vs-header-tool" onClick={() => setManiOpen(true)}>Memory</button></header>
@@ -422,7 +428,7 @@ export function StrategyChatWorkspace({ actor }: { actor: string }) {
         {selectedBrand && !runId && mode === "monthly" && <Brief mode="monthly" brand={selectedBrand} actor={actor} onStarted={(id) => setRunId(id)} onCancel={() => setMode("home")} />}
         {selectedBrand && !runId && mode === "campaign" && <CampaignBrief brand={selectedBrand} actor={actor} onStarted={(id) => setRunId(id)} onCancel={() => setMode("home")} />}
         {selectedBrand && !runId && mode === "bb" && <BBChat brand={selectedBrand} actor={actor} />}
-        {mode === "global-bb" && <BBChat actor={actor} global />}
+        {mode === "global-bb" && <BBChat actor={actor} global threadId={globalThreadId} onNewThread={() => setGlobalThreadId(`chat-${Date.now()}`)} />}
         {runId && (mode === "campaign" || activeRun?.runType === "campaign") ? <CampaignRunChat runId={runId} actor={actor} /> : null}
         {runId && mode !== "campaign" && activeRun?.runType !== "campaign" ? <RunChat runId={runId} actor={actor} /> : null}
       </section>

@@ -8,7 +8,7 @@
 const { checkAuthorization } = require("../lib/strategy/auth");
 const { hubBrandExists, findHubBrand } = require("../lib/strategy/hub-brands");
 const { loadBrandBrain } = require("../lib/strategy/store");
-const { fbGet, fbPush, fbSet } = require("../lib/strategy/firebase");
+const { fbGet, fbPush, fbSet, fbUpdate } = require("../lib/strategy/firebase");
 const { askBB, MAX_MESSAGE_CHARS, MAX_HISTORY_MESSAGES } = require("../lib/strategy/bb-chat");
 const { recordManiEventSafe } = require("../lib/strategy/mani-events");
 const { loadAsset } = require("../lib/strategy/visual-assets");
@@ -32,6 +32,7 @@ exports.handler = async (event) => {
   const message = String(body.message || "").trim();
   const actor = String(body.actor || "Team").trim().slice(0, 120) || "Team";
   const action = body.action === "clear" ? "clear" : "ask";
+  const threadId = scope === "global" ? String(body.threadId || "main").trim() : "main";
   if (scope === "brand" && !/^[a-z0-9-]+$/.test(brandId)) return fail(400, "brandId must be lowercase letters, numbers or hyphens.");
   if (!message) return fail(400, "Ask BB something.");
   if (message.length > MAX_MESSAGE_CHARS) return fail(400, `Keep the message under ${MAX_MESSAGE_CHARS} characters.`);
@@ -39,7 +40,8 @@ exports.handler = async (event) => {
 
   try {
     const brand = scope === "brand" ? await findHubBrand(brandId) : null;
-    const path = `strategy_bb_chats/${brandId}/messages`;
+    if (!/^[a-z0-9_-]+$/i.test(threadId)) return fail(400, "Invalid chat thread.");
+    const path = scope === "global" ? `strategy_bb_chats/global/${threadId}/messages` : `strategy_bb_chats/${brandId}/messages`;
     if (action === "clear") {
       await fbSet(path, null);
       return { statusCode: 200, headers: cors(), body: JSON.stringify({ ok: true }) };
@@ -56,6 +58,7 @@ exports.handler = async (event) => {
       return { data: stored.data, contentType: stored.metadata.contentType, filename: stored.metadata.filename || item.filename };
     }));
     await fbPush(path, { role: "user", text: message, attachments, actor, createdAt: now });
+    if (scope === "global") await fbUpdate(`strategy_bb_chats/global/threads/${threadId}`, { title: message.slice(0, 60), updatedAt: now, createdAt: now });
     // Load Mani's memory before recording this turn so the current question is not fed
     // back to BB twice (once as the user message and once as a timeline event).
     const memory = scope === "brand" ? await loadBrandBrain(brandId, brand && brand.name) : "This is the Loona Hub-wide conversation. No single brand is selected. Ask which brand a recommendation applies to when that matters, and do not invent cross-brand facts.";
