@@ -98,6 +98,7 @@ function BrandSidebar({ brands, active, runs, open, onBrand, onNew, onOpen, onGl
   onGlobalBB: () => void;
   open?: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
   return <aside className={`vs-sidebar sc-sidebar${open ? " is-open" : ""}`}>
     <div className="vs-logo"><a href="/"><img src={loonaLogo} alt="Loona" /></a></div>
     <nav className="vs-topnav">
@@ -105,10 +106,9 @@ function BrandSidebar({ brands, active, runs, open, onBrand, onNew, onOpen, onGl
       <span className="is-active">Strategy OS</span>
       <a href="/visual/">Visual Studio</a>
     </nav>
-    <button type="button" className="vs-newchat" onClick={onGlobalBB}>✦ Ask BB · Loona Hub</button>
     <p className="vs-section-label">Brand projects</p>
     <div className="vs-projects">
-      {brands.map((brand) => {
+      {(expanded ? brands : brands.slice(0, 5)).map((brand) => {
         const brandRuns = runs.filter((run) => run.brandId === brand.id).slice(0, 8);
         const isActive = active?.id === brand.id;
         return <div key={brand.id} className={`vs-project-block${isActive ? " is-open" : ""}`}>
@@ -128,7 +128,9 @@ function BrandSidebar({ brands, active, runs, open, onBrand, onNew, onOpen, onGl
           </div>}
         </div>;
       })}
+      {brands.length > 5 && <button type="button" className="vs-newchat" onClick={() => setExpanded(!expanded)}>{expanded ? "Show recent brands" : "Expand brands"}</button>}
     </div>
+    <button type="button" className="vs-newchat" onClick={onGlobalBB}>✦ Global BB</button>
     <div className="vs-spacer" />
     <a className="vs-usage-link" href="/visual/">API usage</a>
   </aside>;

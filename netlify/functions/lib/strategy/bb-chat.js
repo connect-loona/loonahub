@@ -138,7 +138,7 @@ async function askBB({ brandName, message, memory, history, attachments }, deps 
       model: process.env.STRATEGY_BB_MODEL || "claude-sonnet-4-5-20250929",
       max_tokens: 1000,
       system: instructions({ brandName, memory }),
-      tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 6 }],
+      tools: /\b(current|today|latest|website|web|news|search|competitor|trend|moon)\b/i.test(asked) ? [{ type: "web_search_20260209", name: "web_search", max_uses: 2 }] : [],
       messages,
     });
     return answerText(response);
