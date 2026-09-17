@@ -124,9 +124,9 @@ function BrandSidebar({ brands, active, runs, open, onBrand, onBrandThread, onNe
             <span className="vs-project-name">{brand.name}</span>
           </button>
           {isActive && <div className="vs-chatlist">
-            {brandThreads.slice(0, 8).map((thread) => <button key={thread.id} type="button" className="vs-chatlink" onClick={() => onBrandThread(brand, thread.id)}>{thread.title || "New BB chat"}<span>BB chat</span></button>)}
             <button type="button" className="vs-newchat" onClick={() => onBrandThread(brand, `chat-${Date.now()}`)}>+ New BB chat</button>
             <button type="button" className="vs-newchat" onClick={onNew}>+ New strategy chat</button>
+            {brandThreads.slice(0, 8).map((thread) => <button key={thread.id} type="button" className="vs-chatlink" onClick={() => onBrandThread(brand, thread.id)}>{thread.title || "New BB chat"}<span>BB chat</span></button>)}
             {brandRuns.map((run) => <button key={run.runId} type="button" className="vs-chatlink" onClick={() => onOpen(run.runId)}>
               {run.runType === "campaign" ? (run.campaign?.lockedIdentity?.name || run.campaign?.brief?.occasion || "Campaign planning") : monthLabel(run.month)}
               <span>{run.status === "complete" ? "Complete" : (run.status || "In progress")}</span>
