@@ -101,6 +101,8 @@ button { cursor: pointer; }
 .sc-mani-composer textarea { width: 100%; box-sizing: border-box; margin: 6px 0 8px; padding: 9px; border: 1px solid var(--sc-line); border-radius: 8px; resize: vertical; font: inherit; }
 .sc-mani-success { margin: 8px 0 0; color: #317b55; font-size: 12px; }
 .sc-directory-note { margin: 0 0 14px; padding: 10px 12px; border: 1px solid var(--sc-line); border-radius: 9px; color: var(--sc-muted); font-size: 13px; }
+.sc-month-field { display: flex; flex-direction: column; gap: 5px; margin: 0 0 14px; color: var(--sc-ink); font-size: 13px; font-weight: 600; }
+.sc-month-field input { width: min(220px, 100%); padding: 9px 10px; border: 1px solid var(--sc-line); border-radius: 8px; background: #fff; color: var(--sc-ink); font: inherit; }
 .sc-shell .vs-mobile-tool { display: none; }
 .sc-thread { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 28px clamp(18px, 5vw, 72px); }
 .sc-loading, .sc-signed-out { display: grid; place-content: center; min-height: 100vh; padding: 32px; text-align: center; color: var(--sc-muted); }

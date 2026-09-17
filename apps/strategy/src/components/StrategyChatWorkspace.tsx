@@ -115,7 +115,10 @@ function BrandSidebar({ brands, active, runs, open, onBrand, onBrandThread, onNe
     <p className="vs-section-label">Brand projects</p>
     <div className="vs-projects">
       {(expanded ? brands : brands.slice(0, 5)).map((brand) => {
-        const brandRuns = runs.filter((run) => run.brandId === brand.id).slice(0, 8);
+        // Archived plans are preserved in Firebase but intentionally disappear from the
+        // active brand list; otherwise archiving appears to do nothing and still feels like
+        // it blocks a replacement plan.
+        const brandRuns = runs.filter((run) => run.brandId === brand.id && !run.archivedAt).slice(0, 8);
         const isActive = active?.id === brand.id;
         return <div key={brand.id} className={`vs-project-block${isActive ? " is-open" : ""}`}>
           <button type="button" className={`vs-project${isActive ? " is-active" : ""}`} onClick={() => onBrand(brand)}>
@@ -175,9 +178,10 @@ function Brief({ mode, brand, actor, onStarted, onCancel }: { mode: "monthly" | 
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const month = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+  const [month, setMonth] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`);
   async function submit() {
     if (mode === "campaign" && !notes.trim()) { setError("Tell me what this campaign is for before we begin."); return; }
+    if (mode === "monthly" && !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) { setError("Choose the month for this plan."); return; }
     setBusy(true); setError(null);
     try {
       const { runId } = await startRun({
@@ -193,6 +197,7 @@ function Brief({ mode, brand, actor, onStarted, onCancel }: { mode: "monthly" | 
     <div className="sc-assistant-block">
       <p>Good. I’ll use {brand.name}&apos;s memory and run the research privately in the background.</p>
       {mode === "monthly" ? <>
+        <label className="sc-month-field"><span>Which month are we planning?</span><input type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></label>
         <p>How many creatives are we planning this month?</p>
         <div className="sc-count-grid">
           {(["reel", "carousel", "static"] as const).map((key) => <label key={key}><span>{key === "reel" ? "Reels" : key === "carousel" ? "Carousels" : "Statics"}</span><input type="number" min={0} value={counts[key]} onChange={(e) => setCounts({ ...counts, [key]: Math.max(0, Number(e.target.value) || 0) })} /></label>)}
