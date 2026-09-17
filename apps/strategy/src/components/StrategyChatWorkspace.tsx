@@ -412,12 +412,6 @@ export function StrategyChatWorkspace({ actor }: { actor: string }) {
   const selectedBrand = brand;
   const strategyBrand = configuredBrands.find((item: StrategyBrand) => item.id === selectedBrand?.id);
 
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("new") !== "global") return;
-    setGlobalThreadId(`chat-${Date.now()}`); setMode("global-bb");
-    window.history.replaceState({}, "", "/strategy/");
-  }, []);
-
   function chooseBrand(next: HubBrandOption) { setBrand(next); setMode("home"); setRunId(null); setSidebarOpen(false); }
   function newChat() { setRunId(null); setMode("home"); setSidebarOpen(false); }
   function openGlobalBB(fresh = false) { if (fresh) setGlobalThreadId(`chat-${Date.now()}`); setRunId(null); setMode("global-bb"); setSidebarOpen(false); }
