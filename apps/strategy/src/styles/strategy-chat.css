@@ -97,6 +97,9 @@ button { cursor: pointer; }
 .sc-directory .vs-thread { padding-top: 18px; }
 .sc-directory-brand { width: 100%; display: flex; justify-content: space-between; gap: 12px; text-align: left; padding: 12px 0; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--sc-ink); font: inherit; }
 .sc-directory-brand span { color: var(--sc-muted); font-size: 12px; }
+.sc-mani-composer { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--sc-line); }
+.sc-mani-composer textarea { width: 100%; box-sizing: border-box; margin: 6px 0 8px; padding: 9px; border: 1px solid var(--sc-line); border-radius: 8px; resize: vertical; font: inherit; }
+.sc-mani-success { margin: 8px 0 0; color: #317b55; font-size: 12px; }
 .sc-shell .vs-mobile-tool { display: none; }
 .sc-thread { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 28px clamp(18px, 5vw, 72px); }
 .sc-loading, .sc-signed-out { display: grid; place-content: center; min-height: 100vh; padding: 32px; text-align: center; color: var(--sc-muted); }

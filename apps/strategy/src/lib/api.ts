@@ -97,6 +97,12 @@ export function askMani(args: { brandId: string; question: string }): Promise<{
   }>;
 }
 
+// Deliberate human-supplied context: notes or prior ChatGPT conversation excerpts are
+// kept as a source record for the selected brand, rather than being mistaken for a question.
+export function saveManiMemory(args: { brandId: string; content: string; actor: string }): Promise<{ ok: true; id: string }> {
+  return post("strategy-mani-memory", args) as Promise<{ ok: true; id: string }>;
+}
+
 // BB is the team-facing conversational strategist. The endpoint supplies Mani's composed
 // brand memory server-side, so the browser never has to assemble or transmit that context.
 export function askBB(args: { brandId?: string; scope?: "global"; threadId?: string; message: string; actor: string; attachments?: Array<{ assetKey: string; url: string; filename?: string }> }): Promise<{ answer: string }> {

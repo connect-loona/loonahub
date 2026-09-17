@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAllHubBrands, useBrands, useRun, useRuns, type HubBrandOption } from "../lib/useRuns";
-import { askBB, clearBB, clearStrategyChat, discardConcept, proposeConcept, retryStage, saveStrategyChatMessage, startRun, toggleAssetLock, uploadBBAttachment } from "../lib/api";
+import { askBB, clearBB, clearStrategyChat, discardConcept, proposeConcept, retryStage, saveManiMemory, saveStrategyChatMessage, startRun, toggleAssetLock, uploadBBAttachment } from "../lib/api";
 import { listenPath } from "../lib/firebase";
 import type { ChatMessage, CopyCheckpoint, StrategyAsset, StrategyBrand, StrategyCheckpoint, StrategyRun } from "../lib/types";
 import { CampaignBrief, CampaignRunChat } from "./CampaignPlanning";
@@ -281,6 +281,22 @@ function StrategyHome({ onGlobalBB }: { onGlobalBB: () => void }) {
   </div>;
 }
 
+function ManiMemoryComposer({ brand, actor }: { brand: HubBrandOption; actor: string }) {
+  const [content, setContent] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  async function save() {
+    const text = content.trim();
+    if (!text || busy) return;
+    setBusy(true); setNotice(null); setError(null);
+    try { await saveManiMemory({ brandId: brand.id, content: text, actor }); setContent(""); setNotice("Saved to Mani’s memory for this brand."); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setBusy(false); }
+  }
+  return <div className="sc-mani-composer"><p className="vs-section-label">Add to Mani memory</p><p className="vs-muted vs-muted-sm">Paste notes, decisions, client feedback, or a ChatGPT conversation excerpt. It is saved as a team source for {brand.name}.</p><textarea value={content} onChange={(event) => setContent(event.target.value)} placeholder="Paste brand context here…" rows={7} maxLength={40000} /><button type="button" className="vs-header-tool" disabled={busy || !content.trim()} onClick={() => void save()}>{busy ? "Saving…" : "Save to memory"}</button>{notice && <p className="sc-mani-success">{notice}</p>}{error && <p className="sc-error">{error}</p>}</div>;
+}
+
 function BBText({ text }: { text: string }) {
   const line = (value: string) => value.split(/(\*\*[^*]+\*\*)/g).map((part, i) => /^\*\*[^*]+\*\*$/.test(part) ? <strong key={i}>{part.slice(2, -2)}</strong> : part);
   return <>{text.split("\n").map((value, i) => { const item = /^\s*(?:\d+[.)]|[-*])\s+(.+)$/.exec(value); return !value.trim() ? null : item ? <div className="sc-bb-list-item" key={i}>{line(item[1])}</div> : <p key={i}>{line(value.replace(/^#{1,3}\s+/, ""))}</p>; })}</>;
@@ -455,6 +471,7 @@ export function StrategyChatWorkspace({ actor }: { actor: string }) {
       <p className="vs-muted vs-muted-sm">Mani works behind the scenes, collecting the brand’s recorded choices, feedback, team activity and Visual Studio history. BB uses this memory when speaking with the team.</p>
       <p className="vs-section-label">Plan status</p><p className="vs-muted vs-muted-sm">{planStatusText(activeRun)}</p>
       <p className="vs-section-label">Brand configuration</p><p className="vs-muted vs-muted-sm">{strategyBrand ? "Ready for planning" : "Needs setup"}</p>
+      {selectedBrand ? <ManiMemoryComposer brand={selectedBrand} actor={actor} /> : <p className="vs-muted vs-muted-sm">Choose a brand to add information to Mani memory.</p>}
     </aside>
   </div>;
 }
