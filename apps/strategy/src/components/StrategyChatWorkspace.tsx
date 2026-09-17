@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAllHubBrands, useBrands, useRun, useRuns, type HubBrandOption } from "../lib/useRuns";
-import { askBB, discardConcept, proposeConcept, retryStage, saveStrategyChatMessage, startRun, toggleAssetLock } from "../lib/api";
+import { askBB, discardConcept, proposeConcept, retryStage, saveStrategyChatMessage, startRun, toggleAssetLock, uploadBBAttachment } from "../lib/api";
 import { listenPath } from "../lib/firebase";
 import type { ChatMessage, CopyCheckpoint, StrategyAsset, StrategyBrand, StrategyCheckpoint, StrategyRun } from "../lib/types";
 import { CampaignBrief, CampaignRunChat } from "./CampaignPlanning";
 import loonaLogo from "../assets/loona-logo.png";
 
-type Mode = "home" | "monthly" | "campaign" | "bb";
+type Mode = "home" | "monthly" | "campaign" | "bb" | "global-bb";
 
 const DEFAULT_COUNTS = { reel: 6, carousel: 4, static: 3 };
 
@@ -88,13 +88,14 @@ function StatusLine({ run }: { run: StrategyRun | null }) {
   return <div className="sc-status is-ready">Research is ready · concepts are appearing below</div>;
 }
 
-function BrandSidebar({ brands, active, runs, open, onBrand, onNew, onOpen }: {
+function BrandSidebar({ brands, active, runs, open, onBrand, onNew, onOpen, onGlobalBB }: {
   brands: HubBrandOption[];
   active: HubBrandOption | undefined;
   runs: StrategyRun[];
   onBrand: (brand: HubBrandOption) => void;
   onNew: () => void;
   onOpen: (runId: string) => void;
+  onGlobalBB: () => void;
   open?: boolean;
 }) {
   return <aside className={`vs-sidebar sc-sidebar${open ? " is-open" : ""}`}>
@@ -104,6 +105,7 @@ function BrandSidebar({ brands, active, runs, open, onBrand, onNew, onOpen }: {
       <span className="is-active">Strategy OS</span>
       <a href="/visual/">Visual Studio</a>
     </nav>
+    <button type="button" className="vs-newchat" onClick={onGlobalBB}>✦ Ask BB · Loona Hub</button>
     <p className="vs-section-label">Brand projects</p>
     <div className="vs-projects">
       {brands.map((brand) => {
@@ -212,37 +214,43 @@ function ConceptCard({ asset, caption, candidate, index, total, logged, busy, on
   </div>;
 }
 
-function BBChat({ brand, actor }: { brand: HubBrandOption; actor: string }) {
+function BBChat({ brand, actor, global = false }: { brand?: HubBrandOption; actor: string; global?: boolean }) {
+  const brandId = global ? "global" : brand?.id || "";
+  const scope = global ? "global" as const : "brand" as const;
+  const label = global ? "Loona Hub" : brand?.name || "this brand";
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [busy, setBusy] = useState(false);
+  const [attachments, setAttachments] = useState<Array<{ assetKey: string; url: string; filename?: string }>>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInput = useRef<HTMLInputElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => listenPath<Record<string, ChatMessage>>(`strategy_bb_chats/${brand.id}/messages`, (value) => {
+  useEffect(() => listenPath<Record<string, ChatMessage>>(`strategy_bb_chats/${brandId}/messages`, (value) => {
     setMessages(Object.values(value || {}).sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt))));
-  }), [brand.id]);
+  }), [brandId]);
   useEffect(() => { endRef.current?.scrollIntoView({ block: "end", behavior: "smooth" }); }, [messages, busy]);
   async function ask() {
     const message = question.trim();
-    if (!message || busy) return;
+    if ((!message && !attachments.length) || busy || uploading) return;
     setBusy(true); setError(null); setQuestion("");
-    try { await askBB({ brandId: brand.id, message, actor }); }
+    try { await askBB({ brandId: global ? undefined : brandId, scope: global ? "global" : undefined, message: message || "Please analyse the attached file.", actor, attachments }); setAttachments([]); }
     catch (e) { setError(e instanceof Error ? e.message : String(e)); setQuestion(message); }
     finally { setBusy(false); }
   }
   return <div className="sc-bb-chat">
     <div className="sc-bb-message-list">
       <div className="sc-bb-messages">
-        {!messages.length && <div className="sc-bb-empty"><p>I’m BB. What are we working on today?</p><span>I know this brand’s context through Mani, and I’ll make it clear when I’m suggesting something new.</span></div>}
-        {messages.map((message, index) => message.role === "user"
-          ? <div className="sc-user-bubble sc-bb-user-message" key={`${message.createdAt || index}-user`}>{message.text}</div>
-          : <div className="sc-bb-assistant-message" key={`${message.createdAt || index}-assistant`}>{message.text}</div>)}
+        {!messages.length && <div className="sc-bb-empty"><p>I’m BB. What are we working on today?</p><span>{global ? "I can help across Loona Hub. I’ll ask which brand matters whenever it is needed." : "I know this brand’s context through Mani, and I’ll make it clear when I’m suggesting something new."}</span></div>}
+        {messages.map((message: ChatMessage & { attachments?: Array<{ url: string; filename?: string }> }, index) => message.role === "user"
+          ? <div className="sc-user-bubble sc-bb-user-message" key={`${message.createdAt || index}-user`}>{message.text}{message.attachments?.map((item, i) => <a key={i} href={item.url} target="_blank" rel="noreferrer" className="sc-bb-attachment">📎 {item.filename || "Attachment"}</a>)}<button type="button" className="sc-bb-action" onClick={() => setQuestion(message.text)}>Edit</button></div>
+          : <div className="sc-bb-assistant-message" key={`${message.createdAt || index}-assistant`}>{message.text}<button type="button" className="sc-bb-action" onClick={() => void navigator.clipboard.writeText(message.text)}>Copy</button></div>)}
         {busy && <div className="sc-bb-thinking">BB is thinking <span className="sc-dots">•••</span></div>}
         {error && <p className="sc-error">{error}</p>}
         <div ref={endRef} />
       </div>
     </div>
-    <div className="sc-bb-composer-wrap"><div className="sc-bb-composer"><textarea value={question} onChange={(e) => setQuestion(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void ask(); } }} placeholder="Message BB…" rows={1} /><button type="button" className="sc-bb-send" aria-label="Send message" disabled={busy || !question.trim()} onClick={() => void ask()}>{busy ? "…" : "↑"}</button></div><p>BB uses Mani’s brand memory to keep the conversation grounded.</p></div>
+    <div className="sc-bb-composer-wrap">{attachments.length > 0 && <div className="sc-bb-queued">{attachments.map((item, i) => <span key={i}>📎 {item.filename || "Attachment"}<button type="button" onClick={() => setAttachments((items) => items.filter((_, index) => index !== i))}>×</button></span>)}</div>}<div className="sc-bb-composer"><input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain,text/markdown,text/csv,application/json,.md,.txt,.csv,.json,.pdf" hidden onChange={async (e) => { const file = e.target.files?.[0]; if (!file) return; setUploading(true); try { const asset = await uploadBBAttachment(global ? undefined : brandId, scope, file); setAttachments((current) => [...current, asset]); } catch (error) { setError(error instanceof Error ? error.message : String(error)); } finally { setUploading(false); e.currentTarget.value = ""; } }} /><button type="button" onClick={() => fileInput.current?.click()} aria-label="Attach image or document">+</button><textarea value={question} onChange={(e) => setQuestion(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void ask(); } }} placeholder={`Message BB about ${label}…`} rows={1} /><button type="button" className="sc-bb-send" aria-label="Send message" disabled={busy || uploading || (!question.trim() && !attachments.length)} onClick={() => void ask()}>{busy || uploading ? "…" : "↑"}</button></div><p>{global ? "BB keeps this Loona Hub conversation separate from individual brand memory." : "BB uses Mani’s brand memory to keep the conversation grounded."}</p></div>
   </div>;
 }
 
@@ -373,24 +381,26 @@ export function StrategyChatWorkspace({ actor }: { actor: string }) {
 
   function chooseBrand(next: HubBrandOption) { setBrand(next); setMode("home"); setRunId(null); setSidebarOpen(false); }
   function newChat() { setRunId(null); setMode("home"); setSidebarOpen(false); }
+  function openGlobalBB() { setRunId(null); setMode("global-bb"); setSidebarOpen(false); }
 
   if (brandsLoading) return <div className="vs-shell"><main className="vs-main sc-loading">Loading brands…</main></div>;
   return <div className="vs-shell sc-shell">
-    <BrandSidebar brands={allBrands} active={selectedBrand} runs={runs} open={sidebarOpen} onBrand={chooseBrand} onNew={newChat} onOpen={(id) => { const opened = runs.find((item) => item.runId === id); setRunId(id); setMode(opened?.runType === "campaign" ? "campaign" : "monthly"); setSidebarOpen(false); }} />
+    <BrandSidebar brands={allBrands} active={selectedBrand} runs={runs} open={sidebarOpen} onBrand={chooseBrand} onNew={newChat} onGlobalBB={openGlobalBB} onOpen={(id) => { const opened = runs.find((item) => item.runId === id); setRunId(id); setMode(opened?.runType === "campaign" ? "campaign" : "monthly"); setSidebarOpen(false); }} />
     {(sidebarOpen || maniOpen) && <button type="button" className="vs-scrim" aria-label="Close" onClick={() => { setSidebarOpen(false); setManiOpen(false); }} />}
     <main className="vs-main">
-      <header className="vs-header"><button type="button" className="vs-mobile-tool" aria-label="Open projects" onClick={() => setSidebarOpen(true)}>☰</button><div><h1>{selectedBrand?.name || "Strategy OS"}</h1><p>{activeRun ? (activeRun.runType === "campaign" ? "Campaign planning" : monthLabel(activeRun.month)) : mode === "home" ? "New strategy chat" : mode === "bb" ? "Ask BB" : mode === "campaign" ? "Campaign planning" : "Monthly planning"}</p></div><button type="button" className="vs-header-tool" onClick={() => setManiOpen(true)}>Memory</button></header>
+      <header className="vs-header"><button type="button" className="vs-mobile-tool" aria-label="Open projects" onClick={() => setSidebarOpen(true)}>☰</button><div><h1>{mode === "global-bb" ? "Loona Hub" : selectedBrand?.name || "Strategy OS"}</h1><p>{activeRun ? (activeRun.runType === "campaign" ? "Campaign planning" : monthLabel(activeRun.month)) : mode === "home" ? "New strategy chat" : mode === "global-bb" ? "Ask BB · Global" : mode === "bb" ? "Ask BB" : mode === "campaign" ? "Campaign planning" : "Monthly planning"}</p></div><button type="button" className="vs-header-tool" onClick={() => setManiOpen(true)}>Memory</button></header>
       <section className="vs-thread sc-thread">
-        {!selectedBrand && <div className="sc-assistant-block"><p>Add a brand in Hub before starting a strategy chat.</p></div>}
+        {mode !== "global-bb" && !selectedBrand && <div className="sc-assistant-block"><p>Add a brand in Hub before starting a strategy chat.</p></div>}
         {selectedBrand && !selectedBrand.configured && <div className="sc-assistant-block sc-warning"><p>{selectedBrand.name} needs a completed Strategy OS brand configuration before research can start.</p></div>}
         {selectedBrand && !runId && mode === "home" && <Welcome onMode={setMode} configured={Boolean(selectedBrand.configured)} />}
         {selectedBrand && !runId && mode === "monthly" && <Brief mode="monthly" brand={selectedBrand} actor={actor} onStarted={(id) => setRunId(id)} onCancel={() => setMode("home")} />}
         {selectedBrand && !runId && mode === "campaign" && <CampaignBrief brand={selectedBrand} actor={actor} onStarted={(id) => setRunId(id)} onCancel={() => setMode("home")} />}
         {selectedBrand && !runId && mode === "bb" && <BBChat brand={selectedBrand} actor={actor} />}
+        {mode === "global-bb" && <BBChat actor={actor} global />}
         {runId && (mode === "campaign" || activeRun?.runType === "campaign") ? <CampaignRunChat runId={runId} actor={actor} /> : null}
         {runId && mode !== "campaign" && activeRun?.runType !== "campaign" ? <RunChat runId={runId} actor={actor} /> : null}
       </section>
-      <div className="sc-bottom-hint">Everything logged here stays with {selectedBrand?.name || "this brand"} and is available to Mani and the next strategy run.</div>
+      <div className="sc-bottom-hint">{mode === "global-bb" ? "This global BB chat stays in Loona Hub. Brand-specific work is kept with its own brand and Mani." : `Everything logged here stays with ${selectedBrand?.name || "this brand"} and is available to Mani and the next strategy run.`}</div>
     </main>
     <aside className={`vs-memory-drawer${maniOpen ? " is-open" : ""}`}>
       <button type="button" className="vs-drawer-close" onClick={() => setManiOpen(false)}>Close</button>

@@ -1,10 +1,10 @@
 // Authenticated, streaming delivery for durable Visual Studio images. The chat loads small
 // records from Firebase and asks for the image only when it is actually visible.
 import assets from "./_shared/visual-blob-store.mjs";
-import { authorizeVisualRequest, json } from "./_shared/visual-auth.mjs";
+import { authorizeVisualSession, json } from "./_shared/visual-auth.mjs";
 
 export default async function visualAsset(request) {
-  if (!authorizeVisualRequest(request)) return json({ error: "Unauthorized" }, 401);
+  if (!(await authorizeVisualSession(request))) return json({ error: "Unauthorized" }, 401);
   if (request.method !== "GET") return json({ error: "Method not allowed" }, 405);
   const key = new URL(request.url).searchParams.get("key") || "";
   if (!key.startsWith("brands/") || key.includes("..")) return json({ error: "Invalid asset key" }, 400);

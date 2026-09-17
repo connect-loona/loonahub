@@ -10,6 +10,8 @@ const { cropToShape } = require("./image-shapes");
 const STORE_NAME = "loona-visual-assets";
 const MAX_ASSET_BYTES = 5 * 1024 * 1024;
 const SAFE_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+const SAFE_BB_ATTACHMENT_TYPES = new Set([...SAFE_IMAGE_TYPES, "application/pdf", "text/plain", "text/markdown", "text/csv", "application/json"]);
+const MAX_BB_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 let netlifyStoreFactory = null;
 
 // Runtime V2 functions configure this from an ESM module that statically imports
@@ -202,6 +204,25 @@ async function saveBuffer({ buffer, contentType, brandId, chatId, generationId, 
   };
 }
 
+// BB attachments share the durable, site-scoped store used by Visual Studio, but are not
+// forced through image inspection: a PDF or a notes file is valid input for a conversation.
+// Keeping their metadata alongside the bytes lets the chat endpoint verify both ownership and
+// media type rather than trusting values sent back from a browser.
+async function saveBBAttachment({ buffer, contentType, brandId, filename }, deps = {}) {
+  if (!SAFE_BB_ATTACHMENT_TYPES.has(contentType)) throw badImage("BB can read PNG, JPEG, WebP, GIF, PDF, TXT, Markdown, CSV and JSON files.");
+  if (!buffer || !buffer.length) throw badImage("Cannot save an empty attachment.");
+  if (buffer.length > MAX_BB_ATTACHMENT_BYTES) throw badImage("BB attachments must be 10MB or smaller.");
+  const digest = crypto.createHash("sha256").update(buffer).digest("hex").slice(0, 16);
+  const safeName = safePart(filename, "attachment").slice(0, 80);
+  const key = ["brands", safePart(brandId), "chats", "bb", "attachments", `${Date.now()}-${digest}-${safeName}`].join("/");
+  await storeFor(deps).set(key, buffer, { metadata: {
+    contentType, brandId: safePart(brandId), chatId: "bb", kind: "bb-attachment",
+    filename: String(filename || "attachment").slice(0, 180), byteLength: buffer.length,
+    createdAt: new Date().toISOString(),
+  } });
+  return { assetKey: key, url: assetUrl(key), contentType, byteLength: buffer.length, filename: String(filename || "attachment"), durable: true };
+}
+
 // Both providers land here, which is why the crop to the exact requested shape happens here
 // rather than inside either one. Neither OpenAI nor Magnific can be asked for 4:5 or 9:16
 // directly (see image-shapes.js), so the image arrives at the nearest ratio they do offer and
@@ -270,7 +291,7 @@ async function referenceForProvider(reference, deps = {}) {
 }
 
 module.exports = {
-  badImage, STORE_NAME, MAX_ASSET_BYTES, SAFE_IMAGE_TYPES, assetUrl, decodeDataUrl, inspectImage,
+  badImage, STORE_NAME, MAX_ASSET_BYTES, SAFE_IMAGE_TYPES, SAFE_BB_ATTACHMENT_TYPES, MAX_BB_ATTACHMENT_BYTES, assetUrl, decodeDataUrl, inspectImage,
   bytesForImage, saveBuffer, preserveGeneratedImages, loadAsset, referenceForProvider, storeFor,
-  configureNetlifyStore,
+  configureNetlifyStore, saveBBAttachment,
 };

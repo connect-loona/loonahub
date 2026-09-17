@@ -57,7 +57,20 @@ function cleanHistory(history) {
   }, []);
 }
 
-async function askBB({ brandName, message, memory, history }, deps = {}) {
+function attachmentBlocks(attachments) {
+  const blocks = [];
+  for (const item of Array.isArray(attachments) ? attachments : []) {
+    const contentType = String(item.contentType || "").toLowerCase();
+    const data = Buffer.isBuffer(item.data) ? item.data : Buffer.from(item.data || "");
+    if (!data.length) continue;
+    if (contentType.startsWith("image/")) blocks.push({ type: "image", source: { type: "base64", media_type: contentType, data: data.toString("base64") } });
+    else if (contentType === "application/pdf") blocks.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: data.toString("base64") } });
+    else if (contentType.startsWith("text/") || contentType === "application/json") blocks.push({ type: "text", text: `Attached file: ${item.filename || "document"}\n${data.toString("utf8").slice(0, 100000)}` });
+  }
+  return blocks;
+}
+
+async function askBB({ brandName, message, memory, history, attachments }, deps = {}) {
   const asked = String(message || "").trim().slice(0, MAX_MESSAGE_CHARS);
   if (!asked) throw new Error("BB needs a message.");
 
@@ -73,6 +86,11 @@ async function askBB({ brandName, message, memory, history }, deps = {}) {
   const last = messages[messages.length - 1];
   if (last && last.role === "user") last.content = `${last.content}\n\n${asked}`.slice(-MAX_MESSAGE_CHARS);
   else messages.push({ role: "user", content: asked });
+  const blocks = attachmentBlocks(attachments);
+  if (blocks.length) {
+    const current = messages[messages.length - 1];
+    current.content = [{ type: "text", text: current.content }, ...blocks];
+  }
   const response = await client.messages.create({
     model: process.env.STRATEGY_BB_MODEL || process.env.STRATEGY_CLAUDE_MODEL || "claude-opus-5",
     max_tokens: 2200,
@@ -92,4 +110,4 @@ async function askBB({ brandName, message, memory, history }, deps = {}) {
   return { answer: answer.slice(0, MAX_ANSWER_CHARS) };
 }
 
-module.exports = { askBB, instructions, cleanHistory, MAX_MESSAGE_CHARS, MAX_HISTORY_MESSAGES };
+module.exports = { askBB, instructions, cleanHistory, attachmentBlocks, MAX_MESSAGE_CHARS, MAX_HISTORY_MESSAGES };

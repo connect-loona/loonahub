@@ -91,8 +91,18 @@ export function askMani(args: { brandId: string; question: string }): Promise<{
 
 // BB is the team-facing conversational strategist. The endpoint supplies Mani's composed
 // brand memory server-side, so the browser never has to assemble or transmit that context.
-export function askBB(args: { brandId: string; message: string; actor: string }): Promise<{ answer: string }> {
+export function askBB(args: { brandId?: string; scope?: "global"; message: string; actor: string; attachments?: Array<{ assetKey: string; url: string; filename?: string }> }): Promise<{ answer: string }> {
   return post("strategy-bb-chat", args) as Promise<{ answer: string }>;
+}
+
+export async function uploadBBAttachment(brandId: string | undefined, scope: "brand" | "global", file: File): Promise<{ assetKey: string; url: string; filename?: string }> {
+  const token = await getIdTokenOrNull();
+  const headers: Record<string, string> = { "Content-Type": file.type };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const response = await fetch(`/.netlify/functions/bb-upload?scope=${scope}&brandId=${encodeURIComponent(brandId || "")}&filename=${encodeURIComponent(file.name)}`, { method: "POST", headers, body: file });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Could not upload attachment.");
+  return data.asset;
 }
 
 // The brand folders sitting in Drive, and whether each already has a brand in Hub. The Drive

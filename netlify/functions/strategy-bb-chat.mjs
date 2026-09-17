@@ -4,6 +4,7 @@ import { z } from "zod";
 globalThis.__zodBundled = z;
 import Anthropic from "@anthropic-ai/sdk";
 globalThis.__anthropicSdkBundled = Anthropic;
+import "./_shared/visual-blob-store.mjs";
 import legacy from "./_legacy/strategy-bb-chat.js";
 
 export default withLambda(legacy.handler);

@@ -3,7 +3,7 @@
 
 const path = require("path");
 const { HUB, check, finish } = require("../harness/shared");
-const { askBB, instructions, cleanHistory, MAX_HISTORY_MESSAGES } = require(path.join(HUB, "netlify/functions/lib/strategy/bb-chat"));
+const { askBB, instructions, cleanHistory, attachmentBlocks, MAX_HISTORY_MESSAGES } = require(path.join(HUB, "netlify/functions/lib/strategy/bb-chat"));
 
 function fakeClient(log, reply = "That is a new recommendation, not something recorded about the brand.") {
   return { messages: { create: async (params) => {
@@ -37,6 +37,15 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
   check("BB uses a reasoning model", !/haiku/.test(log[0].model), log[0].model);
   check("BB can use the bounded live web-search tool for current questions",
     log[0].tools.some((tool) => tool.type === "web_search_20260209" && tool.max_uses === 6), log[0].tools);
+
+  const blocks = attachmentBlocks([
+    { contentType: "image/png", data: Buffer.from("image"), filename: "moodboard.png" },
+    { contentType: "application/pdf", data: Buffer.from("pdf"), filename: "brief.pdf" },
+    { contentType: "text/plain", data: Buffer.from("Launch on 20 September"), filename: "notes.txt" },
+  ]);
+  check("BB turns image attachments into vision blocks", blocks.some((block) => block.type === "image"), blocks);
+  check("BB turns PDFs into document blocks", blocks.some((block) => block.type === "document"), blocks);
+  check("BB reads text documents as message context", blocks.some((block) => block.type === "text" && /Launch on 20 September/.test(block.text)), blocks);
 
   let blank = null;
   try { await askBB({ brandName: "RRO Foods", message: " ", memory: null }, { client: fakeClient([]) }); }
