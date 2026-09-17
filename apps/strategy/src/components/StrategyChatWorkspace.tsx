@@ -231,7 +231,7 @@ function BBChat({ brand, actor, global = false, threadId = "main", onNewThread }
   const fileInput = useRef<HTMLInputElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => listenPath<Record<string, ChatMessage>>(global ? `strategy_bb_chats/global/${threadId}/messages` : `strategy_bb_chats/${brandId}/messages`, (value) => {
+  useEffect(() => listenPath<Record<string, ChatMessage>>(`strategy_bb_chats/${brandId}/${threadId}/messages`, (value) => {
     setMessages(Object.values(value || {}).sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt))));
   }), [brandId, global, threadId]);
   useEffect(() => { endRef.current?.scrollIntoView({ block: "end", behavior: "smooth" }); }, [messages, busy]);
@@ -239,7 +239,7 @@ function BBChat({ brand, actor, global = false, threadId = "main", onNewThread }
     const message = question.trim();
     if ((!message && !attachments.length) || busy || uploading) return;
     setBusy(true); setError(null); setQuestion("");
-    try { await askBB({ brandId: global ? undefined : brandId, scope: global ? "global" : undefined, threadId: global ? threadId : undefined, message: message || "Please analyse the attached file.", actor, attachments }); setAttachments([]); }
+    try { await askBB({ brandId: global ? undefined : brandId, scope: global ? "global" : undefined, threadId, message: message || "Please analyse the attached file.", actor, attachments }); setAttachments([]); }
     catch (e) { setError(e instanceof Error ? e.message : String(e)); setQuestion(message); }
     finally { setBusy(false); }
   }
@@ -251,7 +251,7 @@ function BBChat({ brand, actor, global = false, threadId = "main", onNewThread }
     finally { setBusy(false); }
   }
   return <div className="sc-bb-chat">
-    <div className="sc-bb-toolbar"><span>{global ? "Global BB conversation" : "Brand BB conversation"}</span>{global && <button type="button" onClick={onNewThread}>+ New chat</button>}<button type="button" onClick={() => void clear()} disabled={busy || !messages.length} aria-label="Clear chat">🗑 Clear chat</button></div>
+    <div className="sc-bb-toolbar"><span>{global ? "Global BB conversation" : "Brand BB conversation"}</span><button type="button" onClick={onNewThread}>+ New chat</button><button type="button" onClick={() => void clear()} disabled={busy || !messages.length} aria-label="Clear chat">🗑 Clear chat</button></div>
     <div className="sc-bb-message-list">
       <div className="sc-bb-messages">
         {!messages.length && <div className="sc-bb-empty"><p>I’m BB. What are we working on today?</p><span>{global ? "I can help across Loona Hub. I’ll ask which brand matters whenever it is needed." : "I know this brand’s context through Mani, and I’ll make it clear when I’m suggesting something new."}</span></div>}
@@ -398,6 +398,7 @@ export function StrategyChatWorkspace({ actor }: { actor: string }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [maniOpen, setManiOpen] = useState(false);
   const [globalThreadId, setGlobalThreadId] = useState("main");
+  const [brandThreadId, setBrandThreadId] = useState("main");
   const [globalThreads, setGlobalThreads] = useState<Array<{ id: string; title?: string; updatedAt?: string }>>([]);
   useEffect(() => listenPath<Record<string, { title?: string; updatedAt?: string }>>("strategy_bb_chats/global/threads", (value) => setGlobalThreads(Object.entries(value || {}).map(([id, thread]) => ({ id, ...thread })).sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""))))), []);
   const activeRun = runId ? runs.find((run) => run.runId === runId) : undefined;
@@ -419,7 +420,7 @@ export function StrategyChatWorkspace({ actor }: { actor: string }) {
 
   function chooseBrand(next: HubBrandOption) { setBrand(next); setMode("home"); setRunId(null); setSidebarOpen(false); }
   function newChat() { setRunId(null); setMode("home"); setSidebarOpen(false); }
-  function openGlobalBB() { setRunId(null); setMode("global-bb"); setSidebarOpen(false); }
+  function openGlobalBB(fresh = false) { if (fresh) setGlobalThreadId(`chat-${Date.now()}`); setRunId(null); setMode("global-bb"); setSidebarOpen(false); }
 
   if (brandsLoading) return <div className="vs-shell sc-shell"><main className="vs-main sc-loading"><div className="sc-bb-opening"><span>🦦</span><h1>Say hello to BB</h1><p>Getting your Loona workspace ready…</p></div></main></div>;
   return <div className="vs-shell sc-shell">
@@ -428,12 +429,12 @@ export function StrategyChatWorkspace({ actor }: { actor: string }) {
     <main className="vs-main">
       <header className="vs-header"><button type="button" className="vs-mobile-tool" aria-label="Open projects" onClick={() => setSidebarOpen(true)}>☰</button><div><h1>{mode === "global-bb" ? "Loona Hub" : selectedBrand?.name || "Strategy OS"}</h1><p>{activeRun ? (activeRun.runType === "campaign" ? "Campaign planning" : monthLabel(activeRun.month)) : mode === "home" ? "New strategy chat" : mode === "global-bb" ? "Ask BB · Global" : mode === "bb" ? "Ask BB" : mode === "campaign" ? "Campaign planning" : "Monthly planning"}</p></div><button type="button" className="vs-header-tool" onClick={() => setManiOpen(true)}>Memory</button></header>
       <section className="vs-thread sc-thread">
-        {mode !== "global-bb" && !selectedBrand && <StrategyHome onGlobalBB={openGlobalBB} />}
+        {mode !== "global-bb" && !selectedBrand && <StrategyHome onGlobalBB={() => openGlobalBB(true)} />}
         {selectedBrand && !selectedBrand.configured && <div className="sc-assistant-block sc-warning"><p>{selectedBrand.name} needs a completed Strategy OS brand configuration before research can start.</p></div>}
         {selectedBrand && !runId && mode === "home" && <Welcome onMode={setMode} configured={Boolean(selectedBrand.configured)} />}
         {selectedBrand && !runId && mode === "monthly" && <Brief mode="monthly" brand={selectedBrand} actor={actor} onStarted={(id) => setRunId(id)} onCancel={() => setMode("home")} />}
         {selectedBrand && !runId && mode === "campaign" && <CampaignBrief brand={selectedBrand} actor={actor} onStarted={(id) => setRunId(id)} onCancel={() => setMode("home")} />}
-        {selectedBrand && !runId && mode === "bb" && <BBChat brand={selectedBrand} actor={actor} />}
+        {selectedBrand && !runId && mode === "bb" && <BBChat brand={selectedBrand} actor={actor} threadId={brandThreadId} onNewThread={() => setBrandThreadId(`chat-${Date.now()}`)} />}
         {mode === "global-bb" && <BBChat actor={actor} global threadId={globalThreadId} onNewThread={() => setGlobalThreadId(`chat-${Date.now()}`)} />}
         {runId && (mode === "campaign" || activeRun?.runType === "campaign") ? <CampaignRunChat runId={runId} actor={actor} /> : null}
         {runId && mode !== "campaign" && activeRun?.runType !== "campaign" ? <RunChat runId={runId} actor={actor} /> : null}
