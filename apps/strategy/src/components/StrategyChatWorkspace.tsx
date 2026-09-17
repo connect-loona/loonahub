@@ -278,6 +278,21 @@ function BBChat({ brand, actor, global = false, threadId = "main", onNewThread }
   </div>;
 }
 
+function WorkingAgent({ run }: { run: StrategyRun | null }) {
+  const active = stageStatus(run, "research").includes("running") || stageStatus(run, "research") === "queued"
+    ? { emoji: "👨🏻‍✈️", name: "Columbus", role: "Researching", detail: "Reading the brand memory, the brief and what matters now." }
+    : stageStatus(run, "strategy").includes("running") || stageStatus(run, "strategy") === "queued"
+      ? { emoji: "🧕🏻", name: "Dora", role: "Shaping the monthly direction", detail: "Turning the research into useful creative territories." }
+      : stageStatus(run, "copy").includes("running") || stageStatus(run, "copy") === "queued"
+        ? { emoji: "👩‍🎨", name: "Matilda", role: "Writing the plan", detail: "Making each idea clear enough to make." }
+        : null;
+  if (!active) return null;
+  return <section className="sc-agent-at-work" aria-live="polite">
+    <div className="sc-agent-track" aria-hidden="true"><span className="sc-agent-walk">{active.emoji}</span></div>
+    <div className="sc-agent-work-copy"><span>{active.name} is {active.role}</span><p>{active.detail}</p></div>
+  </section>;
+}
+
 function StrategyHome({ onGlobalBB }: { onGlobalBB: () => void }) {
   return <div className="sc-welcome">
     <p className="sc-eyebrow">Strategy OS</p><h2>Welcome</h2>
@@ -407,6 +422,7 @@ function RunChat({ runId, actor, onArchived }: { runId: string; actor: string; o
         : <div className="sc-assistant-block" key={`msg-${index}`}><p>{message.text}</p></div>)
       : <div className="sc-user-bubble">I’ve submitted the brief. Start the monthly planning.</div>}
     <StatusLine run={run} />
+    <WorkingAgent run={run} />
     {!asset && <div className="sc-assistant-block">
       <p>{stageStatus(run, "strategy").includes("running") || stageStatus(run, "research").includes("running")
         ? "I’m working through the research now. The concepts will appear here as soon as they are ready."
