@@ -175,11 +175,12 @@ exports.handler = async (event) => {
 
     const base = siteBaseUrl(event);
     try {
-      await fetch(`${base}/.netlify/functions/strategy-research-background`, {
+      const response = await fetch(`${base}/.netlify/functions/strategy-research-background`, {
         method: "POST",
         headers: signedBackgroundHeaders("strategy-research-background", JSON.stringify({ runId: id })),
         body: JSON.stringify({ runId: id }),
       });
+      if (!response.ok) throw new Error(`Background research request was rejected (HTTP ${response.status}).`);
     } catch (e) {
       // Write the failure into the run doc itself — previously this was only
       // console.error'd, which left the run silently stuck showing "queued" forever with

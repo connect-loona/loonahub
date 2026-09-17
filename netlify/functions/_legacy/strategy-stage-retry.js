@@ -55,7 +55,10 @@ exports.handler = async (event) => {
     const run = await fbGet(`strategy_runs/${runId}`);
     if (!run) return { statusCode: 404, headers: cors(), body: JSON.stringify({ error: "Run not found." }) };
     const stageState = run.stages && run.stages[stage];
-    if (!stageState || stageState.status !== "failed") {
+    // A worker that never starts leaves the old deployment in "queued" forever.  Let a
+    // person restart that exact stale queue instead of forcing them to archive the plan and
+    // recreate the brief. Running work is deliberately still protected from duplicate jobs.
+    if (!stageState || !["failed", "queued"].includes(stageState.status)) {
       return { statusCode: 409, headers: cors(), body: JSON.stringify({ error: `${stage} is not currently failed (status: ${stageState ? stageState.status : "unknown"}), so there's nothing to retry.` }) };
     }
 
@@ -70,11 +73,12 @@ exports.handler = async (event) => {
     try {
       const backgroundName = `strategy-${stage}-background`;
       const backgroundBody = JSON.stringify({ runId });
-      await fetch(`${base}/.netlify/functions/strategy-${stage}-background`, {
+      const response = await fetch(`${base}/.netlify/functions/strategy-${stage}-background`, {
         method: "POST",
         headers: signedBackgroundHeaders(backgroundName, backgroundBody),
         body: backgroundBody,
       });
+      if (!response.ok) throw new Error(`Background ${stage} request was rejected (HTTP ${response.status}).`);
     } catch (e) {
       console.error(`Failed to trigger ${stage} retry background function:`, e);
       await fbSet(`strategy_runs/${runId}/stages/${stage}`, { status: "failed", detail: `Could not restart the ${stage} stage: ${e.message || e}` });

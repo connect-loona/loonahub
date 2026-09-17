@@ -82,9 +82,11 @@ function StatusLine({ run }: { run: StrategyRun | null }) {
   if (!run) return null;
   const research = stageStatus(run, "research");
   const strategy = stageStatus(run, "strategy");
-  if (research === "running" || research === "queued") return <div className="sc-status">Research is happening in the background <span className="sc-dots">•••</span></div>;
+  if (research === "queued") return <div className="sc-status">Research is waiting to start</div>;
+  if (research === "running") return <div className="sc-status">Research is happening in the background <span className="sc-dots">•••</span></div>;
   if (research.includes("failed")) return <div className="sc-status is-error">Research needs attention before concepts can be shown.</div>;
-  if (strategy === "running" || strategy === "queued") return <div className="sc-status">Turning the research into concepts <span className="sc-dots">•••</span></div>;
+  if (strategy === "queued") return <div className="sc-status">Dora is about to shape the first concept</div>;
+  if (strategy === "running") return <div className="sc-status">Turning the research into concepts <span className="sc-dots">•••</span></div>;
   return <div className="sc-status is-ready">Research is ready · Dora is sharing one concept at a time below</div>;
 }
 
@@ -279,9 +281,9 @@ function BBChat({ brand, actor, global = false, threadId = "main", onNewThread }
 }
 
 function WorkingAgent({ run }: { run: StrategyRun | null }) {
-  const active = stageStatus(run, "research").includes("running") || stageStatus(run, "research") === "queued"
+  const active = stageStatus(run, "research").includes("running")
     ? { emoji: "👨🏻‍✈️", name: "Columbus", role: "Researching", detail: "Reading the brand memory, the brief and what matters now." }
-    : stageStatus(run, "strategy").includes("running") || stageStatus(run, "strategy") === "queued"
+    : stageStatus(run, "strategy").includes("running")
       ? { emoji: "🧕🏻", name: "Dora", role: "Shaping the monthly direction", detail: "Turning the research into useful creative territories." }
       : stageStatus(run, "copy").includes("running") || stageStatus(run, "copy") === "queued"
         ? { emoji: "👩‍🎨", name: "Matilda", role: "Writing the plan", detail: "Making each idea clear enough to make." }
@@ -341,7 +343,11 @@ function RunChat({ runId, actor, onArchived }: { runId: string; actor: string; o
   // Whichever of the two stages a fresh concept depends on actually failed — unlike the
   // campaign flow's per-step retry buttons, this used to leave a failed research or
   // strategy stage with no way back into the chat at all beyond "check the run status".
-  const failedStage = stageStatus(run, "research").includes("failed") ? "research"
+  // A previous deploy could leave a background job at "queued" forever when its worker
+  // bundle failed before it could update Firebase. Treat that as restartable rather than
+  // pretending Columbus is still working indefinitely.
+  const queuedResearch = stageStatus(run, "research") === "queued";
+  const failedStage = stageStatus(run, "research").includes("failed") || queuedResearch ? "research"
     : stageStatus(run, "strategy").includes("failed") ? "strategy" : null;
   async function retryFailedStage() {
     if (!failedStage || retrying) return;
@@ -426,8 +432,8 @@ function RunChat({ runId, actor, onArchived }: { runId: string; actor: string; o
     {!asset && <div className="sc-assistant-block">
       <p>{stageStatus(run, "strategy").includes("running") || stageStatus(run, "research").includes("running")
         ? "Columbus is researching first. Then Dora will bring you the first concept — not a whole batch at once."
-        : failedStage ? `The ${failedStage} stage needs attention before concepts can be shown.` : "No concepts are available yet."}</p>
-      {failedStage && <button type="button" className="sc-secondary" disabled={retrying} onClick={() => void retryFailedStage()}>{retrying ? "Retrying…" : `Retry ${failedStage}`}</button>}
+        : failedStage ? (queuedResearch ? "Research did not start. Start Columbus again to continue this plan." : `The ${failedStage} stage needs attention before concepts can be shown.`) : "No concepts are available yet."}</p>
+      {failedStage && <button type="button" className="sc-secondary" disabled={retrying} onClick={() => void retryFailedStage()}>{retrying ? "Starting…" : queuedResearch ? "Start research again" : `Retry ${failedStage}`}</button>}
       {retryError && <p className="sc-error">{retryError}</p>}
     </div>}
     {asset && <>
