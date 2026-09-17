@@ -217,9 +217,11 @@ function BBChat({ brand, actor }: { brand: HubBrandOption; actor: string }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const endRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => listenPath<Record<string, ChatMessage>>(`strategy_bb_chats/${brand.id}/messages`, (value) => {
     setMessages(Object.values(value || {}).sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt))));
   }), [brand.id]);
+  useEffect(() => { endRef.current?.scrollIntoView({ block: "end", behavior: "smooth" }); }, [messages, busy]);
   async function ask() {
     const message = question.trim();
     if (!message || busy) return;
@@ -228,14 +230,19 @@ function BBChat({ brand, actor }: { brand: HubBrandOption; actor: string }) {
     catch (e) { setError(e instanceof Error ? e.message : String(e)); setQuestion(message); }
     finally { setBusy(false); }
   }
-  return <div className="sc-mani-chat sc-bb-chat">
-    {!messages.length && <div className="sc-assistant-block"><p>I’m BB. We can think through any question, brief, problem or idea for {brand.name}. Mani keeps the brand memory behind me, so I’ll distinguish what Loona already knows from what I’m recommending now.</p></div>}
-    {messages.map((message, index) => message.role === "user"
-      ? <div className="sc-user-bubble" key={`${message.createdAt || index}-user`}>{message.text}</div>
-      : <div className="sc-assistant-block sc-answer" key={`${message.createdAt || index}-assistant`}><p>{message.text}</p></div>)}
-    {busy && <div className="sc-status">BB is thinking with Mani’s memory <span className="sc-dots">•••</span></div>}
-    {error && <p className="sc-error">{error}</p>}
-    <div className="sc-input-row"><textarea value={question} onChange={(e) => setQuestion(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void ask(); } }} placeholder="Ask BB anything about this brand, or think through a new idea…" /><button type="button" className="sc-primary" disabled={busy || !question.trim()} onClick={() => void ask()}>{busy ? "Thinking…" : "Send"}</button></div>
+  return <div className="sc-bb-chat">
+    <div className="sc-bb-message-list">
+      <div className="sc-bb-messages">
+        {!messages.length && <div className="sc-bb-empty"><p>I’m BB. What are we working on today?</p><span>I know this brand’s context through Mani, and I’ll make it clear when I’m suggesting something new.</span></div>}
+        {messages.map((message, index) => message.role === "user"
+          ? <div className="sc-user-bubble sc-bb-user-message" key={`${message.createdAt || index}-user`}>{message.text}</div>
+          : <div className="sc-bb-assistant-message" key={`${message.createdAt || index}-assistant`}>{message.text}</div>)}
+        {busy && <div className="sc-bb-thinking">BB is thinking <span className="sc-dots">•••</span></div>}
+        {error && <p className="sc-error">{error}</p>}
+        <div ref={endRef} />
+      </div>
+    </div>
+    <div className="sc-bb-composer-wrap"><div className="sc-bb-composer"><textarea value={question} onChange={(e) => setQuestion(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void ask(); } }} placeholder="Message BB…" rows={1} /><button type="button" className="sc-bb-send" aria-label="Send message" disabled={busy || !question.trim()} onClick={() => void ask()}>{busy ? "…" : "↑"}</button></div><p>BB uses Mani’s brand memory to keep the conversation grounded.</p></div>
   </div>;
 }
 
