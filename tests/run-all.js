@@ -28,7 +28,7 @@ const FAKE_OPENAI_PORT = process.env.FAKE_OPENAI_PORT || 9040;
 const ALL_STRATEGY_PATHS = [
   "strategy_runs", "strategy_brands", "strategy_months", "strategy_learning_events",
   "strategy_learnings", "strategy_activity", "strategy_stage_versions", "strategy_brand_library",
-  "strategy_brain", "strategy_visual", "visual_chats", "brands",
+  "strategy_brain", "strategy_visual", "visual_chats", "strategy_bb_chats", "mani_events", "mani_brand_events", "mani_snapshots", "brands",
   "visual_jobs", "api_usage_events",
   "tasks",
 ];

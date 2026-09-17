@@ -19,6 +19,7 @@ const { fbGet } = require("./firebase");
 const { collectTeamActivity } = require("./team-activity");
 const { loadVisualHistory } = require("./visual-memory");
 const { loadBrain } = require("./brand-brain");
+const { loadRecentHubManiEvents, maniEventsToPromptText } = require("./mani-events");
 
 const MAX_BRANDS = 40;
 const MAX_VISUAL_PER_BRAND = 5;
@@ -125,7 +126,11 @@ function hubMemoryToPromptText(hub) {
 
 async function loadHubMemoryText(options) {
   try {
-    return hubMemoryToPromptText(await collectHubMemory(options));
+    const [rollup, events] = await Promise.all([
+      collectHubMemory(options).then(hubMemoryToPromptText),
+      loadRecentHubManiEvents().then((items) => maniEventsToPromptText(items.filter((item) => item.type !== "bb_conversation"))),
+    ]);
+    return [rollup, events].filter(Boolean).join("\n\n") || null;
   } catch (error) {
     console.error("Could not load Hub-wide memory:", error.message);
     return null;

@@ -15,6 +15,7 @@
 // lasts, and says which it is rather than rendering a broken image and calling it history.
 "use strict";
 const { fbGet, fbPush, fbSet, fbSafeKey } = require("./firebase");
+const { recordManiEventSafe } = require("./mani-events");
 
 // How long a provider's returned image URL is worth showing before it's assumed dead. Erring
 // short is right: a preview that quietly 404s is worse than one honestly marked expired.
@@ -89,6 +90,7 @@ async function recordGeneration(brandId, round) {
   };
   const id = round.id || await fbPush(visualPath(brandId), record);
   if (round.id) await fbSet(`${visualPath(brandId)}/${fbSafeKey(round.id)}`, record);
+  await recordManiEventSafe({ type: "visual_generated", source: "visual_studio", brandId, actor: record.actor, entityType: "visual_generation", entityId: id, action: "generated", summary: `Generated ${record.images.length} visual take(s): “${record.prompt}”${record.referenceCount ? ` using ${record.referenceCount} reference(s)` : ""}.`, data: { chatId: record.chatId, provider: record.provider, model: record.model, size: record.size, quality: record.quality } });
   return { id, record };
 }
 
@@ -111,6 +113,7 @@ async function recordPick(brandId, generationId, { index, actor, note, tags }) {
     pickTags: Array.isArray(tags) ? tags.map(String).slice(0, 8) : [],
   });
   await fbSet(key, updated);
+  await recordManiEventSafe({ type: "visual_selected", source: "visual_studio", brandId, actor: updated.pickedBy, entityType: "visual_generation", entityId: generationId, action: "selected", summary: `Selected take ${Number(index) + 1} from “${updated.prompt}”.${updated.pickNote ? ` Reason: ${updated.pickNote}` : ""}`, data: { chatId: updated.chatId, index: Number(index), tags: updated.pickTags } });
   return updated;
 }
 
@@ -120,6 +123,7 @@ async function recordQc(brandId, generationId, qc) {
   if (!existing) throw new Error(`No generation ${generationId} for brand ${brandId}.`);
   const updated = Object.assign({}, existing, { qc });
   await fbSet(key, updated);
+  await recordManiEventSafe({ type: "visual_reviewed", source: "visual_studio", brandId, actor: "Visual Studio", entityType: "visual_generation", entityId: generationId, action: "reviewed", summary: `Quality-reviewed visual “${existing.prompt}”: ${qc && qc.summary ? qc.summary : "Review recorded."}` });
   return updated;
 }
 

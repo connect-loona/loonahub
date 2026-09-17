@@ -12,6 +12,7 @@
 const { fbSet } = require("../lib/strategy/firebase");
 const { BrandConfigSchema } = require("../lib/strategy/contracts");
 const { checkAuthorization } = require("../lib/strategy/auth");
+const { recordManiEventSafe } = require("../lib/strategy/mani-events");
 
 function cors() {
   return {
@@ -54,6 +55,7 @@ exports.handler = async (event) => {
 
   try {
     await fbSet(`strategy_brands/${brandId}`, result.data);
+    await recordManiEventSafe({ type: "brand_strategy_updated", source: "strategy_os", brandId, actor: String(body.actor || "Hub team").slice(0, 120), entityType: "brand_config", entityId: brandId, action: "updated", summary: `Updated the Strategy OS configuration for ${result.data.name || brandId}.` });
     return { statusCode: 200, headers: cors(), body: JSON.stringify({ ok: true }) };
   } catch (error) {
     return { statusCode: 500, headers: cors(), body: JSON.stringify({ error: error.message }) };

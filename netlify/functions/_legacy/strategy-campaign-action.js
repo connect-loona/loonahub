@@ -7,6 +7,7 @@ const { fbGet, fbPush, fbSet, fbUpdate } = require("../lib/strategy/firebase");
 const { checkAuthorization } = require("../lib/strategy/auth");
 const { signedBackgroundHeaders } = require("../lib/strategy/background-auth");
 const { siteBaseUrl } = require("../lib/site-base-url");
+const { recordManiEventSafe } = require("../lib/strategy/mani-events");
 
 const GENERATE_ACTIONS = new Set(["generate_identities", "generate_thought", "generate_routes", "generate_assets"]);
 const DECISION_ACTIONS = new Set(["lock_identity", "save_identity", "lock_thought", "lock_route"]);
@@ -28,6 +29,7 @@ async function remember(run, actor, decision, notes) {
     runId: run.runId, month: run.month, stage: "campaign", decision, actor,
     notes, createdAt: new Date().toISOString(),
   });
+  await recordManiEventSafe({ type: "campaign_decision", source: "strategy_os", brandId: run.brandId, actor, entityType: "strategy_run", entityId: run.runId, action: decision, summary: String(notes || decision), data: { month: run.month } });
 }
 
 exports.handler = async (event) => {

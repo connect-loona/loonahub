@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAllHubBrands, useBrands, useRun, useRuns, type HubBrandOption } from "../lib/useRuns";
-import { askMani, discardConcept, proposeConcept, retryStage, saveStrategyChatMessage, startRun, toggleAssetLock } from "../lib/api";
+import { askBB, discardConcept, proposeConcept, retryStage, saveStrategyChatMessage, startRun, toggleAssetLock } from "../lib/api";
 import { listenPath } from "../lib/firebase";
 import type { ChatMessage, CopyCheckpoint, StrategyAsset, StrategyBrand, StrategyCheckpoint, StrategyRun } from "../lib/types";
 import { CampaignBrief, CampaignRunChat } from "./CampaignPlanning";
 import loonaLogo from "../assets/loona-logo.png";
 
-type Mode = "home" | "monthly" | "campaign" | "mani";
+type Mode = "home" | "monthly" | "campaign" | "bb";
 
 const DEFAULT_COUNTS = { reel: 6, carousel: 4, static: 3 };
 
@@ -152,7 +152,7 @@ function Welcome({ onMode, configured }: { onMode: (mode: Mode) => void; configu
           NewRunWizard, the screen this chat rework replaced, which made the same call). */}
       <button type="button" disabled={!configured} onClick={() => onMode("monthly")}><b>Monthly planning</b><span>{configured ? "Build this month’s content one concept at a time." : "Needs a completed brand configuration first."}</span></button>
       <button type="button" disabled={!configured} onClick={() => onMode("campaign")}><b>Campaign planning</b><span>{configured ? "Shape a launch, event or campaign through conversation." : "Needs a completed brand configuration first."}</span></button>
-      <button type="button" onClick={() => onMode("mani")}><b>Chat with Mani</b><span>Ask what the brand has learned, approved or rejected.</span></button>
+      <button type="button" onClick={() => onMode("bb")}><b>Ask BB</b><span>Think through anything with BB, grounded in this brand’s memory.</span></button>
     </div>
   </div>;
 }
@@ -212,12 +212,31 @@ function ConceptCard({ asset, caption, candidate, index, total, logged, busy, on
   </div>;
 }
 
-function ManiChat({ brand }: { brand: HubBrandOption }) {
+function BBChat({ brand, actor }: { brand: HubBrandOption; actor: string }) {
   const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [busy, setBusy] = useState(false);
-  async function ask() { if (!question.trim() || busy) return; setBusy(true); setAnswer(null); try { const result = await askMani({ brandId: brand.id, question: question.trim() }); setAnswer(result.answer || result.detail || "Nothing recorded for this brand yet."); } catch (e) { setAnswer(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); } }
-  return <div className="sc-mani-chat"><div className="sc-assistant-block"><p>Ask me anything about what {brand.name} has learned.</p></div>{answer && <div className="sc-assistant-block sc-answer"><p>{answer}</p></div>}<div className="sc-input-row"><textarea value={question} onChange={(e) => setQuestion(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void ask(); } }} placeholder="What has this brand rejected before?" /><button type="button" className="sc-primary" disabled={busy || !question.trim()} onClick={() => void ask()}>{busy ? "Asking…" : "Ask Mani"}</button></div></div>;
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => listenPath<Record<string, ChatMessage>>(`strategy_bb_chats/${brand.id}/messages`, (value) => {
+    setMessages(Object.values(value || {}).sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt))));
+  }), [brand.id]);
+  async function ask() {
+    const message = question.trim();
+    if (!message || busy) return;
+    setBusy(true); setError(null); setQuestion("");
+    try { await askBB({ brandId: brand.id, message, actor }); }
+    catch (e) { setError(e instanceof Error ? e.message : String(e)); setQuestion(message); }
+    finally { setBusy(false); }
+  }
+  return <div className="sc-mani-chat sc-bb-chat">
+    {!messages.length && <div className="sc-assistant-block"><p>I’m BB. We can think through any question, brief, problem or idea for {brand.name}. Mani keeps the brand memory behind me, so I’ll distinguish what Loona already knows from what I’m recommending now.</p></div>}
+    {messages.map((message, index) => message.role === "user"
+      ? <div className="sc-user-bubble" key={`${message.createdAt || index}-user`}>{message.text}</div>
+      : <div className="sc-assistant-block sc-answer" key={`${message.createdAt || index}-assistant`}><p>{message.text}</p></div>)}
+    {busy && <div className="sc-status">BB is thinking with Mani’s memory <span className="sc-dots">•••</span></div>}
+    {error && <p className="sc-error">{error}</p>}
+    <div className="sc-input-row"><textarea value={question} onChange={(e) => setQuestion(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void ask(); } }} placeholder="Ask BB anything about this brand, or think through a new idea…" /><button type="button" className="sc-primary" disabled={busy || !question.trim()} onClick={() => void ask()}>{busy ? "Thinking…" : "Send"}</button></div>
+  </div>;
 }
 
 function RunChat({ runId, actor }: { runId: string; actor: string }) {
@@ -353,14 +372,14 @@ export function StrategyChatWorkspace({ actor }: { actor: string }) {
     <BrandSidebar brands={allBrands} active={selectedBrand} runs={runs} open={sidebarOpen} onBrand={chooseBrand} onNew={newChat} onOpen={(id) => { const opened = runs.find((item) => item.runId === id); setRunId(id); setMode(opened?.runType === "campaign" ? "campaign" : "monthly"); setSidebarOpen(false); }} />
     {(sidebarOpen || maniOpen) && <button type="button" className="vs-scrim" aria-label="Close" onClick={() => { setSidebarOpen(false); setManiOpen(false); }} />}
     <main className="vs-main">
-      <header className="vs-header"><button type="button" className="vs-mobile-tool" aria-label="Open projects" onClick={() => setSidebarOpen(true)}>☰</button><div><h1>{selectedBrand?.name || "Strategy OS"}</h1><p>{activeRun ? (activeRun.runType === "campaign" ? "Campaign planning" : monthLabel(activeRun.month)) : mode === "home" ? "New strategy chat" : mode === "mani" ? "Chat with Mani" : mode === "campaign" ? "Campaign planning" : "Monthly planning"}</p></div><button type="button" className="vs-header-tool" onClick={() => setManiOpen(true)}>Mani</button></header>
+      <header className="vs-header"><button type="button" className="vs-mobile-tool" aria-label="Open projects" onClick={() => setSidebarOpen(true)}>☰</button><div><h1>{selectedBrand?.name || "Strategy OS"}</h1><p>{activeRun ? (activeRun.runType === "campaign" ? "Campaign planning" : monthLabel(activeRun.month)) : mode === "home" ? "New strategy chat" : mode === "bb" ? "Ask BB" : mode === "campaign" ? "Campaign planning" : "Monthly planning"}</p></div><button type="button" className="vs-header-tool" onClick={() => setManiOpen(true)}>Memory</button></header>
       <section className="vs-thread sc-thread">
         {!selectedBrand && <div className="sc-assistant-block"><p>Add a brand in Hub before starting a strategy chat.</p></div>}
         {selectedBrand && !selectedBrand.configured && <div className="sc-assistant-block sc-warning"><p>{selectedBrand.name} needs a completed Strategy OS brand configuration before research can start.</p></div>}
         {selectedBrand && !runId && mode === "home" && <Welcome onMode={setMode} configured={Boolean(selectedBrand.configured)} />}
         {selectedBrand && !runId && mode === "monthly" && <Brief mode="monthly" brand={selectedBrand} actor={actor} onStarted={(id) => setRunId(id)} onCancel={() => setMode("home")} />}
         {selectedBrand && !runId && mode === "campaign" && <CampaignBrief brand={selectedBrand} actor={actor} onStarted={(id) => setRunId(id)} onCancel={() => setMode("home")} />}
-        {selectedBrand && !runId && mode === "mani" && <ManiChat brand={selectedBrand} />}
+        {selectedBrand && !runId && mode === "bb" && <BBChat brand={selectedBrand} actor={actor} />}
         {runId && (mode === "campaign" || activeRun?.runType === "campaign") ? <CampaignRunChat runId={runId} actor={actor} /> : null}
         {runId && mode !== "campaign" && activeRun?.runType !== "campaign" ? <RunChat runId={runId} actor={actor} /> : null}
       </section>
@@ -368,8 +387,8 @@ export function StrategyChatWorkspace({ actor }: { actor: string }) {
     </main>
     <aside className={`vs-memory-drawer${maniOpen ? " is-open" : ""}`}>
       <button type="button" className="vs-drawer-close" onClick={() => setManiOpen(false)}>Close</button>
-      <h2>Mani · Brand memory agent</h2>
-      <p className="vs-muted vs-muted-sm">Mani reads stored choices, feedback and rejected directions when supporting Strategy OS.</p>
+      <h2>Mani · Brand memory</h2>
+      <p className="vs-muted vs-muted-sm">Mani works behind the scenes, collecting the brand’s recorded choices, feedback, team activity and Visual Studio history. BB uses this memory when speaking with the team.</p>
       <p className="vs-section-label">Plan status</p><p className="vs-muted vs-muted-sm">{planStatusText(activeRun)}</p>
       <p className="vs-section-label">Brand configuration</p><p className="vs-muted vs-muted-sm">{strategyBrand ? "Ready for planning" : "Needs setup"}</p>
     </aside>

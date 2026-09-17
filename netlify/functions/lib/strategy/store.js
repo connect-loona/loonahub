@@ -174,7 +174,8 @@ async function loadBrandLibrary(config, options) {
 // Any can be absent without affecting the others, and a failure in any is logged and skipped
 // rather than allowed to fail a run — this is context, not the brief itself.
 async function loadBrandBrain(brandId, brandName) {
-  const [distilled, activity, visual] = await Promise.all([
+  const { loadRecentManiEvents, maniEventsToPromptText } = require("./mani-events");
+  const [distilled, activity, visual, events] = await Promise.all([
     (async () => {
       try { return brainToPromptText(await loadBrain(brandId)); }
       catch (error) { console.error(`Could not load Loona Brain for ${brandId}:`, error.message); return null; }
@@ -184,8 +185,13 @@ async function loadBrandBrain(brandId, brandName) {
       catch (error) { console.error(`Could not load team activity for ${brandId}:`, error.message); return null; }
     })(),
     loadVisualPromptText(brandId),
+    // BB already receives its chat history separately. Keep every chat turn in Mani's
+    // ledger, but omit those raw duplicates from the context block sent back to BB.
+    loadRecentManiEvents(brandId)
+      .then((items) => maniEventsToPromptText(items.filter((item) => item.type !== "bb_conversation")))
+      .catch(() => null),
   ]);
-  const parts = [distilled, activity, visual].filter(Boolean);
+  const parts = [distilled, activity, visual, events].filter(Boolean);
   return parts.length ? parts.join("\n\n") : null;
 }
 

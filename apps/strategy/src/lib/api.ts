@@ -89,6 +89,12 @@ export function askMani(args: { brandId: string; question: string }): Promise<{
   }>;
 }
 
+// BB is the team-facing conversational strategist. The endpoint supplies Mani's composed
+// brand memory server-side, so the browser never has to assemble or transmit that context.
+export function askBB(args: { brandId: string; message: string; actor: string }): Promise<{ answer: string }> {
+  return post("strategy-bb-chat", args) as Promise<{ answer: string }>;
+}
+
 // The brand folders sitting in Drive, and whether each already has a brand in Hub. The Drive
 // folder is where a new client actually starts, so this is what "which brands exist?" should
 // be answered from.
