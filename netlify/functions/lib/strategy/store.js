@@ -162,7 +162,9 @@ async function loadBrandLibrary(config, options) {
 // agents exactly as it always has, so a brand with no brain runs precisely as it did before
 // any of this existed.
 //
-// Three inputs, joined here because the prompts want one block, not a growing list of fields:
+// Four inputs, joined here because the prompts want one block, not a growing list of fields:
+//   - the reviewed Brand Directory configuration, which is the team's explicit source of
+//     truth for identity, voice, audiences and visual guardrails;
 //   - the distilled Drive material (brand-brain.js), cached against a fingerprint because
 //     distilling costs a model call and unchanged files have nothing new to say;
 //   - the live task board (team-activity.js), computed fresh every time because it is state
@@ -173,9 +175,40 @@ async function loadBrandLibrary(config, options) {
 //
 // Any can be absent without affecting the others, and a failure in any is logged and skipped
 // rather than allowed to fail a run — this is context, not the brief itself.
+function brandDirectoryToPromptText(config) {
+  if (!config) return null;
+  const audience = (config.audiences || []).map((item) => item.description).filter(Boolean).join("; ");
+  const pillars = (config.pillars || []).map((item) => `${item.name}: ${item.description}`).filter(Boolean).join("; ");
+  const lines = [
+    "# Brand Directory (reviewed configuration)",
+    `Brand: ${config.name || config.id}`,
+    config.category ? `Category: ${config.category}` : null,
+    config.oneLineTruth ? `Brand truth: ${config.oneLineTruth}` : null,
+    config.website ? `Website: ${config.website}` : null,
+    config.market?.length ? `Markets: ${config.market.join(", ")}` : null,
+    config.voice?.descriptors?.length ? `Voice: ${config.voice.descriptors.join(", ")}` : null,
+    config.voice?.principles?.length ? `Voice principles: ${config.voice.principles.join("; ")}` : null,
+    config.voice?.bannedWords?.length ? `Avoid words: ${config.voice.bannedWords.join(", ")}` : null,
+    config.voice?.bannedMoves?.length ? `Avoid moves: ${config.voice.bannedMoves.join("; ")}` : null,
+    config.visual?.feel?.length ? `Visual feel: ${config.visual.feel.join(", ")}` : null,
+    config.visual?.avoid?.length ? `Visual avoid: ${config.visual.avoid.join("; ")}` : null,
+    audience ? `Priority audiences: ${audience}` : null,
+    pillars ? `Content pillars: ${pillars}` : null,
+    config.competitors?.length ? `Competitors: ${config.competitors.join(", ")}` : null,
+  ].filter(Boolean);
+  return lines.length > 2 ? lines.join("\n") : null;
+}
+
 async function loadBrandBrain(brandId, brandName) {
   const { loadRecentManiEvents, maniEventsToPromptText } = require("./mani-events");
-  const [distilled, activity, visual, events] = await Promise.all([
+  const [directory, distilled, activity, visual, events] = await Promise.all([
+    // The config is read fresh for every request so a review/save in Brand Directory is
+    // immediately available to Mani and BB. An unconfigured Hub brand simply has no
+    // directory entry yet; that must never take the rest of its memory offline.
+    (async () => {
+      try { return brandDirectoryToPromptText(await loadBrandConfig(brandId)); }
+      catch (error) { if (!/No brand config found/.test(error.message || "")) console.error(`Could not load Brand Directory for ${brandId}:`, error.message); return null; }
+    })(),
     (async () => {
       try { return brainToPromptText(await loadBrain(brandId)); }
       catch (error) { console.error(`Could not load Loona Brain for ${brandId}:`, error.message); return null; }
@@ -191,7 +224,7 @@ async function loadBrandBrain(brandId, brandName) {
       .then((items) => maniEventsToPromptText(items.filter((item) => item.type !== "bb_conversation")))
       .catch(() => null),
   ]);
-  const parts = [distilled, activity, visual, events].filter(Boolean);
+  const parts = [directory, distilled, activity, visual, events].filter(Boolean);
   return parts.length ? parts.join("\n\n") : null;
 }
 
