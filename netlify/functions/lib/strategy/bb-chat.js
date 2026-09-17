@@ -7,6 +7,7 @@
 "use strict";
 
 const { BB_LOONA_SOUL, LOONA_SOUL } = require("./souls-data");
+const { isProviderError } = require("./runtime-failover");
 
 const MAX_MESSAGE_CHARS = 4000;
 const MAX_HISTORY_MESSAGES = 12;
@@ -71,6 +72,40 @@ function attachmentBlocks(attachments) {
   return blocks;
 }
 
+function answerText(response) {
+  const answer = (response.content || [])
+    .filter((block) => block.type === "text")
+    .map((block) => block.text)
+    .join("\n")
+    .trim();
+  if (!answer) throw new Error("BB had nothing to say.");
+  return { answer: answer.slice(0, MAX_ANSWER_CHARS) };
+}
+
+async function askBBWithOpenAI({ brandName, message, memory, history, attachments }) {
+  if (!process.env.OPENAI_API_KEY) {
+    const error = new Error("OPENAI_API_KEY is required for BB fallback.");
+    error.name = "ConfigurationError";
+    throw error;
+  }
+  const { Agent, run, webSearchTool, setTracingDisabled } = require("@openai/agents");
+  setTracingDisabled(true);
+  const turns = cleanHistory(history).map((turn) => `${turn.role === "assistant" ? "BB" : "Team"}: ${turn.content}`).join("\n\n");
+  const attachmentNote = Array.isArray(attachments) && attachments.length
+    ? `\n\nAttachments were supplied (${attachments.map((item) => item.filename || "file").join(", ")}). If you need to inspect their pixels or pages, ask the team to retry when BB's primary visual model is available.`
+    : "";
+  const agent = new Agent({
+    name: "BB Loona",
+    model: process.env.STRATEGY_BB_OPENAI_MODEL || process.env.STRATEGY_OPENAI_MODEL || "gpt-5.4",
+    instructions: instructions({ brandName, memory }),
+    tools: [webSearchTool({ searchContextSize: "low" })],
+  });
+  const result = await run(agent, `${turns}\n\nTeam: ${message}${attachmentNote}`, { maxTurns: 4 });
+  const answer = typeof result.finalOutput === "string" ? result.finalOutput.trim() : String(result.finalOutput || "").trim();
+  if (!answer) throw new Error("BB fallback had nothing to say.");
+  return { answer: answer.slice(0, MAX_ANSWER_CHARS), provider: "OpenAI" };
+}
+
 async function askBB({ brandName, message, memory, history, attachments }, deps = {}) {
   const asked = String(message || "").trim().slice(0, MAX_MESSAGE_CHARS);
   if (!asked) throw new Error("BB needs a message.");
@@ -95,26 +130,27 @@ async function askBB({ brandName, message, memory, history, attachments }, deps 
     const current = messages[messages.length - 1];
     current.content = [{ type: "text", text: current.content }, ...blocks];
   }
-  const response = await client.messages.create({
-    // BB is intentionally independent from the long-form Strategy OS pipeline model.
-    // Sonnet gives a near-immediate conversational first token; an explicit BB override is
-    // still available for a workspace that deliberately wants a different model.
-    model: process.env.STRATEGY_BB_MODEL || "claude-sonnet-4-5-20250929",
-    max_tokens: 1000,
-    system: instructions({ brandName, memory }),
-    // BB is a conversational strategist, but a team will naturally ask it what is happening
-    // now. Give it the same bounded live-research tool the Research stage uses; the model can
-    // leave it unused for ordinary brand-memory or brainstorming questions.
-    tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 6 }],
-    messages,
-  });
-  const answer = (response.content || [])
-    .filter((block) => block.type === "text")
-    .map((block) => block.text)
-    .join("\n")
-    .trim();
-  if (!answer) throw new Error("BB had nothing to say.");
-  return { answer: answer.slice(0, MAX_ANSWER_CHARS) };
+  try {
+    const response = await client.messages.create({
+      // BB is intentionally independent from the long-form Strategy OS pipeline model.
+      // Sonnet gives a near-immediate conversational first token; an explicit BB override is
+      // still available for a workspace that deliberately wants a different model.
+      model: process.env.STRATEGY_BB_MODEL || "claude-sonnet-4-5-20250929",
+      max_tokens: 1000,
+      system: instructions({ brandName, memory }),
+      tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 6 }],
+      messages,
+    });
+    return answerText(response);
+  } catch (error) {
+    // A quota, billing, timeout or provider outage must not take BB offline. The fallback
+    // keeps ordinary conversation and web research working; image/PDF vision remains on
+    // Sonnet so BB is transparent if the fallback cannot inspect an attached asset.
+    if (!isProviderError(error) || (deps.client && !deps.openAIFallback)) throw error;
+    console.warn(`BB Sonnet unavailable; using OpenAI fallback: ${error.message || error}`);
+    const fallback = deps.openAIFallback || askBBWithOpenAI;
+    return fallback({ brandName, message: asked, memory, history, attachments });
+  }
 }
 
-module.exports = { askBB, instructions, cleanHistory, attachmentBlocks, MAX_MESSAGE_CHARS, MAX_HISTORY_MESSAGES, MAX_MEMORY_CHARS };
+module.exports = { askBB, instructions, cleanHistory, attachmentBlocks, askBBWithOpenAI, MAX_MESSAGE_CHARS, MAX_HISTORY_MESSAGES, MAX_MEMORY_CHARS };

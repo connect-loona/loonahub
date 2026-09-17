@@ -38,6 +38,16 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
   check("BB can use the bounded live web-search tool for current questions",
     log[0].tools.some((tool) => tool.type === "web_search_20260209" && tool.max_uses === 6), log[0].tools);
 
+  // A supplied test client deliberately does not trigger cross-provider calls, so exercise
+  // the production fallback branch with an injected OpenAI responder.
+  check("provider limit errors are eligible for OpenAI fallback", require(path.join(HUB, "netlify/functions/lib/strategy/runtime-failover")).isProviderError(Object.assign(new Error("rate limit"), { status: 429 })), "429");
+  let fallbackUsed = false;
+  const fallbackResult = await askBB({ brandName: "RRO Foods", message: "Hello", memory: null }, {
+    client: { messages: { create: async () => { const error = new Error("rate limit"); error.status = 429; throw error; } } },
+    openAIFallback: async () => { fallbackUsed = true; return { answer: "OpenAI kept BB available." }; },
+  });
+  check("BB switches to OpenAI when Sonnet is rate-limited", fallbackUsed && /OpenAI kept BB/.test(fallbackResult.answer), fallbackResult);
+
   const blocks = attachmentBlocks([
     { contentType: "image/png", data: Buffer.from("image"), filename: "moodboard.png" },
     { contentType: "application/pdf", data: Buffer.from("pdf"), filename: "brief.pdf" },
