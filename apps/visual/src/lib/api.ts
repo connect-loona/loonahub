@@ -20,10 +20,19 @@ async function post(path: string, body: unknown): Promise<unknown> {
   const token = await getIdTokenOrNull();
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(`/.netlify/functions/${path}`, { method: "POST", headers, body: JSON.stringify(body) });
+  // Safari can resume a cached Visual Studio tab after the Hub's one-day login cookie has
+  // expired. Be explicit that this is an authenticated same-origin request; relying on the
+  // fetch default left some iPad sessions sending no loona_auth cookie to billed endpoints.
+  const res = await fetch(`/.netlify/functions/${path}`, { method: "POST", headers, body: JSON.stringify(body), credentials: "include" });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const payload = data as { error?: string; reason?: string };
+    if (res.status === 401 && /No loona_auth cookie|doesn't match/i.test(payload.reason || "")) {
+      // Reloading the current /visual route takes the person through the edge sign-in gate
+      // and returns them here afterwards. It is clearer than stranding them on an old cached
+      // screen with an opaque API error.
+      window.location.reload();
+    }
     const message = payload.error || "Request failed.";
     const err = new Error(payload.reason ? `${message} — ${payload.reason}` : message) as Error & { status?: number };
     // 429 (a burst rate limit, retry works) and 402 (out of credit, retry never works) need
@@ -40,7 +49,7 @@ export async function uploadReference(chatId: string, reference: PendingReferenc
   const query = new URLSearchParams({ chatId, filename: reference.name || "reference", role: reference.role || "" });
   const headers = await authHeaders({ "Content-Type": reference.file.type || "image/png" });
   const res = await fetch(`/.netlify/functions/visual-reference-upload?${query}`, {
-    method: "POST", headers, body: reference.file,
+    method: "POST", headers, body: reference.file, credentials: "include",
   });
   const data = await res.json().catch(() => ({})) as { asset?: { assetKey: string; url: string; contentType?: string; warnings?: string[] }; error?: string };
   if (!res.ok || !data.asset) throw new Error(data.error || "Could not upload the reference.");
@@ -102,7 +111,7 @@ export async function waitForJob(jobId: string): Promise<Generation & { recorded
 export async function startJob(jobId: string, workerToken: string): Promise<void> {
   const headers = await authHeaders({ "Content-Type": "application/json" });
   const started = await fetch("/.netlify/functions/visual-generate-background", {
-    method: "POST", headers, body: JSON.stringify({ jobId, workerToken }),
+    method: "POST", headers, body: JSON.stringify({ jobId, workerToken }), credentials: "include",
   });
   // A background function answers 202 and nothing else. Anything outside the 2xx range means
   // the worker was never kicked, so the job would sit queued for ever if we started polling.
