@@ -29,11 +29,14 @@ button { cursor: pointer; }
    Visual Studio ships, not just its class names. */
 .sc-shell {
   display: grid; grid-template-columns: 236px minmax(0, 1fr); min-height: 100vh;
+  /* iPad Safari's old 100vh includes browser chrome, which pushed Ask BB's composer below
+     the visible screen. dvh follows the actual visible viewport as that chrome changes. */
+  height: 100dvh;
   color: var(--sc-ink); background: var(--sc-page);
 }
 .sc-sidebar {
   display: flex; flex-direction: column; gap: 4px; padding: 16px 12px;
-  border-right: 1px solid var(--sc-line); max-height: 100vh; overflow-y: auto;
+  border-right: 1px solid var(--sc-line); max-height: 100vh; max-height: 100dvh; overflow-y: auto;
   background: #fbfaf7; color: var(--sc-ink);
 }
 .sc-sidebar .vs-logo { padding: 2px 6px 14px; }
@@ -75,7 +78,7 @@ button { cursor: pointer; }
 .sc-sidebar .vs-muted-sm { font-size: 12px; }
 .sc-sidebar .vs-spacer { flex: 1; }
 .sc-sidebar .vs-usage-link { padding: 8px; border: 0; border-radius: 8px; background: transparent; text-align: left; color: var(--sc-ink); }
-.sc-main, .sc-shell .vs-main { display: flex; flex-direction: column; min-width: 0; max-height: 100vh; background: var(--sc-panel); }
+.sc-main, .sc-shell .vs-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; max-height: 100vh; max-height: 100dvh; background: var(--sc-panel); }
 .sc-shell .vs-header {
   display: flex; align-items: center; gap: 12px; flex: 0 0 auto; padding: 14px 20px;
   border-bottom: 1px solid var(--sc-line); background: var(--sc-panel);
@@ -85,7 +88,7 @@ button { cursor: pointer; }
 .sc-shell .vs-header p, .sc-shell .vs-muted { margin: 2px 0 0; color: var(--sc-muted); }
 .sc-shell .vs-header-tool, .sc-shell .vs-mobile-tool { padding: 6px 10px; border: 1px solid var(--sc-line); border-radius: 8px; background: #fff; color: var(--sc-ink); font-size: 12px; }
 .sc-shell .vs-mobile-tool { display: none; }
-.sc-thread { flex: 1 1 auto; overflow-y: auto; padding: 28px clamp(18px, 5vw, 72px); }
+.sc-thread { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 28px clamp(18px, 5vw, 72px); }
 .sc-loading, .sc-signed-out { display: grid; place-content: center; min-height: 100vh; padding: 32px; text-align: center; color: var(--sc-muted); }
 .sc-signed-out h1 { margin: 0 0 8px; color: var(--sc-ink); font-family: Georgia, serif; font-weight: 500; }
 .sc-signed-out a { color: var(--sc-accent); }
@@ -157,7 +160,10 @@ button { cursor: pointer; }
 .sc-input-row .sc-primary { flex: 0 0 auto; }
 /* Ask BB is a conversation surface, not a form card. Its thread owns the available
    height and the composer stays at the bottom, so long replies never push the input away. */
-.sc-thread:has(.sc-bb-chat) { padding: 0; overflow: hidden; }
+.sc-thread:has(.sc-bb-chat) { flex: 1 1 0; padding: 0; overflow: hidden; }
+/* BB already explains its saved brand memory directly below the composer. Keeping the global
+   footer as well steals precious vertical room on iPad and was visually covering the input. */
+.sc-thread:has(.sc-bb-chat) + .sc-bottom-hint { display: none; }
 .sc-bb-chat { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .sc-bb-message-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; scroll-behavior: smooth; }
 .sc-bb-messages { width: min(760px, 100%); margin: 0 auto; padding: clamp(28px, 5vw, 64px) clamp(18px, 5vw, 34px) 30px; }
@@ -167,14 +173,14 @@ button { cursor: pointer; }
 .sc-bb-user-message { margin-bottom: 28px; }
 .sc-bb-assistant-message { max-width: 680px; margin: 0 0 28px; color: var(--sc-ink); font-size: 15px; line-height: 1.7; white-space: pre-wrap; }
 .sc-bb-thinking { margin: 0 0 28px; color: var(--sc-muted); font-size: 13px; }
-.sc-bb-composer-wrap { flex: 0 0 auto; padding: 14px clamp(18px, 5vw, 34px) 13px; border-top: 1px solid rgba(230,226,217,.72); background: rgba(255,255,255,.92); backdrop-filter: blur(12px); }
+.sc-bb-composer-wrap { flex: 0 0 auto; padding: 14px clamp(18px, 5vw, 34px) calc(13px + env(safe-area-inset-bottom)); border-top: 1px solid rgba(230,226,217,.72); background: rgba(255,255,255,.92); backdrop-filter: blur(12px); }
 .sc-bb-composer { display: flex; align-items: flex-end; gap: 9px; width: min(760px, 100%); margin: 0 auto; padding: 8px 9px 8px 15px; border: 1px solid var(--sc-line); border-radius: 25px; background: #fff; box-shadow: 0 8px 28px rgba(35,28,18,.08); }
 .sc-bb-composer:focus-within { border-color: #cbb9a7; box-shadow: 0 8px 28px rgba(35,28,18,.12); }
 .sc-bb-composer textarea { flex: 1; min-height: 28px; max-height: 160px; padding: 3px 0; border: 0; resize: none; outline: 0; background: transparent; line-height: 1.5; }
 .sc-bb-send { display: grid; place-items: center; width: 32px; height: 32px; flex: 0 0 32px; padding: 0; border: 0; border-radius: 50%; background: var(--sc-ink); color: #fff; font-size: 20px; line-height: 1; }
 .sc-bb-send:disabled { background: #ddd9d1; color: #fff; cursor: not-allowed; }
 .sc-bb-composer-wrap p { width: min(760px, 100%); margin: 7px auto 0; color: var(--sc-muted); font-size: 10.5px; text-align: center; }
-.sc-bottom-hint { padding: 7px 20px 13px; color: var(--sc-muted); font-size: 11px; text-align: center; }
+.sc-bottom-hint { flex: 0 0 auto; padding: 7px 20px calc(13px + env(safe-area-inset-bottom)); color: var(--sc-muted); font-size: 11px; text-align: center; }
 .sc-final-plan { margin: 30px 0 10px; padding: 18px; border: 1px solid var(--sc-line); border-radius: 13px; background: #fbfaf7; }
 .sc-final-plan h3 { margin: 0 0 5px; font-family: Georgia, serif; font-size: 22px; font-weight: 500; }
 .sc-final-item { padding: 12px 0; border-top: 1px solid var(--sc-line); }
