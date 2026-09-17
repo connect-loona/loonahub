@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { onAuthChange, type CurrentUser } from "./lib/firebase";
 import { StrategyChatWorkspace } from "./components/StrategyChatWorkspace";
+// Strategy OS deliberately reuses Visual Studio's shell primitives. Import the actual
+// source of those primitives so the shared vs-* class names have their layout, spacing,
+// navigation and mobile-drawer rules—not only Strategy's sc-* colour overrides.
+import "../../visual/src/styles.css";
 import "./styles/components.css";
 import "./styles/strategy-chat.css";
 
