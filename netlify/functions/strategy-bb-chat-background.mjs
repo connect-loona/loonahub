@@ -2,6 +2,7 @@ import firebase from "./lib/strategy/firebase.js";
 import hubBrands from "./lib/strategy/hub-brands.js";
 import store from "./lib/strategy/store.js";
 import bbChat from "./lib/strategy/bb-chat.js";
+import bbHouseRules from "./lib/strategy/bb-house-rules.js";
 import visualAssets from "./lib/strategy/visual-assets.js";
 import maniEvents from "./lib/strategy/mani-events.js";
 import apiUsage from "./lib/strategy/api-usage.js";
@@ -15,6 +16,7 @@ const { fbGet, fbPush, fbUpdate, fbSafeKey } = firebase;
 const { findHubBrand } = hubBrands;
 const { loadBrandBrain, loadGlobalBrain } = store;
 const { askBB, extractMemoryNoteSafe, MAX_HISTORY_MESSAGES } = bbChat;
+const { loadHouseRulesText, saveHouseRuleSafe } = bbHouseRules;
 
 const GLOBAL_SCOPE_NOTE = "This is the Loona Hub-wide conversation. No single brand is selected. Ask which brand a recommendation applies to when that matters, and do not invent cross-brand facts.";
 
@@ -55,18 +57,23 @@ export default async function (request) {
     const attachments = Array.isArray(turn.attachments) ? turn.attachments : [];
     const visionAttachments = await Promise.all(attachments.map(async (item) => { const stored = await loadAsset(item.assetKey); return stored && stored.metadata.kind === "bb-attachment" && stored.metadata.brandId === brandId ? { data: stored.data, contentType: stored.metadata.contentType, filename: stored.metadata.filename || item.filename } : null; }));
     const global = body.scope === "global"; const brand = global ? null : await findHubBrand(brandId);
-    const memory = global ? [GLOBAL_SCOPE_NOTE, await loadGlobalBrain()].filter(Boolean).join("\n\n") : await loadBrandBrain(brandId, brand && brand.name);
+    const [brainText, houseRules] = await Promise.all([
+      global ? loadGlobalBrain() : loadBrandBrain(brandId, brand && brand.name),
+      loadHouseRulesText().catch((error) => { console.error("Could not load BB's house rules:", error.message); return null; }),
+    ]);
+    const memory = global ? [GLOBAL_SCOPE_NOTE, brainText].filter(Boolean).join("\n\n") : brainText;
     // turn.actorVerified reflects whether a Firebase-authenticated Hub session actually
     // backed this actor name (see resolveVisualActor in strategy-bb-chat.js) — the same
     // distinction WhatsApp draws between a Hub-verified name and a self-reported one.
     const speaker = turn.actor ? { name: turn.actor, verified: Boolean(turn.actorVerified) } : null;
-    const result = await askBB({ brandName: global ? "Loona Hub" : ((brand && brand.name) || brandId), message: turn.text, memory, history, attachments: visionAttachments.filter(Boolean), speaker });
+    const result = await askBB({ brandName: global ? "Loona Hub" : ((brand && brand.name) || brandId), message: turn.text, memory, history, attachments: visionAttachments.filter(Boolean), speaker, houseRules });
     await fbPush(path, { role: "assistant", text: result.answer, actor: "BB Loona", createdAt: new Date().toISOString(), replyTo: messageId });
     await fbUpdate(messagePath, { status: "answered", error: null });
     await recordBBUsage(turn, brandId, "succeeded", result.provider || "Anthropic", result.model);
     if (!global) { await recordManiEventSafe({ type: "bb_conversation", source: "strategy_os", brandId, actor: turn.actor || "Team", entityType: "bb_chat", entityId: brandId, action: "asked", summary: `Asked BB: ${turn.text}` }); await recordManiEventSafe({ type: "bb_conversation", source: "strategy_os", brandId, actor: "BB Loona", entityType: "bb_chat", entityId: brandId, action: "answered", summary: `BB answered: ${result.answer}` }); }
     const note = await extractMemoryNoteSafe({ userMessage: turn.text, bbAnswer: result.answer });
-    if (note) await saveMemoryNoteSafe(brandId, note, turn.actor || "Team");
+    if (note && note.type === "rule") await saveHouseRuleSafe(note.text, turn.actor || "Team");
+    else if (note) await saveMemoryNoteSafe(brandId, note.text, turn.actor || "Team");
   } catch (error) {
     await fbUpdate(messagePath, { status: "failed", error: error.message || String(error) });
     await recordBBUsage(turn, brandId, "failed", null, null);
