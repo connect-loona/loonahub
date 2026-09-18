@@ -284,8 +284,12 @@ async function loadGlobalBrain() {
   const { loadRecentHubManiEvents, maniEventsToPromptText } = require("./mani-events");
   const { loadTeamDirectoryText } = require("./hub-members");
   const { loadAttendanceText } = require("./attendance-memory");
-  const [pasted, events, team, attendance] = await Promise.all([
+  const { loadHubTaskBoardText } = require("./team-activity");
+  const [pasted, events, team, attendance, tasks] = await Promise.all([
     loadPastedManiMemory("global").catch((error) => { console.error("Could not load Hub-wide Mani memory:", error.message); return null; }),
+    // Kept alongside the task board below rather than filtered down to exclude it — the board
+    // is current STATE (what's open right now); these events are HISTORY (who changed what,
+    // and when), which the board itself doesn't carry. The two answer different questions.
     loadRecentHubManiEvents()
       .then((items) => maniEventsToPromptText(items.filter((item) => item.type !== "bb_conversation")))
       .catch(() => null),
@@ -293,8 +297,9 @@ async function loadGlobalBrain() {
     // Hub-wide only, not per-brand — who's in the office today isn't relevant to a
     // conversation about a specific client's content, and would just add noise there.
     loadAttendanceText().catch((error) => { console.error("Could not load today's attendance:", error.message); return null; }),
+    loadHubTaskBoardText().catch((error) => { console.error("Could not load the Hub task board:", error.message); return null; }),
   ]);
-  const parts = [pasted, events, team, attendance].filter(Boolean);
+  const parts = [pasted, events, team, attendance, tasks].filter(Boolean);
   return parts.length ? parts.join("\n\n") : null;
 }
 

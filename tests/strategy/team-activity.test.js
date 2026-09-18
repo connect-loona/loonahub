@@ -10,6 +10,7 @@ const path = require("path");
 const { HUB, RTDB_URL, req, check, finish } = require("../harness/shared");
 const {
   collectTeamActivity, teamActivityToPromptText, loadTeamActivityText, taskMatchesBrand, slug,
+  collectAllTeamActivity, hubTaskBoardToPromptText, loadHubTaskBoardText,
 } = require(path.join(HUB, "netlify/functions/lib/strategy/team-activity"));
 
 const TODAY = "2026-09-13";
@@ -68,6 +69,36 @@ const TODAY = "2026-09-13";
   // Without this the agents would happily treat a task title as a content idea to write about.
   check("it is framed as context, not as a brief",
     /not a brief/.test(text) && /nothing here is content to write about/.test(text), text.slice(0, 400));
+
+  // ---- The Hub-wide board: every brand at once, for Global BB ----
+  const allActivity = await collectAllTeamActivity({ today: TODAY });
+  const allActiveTasks = allActivity.active.map((t) => t.task);
+  check("the Hub-wide board sees every brand's open tasks, not just one", allActiveTasks.includes("Write October captions") && allActiveTasks.includes("Casa brand deck"), allActiveTasks);
+  check("completed and deferred work stays off the Hub-wide open list too", !allActiveTasks.includes("Send September report") && !allActiveTasks.includes("Old deferred thing"), allActiveTasks);
+  check("the Hub-wide overdue list also spans every brand", allActivity.overdue.some((t) => t.task === "Fix the pack shot"), allActivity.overdue.map((t) => t.task));
+
+  const hubText = hubTaskBoardToPromptText(allActivity);
+  check("the Hub-wide board names which brand each task belongs to, since it's no longer implicit", /Casa brand deck — Casa Waters · Priya/.test(hubText), hubText);
+  check("it's clearly labelled as spanning every brand", /all brands/i.test(hubText), hubText.slice(0, 100));
+  check("it's framed as the live board, not a brief, same as the per-brand version", /not a brief/.test(hubText), hubText);
+
+  const liveHubBoard = await loadHubTaskBoardText({ today: TODAY });
+  check("the Hub-wide text helper reads the real board too", /Write October captions/.test(liveHubBoard || ""), (liveHubBoard || "").slice(0, 150));
+
+  await req("PUT", `${RTDB_URL}/tasks.json`, null);
+  const emptyHubBoard = await loadHubTaskBoardText({ today: TODAY });
+  check("an empty board has no Hub-wide task section rather than an empty heading", emptyHubBoard === null, emptyHubBoard);
+  check("a null Hub-wide activity is also safe", hubTaskBoardToPromptText(null) === null);
+
+  // Re-seed for the per-brand "nobody" checks below, which expect the same board as before.
+  await req("PUT", `${RTDB_URL}/tasks.json`, {
+    t1: { task: "Shoot the Diwali reel", member: "Anjali", brand: "RRO Foods", status: "In Progress", due_date: "2026-09-20", created_at: "2026-09-10T00:00:00Z" },
+    t2: { task: "Write October captions", member: "Vishnu", brand: "RRO Foods", status: "Not Started", priority: "High", due_date: "2026-09-30", created_at: "2026-09-12T00:00:00Z" },
+    t3: { task: "Send September report", member: "Anjali", brand: "RRO Foods", status: "Completed", created_at: "2026-09-01T00:00:00Z" },
+    t4: { task: "Fix the pack shot", member: "Rahul", brand: "RRO Foods", status: "Not Started", due_date: "2026-09-05", created_at: "2026-09-02T00:00:00Z" },
+    t5: { task: "Casa brand deck", member: "Priya", brand: "Casa Waters", status: "In Progress", created_at: "2026-09-11T00:00:00Z" },
+    t6: { task: "Old deferred thing", member: "Anjali", brand: "RRO Foods", status: "Deferred", created_at: "2026-08-01T00:00:00Z" },
+  });
 
   // ---- A brand nobody has tasks for gets nothing, not an empty shell ----
   const empty = await collectTeamActivity("nobody", "Nobody Brand", { today: TODAY });
