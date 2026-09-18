@@ -343,7 +343,10 @@
 #                             the one who requests it can't self-approve. Whoever approves
 #                             does it from their own Business Settings -> Requests.)
 #   WHATSAPP_PHONE_NUMBER_ID (same API Setup page — the numeric "Phone number ID" for the
-#                             WhatsApp number BB replies from. Not the phone number itself.)
+#                             WhatsApp number BB replies FROM. Easy to confuse with
+#                             WHATSAPP_ALLOWED_NUMBERS below, which is the number(s) BB is
+#                             replying TO — the two are unrelated and only one of them needs
+#                             to change if just your own test number changes.)
 #   WHATSAPP_ALLOWED_NUMBERS (comma-separated phone numbers allowed to message BB, e.g.
 #                             "+919876543210,+911234567890". Compared on digits only, so any
 #                             of "+91 98765 43210", "919876543210" or "91-9876543210" here
