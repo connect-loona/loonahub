@@ -48,14 +48,15 @@ button { cursor: pointer; }
 .sc-bb-opening h1 { margin: 13px 0 3px; font-family: Georgia, serif; font-size: 28px; font-weight: 500; }
 .sc-bb-opening p { margin: 0; color: var(--sc-muted); font-size: 13px; }
 @keyframes sc-bb-wave { 0%,100% { transform: rotate(-8deg) scale(1); } 50% { transform: rotate(9deg) scale(1.12); } }
-.sc-sidebar .vs-logo { padding: 2px 6px 14px; }
-.sc-sidebar .vs-logo a { display: inline-block; text-decoration: none; }
-/* The source wordmark is white on transparency and is intentionally left white here. */
-.sc-sidebar .vs-logo img { display: block; height: 22px; width: auto; }
-.sc-wordmark { color: #fff; font-family: Georgia, serif; font-size: 18px; letter-spacing: .08em; }
-.sc-sidebar .vs-topnav { display: flex; flex-direction: column; gap: 2px; padding-bottom: 10px; border-bottom: 1px solid rgb(255 255 255 / .28); }
-.sc-sidebar .vs-topnav a, .sc-sidebar .vs-topnav span { padding: 6px 8px; border-radius: 7px; text-decoration: none; font-size: 13px; color: rgb(255 255 255 / .82); }
-.sc-sidebar .vs-topnav .is-active { color: #fff; background: rgb(0 0 0 / .28); font-weight: 600; }
+.sc-app-switcher { position: relative; z-index: 2; padding: 2px 6px 14px; border-bottom: 1px solid rgb(255 255 255 / .28); }
+.sc-app-switcher summary { display: flex; align-items: center; gap: 6px; list-style: none; color: #fff; font-size: 18px; font-weight: 700; cursor: pointer; }
+.sc-app-switcher summary::-webkit-details-marker { display: none; }
+.sc-switcher-chevron { margin-left: 1px; font-size: 16px; transition: transform .16s ease; }
+.sc-app-switcher[open] .sc-switcher-chevron { transform: rotate(180deg); }
+.sc-app-switcher-menu { position: absolute; top: 38px; left: 0; width: 190px; padding: 6px; border: 1px solid rgb(255 255 255 / .25); border-radius: 12px; background: #22120e; box-shadow: 0 12px 26px rgb(0 0 0 / .34); }
+.sc-app-switcher-menu a { display: flex; flex-direction: column; gap: 1px; padding: 9px 10px; border-radius: 8px; color: #fff; text-decoration: none; font-size: 13px; }
+.sc-app-switcher-menu a:hover { background: rgb(255 255 255 / .14); }
+.sc-app-switcher-menu span { color: rgb(255 255 255 / .64); font-size: 11px; }
 .sc-sidebar .vs-section-label, .vs-memory-drawer .vs-section-label {
   margin: 14px 0 6px; padding: 0 6px; font-size: 10px; letter-spacing: .09em; text-transform: uppercase;
   color: rgb(255 255 255 / .68);

@@ -4,7 +4,6 @@ import { acceptCandidate, archiveRun, askBB, clearBB, clearStrategyChat, propose
 import { listenPath } from "../lib/firebase";
 import type { ChatMessage, CopyCheckpoint, StrategyAsset, StrategyBrand, StrategyCheckpoint, StrategyRun } from "../lib/types";
 import { CampaignBrief, CampaignRunChat } from "./CampaignPlanning";
-import loonaLogo from "../assets/loona-logo.png";
 
 type Mode = "home" | "monthly" | "campaign" | "bb" | "global-bb";
 
@@ -114,12 +113,13 @@ function BrandSidebar({ brands, active, runs, open, onBrand, onBrandThread, onNe
   const [brandThreads, setBrandThreads] = useState<Array<{ id: string; title?: string; updatedAt?: string }>>([]);
   useEffect(() => listenPath<Record<string, { title?: string; updatedAt?: string }>>(`strategy_bb_chats/${active?.id || "none"}/threads`, (value) => setBrandThreads(Object.entries(value || {}).map(([id, thread]) => ({ id, ...thread })).sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""))))), [active?.id]);
   return <aside className={`vs-sidebar sc-sidebar${open ? " is-open" : ""}`}>
-    <div className="vs-logo"><a href="/"><img src={loonaLogo} alt="Loona" /></a></div>
-    <nav className="vs-topnav">
-      <a href="/">Hub</a>
-      <span className="is-active">Strategy OS</span>
-      <a href="/visual/">Visual Studio</a>
-    </nav>
+    <details className="sc-app-switcher">
+      <summary>Ask BB <span aria-hidden="true">🦦</span><span className="sc-switcher-chevron" aria-hidden="true">⌄</span></summary>
+      <div className="sc-app-switcher-menu">
+        <a href="/"><b>Loona Hub</b><span>Team workspace</span></a>
+        <a href="/visual/"><b>Visual Studio</b><span>Create with Loona</span></a>
+      </div>
+    </details>
     <p className="vs-section-label">Brand projects</p>
     <div className="vs-projects">
       {(expanded ? brands : brands.slice(0, 5)).map((brand) => {
