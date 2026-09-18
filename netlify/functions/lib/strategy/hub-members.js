@@ -47,10 +47,11 @@ async function findHubMemberByPhone(phone) {
 }
 
 // What BB is allowed to know about a teammate: name, role, department, employee id, join
-// date, birthday. Never PAN, Aadhar, bank details or home address — those live in a
-// completely separate, more locked-down Firebase node (/members_sensitive) that this file
-// never reads from at all, the same boundary Gokul drew for the Employee Directory's own
-// "Financial & ID — visible only to Gokul" section.
+// date, birthday, mobile number — the same contact-and-org-chart information already visible
+// on the Employee Directory's own main card. Never PAN, Aadhar, bank details or home address —
+// those live in a completely separate, more locked-down Firebase node (/members_sensitive)
+// that this file never reads from at all, the same boundary Gokul drew for the Employee
+// Directory's own "Financial & ID — visible only to Gokul" section.
 function directoryLine(record) {
   const name = String(record.name || "").trim();
   if (!name) return null;
@@ -59,6 +60,7 @@ function directoryLine(record) {
   if (record.department) bits.push(record.department);
   const role = bits.length ? bits.join(" · ") : null;
   const details = [];
+  if (record.mobile) details.push(`mobile ${record.mobile}`);
   if (record.employeeId) details.push(`Employee ID ${record.employeeId}`);
   if (record.joinDate) details.push(`joined ${record.joinDate}`);
   if (record.birthdate) details.push(`birthday ${record.birthdate}`);
