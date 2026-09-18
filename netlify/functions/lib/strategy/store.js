@@ -283,14 +283,18 @@ async function loadBrandBrain(brandId, brandName) {
 async function loadGlobalBrain() {
   const { loadRecentHubManiEvents, maniEventsToPromptText } = require("./mani-events");
   const { loadTeamDirectoryText } = require("./hub-members");
-  const [pasted, events, team] = await Promise.all([
+  const { loadAttendanceText } = require("./attendance-memory");
+  const [pasted, events, team, attendance] = await Promise.all([
     loadPastedManiMemory("global").catch((error) => { console.error("Could not load Hub-wide Mani memory:", error.message); return null; }),
     loadRecentHubManiEvents()
       .then((items) => maniEventsToPromptText(items.filter((item) => item.type !== "bb_conversation")))
       .catch(() => null),
     loadTeamDirectoryText().catch((error) => { console.error("Could not load the Hub team directory:", error.message); return null; }),
+    // Hub-wide only, not per-brand — who's in the office today isn't relevant to a
+    // conversation about a specific client's content, and would just add noise there.
+    loadAttendanceText().catch((error) => { console.error("Could not load today's attendance:", error.message); return null; }),
   ]);
-  const parts = [pasted, events, team].filter(Boolean);
+  const parts = [pasted, events, team, attendance].filter(Boolean);
   return parts.length ? parts.join("\n\n") : null;
 }
 
