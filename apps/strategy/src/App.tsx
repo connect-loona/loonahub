@@ -36,5 +36,5 @@ export default function App() {
       ? <BrandDirectory brandId={brandId} brandName={brandName} onClose={() => window.location.assign(`/strategy/?brandId=${encodeURIComponent(brandId)}`)} />
       : <StrategyChatWorkspace actor={actor} />;
   }
-  return <StrategyChatWorkspace actor={actor} initialBrandId={query.get("brandId") || undefined} />;
+  return <StrategyChatWorkspace actor={actor} initialBrandId={query.get("brandId") || undefined} initialGlobalBB={query.get("ask") === "bb"} />;
 }

@@ -488,12 +488,12 @@ function FinalPlan({ run, assets }: { run: StrategyRun | null; assets: StrategyA
   return <section className="sc-final-plan"><div className="sc-concept-meta">Selected monthly plan</div><h3>Review what the team selected</h3><p className="sc-muted">Only approved concepts appear here. This is the handoff for scripts, captions and creative development.</p>{selected.map((asset, index) => <article key={asset.assetId} className="sc-final-item"><b>{index + 1}. {asset.conceptName}</b><span>{(reviews[asset.assetId]?.formats || []).join(" · ")} · {asset.hook}</span><p>{asset.concept || asset.tension}</p></article>)}<button type="button" className="sc-primary" onClick={() => void copy()}>{copied ? "Copied" : "Copy selected plan"}</button></section>;
 }
 
-export function StrategyChatWorkspace({ actor, initialBrandId }: { actor: string; initialBrandId?: string }) {
+export function StrategyChatWorkspace({ actor, initialBrandId, initialGlobalBB = false }: { actor: string; initialBrandId?: string; initialGlobalBB?: boolean }) {
   const { brands: allBrands, loading: brandsLoading } = useAllHubBrands();
   const { brands: configuredBrands } = useBrands();
   const { runs } = useRuns();
   const [brand, setBrand] = useState<HubBrandOption | undefined>();
-  const [mode, setMode] = useState<Mode>("home");
+  const [mode, setMode] = useState<Mode>(initialGlobalBB ? "global-bb" : "home");
   const [runId, setRunId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [maniOpen, setManiOpen] = useState(false);

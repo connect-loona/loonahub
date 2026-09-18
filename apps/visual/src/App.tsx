@@ -373,8 +373,9 @@ export function App() {
     <div className="vs-shell">
       <aside className={`vs-sidebar${sidebarOpen ? " is-open" : ""}`}>
         <details className="vs-app-switcher">
-          <summary>Ask BB <span aria-hidden="true">🦦</span><span className="vs-switcher-chevron" aria-hidden="true">⌄</span></summary>
+          <summary>Visual Studio <span className="vs-switcher-chevron" aria-hidden="true">⌄</span></summary>
           <div className="vs-app-switcher-menu">
+            <a href="/strategy/?ask=bb"><b>Ask BB 🦦</b><span>Talk with Loona</span></a>
             <a href="/"><b>Loona Hub</b><span>Team workspace</span></a>
             <a href="/strategy/"><b>Strategy OS</b><span>Plan with agents</span></a>
           </div>
