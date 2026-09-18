@@ -2,8 +2,8 @@
 const { fbGet, fbSet, fbSafeKey } = require("../lib/strategy/firebase");
 const { checkAuthorization } = require("../lib/strategy/auth");
 const { hubBrandExists } = require("../lib/strategy/hub-brands");
-const { siteBaseUrl } = require("../lib/site-base-url");
-const { signedBackgroundHeaders } = require("../lib/strategy/background-auth");
+const { createRuntime } = require("../lib/strategy/pipeline");
+const { draftBrandFromLibrary } = require("../lib/strategy/brand-draft");
 function headers() { return { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type", "Access-Control-Allow-Methods": "POST, OPTIONS", "Content-Type": "application/json" }; }
 function fail(statusCode, error) { return { statusCode, headers: headers(), body: JSON.stringify({ error }) }; }
 exports.handler = async (event) => {
@@ -19,8 +19,15 @@ exports.handler = async (event) => {
   const path = `strategy_brand_drafts/${fbSafeKey(brandId)}`;
   await fbSet(path, { brandId, name, source: "mani_memory", status: "drafting", startedAt: new Date().toISOString(), draft: null, error: null });
   try {
-    const backgroundBody = JSON.stringify({ brandId, name });
-    await fetch(`${siteBaseUrl(event)}/.netlify/functions/strategy-mani-config-draft-background`, { method: "POST", headers: signedBackgroundHeaders("strategy-mani-config-draft-background", backgroundBody), body: backgroundBody });
-    return { statusCode: 202, headers: headers(), body: JSON.stringify({ ok: true, brandId }) };
-  } catch (error) { await fbSet(path, { brandId, name, status: "failed", draft: null, error: error.message || String(error) }); return fail(502, "Could not start the configuration draft."); }
+    // This used to hand work to a background function. On the live site that worker can
+    // fail before its handler runs, leaving the UI permanently at “Drafting…”. Drafting
+    // directly gives the team a completed form or a real visible error, never a silent
+    // queue state.
+    const orderedNotes = Object.values(notes).sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+    const text = orderedNotes.map((note) => `--- ${note.createdAt || ""} · ${note.actor || "Hub team"} ---\n${note.content || ""}`).join("\n\n").slice(0, 70000);
+    const runtime = createRuntime({ runtime: "openai" }, "strategy");
+    const draft = await draftBrandFromLibrary(runtime, name, { files: [{ name: "Team-pasted Mani memory", path: "Mani memory", text }], unreadFiles: [] });
+    await fbSet(path, { brandId, name, source: "mani_memory", status: "ready", draft, completedAt: new Date().toISOString(), servedBy: runtime.servedBy || null, error: null });
+    return { statusCode: 200, headers: headers(), body: JSON.stringify({ ok: true, brandId }) };
+  } catch (error) { await fbSet(path, { brandId, name, status: "failed", draft: null, completedAt: new Date().toISOString(), error: error.message || String(error) }); return fail(502, error.message || "Could not draft the configuration."); }
 };
