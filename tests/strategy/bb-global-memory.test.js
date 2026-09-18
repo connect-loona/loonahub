@@ -7,10 +7,12 @@
 process.env.FIREBASE_DB_URL = require("../harness/shared").RTDB_URL;
 process.env.BASIC_AUTH_CREDENTIALS = "gokul:supersecret";
 const path = require("path");
+const { pathToFileURL } = require("url");
 const { HUB, DEV_LITE_URL, RTDB_URL, req, waitFor, check, finish } = require("../harness/shared");
 const { fbSet } = require(path.join(HUB, "netlify/functions/lib/strategy/firebase"));
 const { recordManiEvent } = require(path.join(HUB, "netlify/functions/lib/strategy/mani-events"));
 const { loadGlobalBrain } = require(path.join(HUB, "netlify/functions/lib/strategy/store"));
+const { signedBackgroundHeaders } = require(path.join(HUB, "netlify/functions/lib/strategy/background-auth"));
 
 (async () => {
   await fbSet("mani_brand_notes/global", null);
@@ -46,6 +48,36 @@ const { loadGlobalBrain } = require(path.join(HUB, "netlify/functions/lib/strate
   // extraction only ever runs after result.answer exists, so nothing should be written here.
   const notesAfterFailure = await req("GET", `${RTDB_URL}/mani_brand_notes/global.json`);
   check("a failed BB call extracts no memory note from nothing", !notesAfterFailure.body, notesAfterFailure.body);
+
+  // ---- WhatsApp identity resolution: this is the exact mixup that prompted this feature.
+  // A phone number Hub actually has on file must be trusted over whatever display name
+  // WhatsApp itself reports for that number — and a number Hub has never heard of must be
+  // marked unverified, not silently upgraded to a real name. ----
+  await fbSet("members", null);
+  await fbSet("members", { m1: { name: "Karnik", mobile: "+91 91060 16707" } });
+  const whatsappModule = await import(`${pathToFileURL(path.join(HUB, "netlify/functions/whatsapp-bb-reply-background.mjs")).href}?test=${Date.now()}`);
+
+  const knownFrom = "919106016707";
+  const knownMessageId = `wamid-known-${Date.now()}`;
+  const knownBody = JSON.stringify({ from: knownFrom, text: "Do you know me?", messageId: knownMessageId, contactName: "iPhone" });
+  await whatsappModule.default(new Request("https://example.test/.netlify/functions/whatsapp-bb-reply-background", {
+    method: "POST", headers: signedBackgroundHeaders("whatsapp-bb-reply-background", knownBody), body: knownBody,
+  }));
+  const knownMessage = await req("GET", `${RTDB_URL}/strategy_bb_chats/global/whatsapp-${knownFrom}/messages/${knownMessageId}.json`);
+  check("a phone number Hub has on file is attributed to the real teammate, not WhatsApp's own profile name", knownMessage.body && knownMessage.body.actor === "Karnik", knownMessage.body);
+  check("that attribution is marked verified", knownMessage.body && knownMessage.body.actorVerified === true, knownMessage.body);
+
+  const unknownFrom = "919372789819";
+  const unknownMessageId = `wamid-unknown-${Date.now()}`;
+  const unknownBody = JSON.stringify({ from: unknownFrom, text: "Do you know me?", messageId: unknownMessageId, contactName: "Chinmay" });
+  await whatsappModule.default(new Request("https://example.test/.netlify/functions/whatsapp-bb-reply-background", {
+    method: "POST", headers: signedBackgroundHeaders("whatsapp-bb-reply-background", unknownBody), body: unknownBody,
+  }));
+  const unknownMessage = await req("GET", `${RTDB_URL}/strategy_bb_chats/global/whatsapp-${unknownFrom}/messages/${unknownMessageId}.json`);
+  // This is exactly the "Accounts and Finance" mixup: WhatsApp's self-reported name is kept
+  // (there's nothing better to show), but it must never be presented to BB as confirmed.
+  check("a number Hub has never seen keeps WhatsApp's self-reported name as a fallback", unknownMessage.body && unknownMessage.body.actor === "Chinmay", unknownMessage.body);
+  check("but that fallback is explicitly marked unverified, not upgraded to a real identity", unknownMessage.body && unknownMessage.body.actorVerified === false, unknownMessage.body);
 
   finish();
 })().catch((error) => { console.error("FATAL:", error, error.stack); process.exit(1); });

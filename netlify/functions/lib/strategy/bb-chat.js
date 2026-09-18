@@ -18,7 +18,16 @@ function anthropicApiKey() {
   return process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || "";
 }
 
-function instructions({ brandName, memory }) {
+function speakerBlock(speaker) {
+  if (speaker && speaker.name) {
+    return speaker.verified
+      ? `You are currently speaking with ${speaker.name}, confirmed against Hub's own records.`
+      : `The person you're speaking with identified themselves as "${speaker.name}", but this has not been confirmed against Hub's team records — treat it as what they said, not a verified fact.`;
+  }
+  return "Nothing here identifies who you are currently speaking with.";
+}
+
+function instructions({ brandName, memory, speaker }) {
   return [
     LOONA_SOUL,
     "---",
@@ -28,6 +37,11 @@ function instructions({ brandName, memory }) {
     `You are speaking directly with Loona's team about ${brandName}. Be a natural strategic collaborator, not a pipeline status bot. Help think, question, diagnose, structure and develop ideas even when the team is not starting a formal plan.`,
     "- Match the user's energy. For a greeting or short message, reply naturally in one or two short sentences — do not volunteer a long project update, task list or memory dump.",
     "- Start with the direct answer. Only add structure, options or detail when the user asks for it or it genuinely helps move their work forward.",
+    "",
+    "# Who you're speaking with",
+    speakerBlock(speaker),
+    "- If asked who they are and you were not told, say plainly that you don't know — never guess someone's identity from a name that happens to appear in memory below. Memory records facts about brands and work, not who is currently in this conversation.",
+    "- Only ever say a fact from memory belongs to the current speaker when memory itself ties that fact to the name you were given above, not merely because a name in memory resembles someone.",
     "",
     "# Mani memory boundary",
     "Mani is the private memory layer behind you. The block below is everything Mani can currently establish about this brand from Strategy OS decisions, brand material, team activity and Visual Studio history.",
@@ -82,7 +96,7 @@ function answerText(response) {
   return { answer: answer.slice(0, MAX_ANSWER_CHARS) };
 }
 
-async function askBBWithOpenAI({ brandName, message, memory, history, attachments }) {
+async function askBBWithOpenAI({ brandName, message, memory, history, attachments, speaker }) {
   if (!process.env.OPENAI_API_KEY) {
     const error = new Error("OPENAI_API_KEY is required for BB fallback.");
     error.name = "ConfigurationError";
@@ -98,7 +112,7 @@ async function askBBWithOpenAI({ brandName, message, memory, history, attachment
   const agent = new Agent({
     name: "BB Loona",
     model,
-    instructions: instructions({ brandName, memory }),
+    instructions: instructions({ brandName, memory, speaker }),
     tools: [webSearchTool({ searchContextSize: "low" })],
   });
   const result = await run(agent, `${turns}\n\nTeam: ${message}${attachmentNote}`, { maxTurns: 4 });
@@ -155,7 +169,7 @@ async function extractMemoryNoteSafe(input, deps = {}) {
   catch (error) { console.error("Could not extract a memory note from this BB exchange:", error.message || error); return null; }
 }
 
-async function askBB({ brandName, message, memory, history, attachments }, deps = {}) {
+async function askBB({ brandName, message, memory, history, attachments, speaker }, deps = {}) {
   const asked = String(message || "").trim().slice(0, MAX_MESSAGE_CHARS);
   if (!asked) throw new Error("BB needs a message.");
 
@@ -187,7 +201,7 @@ async function askBB({ brandName, message, memory, history, attachments }, deps 
     const response = await client.messages.create({
       model,
       max_tokens: 1000,
-      system: instructions({ brandName, memory }),
+      system: instructions({ brandName, memory, speaker }),
       tools: /\b(current|today|latest|website|web|news|search|competitor|trend|moon)\b/i.test(asked) ? [{ type: "web_search_20260209", name: "web_search", max_uses: 2 }] : [],
       messages,
     });
@@ -199,7 +213,7 @@ async function askBB({ brandName, message, memory, history, attachments }, deps 
     if (!isProviderError(error) || (deps.client && !deps.openAIFallback)) throw error;
     console.warn(`BB Sonnet unavailable; using OpenAI fallback: ${error.message || error}`);
     const fallback = deps.openAIFallback || askBBWithOpenAI;
-    return fallback({ brandName, message: asked, memory, history, attachments });
+    return fallback({ brandName, message: asked, memory, history, attachments, speaker });
   }
 }
 
