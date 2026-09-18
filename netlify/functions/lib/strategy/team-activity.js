@@ -95,7 +95,64 @@ async function loadTeamActivityText(brandId, brandName, deps) {
   return teamActivityToPromptText(await collectTeamActivity(brandId, brandName, deps));
 }
 
+const MAX_ACTIVE_HUBWIDE = 60;
+
+// The Hub-wide counterpart to collectTeamActivity — every task on the board, not just one
+// brand's. For Global BB (browser and WhatsApp): "what's open", "who owns what", "what's
+// overdue" as genuine standing questions about the whole team, not just a recent-activity
+// glimpse. Nothing here comes near payroll — Hub's task board and Petpooja's payroll system
+// are entirely separate data sources, and a task record never carries pay information to
+// begin with.
+async function collectAllTeamActivity(deps = {}) {
+  const get = deps.fbGet || fbGet;
+  const raw = (await get("tasks")) || {};
+  const all = Object.values(raw).filter(Boolean);
+  const byNewest = (a, b) => String(b.created_at || b.assigned_on || "").localeCompare(String(a.created_at || a.assigned_on || ""));
+
+  const active = all.filter((task) => !isClosed(task)).sort(byNewest);
+  const recentlyDone = all.filter(isClosed).sort(byNewest).slice(0, MAX_RECENTLY_DONE);
+  // Same reasoning as collectTeamActivity: nothing writes an overdue flag onto a task, so this
+  // is computed here from whatever due date it carries plus today's date.
+  const today = deps.today || new Date().toISOString().slice(0, 10);
+  const overdue = active.filter((task) => task.due_date && String(task.due_date) < today);
+  const people = [...new Set(active.map((task) => task.member || task.assignee).filter(Boolean))].sort();
+
+  return { active: active.slice(0, MAX_ACTIVE_HUBWIDE), recentlyDone, people, overdue, activeCount: active.length };
+}
+
+// Unlike describe() above, the brand isn't implicit here — there's no single brand this list
+// is already scoped to, so each line has to name it.
+function describeHubWide(task) {
+  const who = task.member || task.assignee || "unassigned";
+  const status = task.status || "Not Started";
+  const brand = task.brand || "no brand";
+  const due = task.due_date ? `, due ${task.due_date}` : "";
+  const priority = task.priority && task.priority !== "Medium" ? `, ${String(task.priority).toLowerCase()} priority` : "";
+  return `- ${task.task || "(untitled task)"} — ${brand} · ${who} (${status}${due}${priority})`;
+}
+
+function hubTaskBoardToPromptText(activity) {
+  if (!activity) return null;
+  const { active, recentlyDone, overdue } = activity;
+  if (!active.length && !recentlyDone.length) return null;
+
+  const parts = ["# Hub task board (all brands)",
+    "Live from Hub's task board — the current state of every open and recently finished task across every brand. This is the same board the team edits directly; it is not a brief, and nothing here is content to write about."];
+
+  if (active.length) parts.push(`\n## Open tasks (${activity.activeCount || active.length})\n${active.map(describeHubWide).join("\n")}`);
+  if (overdue.length) parts.push(`\n## Already overdue\n${overdue.map(describeHubWide).join("\n")}`);
+  if (recentlyDone.length) {
+    parts.push(`\n## Recently finished\n${recentlyDone.map((task) => `- ${task.task || "(untitled task)"} — ${task.brand || "no brand"} · ${task.member || task.assignee || "unassigned"}`).join("\n")}`);
+  }
+  return parts.join("\n");
+}
+
+async function loadHubTaskBoardText(deps) {
+  return hubTaskBoardToPromptText(await collectAllTeamActivity(deps));
+}
+
 module.exports = {
   collectTeamActivity, teamActivityToPromptText, loadTeamActivityText,
+  collectAllTeamActivity, hubTaskBoardToPromptText, loadHubTaskBoardText,
   taskMatchesBrand, slug, CLOSED_STATUSES,
 };
