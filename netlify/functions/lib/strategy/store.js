@@ -244,7 +244,8 @@ async function loadPastedManiMemory(brandId) {
 
 async function loadBrandBrain(brandId, brandName) {
   const { loadRecentManiEvents, maniEventsToPromptText } = require("./mani-events");
-  const [directory, pasted, distilled, activity, visual, events] = await Promise.all([
+  const { loadTeamDirectoryText } = require("./hub-members");
+  const [directory, pasted, distilled, activity, visual, events, team] = await Promise.all([
     // The config is read fresh for every request so a review/save in Brand Directory is
     // immediately available to Mani and BB. An unconfigured Hub brand simply has no
     // directory entry yet; that must never take the rest of its memory offline.
@@ -267,8 +268,9 @@ async function loadBrandBrain(brandId, brandName) {
     loadRecentManiEvents(brandId)
       .then((items) => maniEventsToPromptText(items.filter((item) => item.type !== "bb_conversation")))
       .catch(() => null),
+    loadTeamDirectoryText().catch((error) => { console.error("Could not load the Hub team directory:", error.message); return null; }),
   ]);
-  const parts = [directory, pasted, distilled, activity, visual, events].filter(Boolean);
+  const parts = [directory, pasted, distilled, activity, visual, events, team].filter(Boolean);
   return parts.length ? parts.join("\n\n") : null;
 }
 
@@ -280,13 +282,15 @@ async function loadBrandBrain(brandId, brandName) {
 // per-brand Visual Studio history) has no Hub-wide equivalent and would just silently no-op.
 async function loadGlobalBrain() {
   const { loadRecentHubManiEvents, maniEventsToPromptText } = require("./mani-events");
-  const [pasted, events] = await Promise.all([
+  const { loadTeamDirectoryText } = require("./hub-members");
+  const [pasted, events, team] = await Promise.all([
     loadPastedManiMemory("global").catch((error) => { console.error("Could not load Hub-wide Mani memory:", error.message); return null; }),
     loadRecentHubManiEvents()
       .then((items) => maniEventsToPromptText(items.filter((item) => item.type !== "bb_conversation")))
       .catch(() => null),
+    loadTeamDirectoryText().catch((error) => { console.error("Could not load the Hub team directory:", error.message); return null; }),
   ]);
-  const parts = [pasted, events].filter(Boolean);
+  const parts = [pasted, events, team].filter(Boolean);
   return parts.length ? parts.join("\n\n") : null;
 }
 
