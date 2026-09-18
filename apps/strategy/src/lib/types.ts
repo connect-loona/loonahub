@@ -37,6 +37,9 @@ export interface StrategyAsset {
   sequence?: number;
   format: string;
   conceptName: string;
+  /** The wider strategic territory that the concept belongs to. */
+  routeName?: string;
+  routeDescription?: string;
   concept?: string;
   strategicRole?: string;
   portfolioId?: string;
@@ -44,6 +47,8 @@ export interface StrategyAsset {
   tension: string;
   sendTo: string;
   gate: StrategyGate;
+  /** Concrete, selectable ways this one concept can be developed. */
+  executionOptions?: Array<{ format: string; title: string; description: string }>;
 }
 
 export interface DiscardedConcept {

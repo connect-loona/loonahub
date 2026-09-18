@@ -346,6 +346,8 @@ const StrategyAssetSchema = z
     portfolioId: NullableText,
     skuIds: z.array(NonEmpty),
     conceptName: NonEmpty,
+    routeName: NonEmpty.optional(),
+    routeDescription: NonEmpty.optional(),
     concept: NonEmpty,
     hook: NonEmpty,
     tension: NonEmpty,
@@ -353,6 +355,11 @@ const StrategyAssetSchema = z
     brandAnchors: z.array(NonEmpty).min(2),
     researchIds: z.array(NonEmpty).min(1),
     strategicRole: NonEmpty,
+    executionOptions: z.array(z.object({
+      format: AssetFormatSchema,
+      title: NonEmpty,
+      description: NonEmpty,
+    }).strict()).min(1).max(4).optional(),
     gate: ConceptGateSchema,
   })
   .strict();

@@ -215,21 +215,27 @@ function Brief({ mode, brand, actor, onStarted, onCancel }: { mode: "monthly" | 
 function ConceptCard({ asset, candidate, index, total, review, busy, onRefine, onApprove, onDiscard }: { asset: StrategyAsset; candidate?: { status?: string; detail?: string; candidate?: Partial<StrategyAsset>; history?: Array<{ role: string; notes?: string; summary?: string }> } | null; index: number; total: number; review?: { decision: "approved" | "discarded"; formats?: string[] }; busy: boolean; onRefine: (value: string) => void; onApprove: (formats: string[]) => void; onDiscard: () => void }) {
   const [refining, setRefining] = useState(false);
   const [draft, setDraft] = useState("");
-  const [formats, setFormats] = useState<string[]>(review?.formats || [asset.format]);
-  useEffect(() => { setFormats(review?.formats || [asset.format]); setRefining(false); setDraft(""); }, [asset.assetId, asset.format, review?.formats]);
+  const [formats, setFormats] = useState<string[]>(review?.formats || []);
+  useEffect(() => { setFormats(review?.formats || []); setRefining(false); setDraft(""); }, [asset.assetId, review?.formats]);
   const toggleFormat = (format: string) => setFormats((current) => current.includes(format) ? current.filter((item) => item !== format) : current.concat(format));
   const reviewed = !!review;
+  const executionOptions = asset.executionOptions?.length ? asset.executionOptions : [
+    { format: "reel", title: "Reel treatment", description: "A short moving version of this idea, built around the hook and one clear action or reveal." },
+    { format: "carousel", title: "Carousel treatment", description: "A swipe-through sequence that unpacks the idea one considered step at a time." },
+    { format: "static", title: "Static treatment", description: "One strong visual and message that makes the thought immediately memorable." },
+    { format: "story", title: "Story treatment", description: "A quick, interactive vertical prompt designed for an immediate response." },
+  ];
   return <div className="sc-concept-wrap">
-    <div className="sc-concept-meta">Concept {index + 1} of {total}</div>
+    <div className="sc-concept-meta">Route {index + 1} of {total}</div>
     <article className={`sc-concept${review?.decision === "approved" ? " is-logged" : ""}`}>
-      <h3>{asset.conceptName}</h3>
+      <p className="sc-route-label">Strategic route</p><h3>{asset.routeName || asset.conceptName}</h3>
       {candidate?.status === "running" && <p className="sc-status">The refined version is being written <span className="sc-dots">•••</span></p>}
       {candidate?.status === "failed" && <p className="sc-error">The refinement could not be completed: {candidate.detail || "try again"}</p>}
       {candidate?.history?.length ? <div className="sc-refine-history">{candidate.history.map((turn, turnIndex) => <p key={turnIndex} className={turn.role === "user" ? "is-user" : ""}>{turn.notes || turn.summary}</p>)}</div> : null}
       {candidate?.status === "ready" && candidate.candidate && <div className="sc-candidate"><p className="sc-candidate-label">Refined candidate</p><h4>{candidate.candidate.conceptName || asset.conceptName}</h4><p>{candidate.candidate.hook || asset.hook}</p></div>}
       <div className="sc-pills"><span>{asset.portfolioId || "Brand portfolio"}</span><span>{review?.decision === "approved" ? "Approved" : review?.decision === "discarded" ? "Discarded" : "Awaiting selection"}</span></div>
-      <dl><div><dt>Concept idea</dt><dd>{asset.concept || asset.hook}</dd></div><div><dt>Brief explanation</dt><dd>{asset.tension}</dd></div><div><dt>Extension</dt><dd>{asset.strategicRole || asset.sendTo}</dd></div></dl>
-      {!reviewed && <><div className="sc-execution-options"><b>Select execution potential</b><p>Choose every format you want this concept developed into.</p><div>{["reel", "carousel", "static", "story"].map((format) => <label key={format}><input type="checkbox" checked={formats.includes(format)} onChange={() => toggleFormat(format)} />{format}</label>)}</div></div><div className="sc-actions"><button type="button" className="sc-secondary" onClick={() => setRefining(!refining)}>Chat to refine</button><button type="button" className="sc-secondary" disabled={busy} onClick={onDiscard}>Discard concept</button><button type="button" className="sc-primary" disabled={busy || !formats.length} onClick={() => onApprove(formats)}>{busy ? "Saving…" : "Approve selection"}</button></div></>}
+      <dl><div><dt>Route thought</dt><dd>{asset.routeDescription || asset.strategicRole || asset.sendTo}</dd></div><div><dt>Concept inside this route</dt><dd>{asset.concept || asset.hook}</dd></div><div><dt>Why it matters</dt><dd>{asset.tension}</dd></div></dl>
+      {!reviewed && <><div className="sc-execution-options"><b>Select one or more executions</b><p>Choose the specific ways you want this concept developed. You can select more than one.</p><div className="sc-execution-grid">{executionOptions.map((option) => <label key={option.format} className={formats.includes(option.format) ? "is-selected" : ""}><input type="checkbox" checked={formats.includes(option.format)} onChange={() => toggleFormat(option.format)} /><span><strong>{option.format} · {option.title}</strong><small>{option.description}</small></span></label>)}</div></div><div className="sc-actions"><button type="button" className="sc-secondary" onClick={() => setRefining(!refining)}>Chat to refine</button><button type="button" className="sc-secondary" disabled={busy} onClick={onDiscard}>Discard concept</button><button type="button" className="sc-primary" disabled={busy || !formats.length} onClick={() => onApprove(formats)}>{busy ? "Saving…" : "Approve selected executions"}</button></div></>}
       {review?.decision === "approved" && <p className="sc-logged-note">Approved for: {(review.formats || []).join(", ")}.</p>}
       {review?.decision === "discarded" && <p className="sc-logged-note">Discarded. It will not move into development.</p>}
       {refining && <div className="sc-refine"><textarea autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Tell Dora what should change. This conversation stays with this concept." /><button type="button" className="sc-primary" disabled={!draft.trim() || busy} onClick={() => { onRefine(draft.trim()); setDraft(""); }}>Send to Dora</button></div>}
@@ -454,7 +460,7 @@ function RunChat({ runId, actor, onArchived }: { runId: string; actor: string; o
       {retryError && <p className="sc-error">{retryError}</p>}
     </div>}
     {asset && <>
-      <div className="sc-assistant-block"><p>Here’s concept {cursor + 1}. Select the executions you want, then approve it or discard it. Dora only brings the next one after that decision.</p></div>
+      <div className="sc-assistant-block"><p>Here’s route {cursor + 1}. First review the strategic thought and the concept inside it, then choose one or more concrete executions. Dora only brings the next route after that decision.</p></div>
       <ConceptCard asset={asset} candidate={run?.stages.strategy?.candidates?.[asset.assetId] as { status?: string; detail?: string; candidate?: Partial<StrategyAsset>; history?: Array<{ role: string; notes?: string; summary?: string }> } | undefined} index={cursor} total={assets.length} review={reviews[asset.assetId]} busy={busy} onApprove={(formats) => void approveAsset(formats)} onRefine={(value) => void refineAsset(value)} onDiscard={() => void discardAsset()} />
       {note && <div className="sc-assistant-block sc-note-block"><p>{note}</p></div>}
       <div className="sc-next-row">{cursor > 0 && <button type="button" className="sc-secondary" onClick={() => setCursor(cursor - 1)}>Previous concept</button>}{cursor < assets.length - 1 && <button type="button" className="sc-secondary" disabled={!reviews[asset.assetId]} onClick={() => setCursor(cursor + 1)}>Move to next concept</button>}<button type="button" className="sc-primary" disabled={!approvedAssets.length} onClick={() => { setFinished(true); void record("assistant", "Concept selection is ready for the final planning review."); }}>End planning · review selections</button></div>

@@ -101,7 +101,7 @@ Before returning, remove any audience question that sounds like agency language.
 
 const STRATEGY_PROMPT = `# Agent 2 — Strategy
 
-You are Loona's social strategist. Build one distinct concept for every contracted asset. Work from the research evidence; do not backfill familiar calendar content.
+You are Loona's social strategist. Build one distinct strategic route and concept for every contracted asset. Work from the research evidence; do not backfill familiar calendar content.
 
 First form a wider candidate pool. Cut weak candidates. Return only the exact final deliverable count in \`assets\`, with rejected candidates recorded in \`discarded\`.
 
@@ -150,7 +150,26 @@ substitute one format for another to make a total add up.
 
 Meet every contracted format's count exactly (see above). Spread the month intentionally across pillars, audience tensions and portfolios. Do not use weak filler to satisfy a pillar target; explain a justified imbalance in \`balanceRationale\`.
 
-Keep the concept and hook independent of production polish. The creative-direction agent will decide how it looks.
+## Route first, then concept, then selectable executions
+
+Never present a production format as the strategy. A reel, carousel, static or story is
+an **execution**, not the route or the concept. Every asset must include:
+
+- \`routeName\`: a memorable, broad strategic route (for example, “The Size Meeting”),
+  never a format name.
+- \`routeDescription\`: one clear sentence explaining the territory and why it matters.
+- \`conceptName\` and \`concept\`: the single idea inside that route for this monthly slot.
+- \`executionOptions\`: 1–4 concrete, genuinely different ways that exact concept could
+  become content. Each option has a \`format\`, a short \`title\`, and a specific
+  \`description\` of what the team would actually make. Include different formats where
+  they are credible — e.g. a reel's opening/action, a carousel's slide progression, a
+  static's single visual/message, or a story's interaction. Do not put vague labels such
+  as “Make it a reel.”
+
+The \`format\` field remains the contracted production slot this asset fills, but it must
+not dictate the route, the concept name or the full set of \`executionOptions\`. Keep the
+concept and hook independent of production polish. The creative-direction agent will
+decide the final visual direction after the team selects an execution.
 `;
 
 const COPY_PROMPT = `# Agent 3 — Copy
@@ -362,8 +381,10 @@ literally present in the \`concept\` or \`hook\` you return — not merely impli
 returning, re-read \`request.notes\` and check that each specific thing it asked for actually
 shows up in what you're returning.
 
-Keep \`assetId\`, \`sequence\`, \`format\`, \`portfolioId\` and \`skuIds\` exactly as given on
-\`targetAsset\` — you are not choosing a new slot, only new content for this one. Return
+Keep \`assetId\`, \`sequence\`, \`format\`, \`portfolioId\`, \`skuIds\`, \`routeName\`,
+\`routeDescription\` and \`executionOptions\` exactly as given on \`targetAsset\` unless the
+reviewer explicitly asks to change the route or execution potential — you are not choosing a
+new slot, only refining this one. Return
 exactly one asset object, in the same shape as every other entry in \`currentAssetPlan\`.
 
 ## Non-negotiable concept gate

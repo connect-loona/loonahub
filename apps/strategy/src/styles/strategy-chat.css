@@ -162,6 +162,7 @@ button { cursor: pointer; }
 .sc-concept.is-logged { border-color: #a7cdb6; background: #fbfefb; }
 .sc-concept h3 { margin: 0 0 11px; font-family: Georgia, serif; font-size: 22px; font-weight: 500; }
 .sc-concept h4 { margin: 0 0 6px; font-family: Georgia, serif; font-size: 17px; font-weight: 500; }
+.sc-route-label { margin: 0 0 4px; color: var(--sc-accent); font-size: 10.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
 .sc-candidate { margin: 13px 0; padding: 12px; border: 1px solid #a7cdb6; border-radius: 10px; background: #fbfefb; }
 .sc-candidate-label { margin: 0 0 6px; color: var(--sc-green); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
 .sc-candidate p:not(.sc-candidate-label) { margin: 0 0 10px; }
@@ -235,8 +236,14 @@ button { cursor: pointer; }
 .sc-execution-options > b { display: block; font-size: 13px; }
 .sc-execution-options > p { margin: 3px 0 10px; color: var(--sc-muted); font-size: 12px; }
 .sc-execution-options > div { display: flex; flex-wrap: wrap; gap: 8px; }
-.sc-execution-options label { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border: 1px solid var(--sc-line); border-radius: 999px; background: #fff; font-size: 12px; text-transform: capitalize; }
+.sc-execution-options .sc-execution-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.sc-execution-options label { display: inline-flex; align-items: flex-start; gap: 8px; padding: 10px; border: 1px solid var(--sc-line); border-radius: 9px; background: #fff; font-size: 12px; text-transform: capitalize; cursor: pointer; }
+.sc-execution-options label.is-selected { border-color: var(--sc-accent); background: #fff7f3; }
+.sc-execution-options label span { display: grid; gap: 3px; }
+.sc-execution-options label strong { font-size: 12px; }
+.sc-execution-options label small { color: var(--sc-muted); line-height: 1.35; text-transform: none; }
 .sc-execution-options input { accent-color: var(--sc-accent); }
+@media (max-width: 560px) { .sc-execution-options .sc-execution-grid { grid-template-columns: 1fr; } }
 .sc-refine-history { margin: 14px 0; padding: 11px 13px; border-left: 2px solid var(--sc-line); background: #fbfaf7; }
 .sc-refine-history p { margin: 0 0 8px; color: var(--sc-muted); font-size: 12px; }
 .sc-refine-history p:last-child { margin-bottom: 0; }
