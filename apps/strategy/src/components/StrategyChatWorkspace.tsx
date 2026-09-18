@@ -4,6 +4,7 @@ import { acceptCandidate, archiveRun, askBB, clearBB, clearStrategyChat, propose
 import { listenPath } from "../lib/firebase";
 import type { ChatMessage, CopyCheckpoint, StrategyAsset, StrategyBrand, StrategyCheckpoint, StrategyRun } from "../lib/types";
 import { CampaignBrief, CampaignRunChat } from "./CampaignPlanning";
+import loonaLogo from "../assets/loona-logo.png";
 
 type Mode = "home" | "monthly" | "campaign" | "bb" | "global-bb";
 
@@ -254,7 +255,7 @@ function ConceptCard({ asset, candidate, index, total, review, busy, onRefine, o
   </div>;
 }
 
-function BBChat({ brand, actor, global = false, threadId = "main", onNewThread }: { brand?: HubBrandOption; actor: string; global?: boolean; threadId?: string; onNewThread?: () => void }) {
+function BBChat({ brand, actor, global = false, threadId = "main", onClearState }: { brand?: HubBrandOption; actor: string; global?: boolean; threadId?: string; onClearState?: (state: { canClear: boolean; clear: () => void }) => void }) {
   const brandId = global ? "global" : brand?.id || "";
   const scope = global ? "global" as const : "brand" as const;
   const label = global ? "Loona Hub" : brand?.name || "this brand";
@@ -285,8 +286,10 @@ function BBChat({ brand, actor, global = false, threadId = "main", onNewThread }
     catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
+  // Clear chat now lives in the header, next to Memory — this reports the button's live
+  // enabled state and handler up rather than rendering its own copy in the toolbar.
+  useEffect(() => { onClearState?.({ canClear: Boolean(messages.length) && !busy, clear: () => void clear() }); }, [messages.length, busy]);
   return <div className="sc-bb-chat">
-    <div className="sc-bb-toolbar"><span>{global ? "Global BB conversation" : "Brand BB conversation"}</span><button type="button" onClick={onNewThread}>+ New chat</button><button type="button" onClick={() => void clear()} disabled={busy || !messages.length} aria-label="Clear chat">🗑 Clear chat</button></div>
     <div className="sc-bb-message-list">
       <div className="sc-bb-messages">
         {!messages.length && <div className="sc-bb-empty"><p>I’m BB. What are we working on today?</p><span>{global ? "I can help across Loona Hub. I’ll ask which brand matters whenever it is needed." : "I know this brand’s context through Mani, and I’ll make it clear when I’m suggesting something new."}</span></div>}
@@ -502,6 +505,7 @@ export function StrategyChatWorkspace({ actor, initialBrandId, initialGlobalBB =
   const [runId, setRunId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [maniOpen, setManiOpen] = useState(false);
+  const [bbClearState, setBbClearState] = useState<{ canClear: boolean; clear: () => void } | null>(null);
   const [globalThreadId, setGlobalThreadId] = useState("main");
   const [brandThreadId, setBrandThreadId] = useState("main");
   const [globalThreads, setGlobalThreads] = useState<Array<{ id: string; title?: string; updatedAt?: string }>>([]);
@@ -546,15 +550,15 @@ export function StrategyChatWorkspace({ actor, initialBrandId, initialGlobalBB =
     <BrandSidebar brands={sidebarBrands} active={selectedBrand} runs={runs} open={sidebarOpen} onBrand={chooseBrand} onBrandThread={(next, id) => { rememberBrand(next); setBrandThreadId(id); setRunId(null); setMode("bb"); setSidebarOpen(false); }} onNew={newChat} onArchive={(run) => { if (!confirm(`Archive ${monthLabel(run.month)}? It will stay in history but no longer block a new monthly plan.`)) return; void archiveRun({ runId: run.runId, actor, reason: "Archived from brand sidebar" }).then(() => { if (runId === run.runId) { setRunId(null); setMode("home"); } }).catch((error) => alert(error instanceof Error ? error.message : String(error))); }} onGlobalBB={openGlobalBB} globalThreads={globalThreads} onGlobalThread={(id) => { setGlobalThreadId(id); openGlobalBB(); }} onOpen={(id) => { const opened = runs.find((item) => item.runId === id); setRunId(id); setMode(opened?.runType === "campaign" ? "campaign" : "monthly"); setSidebarOpen(false); }} />
     {(sidebarOpen || maniOpen) && <button type="button" className="vs-scrim" aria-label="Close" onClick={() => { setSidebarOpen(false); setManiOpen(false); }} />}
     <main className="vs-main">
-      <header className="vs-header"><button type="button" className="vs-mobile-tool" aria-label="Open projects" onClick={() => setSidebarOpen(true)}>☰</button><div><h1>{mode === "global-bb" ? "Loona Hub" : selectedBrand?.name || "Strategy OS"}</h1><p>{activeRun ? (activeRun.runType === "campaign" ? "Campaign planning" : monthLabel(activeRun.month)) : mode === "home" ? "New strategy chat" : mode === "global-bb" ? "Ask BB · Global" : mode === "bb" ? "Ask BB" : mode === "campaign" ? "Campaign planning" : "Monthly planning"}</p></div>{selectedBrand && <a className="vs-header-tool sc-brand-directory" href={`/strategy/?directory=1&brandId=${encodeURIComponent(selectedBrand.id)}&brandName=${encodeURIComponent(selectedBrand.name)}`}>Brand Directory</a>}<button type="button" className="vs-header-tool" onClick={() => setManiOpen(true)}>Memory</button></header>
+      <header className="vs-header"><button type="button" className="vs-mobile-tool" aria-label="Open projects" onClick={() => setSidebarOpen(true)}>☰</button><div>{mode === "global-bb" ? <img className="sc-header-logo" src={loonaLogo} alt="Loona" /> : <><h1>{selectedBrand?.name || "Strategy OS"}</h1><p>{activeRun ? (activeRun.runType === "campaign" ? "Campaign planning" : monthLabel(activeRun.month)) : mode === "home" ? "New strategy chat" : mode === "bb" ? "Ask BB" : mode === "campaign" ? "Campaign planning" : "Monthly planning"}</p></>}</div>{selectedBrand && <a className="vs-header-tool sc-brand-directory" href={`/strategy/?directory=1&brandId=${encodeURIComponent(selectedBrand.id)}&brandName=${encodeURIComponent(selectedBrand.name)}`}>Brand Directory</a>}<span className="sc-header-actions">{(mode === "bb" || mode === "global-bb") && bbClearState && <button type="button" className="vs-header-tool" onClick={bbClearState.clear} disabled={!bbClearState.canClear} aria-label="Clear chat">🗑 Clear chat</button>}<button type="button" className="vs-header-tool" onClick={() => setManiOpen(true)}>Memory</button></span></header>
       <section className="vs-thread sc-thread">
         {mode !== "global-bb" && !selectedBrand && <StrategyHome onGlobalBB={() => openGlobalBB(true)} />}
         {selectedBrand && !selectedBrand.configured && <div className="sc-assistant-block sc-warning"><p>{selectedBrand.name} needs a completed Strategy OS brand configuration before research can start.</p></div>}
         {selectedBrand && !runId && mode === "home" && <Welcome onMode={setMode} configured={Boolean(selectedBrand.configured)} />}
         {selectedBrand && !runId && mode === "monthly" && <Brief mode="monthly" brand={selectedBrand} actor={actor} onStarted={(id) => setRunId(id)} onCancel={() => setMode("home")} />}
         {selectedBrand && !runId && mode === "campaign" && <CampaignBrief brand={selectedBrand} actor={actor} onStarted={(id) => setRunId(id)} onCancel={() => setMode("home")} />}
-        {selectedBrand && !runId && mode === "bb" && <BBChat brand={selectedBrand} actor={actor} threadId={brandThreadId} onNewThread={() => setBrandThreadId(`chat-${Date.now()}`)} />}
-        {mode === "global-bb" && <BBChat actor={actor} global threadId={globalThreadId} onNewThread={() => setGlobalThreadId(`chat-${Date.now()}`)} />}
+        {selectedBrand && !runId && mode === "bb" && <BBChat brand={selectedBrand} actor={actor} threadId={brandThreadId} onClearState={setBbClearState} />}
+        {mode === "global-bb" && <BBChat actor={actor} global threadId={globalThreadId} onClearState={setBbClearState} />}
         {runId && (mode === "campaign" || activeRun?.runType === "campaign") ? <CampaignRunChat runId={runId} actor={actor} /> : null}
         {runId && mode !== "campaign" && activeRun?.runType !== "campaign" ? <RunChat runId={runId} actor={actor} onArchived={() => { setRunId(null); setMode("home"); }} /> : null}
       </section>

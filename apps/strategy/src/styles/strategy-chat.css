@@ -88,7 +88,12 @@ button { cursor: pointer; }
 .sc-sidebar .sc-global-bb-threads .vs-chatlink { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.35; }
 .sc-sidebar .vs-muted-sm { font-size: 12px; }
 .sc-sidebar .vs-spacer { flex: 1; }
-.sc-sidebar .vs-usage-link { padding: 8px; border: 0; border-radius: 8px; background: transparent; text-align: left; color: #fff; }
+.sc-sidebar .vs-usage-link {
+  margin-top: 4px; padding: 9px 14px; border: 0; border-radius: 20px; text-align: center;
+  color: #fff; font-weight: 600; background: linear-gradient(135deg, #ff9950, #c2592f);
+  box-shadow: 0 4px 14px rgba(0,0,0,.28);
+}
+.sc-sidebar .vs-usage-link:hover { background: linear-gradient(135deg, #ffab6c, #d2643a); }
 .sc-main, .sc-shell .vs-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; max-height: 100vh; max-height: 100dvh; background: var(--sc-panel); }
 .sc-shell .vs-header {
   display: flex; align-items: center; gap: 12px; flex: 0 0 auto; padding: 14px 20px;
@@ -98,6 +103,9 @@ button { cursor: pointer; }
 .sc-shell .vs-header h1 { margin: 0; font-family: Georgia, serif; font-size: 19px; font-weight: 500; color: var(--sc-ink); }
 .sc-shell .vs-header p, .sc-shell .vs-muted { margin: 2px 0 0; color: var(--sc-muted); }
 .sc-shell .vs-header-tool, .sc-shell .vs-mobile-tool { padding: 6px 10px; border: 1px solid var(--sc-line); border-radius: 8px; background: #fff; color: var(--sc-ink); font-size: 12px; }
+.sc-shell .vs-header-tool:disabled { opacity: .4; cursor: default; }
+.sc-header-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.sc-header-logo { display: block; height: 28px; width: auto; }
 .sc-brand-directory { text-decoration: none; white-space: nowrap; }
 .sc-directory .vs-thread { padding-top: 18px; }
 .sc-directory-brand { width: 100%; display: flex; justify-content: space-between; gap: 12px; text-align: left; padding: 12px 0; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--sc-ink); font: inherit; }
@@ -195,6 +203,26 @@ button { cursor: pointer; }
    footer as well steals precious vertical room on iPad and was visually covering the input. */
 .sc-thread:has(.sc-bb-chat) + .sc-bottom-hint { display: none; }
 .sc-bb-chat { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+/* Ask BB runs dark — the rest of Strategy OS stays on the light theme above, but this one
+   screen (both the thread and the header sitting over it) reads as its own space. */
+.vs-main:has(.sc-bb-chat) { background: #14110f; }
+.vs-main:has(.sc-bb-chat) .vs-header { background: #14110f; border-bottom-color: rgba(255,255,255,.12); }
+.vs-main:has(.sc-bb-chat) .vs-header h1 { color: #fff; }
+.vs-main:has(.sc-bb-chat) .vs-header p { color: rgba(255,255,255,.6); }
+.vs-main:has(.sc-bb-chat) .vs-header-tool { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.2); color: #fff; }
+.vs-main:has(.sc-bb-chat) .sc-thread { background: #14110f; }
+.vs-main:has(.sc-bb-chat) .sc-bb-empty { color: #fff; }
+.vs-main:has(.sc-bb-chat) .sc-bb-empty span { color: rgba(255,255,255,.65); }
+.vs-main:has(.sc-bb-chat) .sc-bb-assistant-message { color: #fff; }
+.vs-main:has(.sc-bb-chat) .sc-user-bubble { background: rgba(255,255,255,.14); color: #fff; }
+.vs-main:has(.sc-bb-chat) .sc-bb-action { color: rgba(255,255,255,.6); }
+.vs-main:has(.sc-bb-chat) .sc-bb-thinking, .vs-main:has(.sc-bb-chat) .sc-bb-pending { color: rgba(255,255,255,.6); }
+.vs-main:has(.sc-bb-chat) .sc-bb-composer-wrap { background: rgba(20,17,15,.92); border-top-color: rgba(255,255,255,.14); }
+.vs-main:has(.sc-bb-chat) .sc-bb-composer { background: #262220; border-color: rgba(255,255,255,.2); color: #fff; box-shadow: 0 8px 28px rgba(0,0,0,.4); }
+.vs-main:has(.sc-bb-chat) .sc-bb-composer:focus-within { border-color: rgba(255,255,255,.4); }
+.vs-main:has(.sc-bb-chat) .sc-bb-composer textarea::placeholder { color: rgba(255,255,255,.5); }
+.vs-main:has(.sc-bb-chat) .sc-bb-send { background: #fff; color: #14110f; }
+.vs-main:has(.sc-bb-chat) .sc-bb-composer-wrap > p { color: rgba(255,255,255,.5); }
 .sc-bb-toolbar { display: flex; justify-content: space-between; align-items: center; width: min(760px, 100%); margin: 0 auto; padding: 10px clamp(18px, 5vw, 34px); color: var(--sc-muted); font-size: 11px; }
 .sc-bb-toolbar button { border: 0; background: transparent; color: var(--sc-muted); font: inherit; cursor: pointer; }
 .sc-bb-toolbar button:disabled { opacity: .4; cursor: default; }
