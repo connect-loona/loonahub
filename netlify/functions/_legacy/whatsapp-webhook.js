@@ -25,6 +25,7 @@ exports.handler = async (event) => {
 
   const signature = (event.headers && (event.headers["x-hub-signature-256"] || event.headers["X-Hub-Signature-256"])) || "";
   if (!verifySignature(event.body || "", signature, process.env.WHATSAPP_APP_SECRET)) {
+    console.error("whatsapp-webhook: rejected an inbound POST with an invalid or missing signature.");
     return { statusCode: 401, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ error: "Invalid signature" }) };
   }
 
@@ -32,9 +33,16 @@ exports.handler = async (event) => {
   try { payload = JSON.parse(event.body || "{}"); } catch { return ACK; } // Meta still expects 200 for a payload it can't use.
 
   const incoming = extractIncomingText(payload);
-  // Not a real text message (a status callback, or a message type not handled yet) — or the
-  // sender isn't on the internal allowlist. Either way, acknowledge and do nothing more.
-  if (!incoming || !isAllowedNumber(incoming.from, process.env.WHATSAPP_ALLOWED_NUMBERS)) return ACK;
+  if (!incoming) {
+    console.log("whatsapp-webhook: no actionable text message in this payload (status callback or unsupported message type).");
+    return ACK;
+  }
+  // Not on the internal allowlist — acknowledge and do nothing more.
+  if (!isAllowedNumber(incoming.from, process.env.WHATSAPP_ALLOWED_NUMBERS)) {
+    console.log(`whatsapp-webhook: message from ${incoming.from} ignored — not on WHATSAPP_ALLOWED_NUMBERS.`);
+    return ACK;
+  }
+  console.log(`whatsapp-webhook: message from ${incoming.from} accepted, handing off to BB.`);
 
   const backgroundBody = JSON.stringify(incoming);
   try {
