@@ -528,7 +528,12 @@ export function StrategyChatWorkspace({ actor, initialBrandId, initialGlobalBB =
   // that's guaranteed to fail the moment they try to plan anything.
   // Do not drop people into the first alphabetical client. Strategy OS opens as the Loona
   // home; a client workspace is an intentional choice from the sidebar.
-  const selectedBrand = brand;
+  // The sidebar always renders straight off the live `allBrands` list, so a logo added to
+  // Hub after this brand was already selected shows up there immediately. `brand` itself is
+  // only a snapshot captured at selection time (see rememberBrand) and never gets refreshed,
+  // so re-resolve it against the live list here too — otherwise the header shows whatever
+  // that brand looked like at the moment it was picked, forever, even after Hub gets a logo.
+  const selectedBrand = brand ? allBrands.find((item) => item.id === brand.id) || brand : brand;
   const strategyBrand = configuredBrands.find((item: StrategyBrand) => item.id === selectedBrand?.id);
 
   function rememberBrand(next: HubBrandOption) {
