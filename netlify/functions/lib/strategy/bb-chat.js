@@ -27,11 +27,29 @@ function speakerBlock(speaker) {
   return "Nothing here identifies who you are currently speaking with.";
 }
 
-function instructions({ brandName, memory, speaker }) {
+// The team can teach BB a standing rule about how she herself should behave — how she
+// introduces herself, how she adjusts tone for a specific person — through ordinary
+// conversation (see extractionInstructions() below). That is fundamentally different from
+// Mani's brand memory, which is deliberately framed to BB as evidence she must never treat as
+// an instruction. A house rule is the opposite: it IS an instruction, so it gets its own
+// section instead of being folded into the memory block where that framing would bury it.
+function houseRulesBlock(houseRules) {
+  const text = houseRules && String(houseRules).trim();
+  if (!text) return null;
+  return [
+    "# Standing instructions from the team",
+    "The team has explicitly confirmed these as rules for how you should behave — not facts about a brand. Follow them every time they apply. They take precedence over your default tone/persona guidance below where the two conflict, but never override a brand fact, a safety rule, or an explicit instruction from whoever you're talking to right now.",
+    text,
+  ].join("\n");
+}
+
+function instructions({ brandName, memory, speaker, houseRules }) {
+  const rules = houseRulesBlock(houseRules);
   return [
     LOONA_SOUL,
     "---",
     BB_LOONA_SOUL,
+    ...(rules ? ["---", rules] : []),
     "---",
     "# Conversational role",
     `You are speaking directly with Loona's team about ${brandName}. Be a natural strategic collaborator, not a pipeline status bot. Help think, question, diagnose, structure and develop ideas even when the team is not starting a formal plan.`,
@@ -96,7 +114,7 @@ function answerText(response) {
   return { answer: answer.slice(0, MAX_ANSWER_CHARS) };
 }
 
-async function askBBWithOpenAI({ brandName, message, memory, history, attachments, speaker }) {
+async function askBBWithOpenAI({ brandName, message, memory, history, attachments, speaker, houseRules }) {
   if (!process.env.OPENAI_API_KEY) {
     const error = new Error("OPENAI_API_KEY is required for BB fallback.");
     error.name = "ConfigurationError";
@@ -112,7 +130,7 @@ async function askBBWithOpenAI({ brandName, message, memory, history, attachment
   const agent = new Agent({
     name: "BB Loona",
     model,
-    instructions: instructions({ brandName, memory, speaker }),
+    instructions: instructions({ brandName, memory, speaker, houseRules }),
     tools: [webSearchTool({ searchContextSize: "low" })],
   });
   const result = await run(agent, `${turns}\n\nTeam: ${message}${attachmentNote}`, { maxTurns: 4 });
@@ -126,11 +144,16 @@ const MAX_NOTE_CHARS = 600;
 
 function extractionInstructions() {
   return [
-    "You read one exchange between the Loona team and BB, and decide whether it contains a durable fact worth remembering permanently — not the conversation itself.",
-    "Worth remembering: a person's name/role/contact for a client or account, who owns or is handling something, a decision that was made, a standing preference or rule the team stated, a correction to something previously believed.",
-    "NOT worth remembering: greetings, thanks, small talk, a question with no new information in it, brainstorming or ideas that were not settled on, anything BB said that the team did not confirm.",
+    "You read one exchange between the Loona team and BB, and decide whether it contains something worth remembering permanently — not the conversation itself.",
+    "Two different things are worth remembering, and you must not confuse them:",
+    "- A FACT: a person's name/role/contact for a client or account, who owns or is handling something, a decision made about a brand's work, a correction to something previously believed.",
+    "- A RULE: a standing instruction the team gave about how BB HERSELF should behave going forward — how she introduces herself, how she should adjust her tone for a specific person, a greeting convention, a general behavioural preference for BB. This is about BB, not about a brand or client.",
+    "NOT worth remembering: greetings, thanks, small talk, a question with no new information in it, brainstorming or ideas that were not settled on, anything BB proposed that the team did not actually confirm.",
     `If nothing in this exchange is worth remembering, reply with exactly the single word ${NO_MEMORY_WORTHY_FACT} and nothing else.`,
-    "Otherwise, reply with ONE short sentence stating the fact plainly, third person, no preamble — e.g. \"The POC for Casa Waters is Priya, reachable at +91...\" Do not restate the whole exchange.",
+    "Otherwise, reply with exactly one line, in one of these two forms:",
+    "FACT: <the fact, plainly, third person, no preamble — e.g. \"The POC for Casa Waters is Priya, reachable at +91...\">",
+    "RULE: <the rule, as a direct second-person instruction to BB — e.g. \"When Chinmay asks who you are, add a bit more edge and banter.\">",
+    "Pick exactly one line, never both, and never restate the whole exchange.",
   ].join("\n");
 }
 
@@ -158,7 +181,13 @@ async function extractMemoryNote({ userMessage, bbAnswer }, deps = {}) {
   });
   const text = (response.content || []).filter((block) => block.type === "text").map((block) => block.text).join("\n").trim();
   if (!text || text.toUpperCase() === NO_MEMORY_WORTHY_FACT) return null;
-  return text.slice(0, MAX_NOTE_CHARS);
+  const ruleMatch = /^RULE:\s*(.+)$/is.exec(text);
+  if (ruleMatch) return { type: "rule", text: ruleMatch[1].trim().slice(0, MAX_NOTE_CHARS) };
+  const factMatch = /^FACT:\s*(.+)$/is.exec(text);
+  if (factMatch) return { type: "fact", text: factMatch[1].trim().slice(0, MAX_NOTE_CHARS) };
+  // The model ignored the FACT:/RULE: format but still returned something worth keeping —
+  // treat it as a fact, the safer default, rather than discarding a real note outright.
+  return { type: "fact", text: text.slice(0, MAX_NOTE_CHARS) };
 }
 
 // Best-effort, same reasoning as recordManiEventSafe: a hiccup extracting a memory note must
@@ -169,7 +198,7 @@ async function extractMemoryNoteSafe(input, deps = {}) {
   catch (error) { console.error("Could not extract a memory note from this BB exchange:", error.message || error); return null; }
 }
 
-async function askBB({ brandName, message, memory, history, attachments, speaker }, deps = {}) {
+async function askBB({ brandName, message, memory, history, attachments, speaker, houseRules }, deps = {}) {
   const asked = String(message || "").trim().slice(0, MAX_MESSAGE_CHARS);
   if (!asked) throw new Error("BB needs a message.");
 
@@ -201,7 +230,7 @@ async function askBB({ brandName, message, memory, history, attachments, speaker
     const response = await client.messages.create({
       model,
       max_tokens: 1000,
-      system: instructions({ brandName, memory, speaker }),
+      system: instructions({ brandName, memory, speaker, houseRules }),
       tools: /\b(current|today|latest|website|web|news|search|competitor|trend|moon)\b/i.test(asked) ? [{ type: "web_search_20260209", name: "web_search", max_uses: 2 }] : [],
       messages,
     });
@@ -213,7 +242,7 @@ async function askBB({ brandName, message, memory, history, attachments, speaker
     if (!isProviderError(error) || (deps.client && !deps.openAIFallback)) throw error;
     console.warn(`BB Sonnet unavailable; using OpenAI fallback: ${error.message || error}`);
     const fallback = deps.openAIFallback || askBBWithOpenAI;
-    return fallback({ brandName, message: asked, memory, history, attachments, speaker });
+    return fallback({ brandName, message: asked, memory, history, attachments, speaker, houseRules });
   }
 }
 

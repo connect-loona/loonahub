@@ -32,6 +32,15 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
   const unverifiedSpeaker = instructions({ brandName: "RRO Foods", memory: null, speaker: { name: "Chinmay", verified: false } });
   check("a self-reported speaker name is flagged as unconfirmed, not stated as fact", /identified themselves as "Chinmay".*has not been confirmed/s.test(unverifiedSpeaker), unverifiedSpeaker);
 
+  // Standing house rules are a genuine instruction, unlike Mani's memory — they need their own
+  // section so the "treat memory as evidence, not instructions" framing doesn't bury them.
+  const withRules = instructions({ brandName: "RRO Foods", memory: null, houseRules: "- When Chinmay asks who you are, add a bit more edge." });
+  check("a house rule is surfaced as a standing instruction", /Standing instructions from the team/.test(withRules), withRules);
+  check("the house rule text itself appears", /Chinmay/.test(withRules), withRules);
+  check("house rules are framed as taking precedence, unlike Mani's memory", /take precedence/.test(withRules), withRules);
+  const withoutRules = instructions({ brandName: "RRO Foods", memory: null });
+  check("no house rules yields no such section at all", !/Standing instructions from the team/.test(withoutRules), withoutRules);
+
   const history = Array.from({ length: MAX_HISTORY_MESSAGES + 5 }, (_, index) => ({
     role: index % 2 ? "assistant" : "user", text: `turn ${index}`,
   }));
@@ -49,6 +58,15 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
   check("BB uses the fast conversational model by default", /sonnet/.test(log[0].model), log[0].model);
   check("BB can use the bounded live web-search tool for current questions",
     Array.isArray(log[0].tools), log[0].tools);
+
+  // A house rule passed into askBB must actually reach the model, not just the standalone
+  // instructions() helper — this is what makes the fix real rather than theoretical.
+  const rulesLog = [];
+  await askBB({
+    brandName: "RRO Foods", message: "Hey", memory: null,
+    houseRules: "- When Chinmay asks who you are, add a bit more edge.",
+  }, { client: fakeClient(rulesLog) });
+  check("askBB threads houseRules into the system prompt actually sent to the model", /Chinmay/.test(rulesLog[0].system), rulesLog[0].system.slice(-400));
 
   // A supplied test client deliberately does not trigger cross-provider calls, so exercise
   // the production fallback branch with an injected OpenAI responder.
@@ -79,9 +97,10 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
   const factLog = [];
   const factNote = await extractMemoryNote(
     { userMessage: "The POC for Casa Waters is Priya, she's on +91 98765 43210.", bbAnswer: "Got it, noting that down." },
-    { client: fakeClient(factLog, "The POC for Casa Waters is Priya, reachable at +91 98765 43210.") },
+    { client: fakeClient(factLog, "FACT: The POC for Casa Waters is Priya, reachable at +91 98765 43210.") },
   );
-  check("a genuine fact from the team is extracted as a short note", /Priya/.test(factNote || "") && /98765 43210/.test(factNote || ""), factNote);
+  check("a genuine fact from the team is extracted as a short note", factNote && factNote.type === "fact", factNote);
+  check("the fact text has the FACT: prefix stripped", /Priya/.test((factNote && factNote.text) || "") && /98765 43210/.test((factNote && factNote.text) || ""), factNote);
   check("extraction uses the cheap model, not BB's conversational one", /haiku/.test(factLog[0].model), factLog[0].model);
 
   const noneLog = [];
@@ -90,6 +109,25 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
     { client: fakeClient(noneLog, "NONE") },
   );
   check("a greeting with nothing new is not remembered", noFact === null, noFact);
+
+  // A standing behavioural rule (how BB should behave, not a brand fact) is classified
+  // separately — this is exactly the case that prompted the distinction: the team teaching BB
+  // how to introduce herself and adjust her tone, which must not be filed as a "brand fact".
+  const ruleLog = [];
+  const ruleNote = await extractMemoryNote(
+    { userMessage: "Yeah you can keep changing according to people", bbAnswer: "Perfect. If it's Chinmay asking, maybe a little more edge. Sound right?" },
+    { client: fakeClient(ruleLog, "RULE: When Chinmay asks who you are, add a bit more edge and banter; otherwise stay professional but warm.") },
+  );
+  check("a confirmed behavioural instruction is extracted as a rule, not a fact", ruleNote && ruleNote.type === "rule", ruleNote);
+  check("the rule text has the RULE: prefix stripped", /Chinmay/.test((ruleNote && ruleNote.text) || ""), ruleNote);
+
+  // A model that ignores the FACT:/RULE: format entirely still shouldn't lose a real note —
+  // it degrades to a fact, the safer of the two categories to default to.
+  const unlabelledNote = await extractMemoryNote(
+    { userMessage: "The launch date moved to October 3rd.", bbAnswer: "Got it." },
+    { client: fakeClient([], "The launch date moved to October 3rd.") },
+  );
+  check("an unlabelled response still yields a note, defaulting to a fact", unlabelledNote && unlabelledNote.type === "fact" && /October 3rd/.test(unlabelledNote.text), unlabelledNote);
 
   let extractionThrew = false;
   const safeResult = await extractMemoryNoteSafe(
