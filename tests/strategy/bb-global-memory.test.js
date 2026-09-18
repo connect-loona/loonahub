@@ -23,6 +23,7 @@ const { signedBackgroundHeaders } = require(path.join(HUB, "netlify/functions/li
   await fbSet("members", null);
   await fbSet("inactive_members", null);
   await fbSet("tasks", null);
+  await fbSet("announcements", null);
 
   await fbSet("mani_brand_notes/global", { n1: { content: "Ravi now owns the 2100co. account.", source: "bb_conversation", actor: "Gokul", createdAt: new Date().toISOString() } });
   await recordManiEvent({ type: "task_updated", source: "hub", actor: "Anjali", entityType: "task", entityId: "t1", action: "updated", summary: "Marked the launch brief as done." });
@@ -31,6 +32,7 @@ const { signedBackgroundHeaders } = require(path.join(HUB, "netlify/functions/li
   await recordManiEvent({ type: "bb_conversation", source: "strategy_os", brandId: null, actor: "Team", entityType: "bb_chat", entityId: "global", action: "asked", summary: "Asked BB: what's overdue" });
   await fbSet("members", { m1: { name: "Ankita", role: "Sr. Strategy", department: "Marketing and Social Media" } });
   await fbSet("tasks", { t1: { task: "Write October captions", member: "Vishnu", brand: "RRO Foods", status: "Not Started" } });
+  await fbSet("announcements", { an1: { text: "Brand of the day: Casa Waters.", author: "Priya", link: "https://casawaters.example.com", timestamp: "2026-09-10T09:00:00Z", ts: Date.now() } });
 
   const memory = await loadGlobalBrain();
   check("Global BB memory includes a Hub-wide extracted/pasted note", /Ravi now owns the 2100co/.test(memory || ""), memory);
@@ -38,11 +40,14 @@ const { signedBackgroundHeaders } = require(path.join(HUB, "netlify/functions/li
   check("Global BB memory excludes raw bb_conversation events, same as per-brand memory", !/what's overdue/.test(memory || ""), memory);
   check("Global BB memory includes the Hub team directory", /Ankita.*Sr\. Strategy/.test(memory || ""), memory);
   check("Global BB memory includes the Hub-wide task board", /Write October captions — RRO Foods · Vishnu/.test(memory || ""), memory);
+  check("Global BB memory includes the task history ledger", /Task history/.test(memory || ""), memory);
+  check("Global BB memory includes the Loona Board announcements", /Casa Waters/.test(memory || "") && /Loona Board/.test(memory || ""), memory);
 
   await fbSet("mani_brand_notes/global", null);
   await fbSet("mani_events", null);
   await fbSet("members", null);
   await fbSet("tasks", null);
+  await fbSet("announcements", null);
   const emptyMemory = await loadGlobalBrain();
   check("an unused Hub has no Global BB memory rather than an empty-but-truthy block", emptyMemory === null, emptyMemory);
 

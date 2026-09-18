@@ -10,8 +10,10 @@ const path = require("path");
 const { HUB, RTDB_URL, req, check, finish } = require("../harness/shared");
 const {
   collectTeamActivity, teamActivityToPromptText, loadTeamActivityText, taskMatchesBrand, slug,
-  collectAllTeamActivity, hubTaskBoardToPromptText, loadHubTaskBoardText,
+  collectAllTeamActivity, hubTaskBoardToPromptText, loadHubTaskBoardText, loadTaskHistoryText,
 } = require(path.join(HUB, "netlify/functions/lib/strategy/team-activity"));
+const { recordManiEvent } = require(path.join(HUB, "netlify/functions/lib/strategy/mani-events"));
+const { fbSet } = require(path.join(HUB, "netlify/functions/lib/strategy/firebase"));
 
 const TODAY = "2026-09-13";
 
@@ -116,6 +118,26 @@ const TODAY = "2026-09-13";
   // ---- The end-to-end helper the store actually calls ----
   const live = await loadTeamActivityText("rro", "RRO Foods", { today: TODAY });
   check("the text helper reads the real board", /Shoot the Diwali reel/.test(live), live.slice(0, 150));
+
+  // ---- Task history: a task's existence and outcome must survive Hub clearing it off the
+  // live board, by reading Mani's own event ledger instead of the board itself. ----
+  await fbSet("mani_events", null);
+  const now = new Date();
+  const monthsAgo = (n) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - n, 15)).toISOString();
+  await recordManiEvent({ type: "task_updated", source: "hub", actor: "Anjali", entityType: "task", entityId: "hx1", occurredAt: now.toISOString(), summary: "Marked the September report done." });
+  await recordManiEvent({ type: "task_removed", source: "hub", actor: "system", entityType: "task", entityId: "hx2", occurredAt: monthsAgo(2), summary: "Cleared 'Old deferred thing' from the board.", data: { before: { task: "Old deferred thing" } } });
+  await recordManiEvent({ type: "bb_conversation", source: "strategy_os", actor: "Team", entityType: "bb_chat", entityId: "hx3", occurredAt: now.toISOString(), summary: "Asked BB something unrelated." });
+  await recordManiEvent({ type: "task_updated", source: "hub", actor: "Rahul", entityType: "task", entityId: "hx4", occurredAt: monthsAgo(4), summary: "This is outside the 3-month window." });
+
+  const history = await loadTaskHistoryText();
+  check("task history includes a recent task_updated event", /September report done/.test(history || ""), history);
+  check("task history includes a task_removed event, so a cleared task is still recallable", /Old deferred thing/.test(history || ""), history);
+  check("task history excludes raw bb_conversation events, same as the other event feeds", !/unrelated/.test(history || ""), history);
+  check("task history excludes events older than the 3-month window", !/outside the 3-month window/.test(history || ""), history);
+
+  await fbSet("mani_events", null);
+  const emptyHistory = await loadTaskHistoryText();
+  check("no task history yields null rather than an empty heading", emptyHistory === null, emptyHistory);
 
   finish();
 })().catch((e) => { console.error("FATAL:", e, e.stack); process.exit(1); });
