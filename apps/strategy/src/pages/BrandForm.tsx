@@ -105,6 +105,9 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
   async function handleSubmit() {
     setError(null);
     setSubmitStatus("Checking your configuration…");
+    // Validation is intentionally inside this boundary too. A malformed draft must surface
+    // an actionable message instead of leaving the desktop form on “Checking…”.
+    try {
     const trimmedId = id.trim();
     if (!/^[a-z0-9-]+$/.test(trimmedId)) {
       setError("Brand id must be lowercase letters, numbers or hyphens.");
@@ -190,6 +193,11 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
       setSubmitStatus(null);
     } finally {
       setSaving(false);
+    }
+    } catch (e) {
+      setSaving(false);
+      setSubmitStatus(null);
+      setError(e instanceof Error ? e.message : String(e));
     }
   }
 
