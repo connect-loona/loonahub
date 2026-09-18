@@ -24,8 +24,8 @@ export default function App() {
     });
   }, []);
 
-  if (authStatus === "checking") return <div className="vs-shell sc-shell"><main className="vs-main sc-loading">Checking your Hub session…</main></div>;
-  if (authStatus === "signed-out") return <div className="vs-shell sc-shell"><main className="vs-main sc-signed-out"><h1>Strategy OS</h1><p>You’re not signed into Hub on this device yet.</p><a href="/">Go to Hub</a></main></div>;
+  if (authStatus === "checking") return <div className="vs-shell sc-shell sc-full-shell"><main className="vs-main sc-loading">Checking your Hub session…</main></div>;
+  if (authStatus === "signed-out") return <div className="vs-shell sc-shell sc-full-shell"><main className="vs-main sc-signed-out"><h1>Strategy OS</h1><p>You’re not signed into Hub on this device yet.</p><a href="/">Go to Hub</a></main></div>;
 
   const actor = user?.displayName || user?.email?.split("@")[0] || "Hub";
   const query = new URLSearchParams(window.location.search);

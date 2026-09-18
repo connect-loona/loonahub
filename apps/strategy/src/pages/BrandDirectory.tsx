@@ -22,9 +22,9 @@ export function BrandDirectory({ brandId, brandName, onClose }: { brandId: strin
     catch (error) { setDraftError(error instanceof Error ? error.message : String(error)); setDrafting(false); }
   }
 
-  if (loading) return <div className="vs-shell sc-shell"><main className="vs-main sc-loading">Opening Brand Directory…</main></div>;
+  if (loading) return <div className="vs-shell sc-shell sc-full-shell"><main className="vs-main sc-loading">Opening Brand Directory…</main></div>;
 
-  if (showDirectory) return <div className="vs-shell sc-shell"><main className="vs-main sc-directory">
+  if (showDirectory) return <div className="vs-shell sc-shell sc-full-shell"><main className="vs-main sc-directory">
     <header className="vs-header"><div><h1>Brand Directory</h1><p>Choose a brand to review its Strategy OS configuration.</p></div><button type="button" className="vs-header-tool" onClick={onClose}>Close</button></header>
     <section className="vs-thread">
       <div className="st-board"><div className="st-board-header">Configured brands</div>
@@ -33,7 +33,7 @@ export function BrandDirectory({ brandId, brandName, onClose }: { brandId: strin
     </section>
   </main></div>;
 
-  return <div className="vs-shell sc-shell"><main className="vs-main sc-directory">
+  return <div className="vs-shell sc-shell sc-full-shell"><main className="vs-main sc-directory">
     <header className="vs-header"><div><h1>Brand Directory</h1><p>{existing ? `Review ${brandName}'s configuration.` : `Set up ${brandName} so planning and brand memory can begin.`}</p></div>{!existing && <button type="button" className="vs-header-tool" disabled={drafting || memoryDraft?.status === "drafting"} onClick={() => void draftFromMemory()}>{drafting || memoryDraft?.status === "drafting" ? "Drafting…" : fromMemory ? "Refresh from Mani" : "Draft from Mani"}</button>}<button type="button" className="vs-header-tool" onClick={() => setShowDirectory(true)}>All brands</button><button type="button" className="vs-header-tool" onClick={onClose}>Close</button></header>
     <section className="vs-thread">{!existing && <p className="sc-directory-note">Paste context in Mani memory first, then use “Draft from Mani”. Review and edit every generated field before saving.</p>}{memoryDraft?.status === "failed" && <p className="sc-error">{memoryDraft.error || "Mani could not draft this configuration."}</p>}{draftError && <p className="sc-error">{draftError}</p>}<BrandForm key={`${existing?.id || `new-${brandId}`}-${memoryDraft?.status === "ready" ? "ready" : "blank"}`} brandId={existing?.id || "__new__"} initialBrand={seed} onCancel={onClose} onSaved={onClose} /></section>
   </main></div>;

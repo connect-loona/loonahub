@@ -37,7 +37,7 @@ button { cursor: pointer; }
 }
 /* Before brand data arrives there is deliberately no sidebar. Without this override the
    normal two-column grid puts the loader in the sidebar's 236px track on desktop. */
-.sc-loading-shell { grid-template-columns: minmax(0, 1fr); }
+.sc-loading-shell, .sc-full-shell { grid-template-columns: minmax(0, 1fr); }
 .sc-sidebar {
   display: flex; flex-direction: column; gap: 4px; padding: 16px 12px;
   border-right: 1px solid var(--sc-line); max-height: 100vh; max-height: 100dvh; overflow-y: auto;
