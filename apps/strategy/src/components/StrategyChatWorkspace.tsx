@@ -362,6 +362,12 @@ function RunChat({ runId, actor, onArchived }: { runId: string; actor: string; o
     catch (e) { setRetryError(e instanceof Error ? e.message : String(e)); }
     finally { setRetrying(false); }
   }
+  // A retry can race a worker that has just started. Once Firebase reports that the run
+  // has advanced, the old 409 message is no longer meaningful and must not sit below an
+  // otherwise-ready concept list looking like a current failure.
+  useEffect(() => {
+    if (stageStatus(run, "strategy") === "needs_review" && assets.length) setRetryError(null);
+  }, [run, assets.length]);
   // Reopening a chat with decisions already made lands on the first unresolved concept,
   // forcing a click through everything already reviewed just to reach where the
   // conversation actually left off. Only ever runs once, the first time real assets and
