@@ -1,4 +1,7 @@
 import crypto from "node:crypto";
+import { createJimp } from "@jimp/core";
+import jimpPng from "@jimp/js-png";
+import jimpJpeg from "@jimp/js-jpeg";
 import generation from "./_legacy/visual-generate.js";
 import auth from "./lib/strategy/auth.js";
 import visualJobs from "./lib/strategy/visual-jobs.js";
@@ -8,6 +11,12 @@ import visualMemory from "./lib/strategy/visual-memory.js";
 import visualChats from "./lib/strategy/visual-chats.js";
 import apiUsage from "./lib/strategy/api-usage.js";
 import visualActor from "./lib/strategy/visual-actor.js";
+
+// image-providers is CommonJS and is loaded by the legacy generation handler. Static imports
+// here make the decoders part of this background worker's production bundle.
+globalThis.__jimpCoreBundled = createJimp;
+globalThis.__jimpPngBundled = jimpPng;
+globalThis.__jimpJpegBundled = jimpJpeg;
 
 const { checkAuthorization } = auth;
 const { getVisualJob, updateVisualJob, verifyVisualJobSignature } = visualJobs;

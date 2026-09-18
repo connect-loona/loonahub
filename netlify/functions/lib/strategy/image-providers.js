@@ -110,6 +110,31 @@ function decodeReference(reference, index) {
   return decodeDataUrl(reference && reference.dataUrl, index);
 }
 
+let openAiReferenceJimp = null;
+
+// The background worker supplies these as static ESM imports. Keeping this lookup here makes
+// the CommonJS provider usable in both the bundled worker and direct Node tests, while ensuring
+// Netlify includes the JPEG decoder in the production function bundle.
+function jimpForOpenAiReferences() {
+  if (openAiReferenceJimp) return openAiReferenceJimp;
+  const createJimp = globalThis.__jimpCoreBundled;
+  const jpeg = globalThis.__jimpJpegBundled;
+  const png = globalThis.__jimpPngBundled;
+  if (createJimp && jpeg && png) {
+    openAiReferenceJimp = createJimp({ formats: [jpeg.default || jpeg, png.default || png] });
+    return openAiReferenceJimp;
+  }
+
+  // Local scripts and unit tests load this module directly rather than through the worker.
+  const core = require("@jimp/core");
+  const localJpeg = require("@jimp/js-jpeg");
+  const localPng = require("@jimp/js-png");
+  openAiReferenceJimp = core.createJimp({
+    formats: [localJpeg.default || localJpeg, localPng.default || localPng],
+  });
+  return openAiReferenceJimp;
+}
+
 // Some camera-exported JPEGs are valid enough for browsers and our upload validation, but use a
 // colour mode or JPEG variant that the Images edit endpoint refuses with `invalid_image_file`.
 // Re-encoding JPEG references makes the multipart payload a standard RGB JPEG. Do this only for
@@ -118,10 +143,7 @@ async function standardizeJpegForOpenAI(reference, index) {
   const decoded = decodeReference(reference, index);
   if (!/^image\/jpeg$/i.test(decoded.mediaType)) return decoded;
   try {
-    const { createJimp } = require("@jimp/core");
-    const jpeg = require("@jimp/js-jpeg");
-    const png = require("@jimp/js-png");
-    const Jimp = createJimp({ formats: [jpeg.default || jpeg, png.default || png] });
+    const Jimp = jimpForOpenAiReferences();
     const image = await Jimp.read(decoded.bytes);
     const bytes = Buffer.from(await image.getBuffer("image/jpeg"));
     if (!bytes.length) throw new Error("JPEG encoder returned no bytes");
