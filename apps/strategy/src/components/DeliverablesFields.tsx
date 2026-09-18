@@ -24,8 +24,8 @@ function labelFor(slug: string): string {
   return PRESET_TYPES.find((p) => p.slug === slug)?.label || slug;
 }
 
-function slugify(label: string): string {
-  return label.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-+|-+$)/g, "");
+function slugify(label: unknown): string {
+  return String(label || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-+|-+$)/g, "");
 }
 
 export interface Row {

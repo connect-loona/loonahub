@@ -12,11 +12,11 @@ import { DeliverablesFields, deliverablesToMap, useDeliverablesRows } from "../c
 interface AudienceRow { id: string; description: string; buyingSituation: string; trigger: string }
 interface PillarRow { id: string; name: string; description: string; targetShare: number }
 
-function csvLine(arr?: string[]): string { return (arr || []).join(", "); }
-function linesText(arr?: string[]): string { return (arr || []).join("\n"); }
-function splitCsv(s: string): string[] { return s.split(",").map((x) => x.trim()).filter(Boolean); }
-function splitLines(s: string): string[] { return s.split("\n").map((x) => x.trim()).filter(Boolean); }
 function text(value: unknown): string { return typeof value === "string" ? value.trim() : ""; }
+function csvLine(value: unknown): string { return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string").join(", ") : ""; }
+function linesText(value: unknown): string { return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string").join("\n") : ""; }
+function splitCsv(value: unknown): string[] { return text(value).split(",").map(text).filter(Boolean); }
+function splitLines(value: unknown): string[] { return text(value).split("\n").map(text).filter(Boolean); }
 
 // Everything strategy-brand-save.js validates but this form doesn't expose its own
 // fields for — round-tripped untouched through the Advanced JSON textarea, same as the
