@@ -86,7 +86,6 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
 
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
 
   function updateAudience(i: number, field: keyof AudienceRow, value: string) {
     setAudiences((rows) => rows.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)));
@@ -96,7 +95,7 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
   }
 
   async function handleSubmit() {
-    setError(null); setSaved(false);
+    setError(null);
     const trimmedId = id.trim();
     if (!/^[a-z0-9-]+$/.test(trimmedId)) {
       setError("Brand id must be lowercase letters, numbers or hyphens.");
@@ -171,9 +170,9 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
     setSaving(true);
     try {
       await saveBrand({ brandId: trimmedId, config });
-      // Stay on the form and confirm the actual write. Redirecting immediately made a
-      // successful save look indistinguishable from a click that did nothing.
-      setSaved(true);
+      // A completed configuration belongs back in the brand workspace, where the team
+      // can immediately start Ask BB, Monthly Plan, or Campaign Planning.
+      onSaved();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -304,9 +303,8 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
       <div className="st-board">
         <div style={{ display: "flex", gap: 8 }}>
           <button className="st-btn st-btn-ghost" style={{ flex: 1 }} onClick={onCancel}>Cancel</button>
-          <button type="button" className="st-btn st-btn-primary" style={{ flex: 1 }} disabled={saving} onClick={handleSubmit}>{saving ? "Saving…" : saved ? "Saved ✓" : "Save brand"}</button>
+          <button type="button" className="st-btn st-btn-primary" style={{ flex: 1 }} disabled={saving} onClick={handleSubmit}>{saving ? "Saving…" : "Save brand"}</button>
         </div>
-        {saved && <div role="status" style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, border: "1px solid #4f9e68", background: "rgba(79,158,104,.16)", color: "#a8f0bd", fontSize: 13, fontWeight: 600 }}>Brand saved successfully. You can continue editing, or <button type="button" className="st-btn st-btn-ghost st-btn-sm" style={{ marginLeft: 8 }} onClick={onSaved}>return to Ask BB</button>.</div>}
         {error && <div role="alert" style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, border: "1px solid #d85b4b", background: "rgba(216,91,75,.16)", color: "#ffb3a8", fontSize: 13, fontWeight: 600, whiteSpace: "pre-wrap" }}><b>Can’t save brand:</b> {error}</div>}
       </div>
     </div>
