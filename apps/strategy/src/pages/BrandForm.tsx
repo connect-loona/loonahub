@@ -88,6 +88,8 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
   const [submitStatus, setSubmitStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const errorRef = useRef<HTMLDivElement | null>(null);
+  const submitFormRef = useRef<HTMLFormElement | null>(null);
+  const submitHandlerRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     if (error) errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -190,6 +192,21 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
       setSaving(false);
     }
   }
+
+  // This page is also used inside the desktop shell, where a parent shell can occasionally
+  // swallow React's delegated click event. Listen on the real browser form as well: submit
+  // then reaches this handler whether the user clicks Save or presses Enter in a field.
+  submitHandlerRef.current = () => { void handleSubmit(); };
+  useEffect(() => {
+    const form = submitFormRef.current;
+    if (!form) return;
+    const submit = (event: SubmitEvent) => {
+      event.preventDefault();
+      submitHandlerRef.current();
+    };
+    form.addEventListener("submit", submit);
+    return () => form.removeEventListener("submit", submit);
+  }, []);
 
   return (
     <div>
@@ -311,7 +328,7 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
       </details>
       </details>
 
-      <form className="st-board" onSubmit={(event) => { event.preventDefault(); void handleSubmit(); }} noValidate>
+      <form ref={submitFormRef} className="st-board" noValidate>
         <div style={{ display: "flex", gap: 8 }}>
           <button type="button" className="st-btn st-btn-ghost" style={{ flex: 1 }} onClick={onCancel}>Cancel</button>
           <button type="submit" className="st-btn st-btn-primary" style={{ flex: 1 }} disabled={saving}>{saving ? "Saving…" : "Save brand"}</button>
