@@ -51,10 +51,13 @@ async function loadRecentManiEvents(brandId, limit = MAX_EVENTS_IN_CONTEXT) {
     .slice(0, Math.min(Math.max(Number(limit) || 1, 1), 100));
 }
 
-async function loadRecentHubManiEvents(limit = MAX_EVENTS_IN_CONTEXT) {
+// monthsBack defaults to 2 (this month + last) for the general recent-activity feed. A caller
+// that needs a longer memory — task history surviving a cleared board, for instance — passes a
+// bigger window explicitly rather than this default growing for everyone.
+async function loadRecentHubManiEvents(limit = MAX_EVENTS_IN_CONTEXT, monthsBack = 2) {
   const now = new Date();
-  const previous = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
-  const keys = [monthKey(now.toISOString()), monthKey(previous.toISOString())];
+  const count = Math.min(Math.max(Number(monthsBack) || 1, 1), 12);
+  const keys = Array.from({ length: count }, (_, i) => monthKey(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1)).toISOString()));
   const months = await Promise.all(keys.map((key) => fbGet(`mani_events/${key}`)));
   return months.flatMap((raw) => Object.values(raw || {}))
     .sort((a, b) => String(b.occurredAt || "").localeCompare(String(a.occurredAt || "")))

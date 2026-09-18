@@ -151,8 +151,38 @@ async function loadHubTaskBoardText(deps) {
   return hubTaskBoardToPromptText(await collectAllTeamActivity(deps));
 }
 
+const TASK_HISTORY_MONTHS = 3;
+const TASK_HISTORY_TYPES = new Set(["task_created", "task_updated", "task_removed"]);
+const MAX_TASK_HISTORY_LINES = 40;
+
+// Hub periodically clears a completed task off the live board — mani-task-sync.js's own
+// reconciliation already turns that into a task_removed event (with the task's last known
+// state attached) before it disappears, and every status change along the way, including the
+// move to "Completed", was already a task_updated event. So a task's existence and outcome
+// survive being cleared here even though collectAllTeamActivity above, reading the live board,
+// no longer sees it. Bounded to TASK_HISTORY_MONTHS of Mani's ledger, not truly forever — an
+// older clearing is a real gap, not a design choice, but the tradeoff against loading every
+// event Hub has ever recorded on every BB conversation.
+async function loadTaskHistoryText(deps = {}) {
+  const load = deps.loadRecentHubManiEvents || require("./mani-events").loadRecentHubManiEvents;
+  const events = await load(100, TASK_HISTORY_MONTHS);
+  const taskEvents = events.filter((event) => TASK_HISTORY_TYPES.has(event.type));
+  if (!taskEvents.length) return null;
+  const lines = taskEvents.slice(0, MAX_TASK_HISTORY_LINES).map((event) => {
+    const when = String(event.occurredAt || "").slice(0, 10);
+    const actor = event.actor && event.actor !== "system" ? ` · ${event.actor}` : "";
+    return `- ${when}${actor}: ${event.summary || "Task activity"}`;
+  });
+  return [
+    `# Task history (last ${TASK_HISTORY_MONTHS} months, including tasks since cleared from the live board)`,
+    "Hub clears a task off the live board once it's been dealt with — this history survives that, so a task's existence and outcome stay recallable after it's gone from the board above.",
+    ...lines,
+  ].join("\n");
+}
+
 module.exports = {
   collectTeamActivity, teamActivityToPromptText, loadTeamActivityText,
   collectAllTeamActivity, hubTaskBoardToPromptText, loadHubTaskBoardText,
+  loadTaskHistoryText,
   taskMatchesBrand, slug, CLOSED_STATUSES,
 };

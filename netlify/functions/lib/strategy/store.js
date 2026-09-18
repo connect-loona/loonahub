@@ -284,8 +284,9 @@ async function loadGlobalBrain() {
   const { loadRecentHubManiEvents, maniEventsToPromptText } = require("./mani-events");
   const { loadTeamDirectoryText } = require("./hub-members");
   const { loadAttendanceText } = require("./attendance-memory");
-  const { loadHubTaskBoardText } = require("./team-activity");
-  const [pasted, events, team, attendance, tasks] = await Promise.all([
+  const { loadHubTaskBoardText, loadTaskHistoryText } = require("./team-activity");
+  const { loadAnnouncementsText } = require("./announcements-memory");
+  const [pasted, events, team, attendance, tasks, taskHistory, announcements] = await Promise.all([
     loadPastedManiMemory("global").catch((error) => { console.error("Could not load Hub-wide Mani memory:", error.message); return null; }),
     // Kept alongside the task board below rather than filtered down to exclude it — the board
     // is current STATE (what's open right now); these events are HISTORY (who changed what,
@@ -298,8 +299,11 @@ async function loadGlobalBrain() {
     // conversation about a specific client's content, and would just add noise there.
     loadAttendanceText().catch((error) => { console.error("Could not load today's attendance:", error.message); return null; }),
     loadHubTaskBoardText().catch((error) => { console.error("Could not load the Hub task board:", error.message); return null; }),
+    // Survives Hub clearing a completed task off the live board above — see team-activity.js.
+    loadTaskHistoryText().catch((error) => { console.error("Could not load task history:", error.message); return null; }),
+    loadAnnouncementsText().catch((error) => { console.error("Could not load Loona Board announcements:", error.message); return null; }),
   ]);
-  const parts = [pasted, events, team, attendance, tasks].filter(Boolean);
+  const parts = [pasted, events, team, attendance, tasks, taskHistory, announcements].filter(Boolean);
   return parts.length ? parts.join("\n\n") : null;
 }
 
