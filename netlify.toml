@@ -346,6 +346,12 @@
 #                             matches. Everyone else's messages are silently ignored — this is
 #                             an internal team surface, not a public one.)
 #
+#   A change to any WHATSAPP_* value above needs a fresh deploy to reach the live functions —
+#   Netlify snapshots environment variables per-deploy rather than hot-loading a dashboard
+#   edit into an already-running function. Meta's "Verify and save" on the webhook config
+#   screen will keep failing with "couldn't be validated" until the next deploy picks up a
+#   just-changed WHATSAPP_VERIFY_TOKEN or WHATSAPP_APP_SECRET.
+#
 #   One-time setup in Meta for Developers (https://developers.facebook.com/apps):
 #     1. Create an app (type "Business"), then add the "WhatsApp" product to it.
 #     2. On WhatsApp -> API Setup, note the test number's Phone number ID and generate an
