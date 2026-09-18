@@ -4476,7 +4476,7 @@
         <button class="nav-btn" onclick="showPage('mani',this)">🧠 Mani</button>
         <button class="nav-btn" onclick="showPage('brands',this)">Brands</button>
         <button class="nav-btn" onclick="showPage('team',this)">Team</button>
-        <button class="nav-btn" onclick="showPage('monitoring',this)">Monitoring</button>
+        <button class="nav-btn" id="nav-monitoring-btn" onclick="showPage('monitoring',this)" style="display:none">Monitoring</button>
         <button class="nav-btn" id="nav-admin-btn" onclick="showPage('admin',this)" style="display:none">🛠 Admin</button>
       </nav>
       <div style="display:flex;align-items:center;gap:12px">
@@ -7556,6 +7556,9 @@
             refreshTaskBrandDropdown();
             if (typeof lnPopulateBrandSelect === 'function') lnPopulateBrandSelect();
             if (typeof lnPopulateFilterBrandSelect === 'function') lnPopulateFilterBrandSelect();
+            // Mani stays in sync with the same live Hub brand list as the rest of the app.
+            // This matters when the Mani page is already open while Firebase finishes loading.
+            if (typeof maniBrandOptions === 'function') maniBrandOptions();
           }
         });
 
@@ -8777,8 +8780,13 @@
       const ovBtn = document.querySelector('.nav-btn[onclick*="overview"]'); if (ovBtn) ovBtn.classList.add('active');
       document.getElementById('topbar-name').textContent = name;
       updateTopbarAvatar();
+      const isGokul = normName(name) === 'gokul';
       const adminBtn = document.getElementById('nav-admin-btn');
-      if (adminBtn) adminBtn.style.display = normName(name) === 'gokul' ? '' : 'none';
+      if (adminBtn) adminBtn.style.display = isGokul ? '' : 'none';
+      // Monitoring is an owner-only operational view. Team members should not see it
+      // in the navigation or be able to open it through an old bookmarked action.
+      const monitoringBtn = document.getElementById('nav-monitoring-btn');
+      if (monitoringBtn) monitoringBtn.style.display = isGokul ? '' : 'none';
       if (_db) {
         _db.ref('loonaverseXp/' + fbMemberKey(name)).on('value', snap => {
           window.LV_XP = snap.val() || null;
@@ -17407,6 +17415,10 @@
     }
 
     function showPage(id, btn) {
+      if (id === 'monitoring' && normName(currentUser) !== 'gokul') {
+        id = 'overview';
+        btn = document.querySelector('.nav-btn[onclick*="overview"]');
+      }
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
       document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
       document.getElementById('page-' + id).classList.add('active');
@@ -18349,10 +18361,23 @@
       const select = document.getElementById('mani-brand');
       if (!select) return;
       const current = select.value;
-      const brands = (BRANDS_ALLOC || []).filter(b => b && b.brand && !b.inactive);
+      // `brands` is Firebase-backed and normally uses `brand`; accept the alternate
+      // name/title fields too so older and newly imported brand records never vanish
+      // from Mani's picker. Deduping also prevents duplicate entries from migrations.
+      const seen = new Set();
+      const brands = (BRANDS_ALLOC || []).map(b => ({ ...b, displayName: b && (b.brand || b.name || b.title) }))
+        .filter(b => b && b.displayName && !b.inactive)
+        .filter(b => {
+          const key = slugifyBrand(b.displayName);
+          if (!key || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
       select.innerHTML = '<option value="">All brands</option>' +
-        brands.map(b => `<option value="${escAttr(slugifyBrand(b.brand))}">${escHtml(b.brand)}</option>`).join('');
-      select.value = current;
+        brands.map(b => `<option value="${escAttr(slugifyBrand(b.displayName))}">${escHtml(b.displayName)}</option>`).join('');
+      // Keep the user's selected brand if it still exists. A stale value must not
+      // leave the native select looking blank.
+      select.value = Array.from(select.options).some(option => option.value === current) ? current : '';
     }
 
     function slugifyBrand(name) {
