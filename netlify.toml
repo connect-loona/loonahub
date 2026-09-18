@@ -337,7 +337,11 @@
 #                             temporary token from that page expires in 24 hours — for
 #                             anything past initial testing, generate a permanent token via a
 #                             System User under Business Settings -> Users -> System Users
-#                             instead, with the whatsapp_business_messaging permission.)
+#                             instead, with the whatsapp_business_messaging permission.
+#                             Meta requires a SECOND admin on the business portfolio to
+#                             approve generating a System User token with these permissions —
+#                             the one who requests it can't self-approve. Whoever approves
+#                             does it from their own Business Settings -> Requests.)
 #   WHATSAPP_PHONE_NUMBER_ID (same API Setup page — the numeric "Phone number ID" for the
 #                             WhatsApp number BB replies from. Not the phone number itself.)
 #   WHATSAPP_ALLOWED_NUMBERS (comma-separated phone numbers allowed to message BB, e.g.
