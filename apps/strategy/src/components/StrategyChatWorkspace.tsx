@@ -322,7 +322,7 @@ function ManiMemoryComposer({ brand, actor }: { brand: HubBrandOption; actor: st
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setBusy(false); }
   }
-  return <div className="sc-mani-composer"><p className="vs-section-label">Add to Mani memory</p><p className="vs-muted vs-muted-sm">Paste notes, decisions, client feedback, or a ChatGPT conversation excerpt. It is saved as a team source for {brand.name}.</p><textarea value={content} onChange={(event) => setContent(event.target.value)} placeholder="Paste brand context here…" rows={7} maxLength={40000} /><button type="button" className="vs-header-tool" disabled={busy || !content.trim()} onClick={() => void save()}>{busy ? "Saving…" : "Save to memory"}</button>{notice && <p className="sc-mani-success">{notice}</p>}{error && <p className="sc-error">{error}</p>}</div>;
+  return <div className="sc-mani-composer"><p className="vs-section-label">Add to Mani memory</p><p className="vs-muted vs-muted-sm">Paste notes, decisions, client feedback, or a complete ChatGPT conversation. It is saved as a team source for {brand.name}.</p><textarea value={content} onChange={(event) => setContent(event.target.value)} placeholder="Paste brand context here…" rows={7} /><button type="button" className="vs-header-tool" disabled={busy || !content.trim()} onClick={() => void save()}>{busy ? "Saving…" : "Save to memory"}</button>{notice && <p className="sc-mani-success">{notice}</p>}{error && <p className="sc-error">{error}</p>}</div>;
 }
 
 function BBText({ text }: { text: string }) {

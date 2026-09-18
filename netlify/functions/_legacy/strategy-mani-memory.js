@@ -22,7 +22,10 @@ exports.handler = async (event) => {
   const actor = String(body.actor || "Hub team").trim().slice(0, 120);
   if (!/^[a-z0-9-]+$/.test(brandId)) return fail(400, "Choose a valid brand first.");
   if (!content) return fail(400, "Paste something for Mani to remember.");
-  if (content.length > 40000) return fail(400, "Keep each pasted memory under 40,000 characters. Paste a long export in separate parts.");
+  // A complete conversation export is useful source material. Do not impose an
+  // application-level character cap here: Firebase/HTTP's own safe payload limits
+  // remain the only practical boundary, rather than arbitrarily making the team
+  // split an export into separate memories.
   if (!(await hubBrandExists(brandId))) return fail(404, "Brand not found in Hub.");
   try {
     const now = new Date().toISOString();
