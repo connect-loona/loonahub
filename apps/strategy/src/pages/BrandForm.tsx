@@ -293,11 +293,11 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
       </details>
 
       <div className="st-board">
-        {error && <div className="st-error-text" style={{ whiteSpace: "pre-wrap" }}>{error}</div>}
         <div style={{ display: "flex", gap: 8 }}>
           <button className="st-btn st-btn-ghost" style={{ flex: 1 }} onClick={onCancel}>Cancel</button>
           <button className="st-btn st-btn-primary" style={{ flex: 1 }} disabled={saving} onClick={handleSubmit}>{saving ? "Saving…" : "Save brand"}</button>
         </div>
+        {error && <div role="alert" style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, border: "1px solid #d85b4b", background: "rgba(216,91,75,.16)", color: "#ffb3a8", fontSize: 13, fontWeight: 600, whiteSpace: "pre-wrap" }}><b>Can’t save brand:</b> {error}</div>}
       </div>
     </div>
   );
