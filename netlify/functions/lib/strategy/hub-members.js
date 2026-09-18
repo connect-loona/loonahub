@@ -46,4 +46,38 @@ async function findHubMemberByPhone(phone) {
   return null;
 }
 
-module.exports = { findHubMemberByPhone };
+// What BB is allowed to know about a teammate: name, role, department, employee id, join
+// date, birthday. Never PAN, Aadhar, bank details or home address — those live in a
+// completely separate, more locked-down Firebase node (/members_sensitive) that this file
+// never reads from at all, the same boundary Gokul drew for the Employee Directory's own
+// "Financial & ID — visible only to Gokul" section.
+function directoryLine(record) {
+  const name = String(record.name || "").trim();
+  if (!name) return null;
+  const bits = [];
+  if (record.role) bits.push(record.role);
+  if (record.department) bits.push(record.department);
+  const role = bits.length ? bits.join(" · ") : null;
+  const details = [];
+  if (record.employeeId) details.push(`Employee ID ${record.employeeId}`);
+  if (record.joinDate) details.push(`joined ${record.joinDate}`);
+  if (record.birthdate) details.push(`birthday ${record.birthdate}`);
+  const suffix = details.length ? ` (${details.join(", ")})` : "";
+  return `- ${name}${role ? ` — ${role}` : ""}${suffix}`;
+}
+
+// The Hub-wide team directory, for BB/Mani to answer "who's X", "what's Y's role", "when's
+// Z's birthday" — questions about the team in general, not about whoever is currently
+// speaking (that's findHubMemberByPhone's job). Included in both loadBrandBrain and
+// loadGlobalBrain since who's on the team isn't specific to any one brand.
+async function loadTeamDirectoryText() {
+  const [members, inactiveRaw] = await Promise.all([fbGet("members"), fbGet("inactive_members")]);
+  const inactiveNames = new Set(Array.isArray(inactiveRaw) ? inactiveRaw : Object.values(inactiveRaw || {}));
+  const lines = Object.values(members || {})
+    .filter((record) => record && record.name && !inactiveNames.has(record.name))
+    .map(directoryLine)
+    .filter(Boolean);
+  return lines.length ? ["# Hub team directory", ...lines].join("\n") : null;
+}
+
+module.exports = { findHubMemberByPhone, loadTeamDirectoryText };
