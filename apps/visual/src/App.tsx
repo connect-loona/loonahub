@@ -477,7 +477,7 @@ export function App() {
         <header className="vs-header">
           <button type="button" className="vs-mobile-tool" onClick={() => setSidebarOpen(true)} aria-label="Open projects">☰</button>
           <div>
-            <h1>{brand ? brand.name : "Visual Studio"}</h1>
+            {brand?.logo ? <img className="vs-header-logo" src={brand.logo} alt={brand.name} /> : <h1>{brand ? brand.name : "Visual Studio"}</h1>}
             <p>{chats.find((c) => c.id === chatId)?.title || "New visual chat"}</p>
           </div>
           <button type="button" className="vs-header-tool" onClick={() => setMemoryOpen(true)}>Mani</button>
