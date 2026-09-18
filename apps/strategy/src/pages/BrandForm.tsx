@@ -16,6 +16,7 @@ function csvLine(arr?: string[]): string { return (arr || []).join(", "); }
 function linesText(arr?: string[]): string { return (arr || []).join("\n"); }
 function splitCsv(s: string): string[] { return s.split(",").map((x) => x.trim()).filter(Boolean); }
 function splitLines(s: string): string[] { return s.split("\n").map((x) => x.trim()).filter(Boolean); }
+function text(value: unknown): string { return typeof value === "string" ? value.trim() : ""; }
 
 // Everything strategy-brand-save.js validates but this form doesn't expose its own
 // fields for — round-tripped untouched through the Advanced JSON textarea, same as the
@@ -108,7 +109,7 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
     // Validation is intentionally inside this boundary too. A malformed draft must surface
     // an actionable message instead of leaving the desktop form on “Checking…”.
     try {
-    const trimmedId = id.trim();
+    const trimmedId = text(id);
     if (!/^[a-z0-9-]+$/.test(trimmedId)) {
       setError("Brand id must be lowercase letters, numbers or hyphens.");
       setSubmitStatus(null);
@@ -124,11 +125,11 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
       return;
     }
 
-    const trimmedName = name.trim() || trimmedId;
+    const trimmedName = text(name) || trimmedId;
     // A pasted value and an immediate click can race a controlled input's state update
     // on some desktop browsers. Read the actual field at submit time as the source of
     // truth, then fall back to React state.
-    const driveLink = (document.getElementById("brand-drive-link") as HTMLInputElement | null)?.value.trim() || drive.trim();
+    const driveLink = text((document.getElementById("brand-drive-link") as HTMLInputElement | null)?.value) || text(drive);
     const enteredDeliverables = deliverablesToMap(deliverableRows);
     // Brand onboarding starts with the two pieces the system genuinely needs: where
     // the source material lives, and what needs making. Everything else can be added
@@ -143,12 +144,12 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
       schemaVersion: "1.0",
       id: trimmedId,
       name: trimmedName,
-      category: category.trim() || "To be defined",
+      category: text(category) || "To be defined",
       market: splitCsv(market).length ? splitCsv(market) : ["To be defined"],
       aspirationalMarkets: splitCsv(aspirational),
-      website: website.trim() || null,
+      website: text(website) || null,
       driveFolderUrl: driveLink,
-      oneLineTruth: truth.trim() || `${trimmedName} — brand truth to be confirmed.`,
+      oneLineTruth: text(truth) || `${trimmedName} — brand truth to be confirmed.`,
       deliverables: {
         reel: enteredDeliverables.reel || 0,
         carousel: enteredDeliverables.carousel || 0,
@@ -162,17 +163,17 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
         principles: splitLines(principles).length ? splitLines(principles) : ["Use verified brand information only."],
         bannedWords: splitCsv(bannedWords),
         bannedMoves: splitLines(bannedMoves),
-        emojiRule: emojiRule.trim() || "To be defined",
-        languageRule: languageRule.trim() || "To be defined",
+        emojiRule: text(emojiRule) || "To be defined",
+        languageRule: text(languageRule) || "To be defined",
       },
-      audiences: (() => { const rows = audiences.filter((a) => a.id.trim() && a.description.trim() && a.buyingSituation.trim() && a.trigger.trim()).map((a) => ({ id: a.id.trim(), description: a.description.trim(), buyingSituation: a.buyingSituation.trim(), trigger: a.trigger.trim() })); return rows.length ? rows : [fallbackAudience]; })(),
+      audiences: (() => { const rows = audiences.map((a) => ({ id: text(a?.id), description: text(a?.description), buyingSituation: text(a?.buyingSituation), trigger: text(a?.trigger) })).filter((a) => a.id && a.description && a.buyingSituation && a.trigger); return rows.length ? rows : [fallbackAudience]; })(),
       visual: {
         feel: splitCsv(feel).length >= 3 ? splitCsv(feel) : ["To be defined", "Brand-specific", "Review required"],
         palette: splitCsv(palette),
         principles: splitLines(visPrinciples).length ? splitLines(visPrinciples) : ["Use approved brand materials."],
         avoid: splitLines(visAvoid).length ? splitLines(visAvoid) : ["Unverified claims."],
       },
-      pillars: (() => { const rows = pillars.filter((p) => p.id.trim() && p.name.trim() && p.description.trim()).map((p) => ({ id: p.id.trim(), name: p.name.trim(), description: p.description.trim(), targetShare: p.targetShare })); return rows.length ? rows : [fallbackPillar]; })(),
+      pillars: (() => { const rows = pillars.map((p) => ({ id: text(p?.id), name: text(p?.name), description: text(p?.description), targetShare: typeof p?.targetShare === "number" ? p.targetShare : 0 })).filter((p) => p.id && p.name && p.description); return rows.length ? rows : [fallbackPillar]; })(),
       competitors: splitCsv(competitors),
       knownUnknowns: splitLines(knownUnknowns),
       portfolios: parsedAdvanced.portfolios || [],
