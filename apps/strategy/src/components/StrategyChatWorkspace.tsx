@@ -14,7 +14,7 @@ type Mode = "home" | "monthly" | "campaign" | "bb" | "global-bb";
 // This only hides the sidebar entry and the client-side subscription that would load its
 // messages; it isn't a Firebase security rule, so it matches this app's existing security
 // model (a shared site password) rather than adding a new one.
-const WHATSAPP_THREADS_VISIBLE_TO = "connect@loona.in";
+const WHATSAPP_THREADS_VISIBLE_TO = "g@loona.in";
 
 const DEFAULT_COUNTS = { reel: 6, carousel: 4, static: 3 };
 
