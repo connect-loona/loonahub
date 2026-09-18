@@ -159,7 +159,7 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
         confirmed,
       },
       voice: {
-        descriptors: splitCsv(descriptors).length >= 3 ? splitCsv(descriptors) : ["To be defined", "Review required", "Brand-specific"],
+        descriptors: splitCsv(descriptors).length >= 3 ? splitCsv(descriptors).slice(0, 6) : ["To be defined", "Review required", "Brand-specific"],
         principles: splitLines(principles).length ? splitLines(principles) : ["Use verified brand information only."],
         bannedWords: splitCsv(bannedWords),
         bannedMoves: splitLines(bannedMoves),
