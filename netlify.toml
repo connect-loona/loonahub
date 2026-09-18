@@ -379,6 +379,15 @@
 #        allowlist on their own Recipients screen — add your phone there too, separately
 #        from WHATSAPP_ALLOWED_NUMBERS above.
 #
+#   Newer Meta apps are set up through a "use case" flow instead of a classic WhatsApp
+#   sidebar item — the same settings above live under the app's own "Production setup" ->
+#   Configure webhooks step rather than a page literally named "WhatsApp". Moving from a
+#   test number to a real business phone number changes the Phone number ID too, so
+#   WHATSAPP_PHONE_NUMBER_ID (and WHATSAPP_ACCESS_TOKEN, if the System User's token was scoped
+#   to the old number's asset) need updating together with WHATSAPP_ALLOWED_NUMBERS — half
+#   of that switch left in place will look like a signature or allowlist failure instead of
+#   the stale-number problem it actually is.
+#
 # Loona Radio (netlify/functions/resolve-track.js, add-to-playlist.js,
 # remove-from-playlist.js) — every track add/remove goes through ONE Spotify
 # account (Gokul's) so teammates never need their own Spotify login, since
