@@ -2,6 +2,16 @@ import firebase from "./lib/strategy/firebase.js";
 import pipeline from "./lib/strategy/pipeline.js";
 import brandDraft from "./lib/strategy/brand-draft.js";
 import { backgroundConfig, readSignedBackgroundBody } from "./lib/strategy/modern-background.mjs";
+// This worker reaches CommonJS pipeline dependencies indirectly. Keep them explicit in
+// the modern-function bundle: without these imports Netlify can start the request but
+// fail while loading the worker, leaving the UI permanently on “Drafting…”.
+import { z } from "zod";
+import Anthropic from "@anthropic-ai/sdk";
+import * as OpenAIAgents from "@openai/agents";
+
+globalThis.__zodBundled = z;
+globalThis.__anthropicSdkBundled = Anthropic;
+globalThis.__openaiAgentsBundled = OpenAIAgents;
 const { fbGet, fbSet, fbSafeKey } = firebase;
 const { createRuntime } = pipeline;
 const { draftBrandFromLibrary } = brandDraft;
