@@ -33,8 +33,8 @@ export default function App() {
     const brandId = query.get("brandId") || "";
     const brandName = query.get("brandName") || "New brand";
     return brandId
-      ? <BrandDirectory brandId={brandId} brandName={brandName} onClose={() => window.location.assign("/strategy/")} />
+      ? <BrandDirectory brandId={brandId} brandName={brandName} onClose={() => window.location.assign(`/strategy/?brandId=${encodeURIComponent(brandId)}`)} />
       : <StrategyChatWorkspace actor={actor} />;
   }
-  return <StrategyChatWorkspace actor={actor} />;
+  return <StrategyChatWorkspace actor={actor} initialBrandId={query.get("brandId") || undefined} />;
 }

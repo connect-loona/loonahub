@@ -472,7 +472,7 @@ function FinalPlan({ run, assets }: { run: StrategyRun | null; assets: StrategyA
   return <section className="sc-final-plan"><div className="sc-concept-meta">Selected monthly plan</div><h3>Review what the team selected</h3><p className="sc-muted">Only approved concepts appear here. This is the handoff for scripts, captions and creative development.</p>{selected.map((asset, index) => <article key={asset.assetId} className="sc-final-item"><b>{index + 1}. {asset.conceptName}</b><span>{(reviews[asset.assetId]?.formats || []).join(" · ")} · {asset.hook}</span><p>{asset.concept || asset.tension}</p></article>)}<button type="button" className="sc-primary" onClick={() => void copy()}>{copied ? "Copied" : "Copy selected plan"}</button></section>;
 }
 
-export function StrategyChatWorkspace({ actor }: { actor: string }) {
+export function StrategyChatWorkspace({ actor, initialBrandId }: { actor: string; initialBrandId?: string }) {
   const { brands: allBrands, loading: brandsLoading } = useAllHubBrands();
   const { brands: configuredBrands } = useBrands();
   const { runs } = useRuns();
@@ -484,6 +484,13 @@ export function StrategyChatWorkspace({ actor }: { actor: string }) {
   const [globalThreadId, setGlobalThreadId] = useState("main");
   const [brandThreadId, setBrandThreadId] = useState("main");
   const [globalThreads, setGlobalThreads] = useState<Array<{ id: string; title?: string; updatedAt?: string }>>([]);
+  // Brand Directory returns here after a configuration is saved. Wait for the Hub brand
+  // list before selecting it, so the exact client workspace opens rather than neutral home.
+  useEffect(() => {
+    if (!initialBrandId || brand || !allBrands.length) return;
+    const configured = allBrands.find((item) => item.id === initialBrandId);
+    if (configured) setBrand(configured);
+  }, [initialBrandId, brand, allBrands]);
   useEffect(() => listenPath<Record<string, { title?: string; updatedAt?: string }>>("strategy_bb_chats/global/threads", (value) => setGlobalThreads(Object.entries(value || {}).map(([id, thread]) => ({ id, ...thread })).sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""))))), []);
   const activeRun = runId ? runs.find((run) => run.runId === runId) : undefined;
   // Default to the first CONFIGURED brand, not just the first in the list — an unconfigured
