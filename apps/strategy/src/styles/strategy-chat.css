@@ -40,8 +40,8 @@ button { cursor: pointer; }
 .sc-loading-shell, .sc-full-shell { grid-template-columns: minmax(0, 1fr); }
 .sc-sidebar {
   display: flex; flex-direction: column; gap: 4px; padding: 16px 12px;
-  border-right: 1px solid var(--sc-line); max-height: 100vh; max-height: 100dvh; overflow-y: auto;
-  background: #fbfaf7; color: var(--sc-ink);
+  border-right: 1px solid #391108; max-height: 100vh; max-height: 100dvh; overflow-y: auto;
+  background: linear-gradient(160deg, #ff6a22 0%, #d84316 36%, #42140d 72%, #100c0b 100%); color: #fff;
 }
 .sc-bb-opening { display: grid; place-items: center; min-height: 100%; text-align: center; color: var(--sc-ink); }
 .sc-bb-opening span { font-size: 48px; animation: sc-bb-wave 1.4s ease-in-out infinite; }
@@ -50,23 +50,22 @@ button { cursor: pointer; }
 @keyframes sc-bb-wave { 0%,100% { transform: rotate(-8deg) scale(1); } 50% { transform: rotate(9deg) scale(1.12); } }
 .sc-sidebar .vs-logo { padding: 2px 6px 14px; }
 .sc-sidebar .vs-logo a { display: inline-block; text-decoration: none; }
-/* The source asset is a solid-white wordmark on transparency, drawn for a dark surface —
-   invisible as-is against this sidebar's light background. brightness(0) recolours any
-   opaque pixel to black regardless of its original colour, without needing a second asset. */
-.sc-sidebar .vs-logo img { display: block; height: 22px; width: auto; filter: brightness(0) saturate(100%); }
-.sc-wordmark { color: var(--sc-ink); font-family: Georgia, serif; font-size: 18px; letter-spacing: .08em; }
-.sc-sidebar .vs-topnav { display: flex; flex-direction: column; gap: 2px; padding-bottom: 10px; border-bottom: 1px solid var(--sc-line); }
-.sc-sidebar .vs-topnav a, .sc-sidebar .vs-topnav span { padding: 6px 8px; border-radius: 7px; text-decoration: none; font-size: 13px; color: var(--sc-muted); }
-.sc-sidebar .vs-topnav .is-active { color: var(--sc-ink); background: var(--sc-selected); font-weight: 600; }
+/* The source wordmark is white on transparency and is intentionally left white here. */
+.sc-sidebar .vs-logo img { display: block; height: 22px; width: auto; }
+.sc-wordmark { color: #fff; font-family: Georgia, serif; font-size: 18px; letter-spacing: .08em; }
+.sc-sidebar .vs-topnav { display: flex; flex-direction: column; gap: 2px; padding-bottom: 10px; border-bottom: 1px solid rgb(255 255 255 / .28); }
+.sc-sidebar .vs-topnav a, .sc-sidebar .vs-topnav span { padding: 6px 8px; border-radius: 7px; text-decoration: none; font-size: 13px; color: rgb(255 255 255 / .82); }
+.sc-sidebar .vs-topnav .is-active { color: #fff; background: rgb(0 0 0 / .28); font-weight: 600; }
 .sc-sidebar .vs-section-label, .vs-memory-drawer .vs-section-label {
   margin: 14px 0 6px; padding: 0 6px; font-size: 10px; letter-spacing: .09em; text-transform: uppercase;
-  color: var(--sc-muted);
+  color: rgb(255 255 255 / .68);
 }
+.vs-memory-drawer .vs-section-label { color: var(--sc-muted); }
 .sc-sidebar .vs-projects { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
 .sc-sidebar .vs-project {
   display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px 8px;
   border: 0; border-radius: 8px; background: transparent; text-align: left;
-  color: var(--sc-ink);
+  color: #fff;
 }
 .sc-sidebar .vs-project-icon {
   display: grid; place-items: center; flex: 0 0 24px; width: 24px; height: 24px;
@@ -74,19 +73,21 @@ button { cursor: pointer; }
 }
 .sc-sidebar .vs-project-logo { flex: 0 0 24px; width: 24px; height: 24px; border-radius: 6px; object-fit: cover; background: #fff; }
 .sc-sidebar .vs-project-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sc-sidebar .vs-project:hover, .sc-sidebar .vs-chatlink:hover, .sc-sidebar .vs-newchat:hover, .sc-sidebar .vs-usage-link:hover { background: var(--sc-hover); }
-.sc-sidebar .vs-project.is-active, .sc-sidebar .vs-chatrow.is-active { background: var(--sc-selected); font-weight: 600; }
+.sc-sidebar .vs-project:hover, .sc-sidebar .vs-chatlink:hover, .sc-sidebar .vs-newchat:hover, .sc-sidebar .vs-usage-link:hover { background: rgb(255 255 255 / .14); }
+.sc-sidebar .vs-project.is-active, .sc-sidebar .vs-chatrow.is-active { background: rgb(0 0 0 / .3); font-weight: 600; }
 .sc-sidebar .vs-chatlist {
   display: flex; flex-direction: column; gap: 1px; margin: 2px 0 8px 18px; padding-left: 10px;
-  border-left: 1px solid var(--sc-line);
+  border-left: 1px solid rgb(255 255 255 / .3);
 }
-.sc-sidebar .vs-newchat, .sc-sidebar .vs-chatlink { padding: 6px 8px; border: 0; border-radius: 7px; background: transparent; text-align: left; color: var(--sc-ink); }
-.sc-sidebar .vs-newchat { font-size: 12px; font-weight: 600; color: var(--sc-accent); }
+.sc-sidebar .vs-newchat, .sc-sidebar .vs-chatlink { padding: 6px 8px; border: 0; border-radius: 7px; background: transparent; text-align: left; color: #fff; }
+.sc-sidebar .vs-newchat { font-size: 12px; font-weight: 600; color: #fff; }
 .sc-sidebar .vs-chatlink { display: flex; flex-direction: column; gap: 1px; font-size: 12.5px; }
-.sc-sidebar .vs-chatlink span, .sc-sidebar .vs-muted, .sc-sidebar .vs-muted-sm { color: var(--sc-muted); }
+.sc-sidebar .vs-chatlink span, .sc-sidebar .vs-muted, .sc-sidebar .vs-muted-sm { color: rgb(255 255 255 / .68); }
+.sc-sidebar .sc-global-bb-button { margin-top: 5px; background: rgb(0 0 0 / .22); }
+.sc-sidebar .sc-global-bb-threads .vs-chatlink { white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }
 .sc-sidebar .vs-muted-sm { font-size: 12px; }
 .sc-sidebar .vs-spacer { flex: 1; }
-.sc-sidebar .vs-usage-link { padding: 8px; border: 0; border-radius: 8px; background: transparent; text-align: left; color: var(--sc-ink); }
+.sc-sidebar .vs-usage-link { padding: 8px; border: 0; border-radius: 8px; background: transparent; text-align: left; color: #fff; }
 .sc-main, .sc-shell .vs-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; max-height: 100vh; max-height: 100dvh; background: var(--sc-panel); }
 .sc-shell .vs-header {
   display: flex; align-items: center; gap: 12px; flex: 0 0 auto; padding: 14px 20px;
