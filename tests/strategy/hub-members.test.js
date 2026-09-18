@@ -56,6 +56,7 @@ const { findHubMemberByPhone, loadTeamDirectoryText } = require(path.join(HUB, "
   check("the team directory names an active teammate", /Ankita/.test(directory || ""), directory);
   check("it includes their designation and department", /Sr\. Strategy · Marketing and Social Media/.test(directory || ""), directory);
   check("it includes their employee id, join date and birthday", /LSPL012/.test(directory) && /01 Apr 2026/.test(directory) && /14 Apr 1995/.test(directory), directory);
+  check("it includes their mobile number, so BB can actually share contact info", /\+91 72788 30893/.test(directory || ""), directory);
   check("PAN and Aadhar are never included, even if present on a record", !/AZHPC0113C|384373266875/.test(directory || ""), directory);
   check("an inactive teammate is excluded from the directory", !/Ravi/.test(directory || ""), directory);
 
