@@ -58,7 +58,12 @@ exports.handler = async (event) => {
     // A worker that never starts leaves the old deployment in "queued" forever.  Let a
     // person restart that exact stale queue instead of forcing them to archive the plan and
     // recreate the brief. Running work is deliberately still protected from duplicate jobs.
-    if (!stageState || !["failed", "queued"].includes(stageState.status)) {
+    // A background worker can die after setting itself to repairing. Treat only a stale
+    // repair (two minutes without an update) as restartable; a fresh repair remains
+    // protected from duplicate work.
+    const repairAge = stageState && stageState.updatedAt ? Date.now() - new Date(stageState.updatedAt).getTime() : 0;
+    const staleRepair = stageState && stageState.status === "repairing" && Number.isFinite(repairAge) && repairAge > 120000;
+    if (!stageState || !["failed", "queued"].includes(stageState.status) && !staleRepair) {
       return { statusCode: 409, headers: cors(), body: JSON.stringify({ error: `${stage} is not currently failed (status: ${stageState ? stageState.status : "unknown"}), so there's nothing to retry.` }) };
     }
 

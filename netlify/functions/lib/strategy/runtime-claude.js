@@ -19,6 +19,9 @@
 // profile mapping, repair-block shape, the missing-output error path) without a real call.
 "use strict";
 const { ConfigurationError } = require("./errors");
+// Keep this import static. A function-local require was omitted from Netlify's bundle,
+// leaving an otherwise configured Claude worker unable to load the structured-output helper.
+const { zodOutputFormat } = require("@anthropic-ai/sdk/helpers");
 
 // research and creative-direction are the two stages that call out to the web (see
 // runtime-openai.js's own toolProfile handling) — Claude's web_search tool covers both;
@@ -63,8 +66,6 @@ class ClaudeRuntime {
 
   // request: { stage, agentName, instructions, input, outputSchema, toolProfile, repairIssues }
   async runStage(request) {
-    const { zodOutputFormat } = require("@anthropic-ai/sdk/helpers/zod");
-
     const repairBlock = request.repairIssues && request.repairIssues.length
       ? {
           mode: "repair",

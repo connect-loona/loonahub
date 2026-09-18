@@ -16,6 +16,7 @@ export const STAGE_LABELS: Record<StageKey, string> = {
 
 export interface StageState {
   status: string; // "locked" | "queued" | "needs_review" | "approved" | "failed" | ...
+  updatedAt?: string;
   checkpoint?: unknown;
   detail?: string;
   candidates?: Record<string, ConceptCandidate>;

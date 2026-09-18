@@ -87,6 +87,7 @@ function StatusLine({ run }: { run: StrategyRun | null }) {
   if (research.includes("failed")) return <div className="sc-status is-error">Research needs attention before concepts can be shown.</div>;
   if (strategy === "queued") return <div className="sc-status">Dora is about to shape the first concept</div>;
   if (strategy === "running") return <div className="sc-status">Turning the research into concepts <span className="sc-dots">•••</span></div>;
+  if (strategy === "repairing") return <div className="sc-status">Dora is repairing the route plan <span className="sc-dots">•••</span></div>;
   return <div className="sc-status is-ready">Research is ready · Dora is sharing one concept at a time below</div>;
 }
 
@@ -359,8 +360,12 @@ function RunChat({ runId, actor, onArchived }: { runId: string; actor: string; o
   // bundle failed before it could update Firebase. Treat that as restartable rather than
   // pretending Columbus is still working indefinitely.
   const queuedResearch = stageStatus(run, "research") === "queued";
+  // A background function that has not updated for more than two minutes is not still
+  // working. Let the team restart it instead of showing “research ready” forever.
+  const strategyState = run?.stages.strategy;
+  const stalledStrategy = strategyState?.status === "repairing" && !!strategyState.updatedAt && Date.now() - new Date(strategyState.updatedAt).getTime() > 120000;
   const failedStage = stageStatus(run, "research").includes("failed") || queuedResearch ? "research"
-    : stageStatus(run, "strategy").includes("failed") ? "strategy" : null;
+    : stageStatus(run, "strategy").includes("failed") || stalledStrategy ? "strategy" : null;
   async function retryFailedStage() {
     if (!failedStage || retrying) return;
     setRetrying(true); setRetryError(null);
@@ -455,8 +460,8 @@ function RunChat({ runId, actor, onArchived }: { runId: string; actor: string; o
     {!asset && <div className="sc-assistant-block">
       <p>{stageStatus(run, "strategy").includes("running") || stageStatus(run, "research").includes("running")
         ? "Columbus is researching first. Then Dora will bring you the first concept — not a whole batch at once."
-        : failedStage ? (queuedResearch ? "Research did not start. Start Columbus again to continue this plan." : `The ${failedStage} stage needs attention before concepts can be shown.`) : "No concepts are available yet."}</p>
-      {failedStage && <button type="button" className="sc-secondary" disabled={retrying} onClick={() => void retryFailedStage()}>{retrying ? "Starting…" : queuedResearch ? "Start research again" : `Retry ${failedStage}`}</button>}
+        : failedStage ? (queuedResearch ? "Research did not start. Start Columbus again to continue this plan." : stalledStrategy ? "Dora’s route worker stopped responding. Restart it to continue this plan." : `The ${failedStage} stage needs attention before concepts can be shown.`) : "No concepts are available yet."}</p>
+      {failedStage && <button type="button" className="sc-secondary" disabled={retrying} onClick={() => void retryFailedStage()}>{retrying ? "Starting…" : queuedResearch ? "Start research again" : stalledStrategy ? "Restart Dora" : `Retry ${failedStage}`}</button>}
       {retryError && <p className="sc-error">{retryError}</p>}
     </div>}
     {asset && <>
