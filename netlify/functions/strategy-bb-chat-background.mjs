@@ -11,10 +11,21 @@ import * as OpenAIAgents from "@openai/agents";
 
 globalThis.__anthropicSdkBundled = Anthropic;
 globalThis.__openaiAgentsBundled = OpenAIAgents;
-const { fbGet, fbPush, fbUpdate } = firebase;
+const { fbGet, fbPush, fbUpdate, fbSafeKey } = firebase;
 const { findHubBrand } = hubBrands;
-const { loadBrandBrain } = store;
-const { askBB, MAX_HISTORY_MESSAGES } = bbChat;
+const { loadBrandBrain, loadGlobalBrain } = store;
+const { askBB, extractMemoryNoteSafe, MAX_HISTORY_MESSAGES } = bbChat;
+
+const GLOBAL_SCOPE_NOTE = "This is the Loona Hub-wide conversation. No single brand is selected. Ask which brand a recommendation applies to when that matters, and do not invent cross-brand facts.";
+
+// Best-effort, same as every other memory write in this file — a failed note must never
+// surface as a failure to answer the team, and reuses the exact shape strategy-mani-memory.js
+// writes for a team-pasted note so loadBrandBrain/loadGlobalBrain pick it up the same way,
+// just tagged by source instead of needing a second read path.
+async function saveMemoryNoteSafe(brandId, content, actor) {
+  try { await fbPush(`mani_brand_notes/${fbSafeKey(brandId)}`, { content, source: "bb_conversation", actor, createdAt: new Date().toISOString() }); }
+  catch (error) { console.error("Could not save an extracted memory note:", error.message); }
+}
 const { loadAsset } = visualAssets;
 const { recordManiEventSafe } = maniEvents;
 const { recordApiUsage } = apiUsage;
@@ -44,12 +55,14 @@ export default async function (request) {
     const attachments = Array.isArray(turn.attachments) ? turn.attachments : [];
     const visionAttachments = await Promise.all(attachments.map(async (item) => { const stored = await loadAsset(item.assetKey); return stored && stored.metadata.kind === "bb-attachment" && stored.metadata.brandId === brandId ? { data: stored.data, contentType: stored.metadata.contentType, filename: stored.metadata.filename || item.filename } : null; }));
     const global = body.scope === "global"; const brand = global ? null : await findHubBrand(brandId);
-    const memory = global ? "This is the Loona Hub-wide conversation. No single brand is selected. Ask which brand a recommendation applies to when that matters, and do not invent cross-brand facts." : await loadBrandBrain(brandId, brand && brand.name);
+    const memory = global ? [GLOBAL_SCOPE_NOTE, await loadGlobalBrain()].filter(Boolean).join("\n\n") : await loadBrandBrain(brandId, brand && brand.name);
     const result = await askBB({ brandName: global ? "Loona Hub" : ((brand && brand.name) || brandId), message: turn.text, memory, history, attachments: visionAttachments.filter(Boolean) });
     await fbPush(path, { role: "assistant", text: result.answer, actor: "BB Loona", createdAt: new Date().toISOString(), replyTo: messageId });
     await fbUpdate(messagePath, { status: "answered", error: null });
     await recordBBUsage(turn, brandId, "succeeded", result.provider || "Anthropic", result.model);
     if (!global) { await recordManiEventSafe({ type: "bb_conversation", source: "strategy_os", brandId, actor: turn.actor || "Team", entityType: "bb_chat", entityId: brandId, action: "asked", summary: `Asked BB: ${turn.text}` }); await recordManiEventSafe({ type: "bb_conversation", source: "strategy_os", brandId, actor: "BB Loona", entityType: "bb_chat", entityId: brandId, action: "answered", summary: `BB answered: ${result.answer}` }); }
+    const note = await extractMemoryNoteSafe({ userMessage: turn.text, bbAnswer: result.answer });
+    if (note) await saveMemoryNoteSafe(brandId, note, turn.actor || "Team");
   } catch (error) {
     await fbUpdate(messagePath, { status: "failed", error: error.message || String(error) });
     await recordBBUsage(turn, brandId, "failed", null, null);
