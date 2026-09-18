@@ -79,18 +79,23 @@ button { cursor: pointer; }
 .vs-chatlink:hover { background: rgb(255 255 255 / .14); }
 .vs-spacer { flex: 1; }
 .vs-user { padding: 10px 8px 0; border-top: 1px solid rgb(255 255 255 / .28); color: rgb(255 255 255 / .68); font-size: 12px; }
-.vs-usage-link { padding: 8px; border: 0; border-radius: 8px; background: transparent; color: #fff; text-align: left; }
-.vs-usage-link:hover { background: rgb(255 255 255 / .14); color: #fff; }
+.vs-usage-link {
+  margin-top: 4px; padding: 9px 14px; border: 0; border-radius: 20px; text-align: center;
+  color: #fff; font-weight: 600; background: linear-gradient(135deg, #ff9950, #c2592f);
+  box-shadow: 0 4px 14px rgba(0,0,0,.28);
+}
+.vs-usage-link:hover { background: linear-gradient(135deg, #ffab6c, #d2643a); color: #fff; }
 
 /* ---- Main column ---- */
 /* min-height: 0 overrides a flex column's default of sizing to its content, which is what
    let a long message grow .vs-main past its max-height instead of scrolling inside
    .vs-thread — the composer got pushed off screen and the whole page scrolled to reach it. */
 .vs-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; max-height: 100vh; max-height: 100dvh; }
-.vs-header { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.vs-header { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; padding: 14px 20px; background: var(--panel); }
 .vs-header > div { flex: 1; }
 .vs-header h1 { margin: 0; font-family: Georgia, serif; font-size: 19px; font-weight: 500; }
 .vs-header p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+.vs-header-logo { display: block; height: 28px; width: auto; max-width: 160px; object-fit: contain; border-radius: 4px; }
 .vs-header-tool { padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; font-size: 12px; }
 .vs-error, .vs-notice { margin: 12px 20px 0; padding: 9px 12px; border-radius: 9px; font-size: 13px; }
 .vs-error { color: var(--red); background: #fbecea; }
@@ -265,3 +270,55 @@ button { cursor: pointer; }
 .vs-suggestions { align-items: center; max-width: 800px; margin-top: 12px; }
 .vs-suggestions > span { width: 100%; color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; }
 .vs-suggestions button:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ---- Dark theme: the main column runs dark, matching Ask BB, while the API usage and
+   Mani/memory drawers stay on the light theme they already had. Placed last so it wins over
+   every base rule above it for the same selectors, regardless of where those are defined. */
+.vs-main { background: #14110f; }
+.vs-header { background: #14110f; }
+.vs-header h1 { color: #fff; }
+.vs-header p { color: rgba(255,255,255,.6); }
+.vs-header-tool { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.2); color: #fff; }
+.vs-mobile-tool { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.2); color: #fff; }
+.vs-thread { background: #14110f; }
+.vs-thread-empty { color: rgba(255,255,255,.6); }
+.vs-working { color: rgba(255,255,255,.6); }
+.vs-load-older { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.2); color: rgba(255,255,255,.7); }
+
+.vs-ask { background: rgba(255,255,255,.14); color: #fff; }
+.vs-meta { color: rgba(255,255,255,.5); }
+.vs-reply { color: #fff; }
+.vs-rule-standard { color: rgba(255,255,255,.6); background: rgba(255,255,255,.08); }
+.vs-rule-brand { color: #8fd6ac; background: rgba(47,117,80,.35); }
+
+.vs-image { background: #201c19; }
+.vs-image figcaption { border-top-color: rgba(255,255,255,.14); color: #fff; }
+.vs-image figcaption button { border-color: rgba(255,255,255,.2); color: #fff; }
+.vs-image figcaption a { color: rgba(255,255,255,.6); }
+.vs-image figcaption button.vs-download { color: rgba(255,255,255,.6); }
+.vs-image-missing { color: rgba(255,255,255,.5); }
+
+.vs-expired { border-color: rgba(255,255,255,.2); color: rgba(255,255,255,.6); }
+.vs-hint { color: rgba(255,255,255,.5); }
+
+.vs-composer { background: #14110f; border-top-color: rgba(255,255,255,.14); }
+.vs-composer textarea { background: #201c19; border-color: rgba(255,255,255,.2); color: #fff; }
+.vs-composer textarea::placeholder { color: rgba(255,255,255,.45); }
+.vs-composer-foot label { color: rgba(255,255,255,.6); }
+.vs-composer-foot select { background: #201c19; border-color: rgba(255,255,255,.2); color: #fff; }
+.vs-send { background: #fff; color: #14110f; }
+
+.vs-refs .vs-ref { background: #201c19; border-color: rgba(255,255,255,.2); }
+.vs-ref-name { color: rgba(255,255,255,.6); }
+.vs-ref-role { background: #14110f; border-color: rgba(255,255,255,.2); color: #fff; }
+.vs-ref-remove { color: rgba(255,255,255,.6); }
+.vs-attach { background: #201c19; border-color: rgba(255,255,255,.2); color: #fff; }
+.vs-useref { border-color: rgba(255,255,255,.2); color: #fff; }
+
+.vs-suggestions button, .vs-qc > button { background: #201c19; border-color: rgba(255,255,255,.2); color: #fff; }
+.vs-suggestions > span { color: rgba(255,255,255,.5); }
+.vs-qc { background: #201c19; border-color: rgba(255,255,255,.2); }
+.vs-qc-result span { color: rgba(255,255,255,.7); }
+
+.vs-expanded summary { color: rgba(255,255,255,.6); }
+.vs-expanded p { background: rgba(255,255,255,.06); color: rgba(255,255,255,.75); }
