@@ -15,7 +15,9 @@ export function BrandDirectory({ brandId, brandName, onClose }: { brandId: strin
   const existing = brands.find((brand) => brand.id === brandId);
   const memoryDraft = useBrandDraft(brandId);
   const fromMemory = memoryDraft?.status === "ready" && memoryDraft.draft ? memoryDraft.draft as Record<string, unknown> : null;
-  const seed = existing || ({ id: brandId, name: brandName, ...(fromMemory || {}) } as StrategyBrand);
+  // A Mani draft fills the form even when a brand already has a directory. It is a
+  // reviewable overlay only: nothing is persisted until the team presses Save.
+  const seed = { ...(existing || {}), ...(fromMemory || {}), id: existing?.id || brandId, name: existing?.name || brandName } as StrategyBrand;
   async function draftFromMemory() {
     setDrafting(true); setDraftError(null);
     try { await draftBrandFromManiMemory({ brandId, name: brandName, actor: "Hub team" }); }
@@ -34,7 +36,7 @@ export function BrandDirectory({ brandId, brandName, onClose }: { brandId: strin
   </main></div>;
 
   return <div className="vs-shell sc-shell sc-full-shell"><main className="vs-main sc-directory">
-    <header className="vs-header"><div><h1>Brand Directory</h1><p>{existing ? `Review ${brandName}'s configuration.` : `Set up ${brandName} so planning and brand memory can begin.`}</p></div>{!existing && <button type="button" className="vs-header-tool" disabled={drafting || memoryDraft?.status === "drafting"} onClick={() => void draftFromMemory()}>{drafting || memoryDraft?.status === "drafting" ? "Drafting…" : fromMemory ? "Refresh from Mani" : "Draft from Mani"}</button>}<button type="button" className="vs-header-tool" onClick={() => setShowDirectory(true)}>All brands</button><button type="button" className="vs-header-tool" onClick={onClose}>Close</button></header>
-    <section className="vs-thread">{!existing && <p className="sc-directory-note">Paste context in Mani memory first, then use “Draft from Mani”. Review and edit every generated field before saving.</p>}{memoryDraft?.status === "failed" && <p className="sc-error">{memoryDraft.error || "Mani could not draft this configuration."}</p>}{draftError && <p className="sc-error">{draftError}</p>}<BrandForm key={`${existing?.id || `new-${brandId}`}-${memoryDraft?.status === "ready" ? "ready" : "blank"}`} brandId={existing?.id || "__new__"} initialBrand={seed} onCancel={onClose} onSaved={onClose} /></section>
+    <header className="vs-header"><div><h1>Brand Directory</h1><p>{existing ? `Review ${brandName}'s configuration.` : `Set up ${brandName} so planning and brand memory can begin.`}</p></div><button type="button" className="vs-header-tool" disabled={drafting || memoryDraft?.status === "drafting"} onClick={() => void draftFromMemory()}>{drafting || memoryDraft?.status === "drafting" ? "Mani is drafting…" : fromMemory ? "Refresh from Mani" : "Draft from Mani"}</button><button type="button" className="vs-header-tool" onClick={() => setShowDirectory(true)}>All brands</button><button type="button" className="vs-header-tool" onClick={onClose}>Close</button></header>
+    <section className="vs-thread"><p className="sc-directory-note">Pasted Mani memory automatically starts a draft. Review and edit every generated field, then save it when it is correct.</p>{memoryDraft?.status === "drafting" && <p className="sc-directory-note">Mani is reading the latest pasted memory and updating this form…</p>}{memoryDraft?.status === "ready" && <p className="sc-directory-note">Mani’s latest draft is loaded below. Review it, then save the configuration.</p>}{memoryDraft?.status === "failed" && <p className="sc-error">{memoryDraft.error || "Mani could not draft this configuration."}</p>}{draftError && <p className="sc-error">{draftError}</p>}<BrandForm key={`${existing?.id || `new-${brandId}`}-${memoryDraft?.status === "ready" ? "ready" : "blank"}`} brandId={existing?.id || "__new__"} initialBrand={seed} onCancel={onClose} onSaved={onClose} /></section>
   </main></div>;
 }

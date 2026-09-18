@@ -18429,7 +18429,7 @@
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
         document.getElementById('mani-question').value = '';
-        box.innerHTML = '<div style="padding:12px 14px;border-radius:10px;background:rgba(71,142,94,.12);font-size:13px">Saved to Mani memory for this brand.</div>';
+        box.innerHTML = '<div style="padding:12px 14px;border-radius:10px;background:rgba(71,142,94,.12);font-size:13px">Saved to Mani memory. Mani is now drafting the Brand Directory fields—open the brand configuration in a moment to review and save them.</div>';
       } catch (e) { box.innerHTML = `<div style="color:var(--red,#a32f22);font-size:13px">${escHtml(e.message || String(e))}</div>`; }
       finally { btn.disabled = false; btn.textContent = 'Save to memory'; }
     }

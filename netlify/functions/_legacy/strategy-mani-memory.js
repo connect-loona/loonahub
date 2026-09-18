@@ -2,10 +2,13 @@
 // POST { brandId, content, actor } — saves a team-pasted source note for Mani.
 // This is deliberately separate from asking Mani a question: pasted material is evidence,
 // not an instruction, and remains attributable to the person who supplied it.
-const { fbPush, fbSafeKey } = require("../lib/strategy/firebase");
+const { fbPush, fbSafeKey, fbSet } = require("../lib/strategy/firebase");
 const { checkAuthorization } = require("../lib/strategy/auth");
 const { hubBrandExists } = require("../lib/strategy/hub-brands");
 const { recordManiEventSafe } = require("../lib/strategy/mani-events");
+const { findHubBrand } = require("../lib/strategy/hub-brands");
+const { siteBaseUrl } = require("../lib/site-base-url");
+const { signedBackgroundHeaders } = require("../lib/strategy/background-auth");
 
 function headers() { return { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type", "Access-Control-Allow-Methods": "POST, OPTIONS", "Content-Type": "application/json" }; }
 function fail(statusCode, error) { return { statusCode, headers: headers(), body: JSON.stringify({ error }) }; }
@@ -31,6 +34,22 @@ exports.handler = async (event) => {
     const now = new Date().toISOString();
     const id = await fbPush(`mani_brand_notes/${fbSafeKey(brandId)}`, { content, source: "team_paste", actor, createdAt: now });
     await recordManiEventSafe({ type: "team_memory_added", source: "mani_panel", brandId, actor, entityType: "memory_note", entityId: id, action: "saved", summary: `Added ${content.length.toLocaleString()} characters of team-pasted context to Mani memory.` });
-    return { statusCode: 200, headers: headers(), body: JSON.stringify({ ok: true, id }) };
+    // Every new source should refresh the configuration draft automatically. The draft is
+    // deliberately not saved over the team's Brand Directory: it appears in the form for
+    // review, then the team chooses Save after checking the generated fields.
+    const brand = await findHubBrand(brandId);
+    const name = brand?.name || brandId;
+    const draftPath = `strategy_brand_drafts/${fbSafeKey(brandId)}`;
+    await fbSet(draftPath, { brandId, name, source: "mani_memory", status: "drafting", startedAt: now, draft: null, error: null });
+    const backgroundBody = JSON.stringify({ brandId, name });
+    try {
+      const response = await fetch(`${siteBaseUrl(event)}/.netlify/functions/strategy-mani-config-draft-background`, {
+        method: "POST", headers: signedBackgroundHeaders("strategy-mani-config-draft-background", backgroundBody), body: backgroundBody
+      });
+      if (!response.ok) throw new Error(`Could not start Mani's draft (${response.status}).`);
+    } catch (draftError) {
+      await fbSet(draftPath, { brandId, name, source: "mani_memory", status: "failed", draft: null, completedAt: new Date().toISOString(), error: draftError.message || String(draftError) });
+    }
+    return { statusCode: 200, headers: headers(), body: JSON.stringify({ ok: true, id, drafting: true }) };
   } catch (error) { return fail(500, error.message || "Could not save Mani memory."); }
 };

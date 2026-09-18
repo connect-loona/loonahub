@@ -318,7 +318,7 @@ function ManiMemoryComposer({ brand, actor }: { brand: HubBrandOption; actor: st
     const text = content.trim();
     if (!text || busy) return;
     setBusy(true); setNotice(null); setError(null);
-    try { await saveManiMemory({ brandId: brand.id, content: text, actor }); setContent(""); setNotice("Saved to Mani’s memory for this brand."); }
+    try { await saveManiMemory({ brandId: brand.id, content: text, actor }); setContent(""); setNotice("Saved. Mani is drafting Brand Directory fields now—review them before saving."); }
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setBusy(false); }
   }
