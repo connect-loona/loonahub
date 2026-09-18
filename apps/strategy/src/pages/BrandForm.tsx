@@ -176,10 +176,14 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
       pillars: (() => { const rows = pillars.map((p) => ({ id: text(p?.id), name: text(p?.name), description: text(p?.description), targetShare: typeof p?.targetShare === "number" ? p.targetShare : 0 })).filter((p) => p.id && p.name && p.description); return rows.length ? rows : [fallbackPillar]; })(),
       competitors: splitCsv(competitors),
       knownUnknowns: splitLines(knownUnknowns),
-      portfolios: parsedAdvanced.portfolios || [],
-      claimRules: parsedAdvanced.claimRules || [],
-      copyStructure: parsedAdvanced.copyStructure || null,
-      sourceVectorStoreIds: parsedAdvanced.sourceVectorStoreIds || [],
+      // Mani may suggest a rich portfolio/claim-rule structure before it has enough
+      // verified information to complete every nested field. Those are optional for a
+      // normal brand setup, so retain the established RRO configuration only and start
+      // other brands with a valid empty advanced section that the team can fill later.
+      portfolios: trimmedId === "rro" ? (parsedAdvanced.portfolios || []) : [],
+      claimRules: trimmedId === "rro" ? (parsedAdvanced.claimRules || []) : [],
+      copyStructure: trimmedId === "rro" ? (parsedAdvanced.copyStructure || null) : null,
+      sourceVectorStoreIds: trimmedId === "rro" ? (parsedAdvanced.sourceVectorStoreIds || []) : [],
     };
 
     setSaving(true);

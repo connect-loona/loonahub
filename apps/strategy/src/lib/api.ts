@@ -224,6 +224,10 @@ export async function saveBrand(args: { brandId: string; config: Record<string, 
     const d = data as { error?: string; issues?: { path: string; message: string }[] };
     let msg = d.error || "Could not save this brand.";
     if (Array.isArray(d.issues) && d.issues.length) msg += "\n\n" + d.issues.map((i) => `• ${i.path}: ${i.message}`).join("\n");
+    // A 4xx is a real validation/authentication response from the authoritative save
+    // endpoint. Never bypass it with a direct Firebase write: that used to mark a brand
+    // as saved even though the strategy runtime could not validate or use the record.
+    if (res.status >= 400 && res.status < 500) throw new Error(msg);
     try {
       await writeAuthenticatedPath(`strategy_brands/${args.brandId}`, args.config);
       return { ok: true };
