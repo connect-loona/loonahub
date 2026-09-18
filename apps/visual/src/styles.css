@@ -33,18 +33,22 @@ button { cursor: pointer; }
 .vs-shell { display: grid; grid-template-columns: 236px minmax(0, 1fr); min-height: 100vh; }
 
 /* ---- Sidebar: brand projects, each expanding to its own chats ---- */
-.vs-sidebar { display: flex; flex-direction: column; gap: 4px; padding: 16px 12px; border-right: 1px solid var(--line); background: #fbfaf7; max-height: 100vh; overflow-y: auto; }
-.vs-logo { padding: 2px 6px 14px; }
-.vs-logo img { display: block; height: 22px; width: auto; }
-.vs-topnav { display: flex; flex-direction: column; gap: 2px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
-.vs-topnav a, .vs-topnav span { padding: 6px 8px; border-radius: 7px; color: var(--muted); text-decoration: none; font-size: 13px; }
-.vs-topnav a:hover { background: var(--hover); }
-.vs-topnav .is-active { color: var(--ink); background: var(--selected); font-weight: 600; }
-.vs-section-label { margin: 14px 0 6px; padding: 0 6px; color: var(--muted); font-size: 10px; letter-spacing: .09em; text-transform: uppercase; }
-.vs-projects { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
-.vs-project { display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px 8px; border: 0; border-radius: 8px; background: transparent; text-align: left; }
-.vs-project:hover { background: var(--hover); }
-.vs-project.is-active { background: var(--selected); font-weight: 600; }
+.vs-sidebar { display: flex; flex-direction: column; gap: 4px; padding: 16px 12px; border-right: 1px solid #391108; background: linear-gradient(160deg, #ff6a22 0%, #d84316 36%, #42140d 72%, #100c0b 100%); color: #fff; max-height: 100vh; max-height: 100dvh; overflow-y: auto; }
+.vs-app-switcher { position: relative; z-index: 2; padding: 2px 6px 14px; border-bottom: 1px solid rgb(255 255 255 / .28); }
+.vs-app-switcher summary { display: flex; align-items: center; gap: 6px; list-style: none; color: #fff; font-size: 18px; font-weight: 700; cursor: pointer; }
+.vs-app-switcher summary::-webkit-details-marker { display: none; }
+.vs-switcher-chevron { margin-left: 1px; font-size: 16px; transition: transform .16s ease; }
+.vs-app-switcher[open] .vs-switcher-chevron { transform: rotate(180deg); }
+.vs-app-switcher-menu { position: absolute; top: 38px; left: 0; width: 190px; padding: 6px; border: 1px solid rgb(255 255 255 / .25); border-radius: 12px; background: #22120e; box-shadow: 0 12px 26px rgb(0 0 0 / .34); }
+.vs-app-switcher-menu a { display: flex; flex-direction: column; gap: 1px; padding: 9px 10px; border-radius: 8px; color: #fff; text-decoration: none; font-size: 13px; }
+.vs-app-switcher-menu a:hover { background: rgb(255 255 255 / .14); }
+.vs-app-switcher-menu span { color: rgb(255 255 255 / .64); font-size: 11px; }
+.vs-section-label { margin: 14px 0 6px; padding: 0 6px; color: rgb(255 255 255 / .68); font-size: 10px; letter-spacing: .09em; text-transform: uppercase; }
+.vs-sidebar .vs-muted { color: rgb(255 255 255 / .68); }
+.vs-projects { display: flex; flex-direction: column; gap: 2px; overflow: visible; flex: 0 0 auto; }
+.vs-project { display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px 8px; border: 0; border-radius: 8px; background: transparent; color: #fff; text-align: left; }
+.vs-project:hover { background: rgb(255 255 255 / .14); }
+.vs-project.is-active { background: rgb(0 0 0 / .3); font-weight: 600; }
 .vs-project-icon { display: grid; place-items: center; flex: 0 0 24px; width: 24px; height: 24px; border-radius: 50%; color: #fff; font-size: 11px; font-weight: 600; }
 .vs-project-logo { flex: 0 0 24px; width: 24px; height: 24px; border-radius: 6px; object-fit: cover; background: #fff; }
 
@@ -52,26 +56,26 @@ button { cursor: pointer; }
    until hover on a pointer device, but is always present for touch — where there is no hover
    and double-tap-to-rename would be undiscoverable. */
 .vs-chatrow { display: flex; align-items: stretch; gap: 2px; border-radius: 7px; }
-.vs-chatrow:hover, .vs-chatrow.is-active { background: var(--selected); }
+.vs-chatrow:hover, .vs-chatrow.is-active { background: rgb(0 0 0 / .3); }
 .vs-chatrow .vs-chatlink { flex: 1; min-width: 0; background: transparent; }
 .vs-chatrow .vs-chatlink:hover { background: transparent; }
 .vs-chatrow.is-active .vs-chatlink { font-weight: 600; }
-.vs-chatrename-btn { flex: 0 0 26px; border: 0; border-radius: 7px; color: var(--muted); background: transparent; font-size: 12px; opacity: 0; }
+.vs-chatrename-btn { flex: 0 0 26px; border: 0; border-radius: 7px; color: rgb(255 255 255 / .68); background: transparent; font-size: 12px; opacity: 0; }
 .vs-chatrow:hover .vs-chatrename-btn, .vs-chatrow.is-active .vs-chatrename-btn { opacity: 1; }
-.vs-chatrename-btn:hover { color: var(--accent); }
+.vs-chatrename-btn:hover { color: #fff; }
 @media (hover: none) { .vs-chatrename-btn { opacity: 1; } }
 .vs-chatrename { width: 100%; padding: 6px 8px; border: 1px solid var(--accent); border-radius: 7px; background: #fff; font-size: 12.5px; }
 .vs-project-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.vs-chatlist { display: flex; flex-direction: column; gap: 1px; margin: 2px 0 8px; padding-left: 10px; border-left: 1px solid var(--line); margin-left: 18px; }
-.vs-newchat { padding: 6px 8px; border: 0; border-radius: 7px; color: var(--accent); background: transparent; text-align: left; font-size: 12px; font-weight: 600; }
-.vs-newchat:hover { background: var(--hover); }
-.vs-chatlink { display: flex; flex-direction: column; gap: 1px; padding: 6px 8px; border: 0; border-radius: 7px; background: transparent; text-align: left; font-size: 12.5px; }
-.vs-chatlink span { color: var(--muted); font-size: 10.5px; }
-.vs-chatlink:hover { background: var(--hover); }
+.vs-chatlist { display: flex; flex-direction: column; gap: 1px; margin: 2px 0 8px; padding-left: 0; border-left: 0; }
+.vs-newchat { padding: 6px 8px; border: 0; border-radius: 7px; color: #fff; background: transparent; text-align: left; font-size: 12px; font-weight: 600; }
+.vs-newchat:hover { background: rgb(255 255 255 / .14); }
+.vs-chatlink { display: flex; flex-direction: column; gap: 1px; padding: 6px 8px; border: 0; border-radius: 7px; color: #fff; background: transparent; text-align: left; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vs-chatlink span { color: rgb(255 255 255 / .68); font-size: 10.5px; }
+.vs-chatlink:hover { background: rgb(255 255 255 / .14); }
 .vs-spacer { flex: 1; }
-.vs-user { padding: 10px 8px 0; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
-.vs-usage-link { padding: 8px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); text-align: left; }
-.vs-usage-link:hover { background: var(--hover); color: var(--accent); }
+.vs-user { padding: 10px 8px 0; border-top: 1px solid rgb(255 255 255 / .28); color: rgb(255 255 255 / .68); font-size: 12px; }
+.vs-usage-link { padding: 8px; border: 0; border-radius: 8px; background: transparent; color: #fff; text-align: left; }
+.vs-usage-link:hover { background: rgb(255 255 255 / .14); color: #fff; }
 
 /* ---- Main column ---- */
 .vs-main { display: flex; flex-direction: column; min-width: 0; max-height: 100vh; }

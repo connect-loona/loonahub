@@ -15,7 +15,7 @@
 //   It never shows a control that does nothing. The rules panel lists exactly the rules that
 //   were really prepended to the prompt (see visual-rules.js); there are no strength sliders,
 //   because no image API this app talks to accepts one.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { onAuthChange, type CurrentUser } from "./lib/firebase";
 import { useHubBrands, brandColour } from "./lib/useBrands";
 import * as api from "./lib/api";
@@ -24,7 +24,6 @@ import { ChatThread } from "./components/ChatThread";
 import { Composer } from "./components/Composer";
 import { ProjectMemory } from "./components/ProjectMemory";
 import { UsagePanel } from "./components/UsagePanel";
-import loonaLogo from "./assets/loona-logo.png";
 
 // Turns a base64 data: URL back into a real File, so a generated image that was never
 // durably stored (see carryForward) can still be uploaded as a reference instead of being
@@ -41,6 +40,10 @@ function dataUrlToFile(dataUrl: string, filename: string): File | undefined {
   } catch {
     return undefined;
   }
+}
+
+function sidebarChatTitle(title: string) {
+  return title.trim().split(/\s+/).filter(Boolean).slice(0, 3).join(" ") || "New visual chat";
 }
 
 export function App() {
@@ -70,6 +73,9 @@ export function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [usageOpen, setUsageOpen] = useState(false);
+  const [lastOpenedBrandId, setLastOpenedBrandId] = useState(() => {
+    try { return window.localStorage.getItem("loona.visual.last-opened-brand"); } catch { return null; }
+  });
   // Kept so a transient failure can be retried without making the person retype the prompt.
   const [lastSend, setLastSend] = useState<{ prompt: string; count: number; size: string; quality: string; provider: "openai" | "magnific" } | null>(null);
 
@@ -81,9 +87,20 @@ export function App() {
   useEffect(() => {
     if (!brand && brands.length) {
       const wanted = new URLSearchParams(window.location.search).get("brand");
-      setBrand(brands.find((b) => b.id === wanted) || brands[0]);
+      rememberBrand(brands.find((b) => b.id === wanted) || brands[0]);
     }
   }, [brands, brand]);
+
+  function rememberBrand(next: VisualBrand) {
+    setBrand(next);
+    setLastOpenedBrandId(next.id);
+    try { window.localStorage.setItem("loona.visual.last-opened-brand", next.id); } catch { /* Storage is optional. */ }
+  }
+  const sidebarBrands = useMemo(() => [...brands].sort((left, right) => {
+    if (left.id === lastOpenedBrandId) return -1;
+    if (right.id === lastOpenedBrandId) return 1;
+    return 0;
+  }), [brands, lastOpenedBrandId]);
 
   const loadChats = useCallback(async (b: VisualBrand) => {
     setError(null);
@@ -355,12 +372,13 @@ export function App() {
   return (
     <div className="vs-shell">
       <aside className={`vs-sidebar${sidebarOpen ? " is-open" : ""}`}>
-        <div className="vs-logo"><img src={loonaLogo} alt="Loona" /></div>
-        <nav className="vs-topnav">
-          <a href="/">Hub</a>
-          <a href="/strategy/">Strategy OS</a>
-          <span className="is-active">Visual Studio</span>
-        </nav>
+        <details className="vs-app-switcher">
+          <summary>Ask BB <span aria-hidden="true">🦦</span><span className="vs-switcher-chevron" aria-hidden="true">⌄</span></summary>
+          <div className="vs-app-switcher-menu">
+            <a href="/"><b>Loona Hub</b><span>Team workspace</span></a>
+            <a href="/strategy/"><b>Strategy OS</b><span>Plan with agents</span></a>
+          </div>
+        </details>
 
         <p className="vs-section-label">Brand projects</p>
         {brandsLoading && <p className="vs-muted">Loading brands from Hub…</p>}
@@ -369,7 +387,7 @@ export function App() {
         )}
 
         <div className="vs-projects">
-          {brands.map((b) => {
+          {sidebarBrands.map((b) => {
             const open = brand?.id === b.id;
             return (
               <div key={b.id} className={`vs-project-block${open ? " is-open" : ""}`}>
@@ -378,7 +396,7 @@ export function App() {
                   className={`vs-project${open ? " is-active" : ""}`}
                   onClick={() => {
                     window.history.replaceState(null, "", `${window.location.pathname}?brand=${encodeURIComponent(b.id)}`);
-                    setBrand(b); setSidebarOpen(false);
+                    rememberBrand(b); setSidebarOpen(false);
                   }}
                 >
                   {/* Hub's own brand logo where there is one, the same way its brand cards do
@@ -416,11 +434,12 @@ export function App() {
                         <button
                           type="button"
                           className="vs-chatlink"
+                          title={c.title}
                           onClick={() => { void openChat(c.id); setSidebarOpen(false); }}
                           // Double-click to rename, the way a file name works everywhere else.
                           onDoubleClick={() => { setRenamingId(c.id); setRenameDraft(c.title); }}
                         >
-                          {c.title}
+                          {sidebarChatTitle(c.title)}
                           <span>{c.generationCount ? `${c.generationCount} round${c.generationCount === 1 ? "" : "s"}` : "Empty"}</span>
                         </button>
                         {/* An explicit button too: double-click isn't discoverable, and this
