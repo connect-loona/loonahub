@@ -110,36 +110,51 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
       return;
     }
 
+    const trimmedName = name.trim() || trimmedId;
+    const enteredDeliverables = deliverablesToMap(deliverableRows);
+    // Brand onboarding starts with the two pieces the system genuinely needs: where
+    // the source material lives, and what needs making. Everything else can be added
+    // later or drafted by Mani. The complete schema still receives safe “to be defined”
+    // defaults so older planning code never has to handle a half-shaped object.
+    if (!drive.trim()) { setError("Add the brand’s Google Drive folder link before saving."); return; }
+    if (!Object.values(enteredDeliverables).some((count) => count > 0)) { setError("Add at least one deliverable with a count above zero before saving."); return; }
+    const fallbackAudience = { id: "audience-to-define", description: "Audience to be defined", buyingSituation: "To be defined", trigger: "To be defined" };
+    const fallbackPillar = { id: "brand-basics", name: "Brand basics", description: "Details to be defined", targetShare: 1 };
+
     const config = {
       schemaVersion: "1.0",
       id: trimmedId,
-      name: name.trim(),
-      category: category.trim(),
-      market: splitCsv(market),
+      name: trimmedName,
+      category: category.trim() || "To be defined",
+      market: splitCsv(market).length ? splitCsv(market) : ["To be defined"],
       aspirationalMarkets: splitCsv(aspirational),
       website: website.trim() || null,
-      driveFolderUrl: drive.trim() || null,
-      oneLineTruth: truth.trim(),
+      driveFolderUrl: drive.trim(),
+      oneLineTruth: truth.trim() || `${trimmedName} — brand truth to be confirmed.`,
       deliverables: {
-        ...deliverablesToMap(deliverableRows),
+        reel: enteredDeliverables.reel || 0,
+        carousel: enteredDeliverables.carousel || 0,
+        static: enteredDeliverables.static || 0,
+        story: enteredDeliverables.story || 0,
+        ...enteredDeliverables,
         confirmed,
       },
       voice: {
-        descriptors: splitCsv(descriptors),
-        principles: splitLines(principles),
+        descriptors: splitCsv(descriptors).length >= 3 ? splitCsv(descriptors) : ["To be defined", "Review required", "Brand-specific"],
+        principles: splitLines(principles).length ? splitLines(principles) : ["Use verified brand information only."],
         bannedWords: splitCsv(bannedWords),
         bannedMoves: splitLines(bannedMoves),
-        emojiRule: emojiRule.trim(),
-        languageRule: languageRule.trim(),
+        emojiRule: emojiRule.trim() || "To be defined",
+        languageRule: languageRule.trim() || "To be defined",
       },
-      audiences: audiences.filter((a) => a.id.trim()).map((a) => ({ id: a.id.trim(), description: a.description.trim(), buyingSituation: a.buyingSituation.trim(), trigger: a.trigger.trim() })),
+      audiences: (() => { const rows = audiences.filter((a) => a.id.trim() && a.description.trim() && a.buyingSituation.trim() && a.trigger.trim()).map((a) => ({ id: a.id.trim(), description: a.description.trim(), buyingSituation: a.buyingSituation.trim(), trigger: a.trigger.trim() })); return rows.length ? rows : [fallbackAudience]; })(),
       visual: {
-        feel: splitCsv(feel),
+        feel: splitCsv(feel).length >= 3 ? splitCsv(feel) : ["To be defined", "Brand-specific", "Review required"],
         palette: splitCsv(palette),
-        principles: splitLines(visPrinciples),
-        avoid: splitLines(visAvoid),
+        principles: splitLines(visPrinciples).length ? splitLines(visPrinciples) : ["Use approved brand materials."],
+        avoid: splitLines(visAvoid).length ? splitLines(visAvoid) : ["Unverified claims."],
       },
-      pillars: pillars.filter((p) => p.id.trim()).map((p) => ({ id: p.id.trim(), name: p.name.trim(), description: p.description.trim(), targetShare: p.targetShare })),
+      pillars: (() => { const rows = pillars.filter((p) => p.id.trim() && p.name.trim() && p.description.trim()).map((p) => ({ id: p.id.trim(), name: p.name.trim(), description: p.description.trim(), targetShare: p.targetShare })); return rows.length ? rows : [fallbackPillar]; })(),
       competitors: splitCsv(competitors),
       knownUnknowns: splitLines(knownUnknowns),
       portfolios: parsedAdvanced.portfolios || [],
@@ -182,18 +197,17 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
         <input className="st-form-control" style={{ marginBottom: 10 }} value={aspirational} onChange={(e) => setAspirational(e.target.value)} />
         <label className="st-field-label">Website</label>
         <input className="st-form-control" style={{ marginBottom: 10 }} value={website} onChange={(e) => setWebsite(e.target.value)} />
-        <label className="st-field-label">Google Drive folder link</label>
+        <label className="st-field-label">Google Drive folder link <b>*</b></label>
         <input className="st-form-control" style={{ marginBottom: 10 }} value={drive} placeholder="Every stage reads this folder as reference material — paste the brand's Drive folder link" onChange={(e) => setDrive(e.target.value)} />
         <div className="st-note" style={{ fontSize: 11, marginTop: -6, marginBottom: 10 }}>
-          Leave blank and it falls back to matching a subfolder by this brand's name under the shared Brands folder, if one is configured.
-          Check "Brand memory" on any of this brand's runs to see whether it's actually connecting.
+          Required. Paste the brand’s Google Drive folder link so Mani and every planning stage can read its source material.
         </div>
         <label className="st-field-label">One-line truth (what this brand actually is)</label>
         <textarea className="st-form-control" style={{ minHeight: 50 }} value={truth} onChange={(e) => setTruth(e.target.value)} />
       </div>
 
       <div className="st-board">
-        <div className="st-board-header">Deliverables (per month)</div>
+        <div className="st-board-header">Deliverables (per month) <span className="st-tag">required</span></div>
         <DeliverablesFields rows={deliverableRows} onChange={setDeliverableRows} />
         <div className="st-note" style={{ margin: "6px 0 10px" }}>
           Reels, Carousels, Static and Story are generated by the strategy pipeline. Any other deliverable you add here

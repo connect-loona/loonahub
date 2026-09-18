@@ -42,6 +42,12 @@ exports.handler = async (event) => {
   if (body.config.id !== brandId) {
     return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: `config.id ("${body.config.id}") must match brandId ("${brandId}").` }) };
   }
+  const driveFolderUrl = String(body.config.driveFolderUrl || "").trim();
+  if (!driveFolderUrl) return { statusCode: 422, headers: cors(), body: JSON.stringify({ error: "A brand Google Drive folder link is required." }) };
+  const deliverables = body.config.deliverables && typeof body.config.deliverables === "object" ? body.config.deliverables : {};
+  if (!Object.entries(deliverables).some(([key, value]) => key !== "confirmed" && typeof value === "number" && value > 0)) {
+    return { statusCode: 422, headers: cors(), body: JSON.stringify({ error: "At least one deliverable with a count above zero is required." }) };
+  }
 
   const result = BrandConfigSchema.safeParse(body.config);
   if (!result.success) {
