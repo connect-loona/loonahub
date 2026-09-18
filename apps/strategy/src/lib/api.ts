@@ -198,6 +198,10 @@ export function toggleAssetLock(args: { runId: string; stage: string; assetId: s
   return post("strategy-asset-lock", args) as Promise<{ ok: true; locked: boolean }>;
 }
 
+export function saveConceptReview(args: { runId: string; assetId: string; actor: string; decision: "approved" | "discarded"; formats?: string[] }): Promise<{ ok: true }> {
+  return post("strategy-concept-review", args) as Promise<{ ok: true }>;
+}
+
 export function updateDeckPage(args: { runId: string; pageIndex: number; field: "owner" | "productionStatus"; value: string }): Promise<{ ok: true }> {
   return post("strategy-deck-page-update", args) as Promise<{ ok: true }>;
 }

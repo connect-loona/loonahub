@@ -228,6 +228,16 @@ button { cursor: pointer; }
 .sc-final-item b, .sc-final-item span { display: block; }
 .sc-final-item span { margin-top: 3px; color: var(--sc-muted); font-size: 11px; }
 .sc-final-item p { margin: 7px 0 0; white-space: pre-wrap; }
+.sc-execution-options { margin: 18px 0; padding: 14px; border: 1px solid var(--sc-line); border-radius: 11px; background: #fbfaf7; }
+.sc-execution-options > b { display: block; font-size: 13px; }
+.sc-execution-options > p { margin: 3px 0 10px; color: var(--sc-muted); font-size: 12px; }
+.sc-execution-options > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.sc-execution-options label { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border: 1px solid var(--sc-line); border-radius: 999px; background: #fff; font-size: 12px; text-transform: capitalize; }
+.sc-execution-options input { accent-color: var(--sc-accent); }
+.sc-refine-history { margin: 14px 0; padding: 11px 13px; border-left: 2px solid var(--sc-line); background: #fbfaf7; }
+.sc-refine-history p { margin: 0 0 8px; color: var(--sc-muted); font-size: 12px; }
+.sc-refine-history p:last-child { margin-bottom: 0; }
+.sc-refine-history .is-user { color: var(--sc-ink); font-weight: 600; }
 /* The Mani panel used to be "static" — always occupying a third grid column, whether or
    not anyone asked for it. It's a drawer instead, matching Visual Studio's own vs-memory-drawer
    exactly: hidden off-screen until the header's Mani button opens it, dismissed by the close

@@ -20,6 +20,7 @@ export interface StageState {
   detail?: string;
   candidates?: Record<string, ConceptCandidate>;
   locks?: Record<string, { lockedAt: string; lockedBy: string }>;
+  reviews?: Record<string, { decision: "approved" | "discarded"; formats?: string[]; decidedAt?: string; decidedBy?: string }>;
 }
 
 // The strategy stage's own checkpoint shape — the "thirteen concept cards" the
@@ -33,8 +34,11 @@ export interface StrategyGate {
 
 export interface StrategyAsset {
   assetId: string;
+  sequence?: number;
   format: string;
   conceptName: string;
+  concept?: string;
+  strategicRole?: string;
   portfolioId?: string;
   hook: string;
   tension: string;

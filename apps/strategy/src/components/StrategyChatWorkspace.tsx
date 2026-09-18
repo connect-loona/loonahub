@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAllHubBrands, useBrands, useRun, useRuns, type HubBrandOption } from "../lib/useRuns";
-import { archiveRun, askBB, clearBB, clearStrategyChat, discardConcept, proposeConcept, retryStage, saveManiMemory, saveStrategyChatMessage, startRun, toggleAssetLock, uploadBBAttachment } from "../lib/api";
+import { acceptCandidate, archiveRun, askBB, clearBB, clearStrategyChat, proposeConcept, retryStage, saveConceptReview, saveManiMemory, saveStrategyChatMessage, startRun, toggleAssetLock, uploadBBAttachment } from "../lib/api";
 import { listenPath } from "../lib/firebase";
 import type { ChatMessage, CopyCheckpoint, StrategyAsset, StrategyBrand, StrategyCheckpoint, StrategyRun } from "../lib/types";
 import { CampaignBrief, CampaignRunChat } from "./CampaignPlanning";
@@ -212,22 +212,27 @@ function Brief({ mode, brand, actor, onStarted, onCancel }: { mode: "monthly" | 
   </div>;
 }
 
-function ConceptCard({ asset, caption, candidate, index, total, logged, busy, onRefine, onLog, onReject }: { asset: StrategyAsset; caption?: string | null; candidate?: { status?: string; detail?: string; candidate?: Partial<StrategyAsset> } | null; index: number; total: number; logged: boolean; busy: boolean; onRefine: (value: string) => void; onLog: () => void; onReject: (value: string) => void }) {
+function ConceptCard({ asset, candidate, index, total, review, busy, onRefine, onApprove, onDiscard }: { asset: StrategyAsset; candidate?: { status?: string; detail?: string; candidate?: Partial<StrategyAsset>; history?: Array<{ role: string; notes?: string; summary?: string }> } | null; index: number; total: number; review?: { decision: "approved" | "discarded"; formats?: string[] }; busy: boolean; onRefine: (value: string) => void; onApprove: (formats: string[]) => void; onDiscard: () => void }) {
   const [refining, setRefining] = useState(false);
   const [draft, setDraft] = useState("");
+  const [formats, setFormats] = useState<string[]>(review?.formats || [asset.format]);
+  useEffect(() => { setFormats(review?.formats || [asset.format]); setRefining(false); setDraft(""); }, [asset.assetId, asset.format, review?.formats]);
+  const toggleFormat = (format: string) => setFormats((current) => current.includes(format) ? current.filter((item) => item !== format) : current.concat(format));
+  const reviewed = !!review;
   return <div className="sc-concept-wrap">
-    <div className="sc-concept-meta">Concept {index + 1} of {total} · {asset.format}</div>
-    <article className={`sc-concept${logged ? " is-logged" : ""}`}>
+    <div className="sc-concept-meta">Concept {index + 1} of {total}</div>
+    <article className={`sc-concept${review?.decision === "approved" ? " is-logged" : ""}`}>
       <h3>{asset.conceptName}</h3>
       {candidate?.status === "running" && <p className="sc-status">The refined version is being written <span className="sc-dots">•••</span></p>}
       {candidate?.status === "failed" && <p className="sc-error">The refinement could not be completed: {candidate.detail || "try again"}</p>}
-      {candidate?.status === "ready" && candidate.candidate && <div className="sc-candidate"><p className="sc-candidate-label">Refined candidate</p><h4>{candidate.candidate.conceptName || asset.conceptName}</h4><p>{candidate.candidate.hook || asset.hook}</p><button type="button" className="sc-primary" onClick={onLog}>Use refined version</button></div>}
-      <div className="sc-pills"><span>{asset.portfolioId || "Brand portfolio"}</span><span>{logged ? "Logged" : "Awaiting review"}</span></div>
-      <dl><div><dt>Tension</dt><dd>{asset.tension}</dd></div><div><dt>Hook</dt><dd>“{asset.hook}”</dd></div><div><dt>Send to</dt><dd>{asset.sendTo}</dd></div></dl>
-      {logged && caption && <div className="sc-caption"><dt>Caption</dt><p>{caption}</p></div>}
-      {!logged && <div className="sc-actions"><button type="button" className="sc-secondary" onClick={() => setRefining(!refining)}>Refine</button><button type="button" className="sc-secondary" onClick={() => onReject(prompt("Why are we rejecting this concept?") || "Rejected by team")}>Reject</button><button type="button" className="sc-primary" disabled={busy} onClick={onLog}>{busy ? "Logging…" : "Use this"}</button></div>}
-      {logged && <p className="sc-logged-note">This concept and its caption are saved to the monthly plan.</p>}
-      {refining && <div className="sc-refine"><textarea autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="What should change?" /><button type="button" className="sc-primary" disabled={!draft.trim()} onClick={() => { onRefine(draft.trim()); setDraft(""); setRefining(false); }}>Send refinement</button></div>}
+      {candidate?.history?.length ? <div className="sc-refine-history">{candidate.history.map((turn, turnIndex) => <p key={turnIndex} className={turn.role === "user" ? "is-user" : ""}>{turn.notes || turn.summary}</p>)}</div> : null}
+      {candidate?.status === "ready" && candidate.candidate && <div className="sc-candidate"><p className="sc-candidate-label">Refined candidate</p><h4>{candidate.candidate.conceptName || asset.conceptName}</h4><p>{candidate.candidate.hook || asset.hook}</p></div>}
+      <div className="sc-pills"><span>{asset.portfolioId || "Brand portfolio"}</span><span>{review?.decision === "approved" ? "Approved" : review?.decision === "discarded" ? "Discarded" : "Awaiting selection"}</span></div>
+      <dl><div><dt>Concept idea</dt><dd>{asset.concept || asset.hook}</dd></div><div><dt>Brief explanation</dt><dd>{asset.tension}</dd></div><div><dt>Extension</dt><dd>{asset.strategicRole || asset.sendTo}</dd></div></dl>
+      {!reviewed && <><div className="sc-execution-options"><b>Select execution potential</b><p>Choose every format you want this concept developed into.</p><div>{["reel", "carousel", "static", "story"].map((format) => <label key={format}><input type="checkbox" checked={formats.includes(format)} onChange={() => toggleFormat(format)} />{format}</label>)}</div></div><div className="sc-actions"><button type="button" className="sc-secondary" onClick={() => setRefining(!refining)}>Chat to refine</button><button type="button" className="sc-secondary" disabled={busy} onClick={onDiscard}>Discard concept</button><button type="button" className="sc-primary" disabled={busy || !formats.length} onClick={() => onApprove(formats)}>{busy ? "Saving…" : "Approve selection"}</button></div></>}
+      {review?.decision === "approved" && <p className="sc-logged-note">Approved for: {(review.formats || []).join(", ")}.</p>}
+      {review?.decision === "discarded" && <p className="sc-logged-note">Discarded. It will not move into development.</p>}
+      {refining && <div className="sc-refine"><textarea autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Tell Dora what should change. This conversation stays with this concept." /><button type="button" className="sc-primary" disabled={!draft.trim() || busy} onClick={() => { onRefine(draft.trim()); setDraft(""); }}>Send to Dora</button></div>}
     </article>
   </div>;
 }
@@ -331,7 +336,6 @@ function RunChat({ runId, actor, onArchived }: { runId: string; actor: string; o
   const [cursor, setCursor] = useState(0);
   const cursorInitialized = useRef(false);
   const [busy, setBusy] = useState(false);
-  const [logged, setLogged] = useState<string[]>([]);
   const [note, setNote] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [finished, setFinished] = useState(false);
@@ -340,6 +344,8 @@ function RunChat({ runId, actor, onArchived }: { runId: string; actor: string; o
   const [clearingChat, setClearingChat] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const asset = assets[cursor];
+  const reviews = run?.stages.strategy?.reviews || {};
+  const approvedAssets = assets.filter((item) => reviews[item.assetId]?.decision === "approved");
   // Whichever of the two stages a fresh concept depends on actually failed — unlike the
   // campaign flow's per-step retry buttons, this used to leave a failed research or
   // strategy stage with no way back into the chat at all beyond "check the run status".
@@ -356,20 +362,16 @@ function RunChat({ runId, actor, onArchived }: { runId: string; actor: string; o
     catch (e) { setRetryError(e instanceof Error ? e.message : String(e)); }
     finally { setRetrying(false); }
   }
-  useEffect(() => {
-    const locks = run?.stages.strategy?.locks || {};
-    setLogged(Object.keys(locks));
-  }, [run]);
-  // Reopening a chat with concepts already logged used to always land back on Concept 1,
+  // Reopening a chat with decisions already made lands on the first unresolved concept,
   // forcing a click through everything already reviewed just to reach where the
   // conversation actually left off. Only ever runs once, the first time real assets and
   // lock state are both available — after that the cursor is purely the person's own
   // Previous/Next navigation.
   useEffect(() => {
     if (cursorInitialized.current || !run || !assets.length) return;
-    const locks = run.stages.strategy?.locks || {};
-    const firstUnlogged = assets.findIndex((item) => !locks[item.assetId]);
-    setCursor(firstUnlogged >= 0 ? firstUnlogged : assets.length - 1);
+    const storedReviews = run.stages.strategy?.reviews || {};
+    const firstUnreviewed = assets.findIndex((item) => !storedReviews[item.assetId]);
+    setCursor(firstUnreviewed >= 0 ? firstUnreviewed : assets.length - 1);
     cursorInitialized.current = true;
   }, [run, assets]);
   useEffect(() => listenPath<Record<string, ChatMessage>>(`strategy_runs/${runId}/chatMessages`, (value) => {
@@ -392,10 +394,18 @@ function RunChat({ runId, actor, onArchived }: { runId: string; actor: string; o
     try { await archiveRun({ runId, actor, reason: "Archived from monthly planning" }); onArchived(); }
     catch (e) { setNote(e instanceof Error ? e.message : String(e)); setArchiving(false); }
   }
-  async function logAsset() {
+  async function approveAsset(formats: string[]) {
     if (!asset || busy) return;
     setBusy(true); setNote(null);
-    try { await toggleAssetLock({ runId, stage: "strategy", assetId: asset.assetId, actor, locked: true }); setLogged((items) => items.includes(asset.assetId) ? items : items.concat(asset.assetId)); setNote("Concept logged. Its caption will stay attached to this plan."); void record("assistant", `Concept ${cursor + 1} logged: ${asset.conceptName}`); }
+    try {
+      const candidate = run?.stages.strategy?.candidates?.[asset.assetId];
+      if (candidate?.status === "ready") await acceptCandidate({ runId, stage: "strategy", assetId: asset.assetId, actor });
+      await toggleAssetLock({ runId, stage: "strategy", assetId: asset.assetId, actor, locked: true });
+      await saveConceptReview({ runId, assetId: asset.assetId, actor, decision: "approved", formats });
+      setNote("Selection approved. Dora will bring the next concept.");
+      void record("assistant", `Concept ${cursor + 1} approved for ${formats.join(", ")}: ${asset.conceptName}`);
+      if (cursor < assets.length - 1) setCursor(cursor + 1);
+    }
     catch (e) { setNote(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
@@ -408,12 +418,13 @@ function RunChat({ runId, actor, onArchived }: { runId: string; actor: string; o
     } catch (e) { setNote(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
-  async function rejectAsset(value: string) {
+  async function discardAsset() {
     if (!asset || busy) return;
     setBusy(true); setNote(null);
     try {
-      await discardConcept({ runId, stage: "strategy", assetId: asset.assetId, notes: value, actor });
-      setNote("Rejected and recorded in the brand learnings."); void record("assistant", `Concept rejected: ${asset.conceptName}`);
+      await saveConceptReview({ runId, assetId: asset.assetId, actor, decision: "discarded" });
+      setNote("Concept discarded. It will not be developed."); void record("assistant", `Concept discarded: ${asset.conceptName}`);
+      if (cursor < assets.length - 1) setCursor(cursor + 1);
     } catch (e) { setNote(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
@@ -437,10 +448,10 @@ function RunChat({ runId, actor, onArchived }: { runId: string; actor: string; o
       {retryError && <p className="sc-error">{retryError}</p>}
     </div>}
     {asset && <>
-      <div className="sc-assistant-block"><p>Here’s concept {cursor + 1}. Read it, refine it, or log it when it feels right. Dora will only bring the next one after this decision.</p></div>
-      <ConceptCard asset={asset} caption={captionFor(run, asset.assetId)} candidate={run?.stages.strategy?.candidates?.[asset.assetId] as { status?: string; detail?: string; candidate?: Partial<StrategyAsset> } | undefined} index={cursor} total={assets.length} logged={logged.includes(asset.assetId)} busy={busy} onLog={() => void logAsset()} onRefine={(value) => void refineAsset(value)} onReject={(value) => void rejectAsset(value)} />
+      <div className="sc-assistant-block"><p>Here’s concept {cursor + 1}. Select the executions you want, then approve it or discard it. Dora only brings the next one after that decision.</p></div>
+      <ConceptCard asset={asset} candidate={run?.stages.strategy?.candidates?.[asset.assetId] as { status?: string; detail?: string; candidate?: Partial<StrategyAsset>; history?: Array<{ role: string; notes?: string; summary?: string }> } | undefined} index={cursor} total={assets.length} review={reviews[asset.assetId]} busy={busy} onApprove={(formats) => void approveAsset(formats)} onRefine={(value) => void refineAsset(value)} onDiscard={() => void discardAsset()} />
       {note && <div className="sc-assistant-block sc-note-block"><p>{note}</p></div>}
-      <div className="sc-next-row">{cursor > 0 && <button type="button" className="sc-secondary" onClick={() => setCursor(cursor - 1)}>Previous</button>}{cursor < assets.length - 1 ? <button type="button" className="sc-secondary" disabled={!logged.includes(asset.assetId)} onClick={() => setCursor(cursor + 1)}>Move to next</button> : <button type="button" className="sc-primary" disabled={logged.length < assets.length} onClick={() => { setFinished(true); void record("assistant", "Monthly planning is complete. All concepts are logged."); }}>Finish monthly planning</button>}</div>
+      <div className="sc-next-row">{cursor > 0 && <button type="button" className="sc-secondary" onClick={() => setCursor(cursor - 1)}>Previous concept</button>}{cursor < assets.length - 1 && <button type="button" className="sc-secondary" disabled={!reviews[asset.assetId]} onClick={() => setCursor(cursor + 1)}>Move to next concept</button>}<button type="button" className="sc-primary" disabled={!approvedAssets.length} onClick={() => { setFinished(true); void record("assistant", "Concept selection is ready for the final planning review."); }}>End planning · review selections</button></div>
     </>}
     {finished && <FinalPlan run={run} assets={assets} />}
   </div>;
@@ -448,9 +459,11 @@ function RunChat({ runId, actor, onArchived }: { runId: string; actor: string; o
 
 function FinalPlan({ run, assets }: { run: StrategyRun | null; assets: StrategyAsset[] }) {
   const [copied, setCopied] = useState(false);
-  const text = assets.map((asset, index) => `${index + 1}. ${asset.conceptName}\nFormat: ${asset.format}\nHook: ${asset.hook}\nTension: ${asset.tension}\nCaption: ${captionFor(run, asset.assetId) || "Caption not available"}`).join("\n\n");
+  const reviews = run?.stages.strategy?.reviews || {};
+  const selected = assets.filter((asset) => reviews[asset.assetId]?.decision === "approved");
+  const text = selected.map((asset, index) => `${index + 1}. ${asset.conceptName}\nSelected executions: ${(reviews[asset.assetId]?.formats || []).join(", ")}\nHook: ${asset.hook}\nTension: ${asset.tension}\nCaption: ${captionFor(run, asset.assetId) || "Caption not available"}`).join("\n\n");
   async function copy() { try { await navigator.clipboard.writeText(text); setCopied(true); } catch { setCopied(false); } }
-  return <section className="sc-final-plan"><div className="sc-concept-meta">Final monthly plan</div><h3>Everything logged for this brand</h3><p className="sc-muted">Copy this into Canva, the content calendar or your production brief.</p>{assets.map((asset, index) => <article key={asset.assetId} className="sc-final-item"><b>{index + 1}. {asset.conceptName}</b><span>{asset.format} · {asset.hook}</span><p>{captionFor(run, asset.assetId) || "Caption not available yet."}</p></article>)}<button type="button" className="sc-primary" onClick={() => void copy()}>{copied ? "Copied" : "Copy complete plan"}</button></section>;
+  return <section className="sc-final-plan"><div className="sc-concept-meta">Selected monthly plan</div><h3>Review what the team selected</h3><p className="sc-muted">Only approved concepts appear here. This is the handoff for scripts, captions and creative development.</p>{selected.map((asset, index) => <article key={asset.assetId} className="sc-final-item"><b>{index + 1}. {asset.conceptName}</b><span>{(reviews[asset.assetId]?.formats || []).join(" · ")} · {asset.hook}</span><p>{asset.concept || asset.tension}</p></article>)}<button type="button" className="sc-primary" onClick={() => void copy()}>{copied ? "Copied" : "Copy selected plan"}</button></section>;
 }
 
 export function StrategyChatWorkspace({ actor }: { actor: string }) {
