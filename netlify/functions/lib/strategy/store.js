@@ -66,12 +66,39 @@ const PROMPT_BY_FILE = {
 // validates cleanly on its own — meaning Firebase already held something written before
 // one of this integration's earlier bugs was fixed, and every run since kept reading that
 // same broken copy back out, never re-checking or self-correcting it.
+function hydrateBrandConfig(raw, brandId) {
+  const text = (value, fallback) => String(value || "").trim() || fallback;
+  const strings = (value) => Array.isArray(value) ? value.map((item) => String(item || "").trim()).filter(Boolean) : [];
+  const input = raw && typeof raw === "object" ? raw : {};
+  const name = text(input.name, brandId);
+  const d = input.deliverables && typeof input.deliverables === "object" ? input.deliverables : {};
+  const count = (key) => Number.isInteger(d[key]) && d[key] >= 0 ? d[key] : 0;
+  return {
+    schemaVersion: "1.0", id: brandId, name, category: text(input.category, "To be defined"),
+    market: strings(input.market).length ? strings(input.market) : ["To be defined"], aspirationalMarkets: strings(input.aspirationalMarkets),
+    website: typeof input.website === "string" && input.website.trim() ? input.website.trim() : null,
+    driveFolderUrl: typeof input.driveFolderUrl === "string" ? input.driveFolderUrl : null,
+    approvedWork: Array.isArray(input.approvedWork) ? input.approvedWork : [], oneLineTruth: text(input.oneLineTruth, `${name} — brand truth to be confirmed.`),
+    deliverables: { reel: count("reel"), carousel: count("carousel"), static: count("static"), story: count("story"), confirmed: Boolean(d.confirmed) },
+    voice: { descriptors: (strings(input.voice && input.voice.descriptors).slice(0, 6).length >= 3 ? strings(input.voice && input.voice.descriptors).slice(0, 6) : ["To be defined", "Review required", "Brand-specific"]), principles: strings(input.voice && input.voice.principles).length ? strings(input.voice && input.voice.principles) : ["Use verified brand information only."], bannedWords: strings(input.voice && input.voice.bannedWords), bannedMoves: strings(input.voice && input.voice.bannedMoves), emojiRule: text(input.voice && input.voice.emojiRule, "To be defined"), languageRule: text(input.voice && input.voice.languageRule, "To be defined") },
+    audiences: Array.isArray(input.audiences) && input.audiences.length ? input.audiences : [{ id: "audience-to-define", description: "Audience to be defined", buyingSituation: "To be defined", trigger: "To be defined" }],
+    visual: { feel: strings(input.visual && input.visual.feel).length >= 3 ? strings(input.visual && input.visual.feel) : ["To be defined", "Brand-specific", "Review required"], palette: strings(input.visual && input.visual.palette), principles: strings(input.visual && input.visual.principles).length ? strings(input.visual && input.visual.principles) : ["Use approved brand materials."], avoid: strings(input.visual && input.visual.avoid).length ? strings(input.visual && input.visual.avoid) : ["Unverified claims."] },
+    pillars: Array.isArray(input.pillars) && input.pillars.length ? input.pillars : [{ id: "brand-basics", name: "Brand basics", description: "Details to be defined", targetShare: 1 }],
+    competitors: strings(input.competitors), portfolios: Array.isArray(input.portfolios) ? input.portfolios : [], claimRules: Array.isArray(input.claimRules) ? input.claimRules : [], copyStructure: input.copyStructure || null, knownUnknowns: strings(input.knownUnknowns), sourceVectorStoreIds: strings(input.sourceVectorStoreIds),
+  };
+}
+
 async function loadBrandConfig(brandId) {
   const key = fbSafeKey(brandId);
   const raw = await fbGet(`strategy_brands/${key}`);
   if (raw) {
-    const result = BrandConfigSchema.safeParse(raw);
-    if (result.success) return result.data;
+    const result = BrandConfigSchema.safeParse(hydrateBrandConfig(raw, brandId));
+    if (result.success) {
+      // Older drafts were written before optional Directory fields were added. Repair the
+      // stored record as we read it so the next screen and every later run see one shape.
+      await fbSet(`strategy_brands/${key}`, result.data);
+      return result.data;
+    }
     console.error(`strategy_brands/${key} in Firebase failed validation — re-seeding from source. Issues:`, JSON.stringify(result.error.issues).slice(0, 500));
   }
   const seed = SEED_BRAND_CONFIGS[brandId];
