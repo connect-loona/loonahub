@@ -286,7 +286,11 @@ async function loadGlobalBrain() {
   const { loadAttendanceText } = require("./attendance-memory");
   const { loadHubTaskBoardText, loadTaskHistoryText } = require("./team-activity");
   const { loadAnnouncementsText } = require("./announcements-memory");
-  const [pasted, events, team, attendance, tasks, taskHistory, announcements] = await Promise.all([
+  const { loadLeaveText } = require("./leave-memory");
+  const { loadCalendarText } = require("./calendar-memory");
+  const { loadHolidayText } = require("./holiday-memory");
+  const { loadHubOverviewText } = require("./hub-overview");
+  const [pasted, events, team, attendance, tasks, taskHistory, announcements, leave, calendar, holidays, overview] = await Promise.all([
     loadPastedManiMemory("global").catch((error) => { console.error("Could not load Hub-wide Mani memory:", error.message); return null; }),
     // Kept alongside the task board below rather than filtered down to exclude it — the board
     // is current STATE (what's open right now); these events are HISTORY (who changed what,
@@ -302,8 +306,12 @@ async function loadGlobalBrain() {
     // Survives Hub clearing a completed task off the live board above — see team-activity.js.
     loadTaskHistoryText().catch((error) => { console.error("Could not load task history:", error.message); return null; }),
     loadAnnouncementsText().catch((error) => { console.error("Could not load Loona Board announcements:", error.message); return null; }),
+    loadLeaveText().catch((error) => { console.error("Could not load leave requests:", error.message); return null; }),
+    loadCalendarText().catch((error) => { console.error("Could not load calendar meetings:", error.message); return null; }),
+    loadHolidayText().catch((error) => { console.error("Could not load the holiday calendar:", error.message); return null; }),
+    loadHubOverviewText().catch((error) => { console.error("Could not load the Hub overview:", error.message); return null; }),
   ]);
-  const parts = [pasted, events, team, attendance, tasks, taskHistory, announcements].filter(Boolean);
+  const parts = [pasted, events, team, attendance, tasks, taskHistory, announcements, leave, calendar, holidays, overview].filter(Boolean);
   return parts.length ? parts.join("\n\n") : null;
 }
 
