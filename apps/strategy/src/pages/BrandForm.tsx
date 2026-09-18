@@ -4,7 +4,7 @@
 // re-syncs from a live listener mid-edit, so someone else's concurrent edit can't blow
 // away an in-progress form), and posts the same BrandConfigSchema-shaped object
 // strategy-brand-save.js validates.
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { DeliverablesCount, StrategyBrand } from "../lib/types";
 import { saveBrand } from "../lib/api";
 import { DeliverablesFields, deliverablesToMap, useDeliverablesRows } from "../components/DeliverablesFields";
@@ -86,6 +86,11 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
 
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const errorRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [error]);
 
   function updateAudience(i: number, field: keyof AudienceRow, value: string) {
     setAudiences((rows) => rows.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)));
@@ -305,7 +310,7 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
           <button className="st-btn st-btn-ghost" style={{ flex: 1 }} onClick={onCancel}>Cancel</button>
           <button type="button" className="st-btn st-btn-primary" style={{ flex: 1 }} disabled={saving} onClick={handleSubmit}>{saving ? "Saving…" : "Save brand"}</button>
         </div>
-        {error && <div role="alert" style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, border: "1px solid #d85b4b", background: "rgba(216,91,75,.16)", color: "#ffb3a8", fontSize: 13, fontWeight: 600, whiteSpace: "pre-wrap" }}><b>Can’t save brand:</b> {error}</div>}
+        {error && <div ref={errorRef} role="alert" style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, border: "1px solid #d85b4b", background: "rgba(216,91,75,.16)", color: "#ffb3a8", fontSize: 13, fontWeight: 600, whiteSpace: "pre-wrap" }}><b>Can’t save brand:</b> {error}</div>}
       </div>
     </div>
   );
