@@ -13,7 +13,7 @@
 // three functions is automatically testable, with no per-component test-mode branching.
 import { initializeApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, type User } from "firebase/auth";
-import { getDatabase, onValue, ref } from "firebase/database";
+import { getDatabase, onValue, ref, set } from "firebase/database";
 import * as fake from "./firebase.fake";
 
 const firebaseConfig = {
@@ -53,4 +53,14 @@ export async function getIdTokenOrNull(): Promise<string | null> {
 export function listenPath<T>(path: string, cb: (value: T | null) => void): () => void {
   if (isTestMode) return fake.listenPath<T>(path, cb);
   return onValue(ref(realDb!, path), (snap) => cb((snap.val() as T | null) ?? null));
+}
+
+// Brand configuration is normally written through the audited Netlify endpoint. This is
+// deliberately a narrow fallback for that one team-authenticated configuration record:
+// if a deployed function is temporarily unavailable, the user who is already signed into
+// Hub can still complete onboarding instead of being trapped on the setup form.
+export async function writeAuthenticatedPath(path: string, value: unknown): Promise<void> {
+  if (isTestMode) throw new Error("Direct Firebase writes are unavailable in test mode.");
+  if (!realAuth?.currentUser) throw new Error("Your Hub session has expired. Please sign in again.");
+  await set(ref(realDb!, path), value);
 }

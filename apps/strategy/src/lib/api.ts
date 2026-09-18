@@ -6,7 +6,7 @@
 // cookie today (which the browser attaches automatically on this same origin regardless,
 // so calls succeed either way), but sending the token now means nothing here needs to
 // change when server-side ID-token verification is added as its own follow-up.
-import { getIdTokenOrNull } from "./firebase";
+import { getIdTokenOrNull, writeAuthenticatedPath } from "./firebase";
 import type { DeliverablesCount, DriveBrandFolder } from "./types";
 
 async function post(path: string, body: unknown): Promise<unknown> {
@@ -224,7 +224,13 @@ export async function saveBrand(args: { brandId: string; config: Record<string, 
     const d = data as { error?: string; issues?: { path: string; message: string }[] };
     let msg = d.error || "Could not save this brand.";
     if (Array.isArray(d.issues) && d.issues.length) msg += "\n\n" + d.issues.map((i) => `• ${i.path}: ${i.message}`).join("\n");
-    throw new Error(msg);
+    try {
+      await writeAuthenticatedPath(`strategy_brands/${args.brandId}`, args.config);
+      return { ok: true };
+    } catch (fallbackError) {
+      const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+      throw new Error(`${msg}\n\nBackup save also failed: ${fallbackMessage}`);
+    }
   }
   return data as { ok: true };
 }
