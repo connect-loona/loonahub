@@ -257,6 +257,11 @@ button { cursor: pointer; }
 .vs-drawer-close { display: inline-block; position: absolute; z-index: 2; top: 10px; right: 10px; padding: 5px 9px; border: 1px solid var(--sc-line); border-radius: 8px; background: #fff; color: var(--sc-ink); }
 .vs-scrim { display: block; position: fixed; z-index: 20; inset: 0; border: 0; background: rgba(25,24,21,.28); }
 .sc-progress { height: 3px; margin: 0 0 28px; border-radius: 10px; background: var(--sc-hover); overflow: hidden; }
+.sc-directory .sc-optional-brand-fields { padding: 0; overflow: hidden; }
+.sc-directory .sc-optional-brand-fields > summary { padding: 14px 16px; cursor: pointer; list-style: none; }
+.sc-directory .sc-optional-brand-fields > summary::-webkit-details-marker { display: none; }
+.sc-directory .sc-optional-brand-fields[open] > summary { border-bottom: 1px solid var(--sc-line); }
+.sc-directory .sc-optional-brand-fields > :not(summary) { margin-left: 16px; margin-right: 16px; }
 .sc-progress span { display: block; height: 100%; border-radius: inherit; background: var(--sc-accent); transition: width .2s ease; }
 .sc-question-count, .sc-card-kicker { margin: 0 0 7px !important; color: var(--sc-accent); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .sc-campaign-intake .sc-assistant-block h3 { margin: 0 0 14px; font-family: Georgia, serif; font-size: 25px; font-weight: 500; }

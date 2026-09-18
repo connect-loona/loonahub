@@ -192,21 +192,9 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
         <input className="st-form-control" style={{ marginBottom: 10 }} value={id} placeholder="e.g. rro" disabled={!isNew} onChange={(e) => setId(e.target.value)} />
         <label className="st-field-label">Name</label>
         <input className="st-form-control" style={{ marginBottom: 10 }} value={name} onChange={(e) => setName(e.target.value)} />
-        <label className="st-field-label">Category</label>
-        <input className="st-form-control" style={{ marginBottom: 10 }} value={category} onChange={(e) => setCategory(e.target.value)} />
-        <label className="st-field-label">Market(s) — comma-separated</label>
-        <input className="st-form-control" style={{ marginBottom: 10 }} value={market} onChange={(e) => setMarket(e.target.value)} />
-        <label className="st-field-label">Aspirational market(s) — comma-separated</label>
-        <input className="st-form-control" style={{ marginBottom: 10 }} value={aspirational} onChange={(e) => setAspirational(e.target.value)} />
-        <label className="st-field-label">Website</label>
-        <input className="st-form-control" style={{ marginBottom: 10 }} value={website} onChange={(e) => setWebsite(e.target.value)} />
         <label className="st-field-label">Google Drive folder link <b>*</b></label>
-        <input className="st-form-control" style={{ marginBottom: 10 }} value={drive} placeholder="Every stage reads this folder as reference material — paste the brand's Drive folder link" onChange={(e) => setDrive(e.target.value)} />
-        <div className="st-note" style={{ fontSize: 11, marginTop: -6, marginBottom: 10 }}>
-          Required. Paste the brand’s Google Drive folder link so Mani and every planning stage can read its source material.
-        </div>
-        <label className="st-field-label">One-line truth (what this brand actually is)</label>
-        <textarea className="st-form-control" style={{ minHeight: 50 }} value={truth} onChange={(e) => setTruth(e.target.value)} />
+        <input className="st-form-control" style={{ marginBottom: 10 }} value={drive} placeholder="Paste the brand's Drive folder link" onChange={(e) => setDrive(e.target.value)} />
+        <div className="st-note" style={{ fontSize: 11, marginTop: -6, marginBottom: 0 }}>Required. Mani and every planning stage read this folder as source material.</div>
       </div>
 
       <div className="st-board">
@@ -220,6 +208,19 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
           <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} /> Deliverable counts confirmed with client
         </label>
       </div>
+
+      <details className="st-board sc-optional-brand-fields">
+        <summary className="st-board-header">Optional brand details <span className="st-tag">add later or let Mani draft</span></summary>
+        <label className="st-field-label">Category</label>
+        <input className="st-form-control" style={{ marginBottom: 10 }} value={category} onChange={(e) => setCategory(e.target.value)} />
+        <label className="st-field-label">Market(s) — comma-separated</label>
+        <input className="st-form-control" style={{ marginBottom: 10 }} value={market} onChange={(e) => setMarket(e.target.value)} />
+        <label className="st-field-label">Aspirational market(s) — comma-separated</label>
+        <input className="st-form-control" style={{ marginBottom: 10 }} value={aspirational} onChange={(e) => setAspirational(e.target.value)} />
+        <label className="st-field-label">Website</label>
+        <input className="st-form-control" style={{ marginBottom: 10 }} value={website} onChange={(e) => setWebsite(e.target.value)} />
+        <label className="st-field-label">One-line truth (what this brand actually is)</label>
+        <textarea className="st-form-control" style={{ minHeight: 50 }} value={truth} onChange={(e) => setTruth(e.target.value)} />
 
       <div className="st-board">
         <div className="st-board-header">Voice</div>
@@ -293,6 +294,7 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
         <summary className="st-board-header" style={{ cursor: "pointer", listStyle: "none", display: "block" }}>Advanced (portfolios, claim rules, copy structure) &#9662;</summary>
         <div className="st-note" style={{ margin: "8px 0" }}>Most brands don't need this — RRO is the one that does. Edit as JSON; it's validated the same as everything else on save.</div>
         <textarea className="st-form-control" style={{ minHeight: 220, fontFamily: "monospace", fontSize: 12 }} value={advanced} onChange={(e) => setAdvanced(e.target.value)} />
+      </details>
       </details>
 
       <div className="st-board">
