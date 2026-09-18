@@ -102,6 +102,7 @@ export function App() {
     if (right.id === lastOpenedBrandId) return 1;
     return 0;
   }), [brands, lastOpenedBrandId]);
+  const headerBrand = brand ? brands.find((b) => b.id === brand.id) || brand : brand;
 
   const loadChats = useCallback(async (b: VisualBrand) => {
     setError(null);
@@ -477,7 +478,13 @@ export function App() {
         <header className="vs-header">
           <button type="button" className="vs-mobile-tool" onClick={() => setSidebarOpen(true)} aria-label="Open projects">☰</button>
           <div>
-            {brand?.logo ? <img className="vs-header-logo" src={brand.logo} alt={brand.name} /> : <h1>{brand ? brand.name : "Visual Studio"}</h1>}
+            {/* Looked up fresh in `brands` rather than read off `brand` itself: `brand` is a
+                snapshot taken when it was selected (see rememberBrand) and kept stable on
+                purpose so the chat-loading effects below don't refire on every render, so a
+                logo added to Hub afterwards would otherwise never reach the header even
+                though the sidebar (which always renders straight off `brands`) shows it
+                immediately. */}
+            {headerBrand?.logo ? <img className="vs-header-logo" src={headerBrand.logo} alt={headerBrand.name} /> : <h1>{brand ? brand.name : "Visual Studio"}</h1>}
             <p>{chats.find((c) => c.id === chatId)?.title || "New visual chat"}</p>
           </div>
           <button type="button" className="vs-header-tool" onClick={() => setMemoryOpen(true)}>Mani</button>
