@@ -348,7 +348,11 @@
 #                             "+919876543210,+911234567890". Compared on digits only, so any
 #                             of "+91 98765 43210", "919876543210" or "91-9876543210" here
 #                             matches. Everyone else's messages are silently ignored — this is
-#                             an internal team surface, not a public one.)
+#                             an internal team surface, not a public one. Double-check this is
+#                             the number that will actually message BB, not just any team
+#                             number that happens to be handy — a mismatch here fails silently
+#                             (the message is dropped with no reply at all) rather than with an
+#                             error, so it's easy to mistake for a broken integration.)
 #
 #   A change to any WHATSAPP_* value above needs a fresh deploy to reach the live functions —
 #   Netlify snapshots environment variables per-deploy rather than hot-loading a dashboard
