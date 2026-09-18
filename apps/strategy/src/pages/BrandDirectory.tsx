@@ -21,7 +21,8 @@ export function BrandDirectory({ brandId, brandName, onClose }: { brandId: strin
   async function draftFromMemory() {
     setDrafting(true); setDraftError(null);
     try { await draftBrandFromManiMemory({ brandId, name: brandName, actor: "Hub team" }); }
-    catch (error) { setDraftError(error instanceof Error ? error.message : String(error)); setDrafting(false); }
+    catch (error) { setDraftError(error instanceof Error ? error.message : String(error)); }
+    finally { setDrafting(false); }
   }
 
   if (loading) return <div className="vs-shell sc-shell sc-full-shell"><main className="vs-main sc-loading">Opening Brand Directory…</main></div>;
