@@ -61,7 +61,7 @@ button { cursor: pointer; }
   color: rgb(255 255 255 / .68);
 }
 .vs-memory-drawer .vs-section-label { color: var(--sc-muted); }
-.sc-sidebar .vs-projects { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+.sc-sidebar .vs-projects { display: flex; flex-direction: column; gap: 2px; overflow: visible; flex: 0 0 auto; }
 .sc-sidebar .vs-project {
   display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px 8px;
   border: 0; border-radius: 8px; background: transparent; text-align: left;
@@ -76,15 +76,15 @@ button { cursor: pointer; }
 .sc-sidebar .vs-project:hover, .sc-sidebar .vs-chatlink:hover, .sc-sidebar .vs-newchat:hover, .sc-sidebar .vs-usage-link:hover { background: rgb(255 255 255 / .14); }
 .sc-sidebar .vs-project.is-active, .sc-sidebar .vs-chatrow.is-active { background: rgb(0 0 0 / .3); font-weight: 600; }
 .sc-sidebar .vs-chatlist {
-  display: flex; flex-direction: column; gap: 1px; margin: 2px 0 8px 18px; padding-left: 10px;
-  border-left: 1px solid rgb(255 255 255 / .3);
+  display: flex; flex-direction: column; gap: 1px; margin: 2px 0 8px; padding-left: 0;
+  border-left: 0;
 }
 .sc-sidebar .vs-newchat, .sc-sidebar .vs-chatlink { padding: 6px 8px; border: 0; border-radius: 7px; background: transparent; text-align: left; color: #fff; }
 .sc-sidebar .vs-newchat { font-size: 12px; font-weight: 600; color: #fff; }
 .sc-sidebar .vs-chatlink { display: flex; flex-direction: column; gap: 1px; font-size: 12.5px; }
 .sc-sidebar .vs-chatlink span, .sc-sidebar .vs-muted, .sc-sidebar .vs-muted-sm { color: rgb(255 255 255 / .68); }
 .sc-sidebar .sc-global-bb-button { margin-top: 5px; background: rgb(0 0 0 / .22); }
-.sc-sidebar .sc-global-bb-threads .vs-chatlink { white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }
+.sc-sidebar .sc-global-bb-threads .vs-chatlink { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.35; }
 .sc-sidebar .vs-muted-sm { font-size: 12px; }
 .sc-sidebar .vs-spacer { flex: 1; }
 .sc-sidebar .vs-usage-link { padding: 8px; border: 0; border-radius: 8px; background: transparent; text-align: left; color: #fff; }

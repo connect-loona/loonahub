@@ -28,6 +28,11 @@ function initials(name: string) {
   return name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "?";
 }
 
+function sidebarThreadTitle(title: string | undefined, fallback: string) {
+  const words = (title || fallback).trim().split(/\s+/).filter(Boolean);
+  return words.slice(0, 3).join(" ") || fallback;
+}
+
 function tint(id: string) {
   let hash = 0;
   for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
@@ -133,7 +138,7 @@ function BrandSidebar({ brands, active, runs, open, onBrand, onBrandThread, onNe
           {isActive && <div className="vs-chatlist">
             <button type="button" className="vs-newchat" onClick={() => onBrandThread(brand, `chat-${Date.now()}`)}>+ New BB chat</button>
             <button type="button" className="vs-newchat" onClick={onNew}>+ New strategy chat</button>
-            {brandThreads.slice(0, 8).map((thread) => <button key={thread.id} type="button" className="vs-chatlink" onClick={() => onBrandThread(brand, thread.id)}>{thread.title || "New BB chat"}<span>BB chat</span></button>)}
+            {brandThreads.slice(0, 8).map((thread) => <button key={thread.id} type="button" className="vs-chatlink" title={thread.title || "New BB chat"} onClick={() => onBrandThread(brand, thread.id)}>{sidebarThreadTitle(thread.title, "New BB chat")}<span>BB chat</span></button>)}
             {brandRuns.map((run) => <div key={run.runId} className="sc-run-link"><button type="button" className="vs-chatlink" onClick={() => onOpen(run.runId)}>
               {run.runType === "campaign" ? (run.campaign?.lockedIdentity?.name || run.campaign?.brief?.occasion || "Campaign planning") : monthLabel(run.month)}
               <span>{run.status === "complete" ? "Complete" : (run.status || "In progress")}</span>
@@ -145,7 +150,7 @@ function BrandSidebar({ brands, active, runs, open, onBrand, onBrandThread, onNe
       {brands.length > 5 && <button type="button" className="vs-newchat" onClick={() => setExpanded(!expanded)}>{expanded ? "Show recent brands" : "Expand brands"}</button>}
     </div>
     <button type="button" className="vs-newchat sc-global-bb-button" onClick={onGlobalBB}>✦ Global BB</button>
-    <div className="vs-chatlist sc-global-bb-threads">{globalThreads.slice(0, 8).map((thread) => <button key={thread.id} type="button" className="vs-chatlink" onClick={() => onGlobalThread(thread.id)}>{thread.title || "New chat"}</button>)}</div>
+    <div className="vs-chatlist sc-global-bb-threads">{globalThreads.slice(0, 8).map((thread) => <button key={thread.id} type="button" className="vs-chatlink" title={thread.title || "New chat"} onClick={() => onGlobalThread(thread.id)}>{sidebarThreadTitle(thread.title, "New chat")}</button>)}</div>
     <div className="vs-spacer" />
     <a className="vs-usage-link" href="/visual/">API usage</a>
   </aside>;
