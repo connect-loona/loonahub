@@ -21,7 +21,7 @@
 const { ConfigurationError } = require("./errors");
 // Keep this import static. A function-local require was omitted from Netlify's bundle,
 // leaving an otherwise configured Claude worker unable to load the structured-output helper.
-const { zodOutputFormat } = require("@anthropic-ai/sdk/helpers");
+const { zodOutputFormat } = require("@anthropic-ai/sdk/helpers/zod");
 
 // research and creative-direction are the two stages that call out to the web (see
 // runtime-openai.js's own toolProfile handling) — Claude's web_search tool covers both;

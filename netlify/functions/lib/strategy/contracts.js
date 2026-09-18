@@ -346,11 +346,10 @@ const StrategyAssetSchema = z
     portfolioId: NullableText,
     skuIds: z.array(NonEmpty),
     conceptName: NonEmpty,
-    // OpenAI structured output requires every property to be present. These are now part
-    // of each strategy asset rather than optional decoration, so the plan cannot regress
-    // to “a reel idea” and the provider receives a stable, required JSON shape.
-    routeName: NonEmpty,
-    routeDescription: NonEmpty,
+    // Existing saved plans predate route-first presentation, so route data remains
+    // additive when loading/reviewing those records.
+    routeName: NonEmpty.optional(),
+    routeDescription: NonEmpty.optional(),
     concept: NonEmpty,
     hook: NonEmpty,
     tension: NonEmpty,
@@ -362,7 +361,7 @@ const StrategyAssetSchema = z
       format: AssetFormatSchema,
       title: NonEmpty,
       description: NonEmpty,
-    }).strict()).min(1).max(4),
+    }).strict()).min(1).max(4).optional(),
     gate: ConceptGateSchema,
   })
   .strict();
