@@ -352,6 +352,13 @@
 #   screen will keep failing with "couldn't be validated" until the next deploy picks up a
 #   just-changed WHATSAPP_VERIFY_TOKEN or WHATSAPP_APP_SECRET.
 #
+#   Store these as plain (non-secret) env vars, same as PETPOOJA_CLIENT_SECRET and
+#   SPOTIFY_CLIENT_SECRET above — toggling Netlify's "secret" flag on a variable saved with a
+#   single "all" context silently fails to persist the value at all (a secret variable needs
+#   a value set per deploy context: dev, branch-deploy, deploy-preview, production,
+#   dev-server), which cost real time diagnosing a "couldn't be validated" that was actually
+#   a var that was never saved in the first place.
+#
 #   One-time setup in Meta for Developers (https://developers.facebook.com/apps):
 #     1. Create an app (type "Business"), then add the "WhatsApp" product to it.
 #     2. On WhatsApp -> API Setup, note the test number's Phone number ID and generate an
