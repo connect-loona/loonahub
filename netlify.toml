@@ -355,7 +355,10 @@
 #                             the number that will actually message BB, not just any team
 #                             number that happens to be handy — a mismatch here fails silently
 #                             (the message is dropped with no reply at all) rather than with an
-#                             error, so it's easy to mistake for a broken integration.)
+#                             error, so it's easy to mistake for a broken integration. Add a
+#                             new teammate by appending their number to this same comma-
+#                             separated value in Netlify and redeploying — never commit actual
+#                             phone numbers here or anywhere else in the repo.)
 #
 #   A change to any WHATSAPP_* value above needs a fresh deploy to reach the live functions —
 #   Netlify snapshots environment variables per-deploy rather than hot-loading a dashboard
