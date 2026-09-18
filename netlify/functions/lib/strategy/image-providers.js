@@ -110,6 +110,27 @@ function decodeReference(reference, index) {
   return decodeDataUrl(reference && reference.dataUrl, index);
 }
 
+// Some camera-exported JPEGs are valid enough for browsers and our upload validation, but use a
+// colour mode or JPEG variant that the Images edit endpoint refuses with `invalid_image_file`.
+// Re-encoding JPEG references makes the multipart payload a standard RGB JPEG. Do this only for
+// JPEGs: PNG/WebP/GIF files retain their original bytes and fidelity.
+async function standardizeJpegForOpenAI(reference, index) {
+  const decoded = decodeReference(reference, index);
+  if (!/^image\/jpeg$/i.test(decoded.mediaType)) return decoded;
+  try {
+    const { createJimp } = require("@jimp/core");
+    const jpeg = require("@jimp/js-jpeg");
+    const png = require("@jimp/js-png");
+    const Jimp = createJimp({ formats: [jpeg.default || jpeg, png.default || png] });
+    const image = await Jimp.read(decoded.bytes);
+    const bytes = Buffer.from(await image.getBuffer("image/jpeg"));
+    if (!bytes.length) throw new Error("JPEG encoder returned no bytes");
+    return { ...decoded, bytes, mediaType: "image/jpeg", filename: `reference-${index + 1}.jpg` };
+  } catch (error) {
+    throw new Error(`Reference ${index + 1} could not be prepared for OpenAI. Please export it as a standard JPEG or PNG and try again.`);
+  }
+}
+
 function SAFE_IMAGE_TYPE(mediaType) {
   return /^(image\/(png|jpeg|webp|gif))$/i.test(String(mediaType || ""));
 }
@@ -160,11 +181,11 @@ async function generateWithOpenAI(request, deps = {}) {
     if (/^gpt-image-1(?:$|[.-])/.test(model)) form.append("input_fidelity", "high");
     const resolvedReferences = [];
     for (const reference of references) resolvedReferences.push(await referenceForProvider(reference, deps));
-    resolvedReferences.forEach((reference, i) => {
-      const { bytes, mediaType, filename } = decodeReference(reference, i);
+    for (let index = 0; index < resolvedReferences.length; index += 1) {
+      const { bytes, mediaType, filename } = await standardizeJpegForOpenAI(resolvedReferences[index], index);
       // image[] (repeated) is how gpt-image-1 takes more than one reference.
       form.append("image[]", new Blob([bytes], { type: mediaType }), filename);
-    });
+    }
     // No content-type header on purpose: fetch sets it with the multipart boundary, and
     // setting it by hand produces a body the API can't parse.
     const edited = await doFetch(OPENAI_EDIT_URL, {
