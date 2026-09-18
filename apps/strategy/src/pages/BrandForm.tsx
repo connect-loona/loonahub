@@ -112,12 +112,16 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
     }
 
     const trimmedName = name.trim() || trimmedId;
+    // A pasted value and an immediate click can race a controlled input's state update
+    // on some desktop browsers. Read the actual field at submit time as the source of
+    // truth, then fall back to React state.
+    const driveLink = (document.getElementById("brand-drive-link") as HTMLInputElement | null)?.value.trim() || drive.trim();
     const enteredDeliverables = deliverablesToMap(deliverableRows);
     // Brand onboarding starts with the two pieces the system genuinely needs: where
     // the source material lives, and what needs making. Everything else can be added
     // later or drafted by Mani. The complete schema still receives safe “to be defined”
     // defaults so older planning code never has to handle a half-shaped object.
-    if (!drive.trim()) { setError("Add the brand’s Google Drive folder link before saving."); return; }
+    if (!driveLink) { setError("Add the brand’s Google Drive folder link before saving."); return; }
     if (!Object.values(enteredDeliverables).some((count) => count > 0)) { setError("Add at least one deliverable with a count above zero before saving."); return; }
     const fallbackAudience = { id: "audience-to-define", description: "Audience to be defined", buyingSituation: "To be defined", trigger: "To be defined" };
     const fallbackPillar = { id: "brand-basics", name: "Brand basics", description: "Details to be defined", targetShare: 1 };
@@ -130,7 +134,7 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
       market: splitCsv(market).length ? splitCsv(market) : ["To be defined"],
       aspirationalMarkets: splitCsv(aspirational),
       website: website.trim() || null,
-      driveFolderUrl: drive.trim(),
+      driveFolderUrl: driveLink,
       oneLineTruth: truth.trim() || `${trimmedName} — brand truth to be confirmed.`,
       deliverables: {
         reel: enteredDeliverables.reel || 0,
@@ -193,7 +197,7 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
         <label className="st-field-label">Name</label>
         <input className="st-form-control" style={{ marginBottom: 10 }} value={name} onChange={(e) => setName(e.target.value)} />
         <label className="st-field-label">Google Drive folder link <b>*</b></label>
-        <input className="st-form-control" style={{ marginBottom: 10 }} value={drive} placeholder="Paste the brand's Drive folder link" onChange={(e) => setDrive(e.target.value)} />
+        <input id="brand-drive-link" className="st-form-control" style={{ marginBottom: 10 }} value={drive} placeholder="Paste the brand's Drive folder link" onChange={(e) => setDrive(e.target.value)} />
         <div className="st-note" style={{ fontSize: 11, marginTop: -6, marginBottom: 0 }}>Required. Mani and every planning stage read this folder as source material.</div>
       </div>
 
