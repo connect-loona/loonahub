@@ -54,12 +54,14 @@ async function askMani({ brandId, brandName, question, memory, scope }, deps = {
   const asked = String(question || "").trim().slice(0, MAX_QUESTION_CHARS);
   if (!asked) throw new Error("Mani needs a question.");
 
-  // No memory is a real answer, and a cheap one — there is nothing to ask a model about.
+  // No memory is a real answer, and a cheap one — there is nothing to ask a model about, and
+  // nothing to attribute API usage to.
   if (!memory || !String(memory).trim()) {
     return {
       answer: null,
       grounded: false,
       nothingRecorded: true,
+      modelCalled: false,
       detail: scope === "hub"
         ? "Nothing is recorded across Hub yet — no active brands with tasks, scanned folders or Visual Studio work."
         : `Nothing has been recorded for ${brandName || brandId} yet. Scan its Drive folder to give Mani something to remember.`,
@@ -74,10 +76,11 @@ async function askMani({ brandId, brandName, question, memory, scope }, deps = {
     client = new Anthropic({ apiKey });
   }
 
+  // Mid tier rather than economy: this one is judgement — deciding what in a long memory
+  // actually answers the question, and being honest when none of it does.
+  const model = process.env.STRATEGY_BRAIN_AGENT_MODEL || process.env.STRATEGY_CLAUDE_MODEL || "claude-opus-5";
   const response = await client.messages.create({
-    // Mid tier rather than economy: this one is judgement — deciding what in a long memory
-    // actually answers the question, and being honest when none of it does.
-    model: process.env.STRATEGY_BRAIN_AGENT_MODEL || process.env.STRATEGY_CLAUDE_MODEL || "claude-opus-5",
+    model,
     max_tokens: 1200,
     system: instructions(),
     messages: [{
@@ -111,7 +114,7 @@ async function askMani({ brandId, brandName, question, memory, scope }, deps = {
     .trim();
 
   if (!text) {
-    return { answer: null, grounded: false, nothingRecorded: false, detail: "Mani had nothing to say." };
+    return { answer: null, grounded: false, nothingRecorded: false, detail: "Mani had nothing to say.", model, modelCalled: true };
   }
 
   // The fixed phrase is how "we never recorded that" stays distinguishable from an answer.
@@ -123,10 +126,12 @@ async function askMani({ brandId, brandName, question, memory, scope }, deps = {
       grounded: true,
       nothingRecorded: true,
       detail: missing || "Nothing in this brand's memory answers that.",
+      model,
+      modelCalled: true,
     };
   }
 
-  return { answer: text.slice(0, MAX_ANSWER_CHARS), grounded: true, nothingRecorded: false, scope: scope || "brand" };
+  return { answer: text.slice(0, MAX_ANSWER_CHARS), grounded: true, nothingRecorded: false, scope: scope || "brand", model, modelCalled: true };
 }
 
 module.exports = { askMani, instructions, NOTHING_RECORDED, MAX_QUESTION_CHARS };

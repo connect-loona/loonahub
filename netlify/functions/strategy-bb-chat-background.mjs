@@ -4,6 +4,7 @@ import store from "./lib/strategy/store.js";
 import bbChat from "./lib/strategy/bb-chat.js";
 import visualAssets from "./lib/strategy/visual-assets.js";
 import maniEvents from "./lib/strategy/mani-events.js";
+import apiUsage from "./lib/strategy/api-usage.js";
 import { backgroundConfig, readSignedBackgroundBody } from "./lib/strategy/modern-background.mjs";
 import Anthropic from "@anthropic-ai/sdk";
 import * as OpenAIAgents from "@openai/agents";
@@ -16,6 +17,20 @@ const { loadBrandBrain } = store;
 const { askBB, MAX_HISTORY_MESSAGES } = bbChat;
 const { loadAsset } = visualAssets;
 const { recordManiEventSafe } = maniEvents;
+const { recordApiUsage } = apiUsage;
+
+// Best-effort, same as every other usage record in this codebase — a failure to log who
+// asked BB something must never surface as a failure to answer it.
+async function recordBBUsage(turn, brandId, status, provider, model) {
+  try {
+    await recordApiUsage({
+      id: `bb-${brandId}-${turn.clientMessageId || Date.now()}`,
+      userId: turn.actorId || null, userEmail: turn.actorEmail || null, userName: turn.actor || "Team",
+      identityVerified: Boolean(turn.actorVerified), provider: provider || null, model: model || null,
+      feature: "bb_chat", operation: "ask", brandId: brandId === "global" ? null : brandId, status,
+    });
+  } catch (error) { console.error("Could not record BB usage:", error.message); }
+}
 
 export default async function (request) {
   const body = await readSignedBackgroundBody(request, "strategy-bb-chat-background"); if (!body) return;
@@ -33,7 +48,11 @@ export default async function (request) {
     const result = await askBB({ brandName: global ? "Loona Hub" : ((brand && brand.name) || brandId), message: turn.text, memory, history, attachments: visionAttachments.filter(Boolean) });
     await fbPush(path, { role: "assistant", text: result.answer, actor: "BB Loona", createdAt: new Date().toISOString(), replyTo: messageId });
     await fbUpdate(messagePath, { status: "answered", error: null });
+    await recordBBUsage(turn, brandId, "succeeded", result.provider || "Anthropic", result.model);
     if (!global) { await recordManiEventSafe({ type: "bb_conversation", source: "strategy_os", brandId, actor: turn.actor || "Team", entityType: "bb_chat", entityId: brandId, action: "asked", summary: `Asked BB: ${turn.text}` }); await recordManiEventSafe({ type: "bb_conversation", source: "strategy_os", brandId, actor: "BB Loona", entityType: "bb_chat", entityId: brandId, action: "answered", summary: `BB answered: ${result.answer}` }); }
-  } catch (error) { await fbUpdate(messagePath, { status: "failed", error: error.message || String(error) }); }
+  } catch (error) {
+    await fbUpdate(messagePath, { status: "failed", error: error.message || String(error) });
+    await recordBBUsage(turn, brandId, "failed", null, null);
+  }
 }
 export const config = backgroundConfig;

@@ -28,8 +28,8 @@ export function UsagePanel({ open, onClose }: { open: boolean; onClose: () => vo
 
   const csv = useMemo(() => {
     if (!report) return "";
-    const rows = [["Person", "Email", "Operations", "Images", "Generations", "Magnific enhancements", "Strategy stages", "Chosen", "Reviews", "Failures", "Selection rate"]]
-      .concat(report.users.map((r) => [r.name || r.key, r.email || "", ...[r.requests, r.outputs, r.generations, r.enhancements, r.strategyRuns, r.picks, r.reviews, r.failures].map(String), r.outputs ? `${Math.round((r.picks / r.outputs) * 100)}%` : "—"]));
+    const rows = [["Person", "Email", "Operations", "Images", "Generations", "Magnific enhancements", "Strategy stages", "Chosen", "Reviews", "BB questions", "Mani questions", "Failures", "Selection rate"]]
+      .concat(report.users.map((r) => [r.name || r.key, r.email || "", ...[r.requests, r.outputs, r.generations, r.enhancements, r.strategyRuns, r.picks, r.reviews, r.bbQuestions, r.maniQuestions, r.failures].map(String), r.outputs ? `${Math.round((r.picks / r.outputs) * 100)}%` : "—"]));
     return rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join("\n");
   }, [report]);
 
@@ -52,9 +52,9 @@ export function UsagePanel({ open, onClose }: { open: boolean; onClose: () => vo
       </div>
       {!report.accounts.openai.connected && <p className="vs-usage-callout">OpenAI balance not connected: {report.accounts.openai.reason}</p>}
       <section><h3>Usage by person</h3><p className="vs-muted vs-muted-sm">Use this for coaching. A high total is not automatically waste; compare attempts with chosen outputs.</p>
-        <div className="vs-usage-table"><table><thead><tr><th>Person</th><th>Operations</th><th>Images</th><th>Strategy stages</th><th>Chosen</th><th>Selection</th><th>Magnific</th><th>Failures</th></tr></thead><tbody>
-          {report.users.map((r) => <tr key={r.key}><td>{r.name}{!r.verified && <small>identity not verified</small>}</td><td>{r.requests}</td><td>{r.outputs}</td><td>{r.strategyRuns}</td><td>{r.picks}</td><td>{r.outputs ? `${Math.round((r.picks / r.outputs) * 100)}%` : "—"}</td><td>{r.enhancements}</td><td>{r.failures}</td></tr>)}
-          {!report.users.length && <tr><td colSpan={8}>No attributed usage recorded for this month.</td></tr>}
+        <div className="vs-usage-table"><table><thead><tr><th>Person</th><th>Operations</th><th>Images</th><th>Strategy stages</th><th>Chosen</th><th>Selection</th><th>Magnific</th><th>BB questions</th><th>Mani questions</th><th>Failures</th></tr></thead><tbody>
+          {report.users.map((r) => <tr key={r.key}><td>{r.name}{!r.verified && <small>identity not verified</small>}</td><td>{r.requests}</td><td>{r.outputs}</td><td>{r.strategyRuns}</td><td>{r.picks}</td><td>{r.outputs ? `${Math.round((r.picks / r.outputs) * 100)}%` : "—"}</td><td>{r.enhancements}</td><td>{r.bbQuestions}</td><td>{r.maniQuestions}</td><td>{r.failures}</td></tr>)}
+          {!report.users.length && <tr><td colSpan={10}>No attributed usage recorded for this month.</td></tr>}
         </tbody></table></div>
       </section>
       <section><h3>Provider accounts</h3><div className="vs-provider-account"><strong>OpenAI</strong><span>{report.accounts.openai.connected ? `${money(report.accounts.openai.spendUsd)} spent · ${report.accounts.openai.imageCount || 0} provider-reported images` : "Usage key required"}</span></div><div className="vs-provider-account"><strong>Magnific</strong><span>{report.accounts.magnific.analyticsConnected ? `${report.accounts.magnific.creditsUsed || 0} credits used · ${report.accounts.magnific.remainingCredits == null ? "monthly allowance not set" : `${report.accounts.magnific.remainingCredits} remaining`}` : `${report.accounts.magnific.operations} Hub operations · ${report.accounts.magnific.reason || "team analytics unavailable"}`}</span></div><p className="vs-muted vs-muted-sm">{report.accounts.magnific.note}</p></section>

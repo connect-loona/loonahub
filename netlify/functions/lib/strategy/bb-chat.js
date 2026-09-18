@@ -90,20 +90,21 @@ async function askBBWithOpenAI({ brandName, message, memory, history, attachment
   }
   const { Agent, run, webSearchTool, setTracingDisabled } = require("@openai/agents");
   setTracingDisabled(true);
+  const model = process.env.STRATEGY_BB_OPENAI_MODEL || process.env.STRATEGY_OPENAI_MODEL || "gpt-5.4";
   const turns = cleanHistory(history).map((turn) => `${turn.role === "assistant" ? "BB" : "Team"}: ${turn.content}`).join("\n\n");
   const attachmentNote = Array.isArray(attachments) && attachments.length
     ? `\n\nAttachments were supplied (${attachments.map((item) => item.filename || "file").join(", ")}). If you need to inspect their pixels or pages, ask the team to retry when BB's primary visual model is available.`
     : "";
   const agent = new Agent({
     name: "BB Loona",
-    model: process.env.STRATEGY_BB_OPENAI_MODEL || process.env.STRATEGY_OPENAI_MODEL || "gpt-5.4",
+    model,
     instructions: instructions({ brandName, memory }),
     tools: [webSearchTool({ searchContextSize: "low" })],
   });
   const result = await run(agent, `${turns}\n\nTeam: ${message}${attachmentNote}`, { maxTurns: 4 });
   const answer = typeof result.finalOutput === "string" ? result.finalOutput.trim() : String(result.finalOutput || "").trim();
   if (!answer) throw new Error("BB fallback had nothing to say.");
-  return { answer: answer.slice(0, MAX_ANSWER_CHARS), provider: "OpenAI" };
+  return { answer: answer.slice(0, MAX_ANSWER_CHARS), provider: "OpenAI", model };
 }
 
 async function askBB({ brandName, message, memory, history, attachments }, deps = {}) {
@@ -130,18 +131,19 @@ async function askBB({ brandName, message, memory, history, attachments }, deps 
     const current = messages[messages.length - 1];
     current.content = [{ type: "text", text: current.content }, ...blocks];
   }
+  // BB is intentionally independent from the long-form Strategy OS pipeline model. Sonnet
+  // gives a near-immediate conversational first token; an explicit BB override is still
+  // available for a workspace that deliberately wants a different model.
+  const model = process.env.STRATEGY_BB_MODEL || "claude-sonnet-4-5-20250929";
   try {
     const response = await client.messages.create({
-      // BB is intentionally independent from the long-form Strategy OS pipeline model.
-      // Sonnet gives a near-immediate conversational first token; an explicit BB override is
-      // still available for a workspace that deliberately wants a different model.
-      model: process.env.STRATEGY_BB_MODEL || "claude-sonnet-4-5-20250929",
+      model,
       max_tokens: 1000,
       system: instructions({ brandName, memory }),
       tools: /\b(current|today|latest|website|web|news|search|competitor|trend|moon)\b/i.test(asked) ? [{ type: "web_search_20260209", name: "web_search", max_uses: 2 }] : [],
       messages,
     });
-    return answerText(response);
+    return { ...answerText(response), provider: "Anthropic", model };
   } catch (error) {
     // A quota, billing, timeout or provider outage must not take BB offline. The fallback
     // keeps ordinary conversation and web research working; image/PDF vision remains on

@@ -9,7 +9,7 @@ const { checkAuthorization } = require("../lib/strategy/auth");
 const { hubBrandExists } = require("../lib/strategy/hub-brands");
 const { fbGet, fbSet, fbUpdate } = require("../lib/strategy/firebase");
 const { MAX_MESSAGE_CHARS } = require("../lib/strategy/bb-chat");
-const { verifyVisualSession } = require("../lib/strategy/visual-actor");
+const { verifyVisualSession, resolveVisualActor } = require("../lib/strategy/visual-actor");
 const { signedBackgroundHeaders } = require("../lib/strategy/background-auth");
 
 function cors() {
@@ -59,7 +59,13 @@ exports.handler = async (event) => {
     if (existingMessage && existingMessage.role === "user" && existingMessage.status !== "failed") {
       return { statusCode: 202, headers: cors(), body: JSON.stringify({ ok: true, pending: true, messageId: clientMessageId }) };
     }
-    await fbSet(messagePath, { role: "user", text: message, attachments, actor, createdAt: now, clientMessageId, status: "pending", error: null });
+    // Resolved here, not in the background worker: the Firebase ID token that proves who is
+    // really asking only ever arrives on THIS request's Authorization header — the signed
+    // background call that follows carries no browser session, so identity has to be
+    // captured now and carried on the message record for the worker to attribute usage to
+    // later, once it knows whether the call to BB actually succeeded.
+    const identity = await resolveVisualActor(event, actor);
+    await fbSet(messagePath, { role: "user", text: message, attachments, actor, actorId: identity.id, actorEmail: identity.email, actorVerified: identity.verified, createdAt: now, clientMessageId, status: "pending", error: null });
     await fbUpdate(`strategy_bb_chats/${brandId}/threads/${threadId}`, { title: message.slice(0, 60), updatedAt: now, createdAt: now });
     const backgroundBody = JSON.stringify({ brandId, scope, threadId, clientMessageId });
     try {
