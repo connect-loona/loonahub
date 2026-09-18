@@ -107,6 +107,54 @@ async function askBBWithOpenAI({ brandName, message, memory, history, attachment
   return { answer: answer.slice(0, MAX_ANSWER_CHARS), provider: "OpenAI", model };
 }
 
+const NO_MEMORY_WORTHY_FACT = "NONE";
+const MAX_NOTE_CHARS = 600;
+
+function extractionInstructions() {
+  return [
+    "You read one exchange between the Loona team and BB, and decide whether it contains a durable fact worth remembering permanently — not the conversation itself.",
+    "Worth remembering: a person's name/role/contact for a client or account, who owns or is handling something, a decision that was made, a standing preference or rule the team stated, a correction to something previously believed.",
+    "NOT worth remembering: greetings, thanks, small talk, a question with no new information in it, brainstorming or ideas that were not settled on, anything BB said that the team did not confirm.",
+    `If nothing in this exchange is worth remembering, reply with exactly the single word ${NO_MEMORY_WORTHY_FACT} and nothing else.`,
+    "Otherwise, reply with ONE short sentence stating the fact plainly, third person, no preamble — e.g. \"The POC for Casa Waters is Priya, reachable at +91...\" Do not restate the whole exchange.",
+  ].join("\n");
+}
+
+// Runs after BB has already answered, so it can never delay or break the reply itself. Most
+// exchanges ("hi", "thanks", a question BB just answered from existing memory) are not worth
+// a permanent note — reusing that same in-thread history as long-term memory would mean every
+// greeting shows up in Mani's memory forever. Only a genuine new fact — a contact, an
+// assignment, a decision — is worth writing down here.
+async function extractMemoryNote({ userMessage, bbAnswer }, deps = {}) {
+  const asked = String(userMessage || "").trim();
+  if (!asked) return null;
+  let client = deps.client || null;
+  if (!client) {
+    const apiKey = anthropicApiKey();
+    if (!apiKey) return null;
+    const Anthropic = require("@anthropic-ai/sdk");
+    client = new Anthropic({ apiKey, timeout: 15000, maxRetries: 0 });
+  }
+  const model = process.env.STRATEGY_MEMORY_EXTRACT_MODEL || process.env.STRATEGY_CLAUDE_MODEL_ECONOMY || "claude-haiku-4-5-20251001";
+  const response = await client.messages.create({
+    model,
+    max_tokens: 200,
+    system: extractionInstructions(),
+    messages: [{ role: "user", content: `Team said: ${asked}\n\nBB replied: ${String(bbAnswer || "").trim().slice(0, 2000)}` }],
+  });
+  const text = (response.content || []).filter((block) => block.type === "text").map((block) => block.text).join("\n").trim();
+  if (!text || text.toUpperCase() === NO_MEMORY_WORTHY_FACT) return null;
+  return text.slice(0, MAX_NOTE_CHARS);
+}
+
+// Best-effort, same reasoning as recordManiEventSafe: a hiccup extracting a memory note must
+// never surface as a failure to answer the team, and never retries — an occasional missed fact
+// is a much smaller cost than doubling every conversation's model spend on retries.
+async function extractMemoryNoteSafe(input, deps = {}) {
+  try { return await extractMemoryNote(input, deps); }
+  catch (error) { console.error("Could not extract a memory note from this BB exchange:", error.message || error); return null; }
+}
+
 async function askBB({ brandName, message, memory, history, attachments }, deps = {}) {
   const asked = String(message || "").trim().slice(0, MAX_MESSAGE_CHARS);
   if (!asked) throw new Error("BB needs a message.");
@@ -155,4 +203,4 @@ async function askBB({ brandName, message, memory, history, attachments }, deps 
   }
 }
 
-module.exports = { askBB, instructions, cleanHistory, attachmentBlocks, askBBWithOpenAI, MAX_MESSAGE_CHARS, MAX_HISTORY_MESSAGES, MAX_MEMORY_CHARS };
+module.exports = { askBB, instructions, cleanHistory, attachmentBlocks, askBBWithOpenAI, extractMemoryNote, extractMemoryNoteSafe, MAX_MESSAGE_CHARS, MAX_HISTORY_MESSAGES, MAX_MEMORY_CHARS };

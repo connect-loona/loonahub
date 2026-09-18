@@ -1,4 +1,5 @@
 import firebase from "./lib/strategy/firebase.js";
+import store from "./lib/strategy/store.js";
 import bbChat from "./lib/strategy/bb-chat.js";
 import whatsapp from "./lib/strategy/whatsapp.js";
 import apiUsage from "./lib/strategy/api-usage.js";
@@ -8,10 +9,18 @@ import * as OpenAIAgents from "@openai/agents";
 
 globalThis.__anthropicSdkBundled = Anthropic;
 globalThis.__openaiAgentsBundled = OpenAIAgents;
-const { fbGet, fbSet, fbUpdate, fbSafeKey } = firebase;
-const { askBB, MAX_HISTORY_MESSAGES } = bbChat;
+const { fbGet, fbSet, fbUpdate, fbPush, fbSafeKey } = firebase;
+const { loadGlobalBrain } = store;
+const { askBB, extractMemoryNoteSafe, MAX_HISTORY_MESSAGES } = bbChat;
 const { sendWhatsAppText } = whatsapp;
 const { recordApiUsage } = apiUsage;
+
+// Same shape strategy-mani-memory.js writes for a team-pasted note, so loadGlobalBrain picks
+// this up the same way — just tagged by source, since there's no separate read path for it.
+async function saveMemoryNoteSafe(content, actor) {
+  try { await fbPush("mani_brand_notes/global", { content, source: "bb_conversation", actor, createdAt: new Date().toISOString() }); }
+  catch (error) { console.error("Could not save an extracted memory note:", error.message); }
+}
 
 // Best-effort, same as every other usage record in this codebase. WhatsApp senders have no
 // Hub sign-in to verify, so identity here is never "verified" — but the phone number itself
@@ -66,11 +75,14 @@ export default async function (request) {
       .map(([, value]) => value)
       .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")))
       .slice(-MAX_HISTORY_MESSAGES);
-    const result = await askBB({ brandName: "Loona Hub", message: text, memory: GLOBAL_MEMORY_NOTE, history, attachments: [] });
+    const memory = [GLOBAL_MEMORY_NOTE, await loadGlobalBrain()].filter(Boolean).join("\n\n");
+    const result = await askBB({ brandName: "Loona Hub", message: text, memory, history, attachments: [] });
     await sendWhatsAppText({ to: from, text: result.answer, accessToken: process.env.WHATSAPP_ACCESS_TOKEN, phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID });
     await fbUpdate(messagePath, { status: "answered", error: null });
     await fbSet(`${path}/${messageKey}-reply`, { role: "assistant", text: result.answer, actor: "BB Loona", createdAt: new Date().toISOString(), replyTo: messageKey });
     await recordWhatsAppBBUsage(from, body.contactName, messageId, "succeeded", result.provider || "Anthropic", result.model);
+    const note = await extractMemoryNoteSafe({ userMessage: text, bbAnswer: result.answer });
+    if (note) await saveMemoryNoteSafe(note, actor);
   } catch (error) {
     await fbUpdate(messagePath, { status: "failed", error: error.message || String(error) });
     await recordWhatsAppBBUsage(from, body.contactName, messageId, "failed", null, null);

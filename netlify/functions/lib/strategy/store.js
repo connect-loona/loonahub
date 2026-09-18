@@ -272,5 +272,23 @@ async function loadBrandBrain(brandId, brandName) {
   return parts.length ? parts.join("\n\n") : null;
 }
 
-module.exports = { loadBrandConfig, loadMonthInput, loadLearnings, loadBrandLibrary, loadBrandBrain, loadPrompt };
+// The Hub-wide counterpart to loadBrandBrain, for Global BB (browser and WhatsApp) — no
+// single brand's Drive folder, Brand Directory or Visual Studio history applies here, so this
+// is just whatever the team has told BB directly (pasted or auto-extracted, same store) plus
+// Hub-wide activity. Kept separate from loadBrandBrain rather than calling it with a fake
+// "global" brandId, since half of what that function loads (Brand Directory, Loona Brain,
+// per-brand Visual Studio history) has no Hub-wide equivalent and would just silently no-op.
+async function loadGlobalBrain() {
+  const { loadRecentHubManiEvents, maniEventsToPromptText } = require("./mani-events");
+  const [pasted, events] = await Promise.all([
+    loadPastedManiMemory("global").catch((error) => { console.error("Could not load Hub-wide Mani memory:", error.message); return null; }),
+    loadRecentHubManiEvents()
+      .then((items) => maniEventsToPromptText(items.filter((item) => item.type !== "bb_conversation")))
+      .catch(() => null),
+  ]);
+  const parts = [pasted, events].filter(Boolean);
+  return parts.length ? parts.join("\n\n") : null;
+}
+
+module.exports = { loadBrandConfig, loadMonthInput, loadLearnings, loadBrandLibrary, loadBrandBrain, loadGlobalBrain, loadPrompt };
 

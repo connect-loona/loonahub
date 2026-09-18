@@ -3,7 +3,7 @@
 
 const path = require("path");
 const { HUB, check, finish } = require("../harness/shared");
-const { askBB, instructions, cleanHistory, attachmentBlocks, MAX_HISTORY_MESSAGES } = require(path.join(HUB, "netlify/functions/lib/strategy/bb-chat"));
+const { askBB, instructions, cleanHistory, attachmentBlocks, extractMemoryNote, extractMemoryNoteSafe, MAX_HISTORY_MESSAGES } = require(path.join(HUB, "netlify/functions/lib/strategy/bb-chat"));
 
 function fakeClient(log, reply = "That is a new recommendation, not something recorded about the brand.") {
   return { messages: { create: async (params) => {
@@ -61,6 +61,33 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
   try { await askBB({ brandName: "RRO Foods", message: " ", memory: null }, { client: fakeClient([]) }); }
   catch (error) { blank = error.message; }
   check("an empty message is refused", /needs a message/.test(blank || ""), blank);
+
+  // Memory extraction runs after BB has already answered — this is a completely separate
+  // model call deciding whether that exchange is worth writing down permanently.
+  const factLog = [];
+  const factNote = await extractMemoryNote(
+    { userMessage: "The POC for Casa Waters is Priya, she's on +91 98765 43210.", bbAnswer: "Got it, noting that down." },
+    { client: fakeClient(factLog, "The POC for Casa Waters is Priya, reachable at +91 98765 43210.") },
+  );
+  check("a genuine fact from the team is extracted as a short note", /Priya/.test(factNote || "") && /98765 43210/.test(factNote || ""), factNote);
+  check("extraction uses the cheap model, not BB's conversational one", /haiku/.test(factLog[0].model), factLog[0].model);
+
+  const noneLog = [];
+  const noFact = await extractMemoryNote(
+    { userMessage: "hi", bbAnswer: "Hey! What are we working on today?" },
+    { client: fakeClient(noneLog, "NONE") },
+  );
+  check("a greeting with nothing new is not remembered", noFact === null, noFact);
+
+  let extractionThrew = false;
+  const safeResult = await extractMemoryNoteSafe(
+    { userMessage: "The POC for Casa Waters is Priya.", bbAnswer: "Noted." },
+    { client: { messages: { create: async () => { throw new Error("model unavailable"); } } } },
+  ).catch(() => { extractionThrew = true; return "should not reach here"; });
+  check("a failed extraction never throws — it degrades to no note", !extractionThrew && safeResult === null, safeResult);
+
+  const emptyMessageNote = await extractMemoryNote({ userMessage: "", bbAnswer: "..." }, { client: fakeClient([]) });
+  check("there is nothing to extract from an empty message", emptyMessageNote === null, emptyMessageNote);
 
   finish();
 })().catch((error) => { console.error("FATAL:", error, error.stack); process.exit(1); });
