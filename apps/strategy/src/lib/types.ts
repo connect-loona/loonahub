@@ -471,4 +471,7 @@ export interface ChatMessage {
   text: string;
   actor?: string;
   createdAt?: string;
+  status?: "pending" | "answered" | "failed";
+  error?: string | null;
+  clientMessageId?: string;
 }

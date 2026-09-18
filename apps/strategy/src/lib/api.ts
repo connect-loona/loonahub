@@ -109,8 +109,8 @@ export function draftBrandFromManiMemory(args: { brandId: string; name: string; 
 
 // BB is the team-facing conversational strategist. The endpoint supplies Mani's composed
 // brand memory server-side, so the browser never has to assemble or transmit that context.
-export function askBB(args: { brandId?: string; scope?: "global"; threadId?: string; message: string; actor: string; attachments?: Array<{ assetKey: string; url: string; filename?: string }> }): Promise<{ answer: string }> {
-  return post("strategy-bb-chat", args) as Promise<{ answer: string }>;
+export function askBB(args: { brandId?: string; scope?: "global"; threadId?: string; message: string; actor: string; clientMessageId: string; attachments?: Array<{ assetKey: string; url: string; filename?: string }> }): Promise<{ ok: true; pending: true; messageId: string }> {
+  return post("strategy-bb-chat", args) as Promise<{ ok: true; pending: true; messageId: string }>;
 }
 
 export function clearBB(args: { brandId?: string; scope?: "global"; threadId?: string; actor: string }): Promise<{ ok: true }> {

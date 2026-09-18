@@ -244,6 +244,7 @@ button { cursor: pointer; }
 .sc-execution-options label small { color: var(--sc-muted); line-height: 1.35; text-transform: none; }
 .sc-execution-options input { accent-color: var(--sc-accent); }
 @media (max-width: 560px) { .sc-execution-options .sc-execution-grid { grid-template-columns: 1fr; } }
+.sc-bb-pending { display: block; margin-top: 8px; color: var(--sc-muted); font-size: 12px; }
 .sc-refine-history { margin: 14px 0; padding: 11px 13px; border-left: 2px solid var(--sc-line); background: #fbfaf7; }
 .sc-refine-history p { margin: 0 0 8px; color: var(--sc-muted); font-size: 12px; }
 .sc-refine-history p:last-child { margin-bottom: 0; }

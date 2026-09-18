@@ -264,7 +264,7 @@ function BBChat({ brand, actor, global = false, threadId = "main", onNewThread }
     const message = question.trim();
     if ((!message && !attachments.length) || busy || uploading) return;
     setBusy(true); setError(null); setQuestion("");
-    try { await askBB({ brandId: global ? undefined : brandId, scope: global ? "global" : undefined, threadId, message: message || "Please analyse the attached file.", actor, attachments }); setAttachments([]); }
+    try { await askBB({ brandId: global ? undefined : brandId, scope: global ? "global" : undefined, threadId, message: message || "Please analyse the attached file.", actor, clientMessageId: `bb-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`, attachments }); setAttachments([]); }
     catch (e) { setError(e instanceof Error ? e.message : String(e)); setQuestion(message); }
     finally { setBusy(false); }
   }
@@ -281,7 +281,7 @@ function BBChat({ brand, actor, global = false, threadId = "main", onNewThread }
       <div className="sc-bb-messages">
         {!messages.length && <div className="sc-bb-empty"><p>I’m BB. What are we working on today?</p><span>{global ? "I can help across Loona Hub. I’ll ask which brand matters whenever it is needed." : "I know this brand’s context through Mani, and I’ll make it clear when I’m suggesting something new."}</span></div>}
         {messages.map((message: ChatMessage & { attachments?: Array<{ url: string; filename?: string }> }, index) => message.role === "user"
-          ? <div className="sc-user-bubble sc-bb-user-message" key={`${message.createdAt || index}-user`}>{message.text}{message.attachments?.map((item, i) => /\.(png|jpe?g|webp|gif)$/i.test(item.filename || "") ? <a key={i} href={item.url} target="_blank" rel="noreferrer"><img className="sc-bb-uploaded-image" src={item.url} alt={item.filename || "Uploaded image"} /></a> : <a key={i} href={item.url} target="_blank" rel="noreferrer" className="sc-bb-attachment">📎 {item.filename || "Attachment"}</a>)}<button type="button" className="sc-bb-action" onClick={() => setQuestion(message.text)}>Edit</button></div>
+          ? <div className="sc-user-bubble sc-bb-user-message" key={`${message.createdAt || index}-user`}>{message.text}{message.attachments?.map((item, i) => /\.(png|jpe?g|webp|gif)$/i.test(item.filename || "") ? <a key={i} href={item.url} target="_blank" rel="noreferrer"><img className="sc-bb-uploaded-image" src={item.url} alt={item.filename || "Uploaded image"} /></a> : <a key={i} href={item.url} target="_blank" rel="noreferrer" className="sc-bb-attachment">📎 {item.filename || "Attachment"}</a>)}{message.status === "pending" && <span className="sc-bb-pending">BB is working on this <span className="sc-dots">•••</span></span>}{message.status === "failed" && <span className="sc-error">{message.error || "BB could not answer this message."}</span>}<button type="button" className="sc-bb-action" onClick={() => setQuestion(message.text)}>Edit</button></div>
           : <div className="sc-bb-assistant-message" key={`${message.createdAt || index}-assistant`}><BBText text={message.text} /><button type="button" className="sc-bb-action" onClick={() => void navigator.clipboard.writeText(message.text)}>Copy</button></div>)}
         {busy && <div className="sc-bb-thinking">BB is thinking <span className="sc-dots">•••</span></div>}
         {error && <p className="sc-error">{error}</p>}

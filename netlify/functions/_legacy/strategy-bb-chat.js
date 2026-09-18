@@ -6,18 +6,20 @@
 "use strict";
 
 const { checkAuthorization } = require("../lib/strategy/auth");
-const { hubBrandExists, findHubBrand } = require("../lib/strategy/hub-brands");
-const { loadBrandBrain } = require("../lib/strategy/store");
-const { fbGet, fbPush, fbSet, fbUpdate } = require("../lib/strategy/firebase");
-const { askBB, MAX_MESSAGE_CHARS, MAX_HISTORY_MESSAGES } = require("../lib/strategy/bb-chat");
-const { recordManiEventSafe } = require("../lib/strategy/mani-events");
-const { loadAsset } = require("../lib/strategy/visual-assets");
+const { hubBrandExists } = require("../lib/strategy/hub-brands");
+const { fbGet, fbSet, fbUpdate } = require("../lib/strategy/firebase");
+const { MAX_MESSAGE_CHARS } = require("../lib/strategy/bb-chat");
 const { verifyVisualSession } = require("../lib/strategy/visual-actor");
+const { signedBackgroundHeaders } = require("../lib/strategy/background-auth");
 
 function cors() {
   return { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type, Authorization", "Access-Control-Allow-Methods": "POST, OPTIONS", "Content-Type": "application/json" };
 }
 function fail(statusCode, error) { return { statusCode, headers: cors(), body: JSON.stringify({ error }) }; }
+function siteBaseUrl(event) {
+  const host = (event.headers && (event.headers.host || event.headers.Host || event.headers["x-forwarded-host"])) || "";
+  return host ? `${(event.headers && event.headers["x-forwarded-proto"]) || "https"}://${host}` : (process.env.URL || process.env.DEPLOY_URL || "");
+}
 
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: cors(), body: "" };
@@ -33,47 +35,42 @@ exports.handler = async (event) => {
   const actor = String(body.actor || "Team").trim().slice(0, 120) || "Team";
   const action = body.action === "clear" ? "clear" : "ask";
   const threadId = String(body.threadId || "main").trim();
+  const clientMessageId = String(body.clientMessageId || "").trim();
   if (scope === "brand" && !/^[a-z0-9-]+$/.test(brandId)) return fail(400, "brandId must be lowercase letters, numbers or hyphens.");
   if (!message) return fail(400, "Ask BB something.");
   if (message.length > MAX_MESSAGE_CHARS) return fail(400, `Keep the message under ${MAX_MESSAGE_CHARS} characters.`);
   if (scope === "brand" && !(await hubBrandExists(brandId))) return fail(404, "Brand not found in Hub.");
 
   try {
-    const brand = scope === "brand" ? await findHubBrand(brandId) : null;
     if (!/^[a-z0-9_-]+$/i.test(threadId)) return fail(400, "Invalid chat thread.");
     const path = `strategy_bb_chats/${brandId}/${threadId}/messages`;
     if (action === "clear") {
       await fbSet(path, null);
       return { statusCode: 200, headers: cors(), body: JSON.stringify({ ok: true }) };
     }
-    const existing = (await fbGet(path)) || {};
-    const history = Object.values(existing)
-      .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")))
-      .slice(-MAX_HISTORY_MESSAGES);
     const now = new Date().toISOString();
     const attachments = Array.isArray(body.attachments) ? body.attachments.slice(0, 4).map((item) => ({ assetKey: String(item.assetKey || ""), url: String(item.url || ""), filename: String(item.filename || "attachment") })).filter((item) => item.assetKey) : [];
-    const visionAttachments = await Promise.all(attachments.map(async (item) => {
-      const stored = await loadAsset(item.assetKey);
-      if (!stored || stored.metadata.kind !== "bb-attachment" || stored.metadata.brandId !== brandId) return null;
-      return { data: stored.data, contentType: stored.metadata.contentType, filename: stored.metadata.filename || item.filename };
-    }));
-    await fbPush(path, { role: "user", text: message, attachments, actor, createdAt: now });
-    await fbUpdate(`strategy_bb_chats/${brandId}/threads/${threadId}`, { title: message.slice(0, 60), updatedAt: now, createdAt: now });
-    // Load Mani's memory before recording this turn so the current question is not fed
-    // back to BB twice (once as the user message and once as a timeline event).
-    const memory = scope === "brand" ? await loadBrandBrain(brandId, brand && brand.name) : "This is the Loona Hub-wide conversation. No single brand is selected. Ask which brand a recommendation applies to when that matters, and do not invent cross-brand facts.";
-    const result = await askBB({ brandName: scope === "global" ? "Loona Hub" : ((brand && brand.name) || brandId), message, memory, history, attachments: visionAttachments.filter(Boolean) });
-    await fbPush(path, { role: "assistant", text: result.answer, actor: "BB Loona", createdAt: new Date().toISOString() });
-    if (scope === "brand") {
-      await recordManiEventSafe({ type: "bb_conversation", source: "strategy_os", brandId, actor, entityType: "bb_chat", entityId: brandId, action: "asked", summary: `Asked BB: ${message}` });
-      await recordManiEventSafe({ type: "bb_conversation", source: "strategy_os", brandId, actor: "BB Loona", entityType: "bb_chat", entityId: brandId, action: "answered", summary: `BB answered: ${result.answer}` });
+    if (!/^[a-z0-9_-]{8,120}$/i.test(clientMessageId)) return fail(400, "Invalid BB message id.");
+    const messagePath = `${path}/${clientMessageId}`;
+    const existingMessage = await fbGet(messagePath);
+    // A network timeout can happen after the browser has sent the request. Reusing the
+    // same client id therefore returns the existing job rather than writing the question
+    // a second time and asking BB twice.
+    if (existingMessage && existingMessage.role === "user" && existingMessage.status !== "failed") {
+      return { statusCode: 202, headers: cors(), body: JSON.stringify({ ok: true, pending: true, messageId: clientMessageId }) };
     }
-    return { statusCode: 200, headers: cors(), body: JSON.stringify(result) };
+    await fbSet(messagePath, { role: "user", text: message, attachments, actor, createdAt: now, clientMessageId, status: "pending", error: null });
+    await fbUpdate(`strategy_bb_chats/${brandId}/threads/${threadId}`, { title: message.slice(0, 60), updatedAt: now, createdAt: now });
+    const backgroundBody = JSON.stringify({ brandId, scope, threadId, clientMessageId });
+    try {
+      const response = await fetch(`${siteBaseUrl(event)}/.netlify/functions/strategy-bb-chat-background`, { method: "POST", headers: signedBackgroundHeaders("strategy-bb-chat-background", backgroundBody), body: backgroundBody });
+      if (!response.ok) throw new Error(`Background BB request was rejected (HTTP ${response.status}).`);
+    } catch (error) {
+      await fbUpdate(messagePath, { status: "failed", error: `Could not start BB: ${error.message || error}` });
+      return fail(502, `Could not start BB: ${error.message || error}`);
+    }
+    return { statusCode: 202, headers: cors(), body: JSON.stringify({ ok: true, pending: true, messageId: clientMessageId }) };
   } catch (error) {
-    const message = error.message || "";
-    const missingKey = /ANTHROPIC_API_KEY/.test(message);
-    const timedOut = /timed out|timeout|aborted/i.test(error.message || "");
-    const exhausted = /usage[_ ]exceeded|quota|no credits|credit balance|purchase credits|billing/i.test(message);
-    return fail(missingKey ? 503 : timedOut ? 504 : exhausted ? 503 : 502, timedOut ? "BB took too long to answer. Please tap send once more — your message is still in the chat." : exhausted ? "BB’s AI providers have reached their current usage limit. Please top up either connected provider, then try again." : (message || "BB could not answer."));
+    return fail(502, error.message || "BB could not start.");
   }
 };
