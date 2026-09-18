@@ -8,6 +8,14 @@ import loonaLogo from "../assets/loona-logo.png";
 
 type Mode = "home" | "monthly" | "campaign" | "bb" | "global-bb";
 
+// WhatsApp threads carry whoever's personal conversation with BB came in over their own
+// phone number — not something every teammate who can open Strategy OS should see scrolling
+// past in the shared Global BB thread list. Restricted to the one account these came in for.
+// This only hides the sidebar entry and the client-side subscription that would load its
+// messages; it isn't a Firebase security rule, so it matches this app's existing security
+// model (a shared site password) rather than adding a new one.
+const WHATSAPP_THREADS_VISIBLE_TO = "connect@loona.in";
+
 const DEFAULT_COUNTS = { reel: 6, carousel: 4, static: 3 };
 
 // The five pipeline specialists plus Mani, brand memory — the same six identities and
@@ -496,7 +504,7 @@ function FinalPlan({ run, assets }: { run: StrategyRun | null; assets: StrategyA
   return <section className="sc-final-plan"><div className="sc-concept-meta">Selected monthly plan</div><h3>Review what the team selected</h3><p className="sc-muted">Only approved concepts appear here. This is the handoff for scripts, captions and creative development.</p>{selected.map((asset, index) => <article key={asset.assetId} className="sc-final-item"><b>{index + 1}. {asset.conceptName}</b><span>{(reviews[asset.assetId]?.formats || []).join(" · ")} · {asset.hook}</span><p>{asset.concept || asset.tension}</p></article>)}<button type="button" className="sc-primary" onClick={() => void copy()}>{copied ? "Copied" : "Copy selected plan"}</button></section>;
 }
 
-export function StrategyChatWorkspace({ actor, initialBrandId, initialGlobalBB = false }: { actor: string; initialBrandId?: string; initialGlobalBB?: boolean }) {
+export function StrategyChatWorkspace({ actor, viewerEmail = "", initialBrandId, initialGlobalBB = false }: { actor: string; viewerEmail?: string; initialBrandId?: string; initialGlobalBB?: boolean }) {
   const { brands: allBrands, loading: brandsLoading } = useAllHubBrands();
   const { brands: configuredBrands } = useBrands();
   const { runs } = useRuns();
@@ -520,6 +528,8 @@ export function StrategyChatWorkspace({ actor, initialBrandId, initialGlobalBB =
     if (configured) rememberBrand(configured);
   }, [initialBrandId, brand, allBrands]);
   useEffect(() => listenPath<Record<string, { title?: string; updatedAt?: string }>>("strategy_bb_chats/global/threads", (value) => setGlobalThreads(Object.entries(value || {}).map(([id, thread]) => ({ id, ...thread })).sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""))))), []);
+  const canSeeWhatsappThreads = viewerEmail === WHATSAPP_THREADS_VISIBLE_TO;
+  const visibleGlobalThreads = canSeeWhatsappThreads ? globalThreads : globalThreads.filter((thread) => !thread.id.startsWith("whatsapp-"));
   const activeRun = runId ? runs.find((run) => run.runId === runId) : undefined;
   // Default to the first CONFIGURED brand, not just the first in the list — an unconfigured
   // brand can't start a run yet anyway (see the NewRunWizard this chat rework replaced,
@@ -552,7 +562,7 @@ export function StrategyChatWorkspace({ actor, initialBrandId, initialGlobalBB =
 
   if (brandsLoading) return <div className="vs-shell sc-shell sc-loading-shell"><main className="vs-main sc-loading"><div className="sc-bb-opening"><span>🦦</span><h1>Say hello to BB</h1><p>Getting your Loona workspace ready…</p></div></main></div>;
   return <div className="vs-shell sc-shell">
-    <BrandSidebar brands={sidebarBrands} active={selectedBrand} runs={runs} open={sidebarOpen} onBrand={chooseBrand} onBrandThread={(next, id) => { rememberBrand(next); setBrandThreadId(id); setRunId(null); setMode("bb"); setSidebarOpen(false); }} onNew={newChat} onArchive={(run) => { if (!confirm(`Archive ${monthLabel(run.month)}? It will stay in history but no longer block a new monthly plan.`)) return; void archiveRun({ runId: run.runId, actor, reason: "Archived from brand sidebar" }).then(() => { if (runId === run.runId) { setRunId(null); setMode("home"); } }).catch((error) => alert(error instanceof Error ? error.message : String(error))); }} onGlobalBB={openGlobalBB} globalThreads={globalThreads} onGlobalThread={(id) => { setGlobalThreadId(id); openGlobalBB(); }} onOpen={(id) => { const opened = runs.find((item) => item.runId === id); setRunId(id); setMode(opened?.runType === "campaign" ? "campaign" : "monthly"); setSidebarOpen(false); }} />
+    <BrandSidebar brands={sidebarBrands} active={selectedBrand} runs={runs} open={sidebarOpen} onBrand={chooseBrand} onBrandThread={(next, id) => { rememberBrand(next); setBrandThreadId(id); setRunId(null); setMode("bb"); setSidebarOpen(false); }} onNew={newChat} onArchive={(run) => { if (!confirm(`Archive ${monthLabel(run.month)}? It will stay in history but no longer block a new monthly plan.`)) return; void archiveRun({ runId: run.runId, actor, reason: "Archived from brand sidebar" }).then(() => { if (runId === run.runId) { setRunId(null); setMode("home"); } }).catch((error) => alert(error instanceof Error ? error.message : String(error))); }} onGlobalBB={openGlobalBB} globalThreads={visibleGlobalThreads} onGlobalThread={(id) => { setGlobalThreadId(id); openGlobalBB(); }} onOpen={(id) => { const opened = runs.find((item) => item.runId === id); setRunId(id); setMode(opened?.runType === "campaign" ? "campaign" : "monthly"); setSidebarOpen(false); }} />
     {(sidebarOpen || maniOpen) && <button type="button" className="vs-scrim" aria-label="Close" onClick={() => { setSidebarOpen(false); setManiOpen(false); }} />}
     <main className="vs-main">
       <header className="vs-header"><button type="button" className="vs-mobile-tool" aria-label="Open projects" onClick={() => setSidebarOpen(true)}>☰</button><div>{mode === "global-bb" ? <img className="sc-header-logo" src={loonaLogo} alt="Loona" /> : <>{selectedBrand?.logo ? <img className="sc-header-logo" src={selectedBrand.logo} alt={selectedBrand.name} /> : <h1>{selectedBrand?.name || "Strategy OS"}</h1>}<p>{activeRun ? (activeRun.runType === "campaign" ? "Campaign planning" : monthLabel(activeRun.month)) : mode === "home" ? "New strategy chat" : mode === "bb" ? "Ask BB" : mode === "campaign" ? "Campaign planning" : "Monthly planning"}</p></>}</div>{selectedBrand && <a className="vs-header-tool sc-brand-directory" href={`/strategy/?directory=1&brandId=${encodeURIComponent(selectedBrand.id)}&brandName=${encodeURIComponent(selectedBrand.name)}`}>Brand Directory</a>}<span className="sc-header-actions">{(mode === "bb" || mode === "global-bb") && bbClearState && <button type="button" className="vs-header-tool" onClick={bbClearState.clear} disabled={!bbClearState.canClear} aria-label="Clear chat">🗑 Clear chat</button>}<button type="button" className="vs-header-tool" onClick={() => setManiOpen(true)}>Memory</button></span></header>
