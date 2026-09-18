@@ -24,6 +24,9 @@ const { signedBackgroundHeaders } = require(path.join(HUB, "netlify/functions/li
   await fbSet("inactive_members", null);
   await fbSet("tasks", null);
   await fbSet("announcements", null);
+  await fbSet("leave_requests", null);
+  await fbSet("calendarEvents", null);
+  await fbSet("loona_holidays", null);
 
   await fbSet("mani_brand_notes/global", { n1: { content: "Ravi now owns the 2100co. account.", source: "bb_conversation", actor: "Gokul", createdAt: new Date().toISOString() } });
   await recordManiEvent({ type: "task_updated", source: "hub", actor: "Anjali", entityType: "task", entityId: "t1", action: "updated", summary: "Marked the launch brief as done." });
@@ -33,6 +36,9 @@ const { signedBackgroundHeaders } = require(path.join(HUB, "netlify/functions/li
   await fbSet("members", { m1: { name: "Ankita", role: "Sr. Strategy", department: "Marketing and Social Media" } });
   await fbSet("tasks", { t1: { task: "Write October captions", member: "Vishnu", brand: "RRO Foods", status: "Not Started" } });
   await fbSet("announcements", { an1: { text: "Brand of the day: Casa Waters.", author: "Priya", link: "https://casawaters.example.com", timestamp: "2026-09-10T09:00:00Z", ts: Date.now() } });
+  await fbSet("leave_requests", { l1: { member: "Rahul", from_date: "2026-09-19", to_date: "2026-09-19", reason: "Fever", leave_type: "sick", status: "pending" } });
+  const soon = new Date(Date.now() + 3 * 86400000).toISOString();
+  await fbSet("calendarEvents", { e1: { title: "Casa Waters monthly review", start: soon, end: soon, attendeeCount: 2, knownAttendees: ["Anjali", "Gokul"] } });
 
   const memory = await loadGlobalBrain();
   check("Global BB memory includes a Hub-wide extracted/pasted note", /Ravi now owns the 2100co/.test(memory || ""), memory);
@@ -42,14 +48,23 @@ const { signedBackgroundHeaders } = require(path.join(HUB, "netlify/functions/li
   check("Global BB memory includes the Hub-wide task board", /Write October captions — RRO Foods · Vishnu/.test(memory || ""), memory);
   check("Global BB memory includes the task history ledger", /Task history/.test(memory || ""), memory);
   check("Global BB memory includes the Loona Board announcements", /Casa Waters/.test(memory || "") && /Loona Board/.test(memory || ""), memory);
+  check("Global BB memory includes leave requests", /Rahul/.test(memory || "") && /sick|pending/i.test(memory || ""), memory);
+  check("Global BB memory includes calendar meetings", /Casa Waters monthly review/.test(memory || ""), memory);
+  check("Global BB memory includes the holiday calendar section", /Upcoming Loona holidays/.test(memory || ""), memory);
+  check("Global BB memory includes the Hub overview reference", /What the Hub dashboard does/.test(memory || ""), memory);
 
   await fbSet("mani_brand_notes/global", null);
   await fbSet("mani_events", null);
   await fbSet("members", null);
   await fbSet("tasks", null);
   await fbSet("announcements", null);
+  await fbSet("leave_requests", null);
+  await fbSet("calendarEvents", null);
   const emptyMemory = await loadGlobalBrain();
-  check("an unused Hub has no Global BB memory rather than an empty-but-truthy block", emptyMemory === null, emptyMemory);
+  // The Hub overview is a fixed reference block, not data — it's present even when nothing
+  // else is, so "empty" now means "just the overview" rather than null.
+  check("an unused Hub falls back to just the static Hub overview, not a null block", /What the Hub dashboard does/.test(emptyMemory || ""), emptyMemory);
+  check("but nothing data-driven leaks into that fallback", !/Ravi now owns|launch brief|Rahul|Casa Waters monthly review/.test(emptyMemory || ""), emptyMemory);
 
   // ---- a failed BB call must never write a memory note ----
   const clientMessageId = `test-${Date.now()}`;
