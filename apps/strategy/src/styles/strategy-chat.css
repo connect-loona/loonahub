@@ -206,7 +206,7 @@ button { cursor: pointer; }
 /* Ask BB runs dark — the rest of Strategy OS stays on the light theme above, but this one
    screen (both the thread and the header sitting over it) reads as its own space. */
 .vs-main:has(.sc-bb-chat) { background: #14110f; }
-.vs-main:has(.sc-bb-chat) .vs-header { background: #14110f; border-bottom-color: rgba(255,255,255,.12); }
+.vs-main:has(.sc-bb-chat) .vs-header { background: #14110f; border-bottom: 0; }
 .vs-main:has(.sc-bb-chat) .vs-header h1 { color: #fff; }
 .vs-main:has(.sc-bb-chat) .vs-header p { color: rgba(255,255,255,.6); }
 .vs-main:has(.sc-bb-chat) .vs-header-tool { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.2); color: #fff; }
@@ -223,6 +223,22 @@ button { cursor: pointer; }
 .vs-main:has(.sc-bb-chat) .sc-bb-composer textarea::placeholder { color: rgba(255,255,255,.5); }
 .vs-main:has(.sc-bb-chat) .sc-bb-send { background: #fff; color: #14110f; }
 .vs-main:has(.sc-bb-chat) .sc-bb-composer-wrap > p { color: rgba(255,255,255,.5); }
+/* The Welcome screen (both the no-brand landing page and a brand's own "New strategy chat")
+   runs dark too, matching Ask BB rather than sitting apart from it as the one light-themed
+   home screen left. */
+.vs-main:has(.sc-welcome) { background: #14110f; }
+.vs-main:has(.sc-welcome) .vs-header { background: #14110f; border-bottom: 0; }
+.vs-main:has(.sc-welcome) .vs-header h1 { color: #fff; }
+.vs-main:has(.sc-welcome) .vs-header p { color: rgba(255,255,255,.6); }
+.vs-main:has(.sc-welcome) .vs-header-tool { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.2); color: #fff; }
+.vs-main:has(.sc-welcome) .sc-thread { background: #14110f; }
+.vs-main:has(.sc-welcome) .sc-welcome h2 { color: #fff; }
+.vs-main:has(.sc-welcome) .sc-welcome .sc-muted { color: rgba(255,255,255,.6); }
+.vs-main:has(.sc-welcome) .sc-agent-name { color: rgba(255,255,255,.7); }
+.vs-main:has(.sc-welcome) .sc-suggestions button { background: #201c19; border-color: rgba(255,255,255,.16); color: #fff; }
+.vs-main:has(.sc-welcome) .sc-suggestions button:hover { border-color: rgba(255,255,255,.4); background: #2a2521; }
+.vs-main:has(.sc-welcome) .sc-suggestions span { color: rgba(255,255,255,.55); }
+.vs-main:has(.sc-welcome) .sc-bottom-hint { color: rgba(255,255,255,.5); }
 .sc-bb-toolbar { display: flex; justify-content: space-between; align-items: center; width: min(760px, 100%); margin: 0 auto; padding: 10px clamp(18px, 5vw, 34px); color: var(--sc-muted); font-size: 11px; }
 .sc-bb-toolbar button { border: 0; background: transparent; color: var(--sc-muted); font: inherit; cursor: pointer; }
 .sc-bb-toolbar button:disabled { opacity: .4; cursor: default; }
