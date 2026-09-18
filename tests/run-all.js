@@ -116,11 +116,20 @@ function listTestFiles(dir, suffix) {
     // runs just that half of the suite (used by the npm test:strategy/test:e2e scripts).
     const only = process.argv[2];
     const strategyTests = only === "e2e" ? [] : listTestFiles(path.join(HUB, "tests/strategy"), ".test.js");
+    // These drove the in-Hub #page-strategy panel via its "Strategy legacy" rollback nav
+    // button. That button was removed outright (index.html, "Rename Strategy OS navigation
+    // to Ask BB") with no replacement entry point, so the panel is now unreachable and these
+    // are retained as historical coverage only, same as the strategy-react-* retirement below.
+    const RETIRED_LEGACY_PANEL_SPECS = new Set([
+      "archive-run-ui.spec.js", "list-page-stale-workspace.spec.js", "lock-ui.spec.js",
+      "stage-rail-ui.spec.js", "stage-reopen-ui.spec.js", "strategy-brand-ui.spec.js",
+    ]);
     const e2eTests = only === "strategy" ? [] : listTestFiles(path.join(HUB, "tests/e2e"), ".spec.js")
       // The old React run-list tests assert the pre-chat Strategy OS screens. The canonical
       // /strategy/ experience is now the conversational workspace; those tests are retained
       // as historical coverage but are not part of the shipping suite.
-      .filter((file) => !/^strategy-react-/.test(path.basename(file)));
+      .filter((file) => !/^strategy-react-/.test(path.basename(file)))
+      .filter((file) => !RETIRED_LEGACY_PANEL_SPECS.has(path.basename(file)));
     const allTests = strategyTests.concat(e2eTests);
 
     // The React Strategy OS e2e tests (tests/e2e/strategy-react-*.spec.js) load

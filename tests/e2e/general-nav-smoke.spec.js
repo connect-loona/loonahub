@@ -56,12 +56,11 @@ function check(name, cond, extra) {
   await loginAsGokul(page);
   await page.waitForTimeout(500);
 
-  // "Strategy OS" itself is now a real link straight into the rebuilt /strategy/ app (see
-  // below), not a showPage() tab — clicking it here would navigate the whole page away from
-  // the Hub SPA and break every check after it. "Strategy legacy" is the rollback button
-  // that still activates the in-Hub #page-strategy panel the rest of this loop's pattern
-  // expects.
-  const tabs = ["Overview", "Task Board", "Monthly Plan", "Team", "Brands", "🧠 Mani", "Strategy legacy", "Calendar", "Loona Code", "Loonaverse"];
+  // "Ask BB 🦦" (formerly "Strategy OS") is a real link straight into the rebuilt /strategy/
+  // app, not a showPage() tab — clicking it here would navigate the whole page away from the
+  // Hub SPA and break every check after it. The old "Strategy legacy" rollback button that
+  // used to activate the in-Hub #page-strategy panel has been removed entirely.
+  const tabs = ["Overview", "Task Board", "Monthly Plan", "Team", "Brands", "🧠 Mani", "Calendar", "Loona Code", "Loonaverse"];
   for (const tab of tabs) {
     await page.locator(".nav-btn", { hasText: tab }).click();
     await page.waitForTimeout(300);
@@ -69,10 +68,10 @@ function check(name, cond, extra) {
     check(`clicking "${tab}" activates its page`, !!activePage, activePage);
   }
 
-  // "Strategy OS" is the real nav link, not a showPage() tab — check it points straight at
+  // "Ask BB 🦦" is the real nav link, not a showPage() tab — check it points straight at
   // the rebuilt React app rather than the legacy in-Hub page.
-  const newAppLink = page.locator("a.nav-btn", { hasText: "Strategy OS" });
-  check("the Strategy OS nav item links straight to the rebuilt /strategy/ app", await newAppLink.getAttribute("href") === "/strategy/", await newAppLink.getAttribute("href"));
+  const newAppLink = page.locator("a.nav-btn", { hasText: "Ask BB" });
+  check("the Ask BB nav item links straight to the rebuilt /strategy/ app", await newAppLink.getAttribute("href") === "/strategy/", await newAppLink.getAttribute("href"));
 
   check("no uncaught page errors across all tab navigation", errors.length === 0, JSON.stringify(errors));
   console.log(allPass ? "\n✅ ALL CHECKS PASSED" : "\n❌ SOME CHECKS FAILED");
