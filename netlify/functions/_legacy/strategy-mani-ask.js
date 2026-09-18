@@ -12,6 +12,8 @@ const { hubBrandExists, findHubBrand } = require("../lib/strategy/hub-brands");
 const { loadBrandBrain } = require("../lib/strategy/store");
 const { askMani, MAX_QUESTION_CHARS } = require("../lib/strategy/mani");
 const { loadHubMemoryText } = require("../lib/strategy/hub-memory");
+const { resolveVisualActor } = require("../lib/strategy/visual-actor");
+const { recordApiUsage } = require("../lib/strategy/api-usage");
 
 function cors() {
   return {
@@ -58,10 +60,30 @@ exports.handler = async (event) => {
     memory = await loadHubMemoryText();
   }
 
+  // Best-effort, same as every other usage record in this codebase — the answer Mani gives
+  // must never be blocked or delayed by a failure to log who asked for it.
+  async function recordMani(status, model) {
+    try {
+      const actor = await resolveVisualActor(event, "Hub");
+      await recordApiUsage({
+        id: `mani-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        userId: actor.id, userEmail: actor.email, userName: actor.name, identityVerified: actor.verified,
+        provider: "Anthropic", model: model || null, feature: "mani", operation: "ask",
+        brandId: brandId || null, status,
+      });
+    } catch (error) {
+      console.error("Could not record Mani usage:", error.message);
+    }
+  }
+
   try {
     const result = await askMani({ brandId, brandName: brand && brand.name, question, memory, scope });
+    // Only a real model call is worth logging — the "nothing recorded yet" short-circuit
+    // above never reaches Anthropic, so it isn't API usage to attribute to anyone.
+    if (result.modelCalled) await recordMani("succeeded", result.model);
     return { statusCode: 200, headers: cors(), body: JSON.stringify(result) };
   } catch (error) {
+    await recordMani("failed", null);
     const missingKey = /ANTHROPIC_API_KEY/.test(error.message || "");
     return fail(missingKey ? 503 : 502, error.message || "Mani could not answer.");
   }

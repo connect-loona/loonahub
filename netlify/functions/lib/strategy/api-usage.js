@@ -51,7 +51,7 @@ async function listApiUsage(startIso, endIso) {
 }
 
 function add(target, key, event) {
-  if (!target[key]) target[key] = { key, requests: 0, outputs: 0, generations: 0, enhancements: 0, strategyRuns: 0, picks: 0, reviews: 0, failures: 0 };
+  if (!target[key]) target[key] = { key, requests: 0, outputs: 0, generations: 0, enhancements: 0, strategyRuns: 0, picks: 0, reviews: 0, bbQuestions: 0, maniQuestions: 0, failures: 0 };
   const row = target[key];
   row.requests += Number(event.requests || 0);
   row.outputs += Number(event.outputCount || 0);
@@ -60,6 +60,9 @@ function add(target, key, event) {
   if (event.operation === "strategy_stage") row.strategyRuns += 1;
   if (event.operation === "pick") row.picks += 1;
   if (event.operation === "quality_review") row.reviews += 1;
+  // BB and Mani both record operation "ask" — feature is what tells them apart.
+  if (event.operation === "ask" && event.feature === "bb_chat") row.bbQuestions += 1;
+  if (event.operation === "ask" && event.feature === "mani") row.maniQuestions += 1;
   if (event.status === "failed") row.failures += 1;
   return row;
 }

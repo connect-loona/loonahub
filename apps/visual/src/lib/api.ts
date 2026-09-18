@@ -154,7 +154,8 @@ export function enhanceImage(args: { chatId: string; generationId: string; image
 
 export interface UsageRow {
   key: string; name?: string; email?: string | null; verified?: boolean;
-  requests: number; outputs: number; generations: number; enhancements: number; strategyRuns: number; picks: number; reviews: number; failures: number;
+  requests: number; outputs: number; generations: number; enhancements: number; strategyRuns: number; picks: number; reviews: number;
+  bbQuestions: number; maniQuestions: number; failures: number;
 }
 
 export interface UsageReport {

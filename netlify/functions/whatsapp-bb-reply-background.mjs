@@ -1,6 +1,7 @@
 import firebase from "./lib/strategy/firebase.js";
 import bbChat from "./lib/strategy/bb-chat.js";
 import whatsapp from "./lib/strategy/whatsapp.js";
+import apiUsage from "./lib/strategy/api-usage.js";
 import { backgroundConfig, readSignedBackgroundBody } from "./lib/strategy/modern-background.mjs";
 import Anthropic from "@anthropic-ai/sdk";
 import * as OpenAIAgents from "@openai/agents";
@@ -10,6 +11,22 @@ globalThis.__openaiAgentsBundled = OpenAIAgents;
 const { fbGet, fbSet, fbUpdate, fbSafeKey } = firebase;
 const { askBB, MAX_HISTORY_MESSAGES } = bbChat;
 const { sendWhatsAppText } = whatsapp;
+const { recordApiUsage } = apiUsage;
+
+// Best-effort, same as every other usage record in this codebase. WhatsApp senders have no
+// Hub sign-in to verify, so identity here is never "verified" — but the phone number itself
+// is a stable id, so the same person's messages still group together in the usage table
+// instead of all landing in one shapeless "unverified" bucket.
+async function recordWhatsAppBBUsage(from, contactName, messageId, status, provider, model) {
+  try {
+    await recordApiUsage({
+      id: `whatsapp-bb-${messageId}`,
+      userId: `whatsapp:${from}`, userEmail: null, userName: contactName || `WhatsApp +${from}`,
+      identityVerified: false, provider: provider || null, model: model || null,
+      feature: "bb_chat", operation: "ask", brandId: null, status,
+    });
+  } catch (error) { console.error("Could not record WhatsApp BB usage:", error.message); }
+}
 
 // Matches the disclaimer strategy-bb-chat-background.mjs gives BB for the browser's own
 // "Global BB conversation" — WhatsApp reaches the exact same global thread space, just
@@ -53,8 +70,10 @@ export default async function (request) {
     await sendWhatsAppText({ to: from, text: result.answer, accessToken: process.env.WHATSAPP_ACCESS_TOKEN, phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID });
     await fbUpdate(messagePath, { status: "answered", error: null });
     await fbSet(`${path}/${messageKey}-reply`, { role: "assistant", text: result.answer, actor: "BB Loona", createdAt: new Date().toISOString(), replyTo: messageKey });
+    await recordWhatsAppBBUsage(from, body.contactName, messageId, "succeeded", result.provider || "Anthropic", result.model);
   } catch (error) {
     await fbUpdate(messagePath, { status: "failed", error: error.message || String(error) });
+    await recordWhatsAppBBUsage(from, body.contactName, messageId, "failed", null, null);
   }
 }
 export const config = backgroundConfig;
