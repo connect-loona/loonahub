@@ -85,6 +85,7 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
   ));
 
   const [error, setError] = useState<string | null>(null);
+  const [submitStatus, setSubmitStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const errorRef = useRef<HTMLDivElement | null>(null);
 
@@ -101,9 +102,11 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
 
   async function handleSubmit() {
     setError(null);
+    setSubmitStatus("Checking your configuration…");
     const trimmedId = id.trim();
     if (!/^[a-z0-9-]+$/.test(trimmedId)) {
       setError("Brand id must be lowercase letters, numbers or hyphens.");
+      setSubmitStatus(null);
       return;
     }
 
@@ -112,6 +115,7 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
       parsedAdvanced = JSON.parse(advanced || "{}");
     } catch (e) {
       setError(`The Advanced JSON isn't valid: ${e instanceof Error ? e.message : String(e)}`);
+      setSubmitStatus(null);
       return;
     }
 
@@ -125,8 +129,8 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
     // the source material lives, and what needs making. Everything else can be added
     // later or drafted by Mani. The complete schema still receives safe “to be defined”
     // defaults so older planning code never has to handle a half-shaped object.
-    if (!driveLink) { setError("Add the brand’s Google Drive folder link before saving."); return; }
-    if (!Object.values(enteredDeliverables).some((count) => count > 0)) { setError("Add at least one deliverable with a count above zero before saving."); return; }
+    if (!driveLink) { setError("Add the brand’s Google Drive folder link before saving."); setSubmitStatus(null); return; }
+    if (!Object.values(enteredDeliverables).some((count) => count > 0)) { setError("Add at least one deliverable with a count above zero before saving."); setSubmitStatus(null); return; }
     const fallbackAudience = { id: "audience-to-define", description: "Audience to be defined", buyingSituation: "To be defined", trigger: "To be defined" };
     const fallbackPillar = { id: "brand-basics", name: "Brand basics", description: "Details to be defined", targetShare: 1 };
 
@@ -173,6 +177,7 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
     };
 
     setSaving(true);
+    setSubmitStatus("Saving brand configuration…");
     try {
       await saveBrand({ brandId: trimmedId, config });
       // A completed configuration belongs back in the brand workspace, where the team
@@ -180,6 +185,7 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
       onSaved();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      setSubmitStatus(null);
     } finally {
       setSaving(false);
     }
@@ -305,13 +311,14 @@ export function BrandForm({ brandId, initialBrand, onCancel, onSaved }: {
       </details>
       </details>
 
-      <div className="st-board">
+      <form className="st-board" onSubmit={(event) => { event.preventDefault(); void handleSubmit(); }} noValidate>
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="st-btn st-btn-ghost" style={{ flex: 1 }} onClick={onCancel}>Cancel</button>
-          <button type="button" className="st-btn st-btn-primary" style={{ flex: 1 }} disabled={saving} onClick={handleSubmit}>{saving ? "Saving…" : "Save brand"}</button>
+          <button type="button" className="st-btn st-btn-ghost" style={{ flex: 1 }} onClick={onCancel}>Cancel</button>
+          <button type="submit" className="st-btn st-btn-primary" style={{ flex: 1 }} disabled={saving}>{saving ? "Saving…" : "Save brand"}</button>
         </div>
+        {submitStatus && <div role="status" style={{ marginTop: 10, color: "var(--sc-muted)", fontSize: 13 }}>{submitStatus}</div>}
         {error && <div ref={errorRef} role="alert" style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, border: "1px solid #d85b4b", background: "rgba(216,91,75,.16)", color: "#ffb3a8", fontSize: 13, fontWeight: 600, whiteSpace: "pre-wrap" }}><b>Can’t save brand:</b> {error}</div>}
-      </div>
+      </form>
     </div>
   );
 }
