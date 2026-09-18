@@ -73,6 +73,7 @@ export function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [usageOpen, setUsageOpen] = useState(false);
+  const [collapsedBrandId, setCollapsedBrandId] = useState<string | null>(null);
   const [lastOpenedBrandId, setLastOpenedBrandId] = useState(() => {
     try { return window.localStorage.getItem("loona.visual.last-opened-brand"); } catch { return null; }
   });
@@ -389,15 +390,17 @@ export function App() {
 
         <div className="vs-projects">
           {sidebarBrands.map((b) => {
-            const open = brand?.id === b.id;
+            const selected = brand?.id === b.id;
+            const open = selected && collapsedBrandId !== b.id;
             return (
               <div key={b.id} className={`vs-project-block${open ? " is-open" : ""}`}>
                 <button
                   type="button"
-                  className={`vs-project${open ? " is-active" : ""}`}
+                  className={`vs-project${selected ? " is-active" : ""}`}
                   onClick={() => {
+                    if (selected) { setCollapsedBrandId(open ? b.id : null); return; }
                     window.history.replaceState(null, "", `${window.location.pathname}?brand=${encodeURIComponent(b.id)}`);
-                    rememberBrand(b); setSidebarOpen(false);
+                    setCollapsedBrandId(null); rememberBrand(b); setSidebarOpen(false);
                   }}
                 >
                   {/* Hub's own brand logo where there is one, the same way its brand cards do

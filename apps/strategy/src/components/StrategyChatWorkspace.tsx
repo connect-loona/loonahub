@@ -110,6 +110,7 @@ function BrandSidebar({ brands, active, runs, open, onBrand, onBrandThread, onNe
   open?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [collapsedBrandId, setCollapsedBrandId] = useState<string | null>(null);
   const [brandThreads, setBrandThreads] = useState<Array<{ id: string; title?: string; updatedAt?: string }>>([]);
   useEffect(() => listenPath<Record<string, { title?: string; updatedAt?: string }>>(`strategy_bb_chats/${active?.id || "none"}/threads`, (value) => setBrandThreads(Object.entries(value || {}).map(([id, thread]) => ({ id, ...thread })).sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""))))), [active?.id]);
   return <aside className={`vs-sidebar sc-sidebar${open ? " is-open" : ""}`}>
@@ -128,14 +129,18 @@ function BrandSidebar({ brands, active, runs, open, onBrand, onBrandThread, onNe
         // it blocks a replacement plan.
         const brandRuns = runs.filter((run) => run.brandId === brand.id && !run.archivedAt).slice(0, 8);
         const isActive = active?.id === brand.id;
-        return <div key={brand.id} className={`vs-project-block${isActive ? " is-open" : ""}`}>
-          <button type="button" className={`vs-project${isActive ? " is-active" : ""}`} onClick={() => onBrand(brand)}>
+        const isOpen = isActive && collapsedBrandId !== brand.id;
+        return <div key={brand.id} className={`vs-project-block${isOpen ? " is-open" : ""}`}>
+          <button type="button" className={`vs-project${isActive ? " is-active" : ""}`} onClick={() => {
+            if (isActive) { setCollapsedBrandId(isOpen ? brand.id : null); return; }
+            setCollapsedBrandId(null); onBrand(brand);
+          }}>
             {brand.logo
               ? <img className="vs-project-logo" src={brand.logo} alt="" />
               : <span className="vs-project-icon" style={{ background: tint(brand.id) }}>{initials(brand.name)}</span>}
             <span className="vs-project-name">{brand.name}</span>
           </button>
-          {isActive && <div className="vs-chatlist">
+          {isOpen && <div className="vs-chatlist">
             <button type="button" className="vs-newchat" onClick={() => onBrandThread(brand, `chat-${Date.now()}`)}>+ New BB chat</button>
             <button type="button" className="vs-newchat" onClick={onNew}>+ New strategy chat</button>
             {brandThreads.slice(0, 8).map((thread) => <button key={thread.id} type="button" className="vs-chatlink" title={thread.title || "New BB chat"} onClick={() => onBrandThread(brand, thread.id)}>{sidebarThreadTitle(thread.title, "New BB chat")}<span>BB chat</span></button>)}
