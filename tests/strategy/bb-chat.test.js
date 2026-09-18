@@ -20,6 +20,18 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
   check("BB is distinct from Mani", /Do not pretend to be Mani/.test(system), system);
   check("BB is told it can research current information on the web", /search the live web/.test(system), system);
 
+  // No speaker identity at all — this is the exact gap that let BB confidently invent an
+  // identity for whoever was texting from a phone number Hub couldn't verify.
+  const noSpeaker = instructions({ brandName: "RRO Foods", memory: null });
+  check("with no speaker given, BB is told plainly it doesn't know who it's talking to", /Nothing here identifies who you are currently speaking with/.test(noSpeaker), noSpeaker);
+  check("BB is told never to guess an identity from memory", /never guess someone's identity from a name that happens to appear in memory/.test(noSpeaker), noSpeaker);
+
+  const verifiedSpeaker = instructions({ brandName: "RRO Foods", memory: null, speaker: { name: "Anjali", verified: true } });
+  check("a Hub-verified speaker is presented as confirmed, not just claimed", /speaking with Anjali, confirmed against Hub's own records/.test(verifiedSpeaker), verifiedSpeaker);
+
+  const unverifiedSpeaker = instructions({ brandName: "RRO Foods", memory: null, speaker: { name: "Chinmay", verified: false } });
+  check("a self-reported speaker name is flagged as unconfirmed, not stated as fact", /identified themselves as "Chinmay".*has not been confirmed/s.test(unverifiedSpeaker), unverifiedSpeaker);
+
   const history = Array.from({ length: MAX_HISTORY_MESSAGES + 5 }, (_, index) => ({
     role: index % 2 ? "assistant" : "user", text: `turn ${index}`,
   }));

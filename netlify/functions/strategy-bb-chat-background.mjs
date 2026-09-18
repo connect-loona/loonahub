@@ -56,7 +56,11 @@ export default async function (request) {
     const visionAttachments = await Promise.all(attachments.map(async (item) => { const stored = await loadAsset(item.assetKey); return stored && stored.metadata.kind === "bb-attachment" && stored.metadata.brandId === brandId ? { data: stored.data, contentType: stored.metadata.contentType, filename: stored.metadata.filename || item.filename } : null; }));
     const global = body.scope === "global"; const brand = global ? null : await findHubBrand(brandId);
     const memory = global ? [GLOBAL_SCOPE_NOTE, await loadGlobalBrain()].filter(Boolean).join("\n\n") : await loadBrandBrain(brandId, brand && brand.name);
-    const result = await askBB({ brandName: global ? "Loona Hub" : ((brand && brand.name) || brandId), message: turn.text, memory, history, attachments: visionAttachments.filter(Boolean) });
+    // turn.actorVerified reflects whether a Firebase-authenticated Hub session actually
+    // backed this actor name (see resolveVisualActor in strategy-bb-chat.js) — the same
+    // distinction WhatsApp draws between a Hub-verified name and a self-reported one.
+    const speaker = turn.actor ? { name: turn.actor, verified: Boolean(turn.actorVerified) } : null;
+    const result = await askBB({ brandName: global ? "Loona Hub" : ((brand && brand.name) || brandId), message: turn.text, memory, history, attachments: visionAttachments.filter(Boolean), speaker });
     await fbPush(path, { role: "assistant", text: result.answer, actor: "BB Loona", createdAt: new Date().toISOString(), replyTo: messageId });
     await fbUpdate(messagePath, { status: "answered", error: null });
     await recordBBUsage(turn, brandId, "succeeded", result.provider || "Anthropic", result.model);
