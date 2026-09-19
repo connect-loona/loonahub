@@ -28,14 +28,13 @@ export default function App() {
   if (authStatus === "signed-out") return <div className="vs-shell sc-shell sc-full-shell"><main className="vs-main sc-signed-out"><h1>Strategy OS</h1><p>You’re not signed into Hub on this device yet.</p><a href="/">Go to Hub</a></main></div>;
 
   const actor = user?.displayName || user?.email?.split("@")[0] || "Hub";
-  const viewerEmail = user?.email || "";
   const query = new URLSearchParams(window.location.search);
   if (query.get("directory") === "1") {
     const brandId = query.get("brandId") || "";
     const brandName = query.get("brandName") || "New brand";
     return brandId
       ? <BrandDirectory brandId={brandId} brandName={brandName} onClose={() => window.location.assign(`/strategy/?brandId=${encodeURIComponent(brandId)}`)} />
-      : <StrategyChatWorkspace actor={actor} viewerEmail={viewerEmail} />;
+      : <StrategyChatWorkspace actor={actor} />;
   }
-  return <StrategyChatWorkspace actor={actor} viewerEmail={viewerEmail} initialBrandId={query.get("brandId") || undefined} initialGlobalBB={query.get("ask") === "bb"} />;
+  return <StrategyChatWorkspace actor={actor} initialBrandId={query.get("brandId") || undefined} initialGlobalBB={query.get("ask") === "bb"} />;
 }
