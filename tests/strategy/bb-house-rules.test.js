@@ -26,12 +26,6 @@ const { loadHouseRulesText, saveHouseRuleSafe, DEFAULT_HOUSE_RULES } = require(p
 
   check("DEFAULT_HOUSE_RULES is exported and non-empty", Array.isArray(DEFAULT_HOUSE_RULES) && DEFAULT_HOUSE_RULES.length >= 3, DEFAULT_HOUSE_RULES.length);
 
-  // A fixed core answer for recurring questions ("who are you") — but she must be told to
-  // rephrase it, not recite it, so the rule itself has to carry both halves.
-  check("a standard 'who are you' core answer is shipped by default", /G's right hand at Loona/.test(whatsappDefault || ""), whatsappDefault);
-  check("it explicitly tells her to rephrase rather than recite it verbatim", /never recite it as a fixed script/.test(whatsappDefault || ""), whatsappDefault);
-  check("the standard-answer default also reaches the hub channel", /G's right hand at Loona/.test(hubDefault || ""), hubDefault);
-
   // A task-board status question must cover everyone on the board, not a curated few — the
   // exact gap a WhatsApp screenshot exposed: "what's due for each team" answered for only 5
   // of the team even though the board memory has every open task for every person.
@@ -47,12 +41,6 @@ const { loadHouseRulesText, saveHouseRuleSafe, DEFAULT_HOUSE_RULES } = require(p
   // Naming the real blocker (who a task is waiting on) is what makes a status answer useful.
   check("a default rule requires explaining the real blocker on a status update, not just the status label", /Ankita hasn't approved it yet/.test(whatsappDefault || ""), whatsappDefault);
   check("that default reaches the hub channel too", /Ankita hasn't approved it yet/.test(hubDefault || ""), hubDefault);
-
-  // Self-reference should be "BB 🦦", never "BB Loona" — a plain naming rule, unscoped since
-  // it applies to how she refers to herself everywhere, not just on one channel.
-  check("a default rule fixes her self-reference to \"BB 🦦\"", /Refer to yourself as "BB 🦦"/.test(whatsappDefault || ""), whatsappDefault);
-  check("it explicitly rules out \"BB Loona\"", /never "BB Loona"/.test(whatsappDefault || ""), whatsappDefault);
-  check("the self-reference default also reaches the hub channel", /Refer to yourself as "BB 🦦"/.test(hubDefault || ""), hubDefault);
 
   // ---- Rules taught through conversation layer on top of the defaults ----
   await saveHouseRuleSafe("When Chinmay asks who you are, add a bit more edge and banter.", "Gokul");

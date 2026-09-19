@@ -58,4 +58,14 @@ assert.ok(copy.qualityChecks.includes("note-obedience"), "copy must check direct
 assert.ok(copy.qualityChecks.includes("category-language"), "copy must check category language");
 includes(composeAgentInstructions("03-copy.md", "HOUSE RULES", "STAGE PROMPT"), "not like SaaS or productivity copy");
 
+// BB's rich conversational character (the "BB 🦦" persona — jokes, Q&A script, running gags)
+// is deliberately excluded from every specialist agent's stage-execution prompt. It belongs
+// only to conversational BB (bb-chat.js's instructions()), which every specialist call here
+// does not go through — carrying it here would bloat every content-generation call with
+// irrelevant personality and cost, for an audience (Dora, Matilda, Barbie, Bob...) that never
+// actually talks to a human.
+const specialistComposed = composeAgentInstructions("02-strategy.md", "HOUSE RULES", "STAGE PROMPT");
+assert.ok(!specialistComposed.includes("I'm literally an otter"), "specialist prompts must not carry BB's conversational persona");
+assert.ok(!specialistComposed.includes("PERSONAL Q&A") && !specialistComposed.toLowerCase().includes("personal q&a"), "specialist prompts must not carry BB's Q&A script");
+
 console.log("agent-registry.test.js passed");

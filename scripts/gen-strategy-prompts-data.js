@@ -63,6 +63,8 @@ console.log('wrote prompts-data.js, ' + (header + body).length + ' bytes');
 const soulFiles = {
   LOONA_SOUL: 'loona.md',
   BB_LOONA_SOUL: 'bb-loona.md',
+  BB_CONVERSATION_SOUL: 'bb-conversation.md',
+  BRAIN_SOUL: 'brain.md',
   RESEARCH_SOUL: 'research.md',
   STRATEGY_SOUL: 'strategy.md',
   COPY_SOUL: 'copy.md',

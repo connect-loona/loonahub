@@ -56,6 +56,14 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
   const rulesIndex = orderCheck.indexOf("Standing instructions from the team");
   check("house rules are positioned after Mani's memory block, closest to the reply BB is about to write", rulesIndex > memoryIndex, { memoryIndex, rulesIndex });
 
+  // BB's rich conversational character (the "BB 🦦" persona document) belongs to conversational
+  // BB only, and for the same recency-bias reason as house rules — placed after the memory
+  // dump, not buried near the top where a long brand-memory block would crowd it out.
+  const soulIndex = orderCheck.indexOf("Golden Rule");
+  check("BB's character soul is present in conversational instructions", soulIndex >= 0, soulIndex);
+  check("BB's character soul is positioned after Mani's memory block", soulIndex > memoryIndex, { memoryIndex, soulIndex });
+  check("BB's character soul carries her actual voice, not just a label", /I'm literally an otter/.test(orderCheck), orderCheck.includes("otter"));
+
   const history = Array.from({ length: MAX_HISTORY_MESSAGES + 5 }, (_, index) => ({
     role: index % 2 ? "assistant" : "user", text: `turn ${index}`,
   }));

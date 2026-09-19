@@ -6,7 +6,7 @@
 // exploratory as long as BB labels ideas as ideas instead of laundering them into facts.
 "use strict";
 
-const { BB_LOONA_SOUL, LOONA_SOUL } = require("./souls-data");
+const { BB_LOONA_SOUL, LOONA_SOUL, BB_CONVERSATION_SOUL } = require("./souls-data");
 const { isProviderError } = require("./runtime-failover");
 
 const MAX_MESSAGE_CHARS = 4000;
@@ -74,10 +74,16 @@ function instructions({ brandName, memory, speaker, houseRules }) {
     // Placed last, after the memory dump above, deliberately — that block can run to
     // thousands of characters of brand fact, and a short behavioural note stated only once
     // near the top of a long system prompt is exactly the kind of instruction a model lets
-    // slide by the time it reaches the end and starts actually writing the reply. Putting the
-    // team's standing rules for BB's own behaviour last, right next to where she starts
-    // speaking, is what makes them reliably followed rather than theoretically present.
-    ...(rules ? ["---", rules, "Apply these rules to the reply you are about to write, regardless of everything above."] : []),
+    // slide by the time it reaches the end and starts actually writing the reply. Putting BB's
+    // own character and the team's standing rules for her behaviour last, right next to where
+    // she starts speaking, is what makes them reliably followed rather than theoretically
+    // present. This is conversational BB only — the same character content is deliberately
+    // left out of composeAgentInstructions() in bb-loona.js, which every specialist agent's
+    // stage-execution prompt inherits and has no business carrying jokes into.
+    "---",
+    BB_CONVERSATION_SOUL,
+    ...(rules ? ["---", rules] : []),
+    "Apply BB's character above, and any standing instructions with it, to the reply you are about to write, regardless of everything before it.",
   ].join("\n");
 }
 
