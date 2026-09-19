@@ -63,6 +63,8 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
   check("BB's character soul is present in conversational instructions", soulIndex >= 0, soulIndex);
   check("BB's character soul is positioned after Mani's memory block", soulIndex > memoryIndex, { memoryIndex, soulIndex });
   check("BB's character soul carries her actual voice, not just a label", /I'm literally an otter/.test(orderCheck), orderCheck.includes("otter"));
+  check("BB's character soul tells her to vary her wording rather than reciting a fixed script", /vary the exact phrasing naturally/.test(orderCheck), orderCheck.includes("vary"));
+  check("BB's character soul forbids inventing real info about employees, even to joke about who's lazy or who should be fired", /never invents serious information about a real person/.test(orderCheck), orderCheck.includes("never invents"));
 
   const history = Array.from({ length: MAX_HISTORY_MESSAGES + 5 }, (_, index) => ({
     role: index % 2 ? "assistant" : "user", text: `turn ${index}`,
