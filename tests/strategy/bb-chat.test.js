@@ -88,6 +88,12 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
   check("BB is told never to call the write tools on the same message that proposes the change", /never call create_task or update_task on the message where you first propose it/i.test(withActions) || /Do not call create_task or update_task on the message where you first propose it/.test(withActions), withActions);
   check("BB is told what to say if asked what she can do here", /If anyone asks what you can do on the task board/.test(withActions), withActions);
   check("that answer states plainly that Hub's own approval rules still apply, unskipped", /still goes to the right person for sign-off/.test(withActions) && /you never skip that/.test(withActions), withActions);
+  // A real production report: BB told the team a meeting/task was done when the underlying
+  // tool call had actually failed. She was never told what an ok:false result means, so she
+  // fell back on optimism instead of relaying the actual failure.
+  check("BB is told a failed task write must never be reported as done", /the write FAILED — nothing was created or changed/.test(withActions), withActions);
+  check("BB is told to relay the actual error rather than assuming it worked", /Never say "done" or describe it as created\/updated when the result says otherwise/.test(withActions), withActions);
+  check("BB is told to mention a partial-failure warning too", /a warnings list, mention what it says too/.test(withActions), withActions);
   check("no taskActions means no such section", !/Acting on Loona Hub's task board/.test(instructions({ brandName: "Loona Hub", memory: null })), "");
   const withBoth = instructions({
     brandName: "Loona Hub", memory: null, taskActions: true,
@@ -105,6 +111,11 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
   check("BB is told a plain meeting invite is real, not a draft", /this is not a draft or a preview/i.test(withCalendar), withCalendar);
   check("BB is told to confirm before booking or changing anything", /say back exactly what you are about to do.*and wait/s.test(withCalendar), withCalendar);
   check("BB is told an omitted field on an edit keeps what's already on the calendar", /the tool never blanks out the time, the attendee list or anything else/.test(withCalendar), withCalendar);
+  // Same production report, on the calendar side: a failed booking must never be reported as
+  // scheduled just because BB was confident it would work.
+  check("BB is told a failed booking must never be reported as scheduled", /the booking FAILED — no invite went out and nothing changed on the calendar/.test(withCalendar), withCalendar);
+  check("BB is told to relay the actual booking error rather than assuming it worked", /rather than saying it's booked or scheduled/.test(withCalendar), withCalendar);
+  check("BB is told to mention a booking warning too", /the meeting itself may have gone out even though something else about it/.test(withCalendar), withCalendar);
   check("BB is told only the organizer or Gokul may edit a meeting", /Only the meeting's own organizer or Gokul may reschedule or edit it/.test(withCalendar), withCalendar);
   check("no calendarActions means no such section", !/Scheduling meetings on Loona Hub's calendar/.test(instructions({ brandName: "Loona Hub", memory: null })), "");
   const withTaskAndCalendar = instructions({ brandName: "Loona Hub", memory: null, taskActions: true, calendarActions: true });
