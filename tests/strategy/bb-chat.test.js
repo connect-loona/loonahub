@@ -152,6 +152,22 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
     tasks: withTaskAndCalendar.indexOf("Acting on Loona Hub's task board"), calendar: withTaskAndCalendar.indexOf("Scheduling meetings on Loona Hub's calendar"),
   });
 
+  // Drafting an email is lower-stakes than a Calendar invite — nothing is visible to anyone
+  // until a real person opens their own Drafts folder and sends it — so it sits last of all.
+  const withEmail = instructions({ brandName: "Loona Hub", memory: null, emailActions: true });
+  check("email actions are described when enabled", /Drafting emails from Loona Hub/.test(withEmail), withEmail.slice(-600));
+  check("BB is told this only ever creates a draft and never sends", /This only ever creates a DRAFT, sitting unsent in the sender's own Drafts folder/.test(withEmail), withEmail);
+  check("BB is told she is always the sender herself, matching the meeting-organizer rule", /you never ask whose inbox to draft it in/.test(withEmail), withEmail);
+  check("BB is told to write the actual email herself rather than asking the team to", /Write the actual email yourself — suggest a real subject line and the full body text/.test(withEmail), withEmail);
+  check("BB is told to ask about cc rather than assuming no", /Ask whether anyone should be cc'd — don't assume the answer is no/.test(withEmail), withEmail);
+  check("BB is told a failed draft must never be reported as created", /the draft was NOT created/.test(withEmail), withEmail);
+  check("BB is told plainly she can never send an email herself", /you can never send one yourself/.test(withEmail), withEmail);
+  check("no emailActions means no such section", !/Drafting emails from Loona Hub/.test(instructions({ brandName: "Loona Hub", memory: null })), "");
+  const withAllThree = instructions({ brandName: "Loona Hub", memory: null, taskActions: true, calendarActions: true, emailActions: true });
+  check("email actions are positioned after even the calendar-actions block", withAllThree.indexOf("Drafting emails from Loona Hub") > withAllThree.indexOf("Scheduling meetings on Loona Hub's calendar"), {
+    calendar: withAllThree.indexOf("Scheduling meetings on Loona Hub's calendar"), email: withAllThree.indexOf("Drafting emails from Loona Hub"),
+  });
+
   const history = Array.from({ length: MAX_HISTORY_MESSAGES + 5 }, (_, index) => ({
     role: index % 2 ? "assistant" : "user", text: `turn ${index}`,
   }));
@@ -356,6 +372,20 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
   check("both TASK_ACTION_TOOLS and CALENDAR_ACTION_TOOLS are offered to the model in the same turn", bothToolsLog[0].tools.some((t) => t.name === "create_task") && bothToolsLog[0].tools.some((t) => t.name === "schedule_meeting"), bothToolsLog[0].tools.map((t) => t.name));
   check("a calendar tool call is correctly routed to the calendar executor, not the task one", calendarDepsUsed === "calendarEvents", calendarDepsUsed);
   check("BB answers using what find_meetings actually found", /Diwali shoot planning/.test(bothToolsResult.answer), bothToolsResult.answer);
+
+  // ---- draft_email is offered alongside the other two families, and an unconfirmed draft is
+  // refused the exact same way an unconfirmed task/meeting write is ----
+  const emailToolsLog = [];
+  const emailToolsResult = await askBB({
+    brandName: "Loona Hub", message: "Draft that email to the client.", memory: null, taskActions: true, calendarActions: true, emailActions: true,
+  }, {
+    client: sequencedClient(emailToolsLog, [
+      { stop_reason: "tool_use", content: [{ type: "tool_use", id: "tu5", name: "draft_email", input: { to: ["client@brand.com"], subject: "Update", body: "Hi there," } }] },
+      { stop_reason: "end_turn", content: [{ type: "text", text: "I haven't drafted it yet — confirm and I will." }] },
+    ]),
+  });
+  check("all three tool families are offered to the model in the same turn", ["create_task", "schedule_meeting", "draft_email"].every((name) => emailToolsLog[0].tools.some((t) => t.name === name)), emailToolsLog[0].tools.map((t) => t.name));
+  check("an unconfirmed draft_email call is routed correctly and refused, same as a task/meeting write", /I haven't drafted it yet/.test(emailToolsResult.answer), emailToolsResult.answer);
 
   finish();
 })().catch((error) => { console.error("FATAL:", error, error.stack); process.exit(1); });

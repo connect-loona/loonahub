@@ -75,7 +75,7 @@ export default async function (request) {
     // from inside a brand-specific thread just as easily as from the global one. (Both are also
     // on for WhatsApp — see whatsapp-bb-reply-background.mjs — since resolveSpeaker() there
     // verifies against the same Hub roster this speaker.verified check does.)
-    const result = await askBB({ brandName: global ? "Loona Hub" : ((brand && brand.name) || brandId), message: turn.text, memory, history, attachments: visionAttachments.filter(Boolean), speaker, houseRules, taskActions: true, calendarActions: true });
+    const result = await askBB({ brandName: global ? "Loona Hub" : ((brand && brand.name) || brandId), message: turn.text, memory, history, attachments: visionAttachments.filter(Boolean), speaker, houseRules, taskActions: true, calendarActions: true, emailActions: true });
     await fbPush(path, { role: "assistant", text: result.answer, actor: "BB Loona", createdAt: new Date().toISOString(), replyTo: messageId });
     await fbUpdate(messagePath, { status: "answered", error: null });
     await recordBBUsage(turn, brandId, "succeeded", result.provider || "Anthropic", result.model);
