@@ -101,9 +101,10 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
   // Gokul had merely assigned to other people, and personal to-dos that belonged to whoever
   // actually self-assigned them, not to him. She was never told a task's owner is its member
   // field, full stop — not assigned_by, and not "myself" read as if it meant "whoever's asking".
-  check("BB is told to use find_tasks with the real name for a personal-board question, not eyeball the board text", /call find_tasks with member set to their real name exactly as Hub's records have it/.test(withActions), withActions);
-  check("BB is told a task belongs to its member field, never confused with who assigned it", /A task belongs to whoever its member field names, full stop — never mix that up with who a task is assigned_by/.test(withActions), withActions);
-  check("BB is told \"assigned by Gokul\" doesn't make a task Gokul's own", /means Gokul handed it to whoever the member field says, not that it's Gokul's own task/.test(withActions), withActions);
+  check("BB is told to use member for \"what's on my board\", matching Hub's own My Tasks section", /"What's on my board".*-> find_tasks with member set to their real name/.test(withActions), withActions);
+  check("BB is told to use assigned_by for \"what have I assigned to others\", never treating it as their own work", /"What have I assigned to others".*-> find_tasks with assigned_by set to their real name/.test(withActions) && /never "their own" work just because they assigned_by it/.test(withActions), withActions);
+  check("BB is told to use overseer for \"what am I overseeing\", distinct from owning or assigning it", /"What am I overseeing".*-> find_tasks with overseer set to their real name/.test(withActions), withActions);
+  check("BB is told these three Hub sections can overlap or be empty independently", /can overlap or be empty independently/.test(withActions), withActions);
   check("BB is told \"assigned by Myself\" is relative to that task's own owner, not the current speaker", /is relative to THAT task's own member, not to whoever you're currently talking to/.test(withActions), withActions);
   // A real production report: BB told the team a meeting/task was done when the underlying
   // tool call had actually failed. She was never told what an ok:false result means, so she
