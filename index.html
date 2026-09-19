@@ -5753,6 +5753,23 @@
         <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="mani-ask-btn" onclick="maniAsk()">Ask Mani</button><button class="btn btn-ghost" id="mani-save-btn" onclick="maniSaveMemory()">Save to memory</button></div>
         <p style="color:var(--muted);font-size:11px;margin:8px 0 0">Choose one brand, then paste notes, client feedback or a previous ChatGPT conversation and save it as Mani memory.</p>
         <div id="mani-result" style="margin-top:14px"></div>
+
+        <!--
+          The team's WhatsApp conversations with BB live here rather than in Strategy OS's
+          Global BB thread list, where they used to sit. Two reasons. They are one person's
+          own conversation with BB, so they belong somewhere only Gokul opens, not in a list
+          every teammate with Strategy OS access scrolls past. And that list renders only its
+          eight most recent threads with no way to page further — one WhatsApp thread per
+          person means the team would have pushed each other straight off the end of it.
+        -->
+        <div id="mani-whatsapp" style="display:none;margin-top:32px">
+          <div class="section-header" style="margin-top:0">
+            <div class="section-title">💬 <span>WhatsApp</span></div>
+            <div style="color:var(--muted);font-size:12px">Each teammate's conversation with BB</div>
+          </div>
+          <div id="mani-whatsapp-threads" style="display:flex;flex-direction:column;gap:6px"></div>
+          <div id="mani-whatsapp-messages" style="margin-top:14px"></div>
+        </div>
       </div>
     </div>
 
@@ -17439,6 +17456,7 @@
       // morning is selectable this morning without a deploy.
       if (id === 'mani') {
         if (typeof maniBrandOptions === 'function') maniBrandOptions();
+        if (typeof maniWhatsappThreads === 'function') maniWhatsappThreads();
       }
       if (id === 'calendar') {
         openCalendarTab();
@@ -18357,6 +18375,75 @@
     // refuse to guess rather than invent something about a client, so that refusal is shown as
     // a legitimate answer — styled unlike a real one, because an empty result must never read
     // like a finding somebody could act on.
+    // The team's WhatsApp conversations with BB. Gokul only — each of these is one person's
+    // own back-and-forth with her, not something the whole team should be able to read. The
+    // gate is the same currentUser check the rest of this file uses for founder-only views;
+    // it hides the section, and is not a substitute for a database rule.
+    const MANI_WHATSAPP_PREFIX = 'whatsapp-';
+
+    function maniWhatsappVisible() {
+      return currentUser === 'Gokul';
+    }
+
+    function maniWhatsappThreads() {
+      const wrap = document.getElementById('mani-whatsapp');
+      if (!wrap) return;
+      if (!maniWhatsappVisible()) { wrap.style.display = 'none'; return; }
+      wrap.style.display = '';
+      const list = document.getElementById('mani-whatsapp-threads');
+      if (!list) return;
+      if (!_db) { list.innerHTML = '<div style="color:var(--muted);font-size:12px">Still connecting to Firebase — reopen this tab in a moment.</div>'; return; }
+      list.innerHTML = '<div style="color:var(--muted);font-size:12px">Loading…</div>';
+      _db.ref('strategy_bb_chats/global/threads').once('value', snap => {
+        const all = snap.val() || {};
+        const threads = Object.keys(all)
+          .filter(id => id.indexOf(MANI_WHATSAPP_PREFIX) === 0)
+          .map(id => ({ id: id, title: (all[id] && all[id].title) || id, updatedAt: (all[id] && all[id].updatedAt) || '' }))
+          .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+        if (!threads.length) {
+          list.innerHTML = '<div style="color:var(--muted);font-size:12px">Nobody has messaged BB on WhatsApp yet.</div>';
+          return;
+        }
+        // Every thread, deliberately — the Strategy OS list this replaces capped itself at
+        // eight with no way to reach the rest, which is exactly the bug that sent it here.
+        list.innerHTML = threads.map(t =>
+          '<button class="btn btn-ghost" style="justify-content:space-between;display:flex;gap:10px;text-align:left;width:100%"'
+          + ' onclick="maniOpenWhatsappThread(\'' + escAttr(t.id) + '\')">'
+          + '<span>' + escHtml(String(t.title).replace(/^WhatsApp — /, '')) + '</span>'
+          + '<span style="color:var(--muted);font-size:11px">' + escHtml(String(t.updatedAt).slice(0, 10)) + '</span>'
+          + '</button>'
+        ).join('');
+      }, () => {
+        list.innerHTML = '<div style="color:var(--muted);font-size:12px">Could not load WhatsApp threads.</div>';
+      });
+    }
+
+    function maniOpenWhatsappThread(threadId) {
+      const box = document.getElementById('mani-whatsapp-messages');
+      if (!box || !_db || !maniWhatsappVisible()) return;
+      box.innerHTML = '<div style="color:var(--muted);font-size:12px">Loading…</div>';
+      _db.ref('strategy_bb_chats/global/' + threadId + '/messages').once('value', snap => {
+        const all = snap.val() || {};
+        const messages = Object.keys(all).map(k => all[k]).filter(Boolean)
+          .sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+        if (!messages.length) { box.innerHTML = '<div style="color:var(--muted);font-size:12px">No messages in this thread.</div>'; return; }
+        // Message text is whatever someone typed into WhatsApp, so it is escaped rather than
+        // trusted as markup — the one place in Hub where a stranger's text reaches the DOM.
+        box.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px;max-height:420px;overflow:auto;padding:12px;border:1px solid var(--border,#ddd);border-radius:10px">'
+          + messages.map(m => {
+            const mine = m.role === 'assistant';
+            const who = mine ? 'BB 🦦' : (m.actor || 'Them');
+            return '<div style="align-self:' + (mine ? 'flex-start' : 'flex-end') + ';max-width:80%">'
+              + '<div style="color:var(--muted);font-size:10px;margin-bottom:2px">' + escHtml(who) + ' · ' + escHtml(String(m.createdAt || '').slice(0, 16).replace('T', ' ')) + '</div>'
+              + '<div style="padding:8px 10px;border-radius:10px;background:' + (mine ? 'var(--border,#eee)' : '#dcf8c6') + ';white-space:pre-wrap;font-size:13px">' + escHtml(m.text || '') + '</div>'
+              + '</div>';
+          }).join('')
+          + '</div>';
+      }, () => {
+        box.innerHTML = '<div style="color:var(--muted);font-size:12px">Could not load that conversation.</div>';
+      });
+    }
+
     function maniBrandOptions() {
       const select = document.getElementById('mani-brand');
       if (!select) return;
