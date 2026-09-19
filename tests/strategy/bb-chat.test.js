@@ -19,6 +19,10 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
   check("BB can still brainstorm when memory is silent", /recommendation or new idea/.test(system), system);
   check("BB is distinct from Mani", /Do not pretend to be Mani/.test(system), system);
   check("BB is told it can research current information on the web", /search the live web/.test(system), system);
+  // The brevity guidance is for unsolicited chatter, not for an explicit list/status request —
+  // a real gap where a "what's due for each team" question got answered for only a handful of
+  // people even though the Hub-wide task board memory had everyone in it.
+  check("brevity guidance is scoped to unsolicited length, not to withholding an explicit list/status answer", /when the team explicitly asks for a status, a list or a rundown/.test(system), system);
 
   // No speaker identity at all — this is the exact gap that let BB confidently invent an
   // identity for whoever was texting from a phone number Hub couldn't verify.
