@@ -70,7 +70,12 @@ export default async function (request) {
     // backed this actor name (see resolveVisualActor in strategy-bb-chat.js) — the same
     // distinction WhatsApp draws between a Hub-verified name and a self-reported one.
     const speaker = turn.actor ? { name: turn.actor, verified: Boolean(turn.actorVerified) } : null;
-    const result = await askBB({ brandName: global ? "Loona Hub" : ((brand && brand.name) || brandId), message: turn.text, memory, history, attachments: visionAttachments.filter(Boolean), speaker, houseRules });
+    // Task-board and calendar actions apply to every Hub conversation, not just the global
+    // one: a task or a meeting can belong to any brand, and the team may ask BB to add/edit one
+    // from inside a brand-specific thread just as easily as from the global one. (Both are also
+    // on for WhatsApp — see whatsapp-bb-reply-background.mjs — since resolveSpeaker() there
+    // verifies against the same Hub roster this speaker.verified check does.)
+    const result = await askBB({ brandName: global ? "Loona Hub" : ((brand && brand.name) || brandId), message: turn.text, memory, history, attachments: visionAttachments.filter(Boolean), speaker, houseRules, taskActions: true, calendarActions: true });
     await fbPush(path, { role: "assistant", text: result.answer, actor: "BB Loona", createdAt: new Date().toISOString(), replyTo: messageId });
     await fbUpdate(messagePath, { status: "answered", error: null });
     await recordBBUsage(turn, brandId, "succeeded", result.provider || "Anthropic", result.model);

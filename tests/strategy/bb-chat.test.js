@@ -3,7 +3,7 @@
 
 const path = require("path");
 const { HUB, check, finish } = require("../harness/shared");
-const { askBB, instructions, cleanHistory, attachmentBlocks, extractMemoryNote, extractMemoryNoteSafe, MAX_HISTORY_MESSAGES } = require(path.join(HUB, "netlify/functions/lib/strategy/bb-chat"));
+const { askBB, instructions, cleanHistory, attachmentBlocks, extractMemoryNote, extractMemoryNoteSafe, MAX_HISTORY_MESSAGES, MAX_TOOL_ITERATIONS } = require(path.join(HUB, "netlify/functions/lib/strategy/bb-chat"));
 
 function fakeClient(log, reply = "That is a new recommendation, not something recorded about the brand.") {
   return { messages: { create: async (params) => {
@@ -78,6 +78,39 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
     rules: meeting.indexOf("Standing instructions from the team"), meeting: meeting.indexOf("Heyyy Aarushi"),
   });
   check("no introduction means no first-meeting section at all", !/meeting this person for the first time/i.test(withoutRules), withoutRules.slice(-200));
+
+  // Task-board actions are opt-in per call (Hub only — see strategy-bb-chat-background.mjs vs
+  // whatsapp-bb-reply-background.mjs) and, like the introduction, sit dead last — even after
+  // it — since a wrong write is visible to the whole team, not just a slightly-off greeting.
+  const withActions = instructions({ brandName: "Loona Hub", memory: null, taskActions: true });
+  check("task-board actions are described when enabled", /Acting on Loona Hub's task board/.test(withActions), withActions.slice(-400));
+  check("BB is told to confirm before writing anything, every time", /say back exactly what you are about to do.*and wait/s.test(withActions), withActions);
+  check("BB is told never to call the write tools on the same message that proposes the change", /never call create_task or update_task on the message where you first propose it/i.test(withActions) || /Do not call create_task or update_task on the message where you first propose it/.test(withActions), withActions);
+  check("BB is told what to say if asked what she can do here", /If anyone asks what you can do on the task board/.test(withActions), withActions);
+  check("that answer states plainly that Hub's own approval rules still apply, unskipped", /still goes to the right person for sign-off/.test(withActions) && /you never skip that/.test(withActions), withActions);
+  check("no taskActions means no such section", !/Acting on Loona Hub's task board/.test(instructions({ brandName: "Loona Hub", memory: null })), "");
+  const withBoth = instructions({
+    brandName: "Loona Hub", memory: null, taskActions: true,
+    introduction: "# You are meeting this person for the first time\nHeyyy Aarushi 👋",
+  });
+  check("task-board actions are positioned after even the first-meeting introduction", withBoth.indexOf("Acting on Loona Hub's task board") > withBoth.indexOf("Heyyy Aarushi"), {
+    intro: withBoth.indexOf("Heyyy Aarushi"), actions: withBoth.indexOf("Acting on Loona Hub's task board"),
+  });
+
+  // Scheduling sends a real Calendar invite to real inboxes — even higher stakes than a
+  // task-board write, so it sits last of everything, after even the task-actions block.
+  const withCalendar = instructions({ brandName: "Loona Hub", memory: null, calendarActions: true });
+  check("calendar actions are described when enabled", /Scheduling meetings on Loona Hub's calendar/.test(withCalendar), withCalendar.slice(-600));
+  check("BB is told she is always booked as the real organizer, never someone else", /never as someone else, and you never ask who to book it under/.test(withCalendar), withCalendar);
+  check("BB is told a plain meeting invite is real, not a draft", /this is not a draft or a preview/i.test(withCalendar), withCalendar);
+  check("BB is told to confirm before booking or changing anything", /say back exactly what you are about to do.*and wait/s.test(withCalendar), withCalendar);
+  check("BB is told an omitted field on an edit keeps what's already on the calendar", /the tool never blanks out the time, the attendee list or anything else/.test(withCalendar), withCalendar);
+  check("BB is told only the organizer or Gokul may edit a meeting", /Only the meeting's own organizer or Gokul may reschedule or edit it/.test(withCalendar), withCalendar);
+  check("no calendarActions means no such section", !/Scheduling meetings on Loona Hub's calendar/.test(instructions({ brandName: "Loona Hub", memory: null })), "");
+  const withTaskAndCalendar = instructions({ brandName: "Loona Hub", memory: null, taskActions: true, calendarActions: true });
+  check("calendar actions are positioned after even the task-actions block", withTaskAndCalendar.indexOf("Scheduling meetings on Loona Hub's calendar") > withTaskAndCalendar.indexOf("Acting on Loona Hub's task board"), {
+    tasks: withTaskAndCalendar.indexOf("Acting on Loona Hub's task board"), calendar: withTaskAndCalendar.indexOf("Scheduling meetings on Loona Hub's calendar"),
+  });
 
   const history = Array.from({ length: MAX_HISTORY_MESSAGES + 5 }, (_, index) => ({
     role: index % 2 ? "assistant" : "user", text: `turn ${index}`,
@@ -176,6 +209,95 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
 
   const emptyMessageNote = await extractMemoryNote({ userMessage: "", bbAnswer: "..." }, { client: fakeClient([]) });
   check("there is nothing to extract from an empty message", emptyMessageNote === null, emptyMessageNote);
+
+  // ---- The task-action tool-use loop, only entered when taskActions is on ----
+  function sequencedClient(log, responses) {
+    let i = 0;
+    return { messages: { create: async (params) => { log.push(params); const r = responses[Math.min(i, responses.length - 1)]; i += 1; return r; } } };
+  }
+
+  const findLog = [];
+  const findResult = await askBB({
+    brandName: "Loona Hub", message: "What does Anjali have open right now?", memory: null, taskActions: true,
+  }, {
+    client: sequencedClient(findLog, [
+      { stop_reason: "tool_use", content: [{ type: "tool_use", id: "tu1", name: "find_tasks", input: { member: "Anjali" } }] },
+      { stop_reason: "end_turn", content: [{ type: "text", text: "Anjali has one open task: the Diwali reel." }] },
+    ]),
+    fbGet: async (path) => (path === "tasks" ? { t1: { task: "Shoot the Diwali reel", member: "Anjali", status: "Not Started" } } : null),
+  });
+  check("BB answers using what the tool actually found", /Diwali reel/.test(findResult.answer), findResult.answer);
+  check("a read-only lookup takes exactly one extra model round trip", findLog.length === 2, findLog.length);
+  check("the tool result handed back to BB actually contains what find_tasks found", /Diwali reel/.test(JSON.stringify(findLog[1].messages)), findLog[1].messages);
+
+  const noActionsLog = [];
+  await askBB({ brandName: "RRO Foods", message: "What does Anjali have open?", memory: null }, { client: fakeClient(noActionsLog) });
+  check("without taskActions, BB is never even given the task-writing tools", !noActionsLog[0].tools.some((tool) => tool.name === "create_task"), noActionsLog[0].tools);
+
+  // A write proposed and executed in the SAME turn must be refused — confirmation has to come
+  // in the team's own next message, not be inferred from BB's own proposal.
+  let pushCalled = false;
+  const proposeLog = [];
+  const proposeResult = await askBB({
+    brandName: "Loona Hub", message: "Add a task for Anjali to shoot the Diwali reel.", memory: null, taskActions: true,
+  }, {
+    client: sequencedClient(proposeLog, [
+      { stop_reason: "tool_use", content: [{ type: "tool_use", id: "tu2", name: "create_task", input: { member: "Anjali", task: "Shoot the Diwali reel" } }] },
+      { stop_reason: "end_turn", content: [{ type: "text", text: "Here's what I'll add — say the word and I'll create it." }] },
+    ]),
+    fbPush: async () => { pushCalled = true; return "should-not-happen"; },
+  });
+  check("BB is told to describe the plan instead of having silently written it", /say the word/.test(proposeResult.answer), proposeResult.answer);
+  check("nothing was actually written to the board on the proposing turn", !pushCalled, pushCalled);
+  check("the blocked tool call told BB it needed confirmation first", /needsConfirmation/.test(JSON.stringify(proposeLog[1].messages)), proposeLog[1].messages);
+
+  // The confirming turn itself, on the other hand, must go through.
+  let pushedRecord = null;
+  const confirmLog = [];
+  await askBB({
+    brandName: "Loona Hub", message: "Yes, go ahead and add it.", memory: null, taskActions: true, speaker: { name: "Ankita", verified: true },
+  }, {
+    client: sequencedClient(confirmLog, [
+      { stop_reason: "tool_use", content: [{ type: "tool_use", id: "tu3", name: "create_task", input: { member: "Anjali", task: "Shoot the Diwali reel" } }] },
+      { stop_reason: "end_turn", content: [{ type: "text", text: "Done — added for Anjali." }] },
+    ]),
+    fbPush: async (writePath, value) => { pushedRecord = { writePath, value }; return "newkey"; },
+  });
+  check("a genuinely confirmed turn actually writes the task", pushedRecord && pushedRecord.writePath === "tasks", pushedRecord);
+  check("the write is attributed to whoever actually confirmed it", pushedRecord && /Ankita/.test(pushedRecord.value.created_by), pushedRecord && pushedRecord.value);
+
+  // A model that keeps calling tools forever must not turn one chat message into an unbounded
+  // number of Anthropic calls, and must still end with something to actually show the team.
+  const runawayResponses = Array.from({ length: MAX_TOOL_ITERATIONS + 1 }, (_, index) => (
+    { stop_reason: "tool_use", content: [{ type: "tool_use", id: `loop${index}`, name: "find_tasks", input: {} }] }
+  ));
+  runawayResponses.push({ stop_reason: "end_turn", content: [{ type: "text", text: "Here is what I have so far." }] });
+  const runawayLog = [];
+  const runawayResult = await askBB({
+    brandName: "Loona Hub", message: "Keep checking the board.", memory: null, taskActions: true,
+  }, { client: sequencedClient(runawayLog, runawayResponses), fbGet: async () => ({}) });
+  check("the loop is capped rather than running forever", runawayLog.length === MAX_TOOL_ITERATIONS + 2, runawayLog.length);
+  check("the forced final call carries no tools, so it cannot just keep calling more", Array.isArray(runawayLog[runawayLog.length - 1].tools) && runawayLog[runawayLog.length - 1].tools.length === 0, runawayLog[runawayLog.length - 1].tools);
+  check("BB still returns real text to the team rather than nothing at all", /what I have so far/.test(runawayResult.answer), runawayResult.answer);
+
+  // ---- Task tools and calendar tools can both be live in the same turn, correctly routed ----
+  const bothToolsLog = [];
+  let calendarDepsUsed = null;
+  const bothToolsResult = await askBB({
+    brandName: "Loona Hub", message: "What's on the calendar for Rahul?", memory: null, taskActions: true, calendarActions: true,
+  }, {
+    client: sequencedClient(bothToolsLog, [
+      { stop_reason: "tool_use", content: [{ type: "tool_use", id: "tu4", name: "find_meetings", input: { member: "Rahul" } }] },
+      { stop_reason: "end_turn", content: [{ type: "text", text: "Rahul has the Diwali shoot planning call on his calendar." }] },
+    ]),
+    fbGet: async (path) => {
+      calendarDepsUsed = path;
+      return path === "calendarEvents" ? { e1: { title: "Diwali shoot planning", knownAttendees: ["Rahul"] } } : null;
+    },
+  });
+  check("both TASK_ACTION_TOOLS and CALENDAR_ACTION_TOOLS are offered to the model in the same turn", bothToolsLog[0].tools.some((t) => t.name === "create_task") && bothToolsLog[0].tools.some((t) => t.name === "schedule_meeting"), bothToolsLog[0].tools.map((t) => t.name));
+  check("a calendar tool call is correctly routed to the calendar executor, not the task one", calendarDepsUsed === "calendarEvents", calendarDepsUsed);
+  check("BB answers using what find_meetings actually found", /Diwali shoot planning/.test(bothToolsResult.answer), bothToolsResult.answer);
 
   finish();
 })().catch((error) => { console.error("FATAL:", error, error.stack); process.exit(1); });

@@ -278,6 +278,10 @@ const DOCUMENT_PAYLOAD = (from, { caption, id = "wamid.doc1" } = {}) => JSON.str
   const handlerSource = fs.readFileSync(path.join(HUB, "netlify/functions/whatsapp-bb-reply-background.mjs"), "utf8");
   check("the handler threads the introduction into askBB", /askBB\(\{[^}]*introduction[^}]*\}\)/.test(handlerSource), handlerSource.match(/askBB\(\{[^}]*\}\)/));
   check("the introduction is only built when BB has not met them", /alreadyMet \? null : introductionPromptText/.test(handlerSource));
+  // Task-board actions now reach BB on WhatsApp, not just Hub — resolveSpeaker() verifies
+  // against the same Hub roster a Hub login does, so a WhatsApp confirmation is just as
+  // trustworthy. Guards against this quietly regressing back to Hub-only.
+  check("the handler turns on task-board actions for WhatsApp too", /askBB\(\{[^}]*taskActions: true[^}]*\}\)/.test(handlerSource), handlerSource.match(/askBB\(\{[^}]*\}\)/));
   // Recording the meeting before the message is sent would silently cost that person the
   // only first greeting they ever get.
   check("the meeting is recorded only after the reply has actually been sent",
