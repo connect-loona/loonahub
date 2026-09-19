@@ -94,7 +94,7 @@ export default async function (request) {
       .slice(-MAX_HISTORY_MESSAGES);
     const [globalBrain, houseRules] = await Promise.all([
       loadGlobalBrain(),
-      loadHouseRulesText().catch((error) => { console.error("Could not load BB's house rules:", error.message); return null; }),
+      loadHouseRulesText("whatsapp").catch((error) => { console.error("Could not load BB's house rules:", error.message); return null; }),
     ]);
     const memory = [GLOBAL_MEMORY_NOTE, globalBrain].filter(Boolean).join("\n\n");
     const result = await askBB({ brandName: "Loona Hub", message: text, memory, history, attachments: [], speaker, houseRules });

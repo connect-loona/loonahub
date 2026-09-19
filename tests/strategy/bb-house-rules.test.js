@@ -1,28 +1,45 @@
-// Standing behavioural rules the team has taught BB — how she introduces herself, adjusts her
-// tone for a person, etc. Distinct from Mani's brand memory: this list is Hub-wide (one voice
-// for BB everywhere), not per-brand, and is meant to be read as instructions, not evidence.
+// Standing behavioural rules the team has taught BB — how she introduces herself, addresses
+// people, adjusts her tone. Distinct from Mani's brand memory: this list is Hub-wide (one BB
+// personality, not one per brand), and some rules apply everywhere while others are scoped to
+// one surface (WhatsApp vs a Strategy OS session on Hub), since it's legitimate for BB to sound
+// more casual in one than the other.
 "use strict";
 process.env.FIREBASE_DB_URL = require("../harness/shared").RTDB_URL;
 const path = require("path");
 const { HUB, RTDB_URL, req, check, finish } = require("../harness/shared");
-const { loadHouseRulesText, saveHouseRuleSafe } = require(path.join(HUB, "netlify/functions/lib/strategy/bb-house-rules"));
+const { loadHouseRulesText, saveHouseRuleSafe, DEFAULT_HOUSE_RULES } = require(path.join(HUB, "netlify/functions/lib/strategy/bb-house-rules"));
 
 (async () => {
   await req("PUT", `${RTDB_URL}/bb_house_rules.json`, null);
 
-  const empty = await loadHouseRulesText();
-  check("no house rules yields null rather than an empty heading", empty === null, empty);
+  // The shipped defaults are always present, even with nothing taught yet — the team
+  // shouldn't have to re-teach BB the same three rules after every fresh deploy.
+  const whatsappDefault = await loadHouseRulesText("whatsapp");
+  check("with nothing taught, WhatsApp still gets the default rules", /Hi G.*Gokul|address them by their first name/.test(whatsappDefault || ""), whatsappDefault);
+  check("the WhatsApp-scoped default (quirky/casual) is included on the whatsapp channel", /quirky, casual and playful/.test(whatsappDefault || ""), whatsappDefault);
+  check("the Hub-scoped default (formal) is NOT included on the whatsapp channel", !/more formal and professional/.test(whatsappDefault || ""), whatsappDefault);
 
+  const hubDefault = await loadHouseRulesText("hub");
+  check("the Hub-scoped default (formal) is included on the hub channel", /more formal and professional/.test(hubDefault || ""), hubDefault);
+  check("the WhatsApp-scoped default (quirky/casual) is NOT included on the hub channel", !/quirky, casual and playful/.test(hubDefault || ""), hubDefault);
+  check("the universal naming default is included on the hub channel too", /address them by their first name/.test(hubDefault || ""), hubDefault);
+
+  check("DEFAULT_HOUSE_RULES is exported and non-empty", Array.isArray(DEFAULT_HOUSE_RULES) && DEFAULT_HOUSE_RULES.length >= 3, DEFAULT_HOUSE_RULES.length);
+
+  // ---- Rules taught through conversation layer on top of the defaults ----
   await saveHouseRuleSafe("When Chinmay asks who you are, add a bit more edge and banter.", "Gokul");
-  await saveHouseRuleSafe("Keep it professional but warm with someone you haven't spoken to before.", "Gokul");
+  const withTaught = await loadHouseRulesText("whatsapp");
+  check("a taught rule with no channel is included on every surface", /Chinmay/.test(withTaught || ""), withTaught);
+  const withTaughtOnHub = await loadHouseRulesText("hub");
+  check("an unscoped taught rule also reaches the Hub channel", /Chinmay/.test(withTaughtOnHub || ""), withTaughtOnHub);
 
-  const text = await loadHouseRulesText();
-  check("a saved rule is included", /Chinmay/.test(text || ""), text);
-  check("multiple rules are all included", /professional but warm/.test(text || ""), text);
-  check("rules render as a plain list, not prose", /^- /m.test(text || ""), text);
+  await saveHouseRuleSafe("Sign off with a paw print emoji.", "Gokul", "whatsapp");
+  const scopedWhatsapp = await loadHouseRulesText("whatsapp");
+  const scopedHub = await loadHouseRulesText("hub");
+  check("a rule taught with an explicit channel only applies there", /paw print/.test(scopedWhatsapp || "") && !/paw print/.test(scopedHub || ""), { scopedWhatsapp, scopedHub });
 
   await saveHouseRuleSafe("   ", "Gokul");
-  const afterBlank = await loadHouseRulesText();
+  const afterBlank = await loadHouseRulesText("whatsapp");
   check("a blank rule is never saved", !/^\s*-\s*$/m.test(afterBlank || ""), afterBlank);
 
   await req("PUT", `${RTDB_URL}/bb_house_rules.json`, null);

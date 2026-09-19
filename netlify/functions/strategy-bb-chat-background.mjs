@@ -59,7 +59,7 @@ export default async function (request) {
     const global = body.scope === "global"; const brand = global ? null : await findHubBrand(brandId);
     const [brainText, houseRules] = await Promise.all([
       global ? loadGlobalBrain() : loadBrandBrain(brandId, brand && brand.name),
-      loadHouseRulesText().catch((error) => { console.error("Could not load BB's house rules:", error.message); return null; }),
+      loadHouseRulesText("hub").catch((error) => { console.error("Could not load BB's house rules:", error.message); return null; }),
     ]);
     const memory = global ? [GLOBAL_SCOPE_NOTE, brainText].filter(Boolean).join("\n\n") : brainText;
     // turn.actorVerified reflects whether a Firebase-authenticated Hub session actually
