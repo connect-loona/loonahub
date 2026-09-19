@@ -112,6 +112,12 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
   check("BB is told a failed task write must never be reported as done", /the write FAILED — nothing was created or changed/.test(withActions), withActions);
   check("BB is told to relay the actual error rather than assuming it worked", /Never say "done" or describe it as created\/updated when the result says otherwise/.test(withActions), withActions);
   check("BB is told to mention a partial-failure warning too", /a warnings list, mention what it says too/.test(withActions), withActions);
+  // A real product ask: BB creating a task should gather the same fields Hub's own Add Task
+  // form requires, instead of creating something half-filled.
+  check("BB is told to gather every Add Task field before proposing a task, asking for what's missing", /make sure you actually have every field Hub's own Add Task form asks for/.test(withActions), withActions);
+  check("BB is told to use Loona for internal, non-personal work rather than leaving brand blank", /plain internal\/Loona work if it isn't personal and isn't tied to any client brand/.test(withActions), withActions);
+  check("BB is told to ask about looping someone in rather than assuming no", /that's a genuine question to ask, not a default no/.test(withActions), withActions);
+  check("BB is told assigned_by defaults to the real asker, not a literal \"BB\"", /assigned_by defaults to whoever is asking you to create the task/.test(withActions) && /"Myself" when they're assigning it to their own name/.test(withActions), withActions);
   check("no taskActions means no such section", !/Acting on Loona Hub's task board/.test(instructions({ brandName: "Loona Hub", memory: null })), "");
   const withBoth = instructions({
     brandName: "Loona Hub", memory: null, taskActions: true,
@@ -132,6 +138,11 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
   // Same production report, on the calendar side: a failed booking must never be reported as
   // scheduled just because BB was confident it would work.
   check("BB is told a failed booking must never be reported as scheduled", /the booking FAILED — no invite went out and nothing changed on the calendar/.test(withCalendar), withCalendar);
+  // A real product ask: an internal meeting was landing with an empty brand column, and BB
+  // wasn't checking attendees' calendars before proposing a time.
+  check("BB is told to always set a brand, using Loona for internal meetings", /Always set a brand for a meeting/.test(withCalendar) && /use "Loona" rather than leaving it blank/.test(withCalendar), withCalendar);
+  check("BB is told to check each attendee's calendar for a clash before proposing a time", /call find_meetings for each attendee you're about to invite.*with member, date, start_time and end_time/s.test(withCalendar), withCalendar);
+  check("BB is told to mention a conflict plainly before asking for confirmation", /say so plainly in your proposal/.test(withCalendar), withCalendar);
   check("BB is told to relay the actual booking error rather than assuming it worked", /rather than saying it's booked or scheduled/.test(withCalendar), withCalendar);
   check("BB is told to mention a booking warning too", /the meeting itself may have gone out even though something else about it/.test(withCalendar), withCalendar);
   check("BB is told only the organizer or Gokul may edit a meeting", /Only the meeting's own organizer or Gokul may reschedule or edit it/.test(withCalendar), withCalendar);

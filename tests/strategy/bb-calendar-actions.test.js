@@ -52,7 +52,7 @@ const MEMBERS = { m1: { name: "Ankita", email: "ankita@loona.in" }, m2: { name: 
   // ---- Tool schemas ----
   check("exactly the three intended tools are exposed", CALENDAR_ACTION_TOOLS.map((t) => t.name).join() === "find_meetings,schedule_meeting,update_meeting", CALENDAR_ACTION_TOOLS.map((t) => t.name));
   check("no tool exposes a model-settable organizer/creator/requester field — that identity is never taken from the model", !CALENDAR_ACTION_TOOLS.some((t) => Object.keys(t.input_schema.properties).some((k) => /organiz|creator|requester/i.test(k))), CALENDAR_ACTION_TOOLS.map((t) => Object.keys(t.input_schema.properties)));
-  check("schedule_meeting requires the essentials", JSON.stringify(CALENDAR_ACTION_TOOLS.find((t) => t.name === "schedule_meeting").input_schema.required) === '["title","date","start_time","end_time"]');
+  check("schedule_meeting requires the essentials, including a brand so the brand column is never left empty", JSON.stringify(CALENDAR_ACTION_TOOLS.find((t) => t.name === "schedule_meeting").input_schema.required) === '["title","date","start_time","end_time","brand"]');
   check("update_meeting requires only the event_key — everything else is optional, on purpose", JSON.stringify(CALENDAR_ACTION_TOOLS.find((t) => t.name === "update_meeting").input_schema.required) === '["event_key"]');
 
   // ---- The confirmation gate is shared verbatim with the task-actions one ----
@@ -120,6 +120,37 @@ const MEMBERS = { m1: { name: "Ankita", email: "ankita@loona.in" }, m2: { name: 
       await executeCalendarAction("update_meeting", { event_key: "e3", start_time: "10:00", end_time: "10:30" }, { confirmed: true, speakerName: "Rahul" }, { fbGet: store.fbGet, fbPatch: store.fbPatch, fetchImpl, serviceAccount: SERVICE_ACCOUNT });
     } catch (error) { refusalError = error.message; }
     check("a non-organizer, non-Gokul edit throws rather than silently applying", /can edit this meeting/.test(refusalError || ""), refusalError);
+  }
+
+  // ---- A conflict for an invited attendee is surfaced in the result, computed server-side
+  // rather than left for BB to eyeball two lists of times against each other ----
+  {
+    const store = makeStore({
+      members: MEMBERS,
+      calendarEvents: {
+        existing: { title: "Client review", start: "2026-10-05T10:00:00+05:30", end: "2026-10-05T10:30:00+05:30", knownAttendees: ["Rahul"] },
+      },
+    });
+    const { fetchImpl } = makeFetch({ insertResponse: { id: "g4", iCalUID: "uid4@google.com", summary: "New sync" } });
+    const result = await executeCalendarAction(
+      "schedule_meeting",
+      { title: "New sync", date: "2026-10-05", start_time: "10:15", end_time: "10:45", attendees: ["Rahul"], brand: "Loona" },
+      { confirmed: true, speakerName: "Ankita" },
+      { fbGet: store.fbGet, fbPatch: store.fbPatch, fetchImpl, serviceAccount: SERVICE_ACCOUNT },
+    );
+    check("the booking still succeeds even with a conflict — this informs, it never blocks", result.ok === true && result.meeting.success === true, result);
+    check("the clash with Rahul's existing meeting is surfaced in the result", Array.isArray(result.meeting.conflicts) && result.meeting.conflicts.some((c) => c.attendee === "Rahul" && c.title === "Client review"), result.meeting);
+  }
+  {
+    const store = makeStore({ members: MEMBERS, calendarEvents: {} });
+    const { fetchImpl } = makeFetch({ insertResponse: { id: "g5", iCalUID: "uid5@google.com", summary: "Clean slot" } });
+    const result = await executeCalendarAction(
+      "schedule_meeting",
+      { title: "Clean slot", date: "2026-10-05", start_time: "14:00", end_time: "14:30", attendees: ["Rahul"], brand: "Loona" },
+      { confirmed: true, speakerName: "Ankita" },
+      { fbGet: store.fbGet, fbPatch: store.fbPatch, fetchImpl, serviceAccount: SERVICE_ACCOUNT },
+    );
+    check("no conflicts field is added when nothing actually clashes", result.meeting.conflicts === undefined, result.meeting);
   }
 
   // ---- An unrecognised tool name is a bug, not silently ignored ----

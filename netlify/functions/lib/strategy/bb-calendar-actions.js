@@ -9,29 +9,33 @@
 // A model that hallucinated or was talked into a different "creatorName" could otherwise send a
 // real invite as someone else entirely; this file never gives it the chance to try.
 "use strict";
-const { createMeeting, updateMeeting, findMeetings } = require("../calendar-actions");
+const { createMeeting, updateMeeting, findMeetings, timeRangesOverlap } = require("../calendar-actions");
 const { looksLikeConfirmation } = require("./bb-task-actions");
 
 const EVENT_KINDS = ["meeting", "physical_meeting", "shoot"];
 const MAX_FIND_RESULTS = 20;
 
+function normName(value) { return String(value || "").trim().toLowerCase(); }
+
 const CALENDAR_ACTION_TOOLS = [
   {
     name: "find_meetings",
-    description: "Search Loona Hub's calendar. Read-only — use it to look up a meeting's event_key before rescheduling it, or to check what's already on the calendar before booking something that might clash.",
+    description: "Search Loona Hub's calendar. Read-only — use it to look up a meeting's event_key before rescheduling it, to check what's already on the calendar before booking something that might clash, or — pass member, date, start_time and end_time all together — to check one specific person's exact proposed slot for a conflict before you ever propose it, rather than eyeballing a list of times yourself.",
     input_schema: {
       type: "object",
       properties: {
         member: { type: "string", description: "Filter to meetings this person is attending (or organizing), by first name." },
         brand: { type: "string", description: "Filter to meetings tagged with this brand." },
         date: { type: "string", description: "YYYY-MM-DD — filter to meetings on this exact date." },
+        start_time: { type: "string", description: "HH:MM, 24-hour, IST. Combine with date, end_time and member to check whether that person already has something booked in that exact window." },
+        end_time: { type: "string", description: "HH:MM, 24-hour, IST." },
         query: { type: "string", description: "Filter to meetings whose title contains this text." },
       },
     },
   },
   {
     name: "schedule_meeting",
-    description: "Put a new meeting on Loona Hub's calendar. This sends a REAL Google Calendar invite to everyone on it, and for a plain video meeting (the default) generates a Meet link automatically. You are always booked as the organizer yourself — never ask who to book it as, it is always whoever is talking to you right now. Only call this after you have already told the team exactly what you are about to book — title, date, time, who's on it — and they have explicitly confirmed it in their NEXT message, never on the message that first proposes it.",
+    description: "Put a new meeting on Loona Hub's calendar. This sends a REAL Google Calendar invite to everyone on it, and for a plain video meeting (the default) generates a Meet link automatically. You are always booked as the organizer yourself — never ask who to book it as, it is always whoever is talking to you right now. Only call this after you have already told the team exactly what you are about to book — title, date, time, who's on it, the brand — and they have explicitly confirmed it in their NEXT message, never on the message that first proposes it.",
     input_schema: {
       type: "object",
       properties: {
@@ -41,12 +45,12 @@ const CALENDAR_ACTION_TOOLS = [
         end_time: { type: "string", description: "HH:MM, 24-hour, IST." },
         attendees: { type: "array", items: { type: "string" }, description: "Hub teammates to invite, by first name, exactly as they appear in Hub's team directory." },
         guest_emails: { type: "array", items: { type: "string" }, description: "Raw email addresses for anyone outside Loona to invite." },
-        brand: { type: "string", description: "The brand this meeting is for, if any." },
+        brand: { type: "string", description: "The brand this meeting is for. Always set this — ask which brand it's for if it isn't obvious from the conversation. For an internal Loona meeting not tied to any specific client brand, use \"Loona\" rather than leaving it blank." },
         description: { type: "string" },
         location: { type: "string", description: "Required for a physical_meeting or a shoot — where it's actually happening." },
         event_kind: { type: "string", enum: EVENT_KINDS, description: "Defaults to \"meeting\" (a video call — gets an automatic Meet link). Use physical_meeting or shoot for something in person — neither gets a Meet link, so set location instead." },
       },
-      required: ["title", "date", "start_time", "end_time"],
+      required: ["title", "date", "start_time", "end_time", "brand"],
     },
   },
   {
@@ -77,9 +81,30 @@ async function findMeetingsAction(input, deps) {
   return results.slice(0, MAX_FIND_RESULTS);
 }
 
+// A second, code-computed guardrail on top of BB being told to call find_meetings herself before
+// proposing a time: even if she skips that, or the proposal changes mid-conversation, the booking
+// itself never goes through without this being checked against whoever is actually being invited —
+// so a stale or forgotten mental note never turns into a false "you're both free" claim.
+async function findAttendeeConflicts(names, date, startTime, endTime, deps) {
+  if (!date || !startTime || !endTime) return [];
+  let dayEvents;
+  try { dayEvents = await findMeetings({ date }, deps); } catch { return []; }
+  const conflicts = [];
+  const seen = new Set(names.map(normName));
+  for (const ev of dayEvents) {
+    if (!timeRangesOverlap(ev, date, startTime, endTime)) continue;
+    (ev.attendees || []).forEach((attendee) => {
+      if (!seen.has(normName(attendee))) return;
+      conflicts.push({ attendee, title: ev.title, start: ev.start, end: ev.end });
+    });
+  }
+  return conflicts;
+}
+
 async function scheduleMeetingAction(input, ctx, deps) {
   const organizer = ctx.speakerName;
   if (!organizer) throw new Error("I don't have a confirmed identity for whoever I'm talking to, so I can't book this as a real organizer — ask them to try again once Hub/WhatsApp can verify who they are.");
+  const conflicts = await findAttendeeConflicts([organizer, ...(input.attendees || [])], input.date, input.start_time, input.end_time, deps);
   const result = await createMeeting({
     creatorName: organizer,
     title: input.title,
@@ -93,7 +118,7 @@ async function scheduleMeetingAction(input, ctx, deps) {
     location: input.location,
     eventKind: input.event_kind,
   }, deps);
-  return result;
+  return conflicts.length ? { ...result, conflicts } : result;
 }
 
 async function updateMeetingAction(input, ctx, deps) {
@@ -132,4 +157,4 @@ async function executeCalendarAction(name, input, ctx = {}, deps = {}) {
   throw new Error(`Unknown calendar action tool "${name}".`);
 }
 
-module.exports = { CALENDAR_ACTION_TOOLS, executeCalendarAction, findMeetingsAction, scheduleMeetingAction, updateMeetingAction, looksLikeConfirmation };
+module.exports = { CALENDAR_ACTION_TOOLS, executeCalendarAction, findMeetingsAction, scheduleMeetingAction, updateMeetingAction, findAttendeeConflicts, looksLikeConfirmation };

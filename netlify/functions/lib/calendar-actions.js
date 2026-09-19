@@ -385,20 +385,37 @@ async function updateMeeting(params, deps = {}) {
   return { success: true, tasksUpdated, callLink: existing.callLink || "", htmlLink: existing.htmlLink || "", unresolvedAttendees };
 }
 
+// True when [startTime,endTime) on `date` actually overlaps the event's own start/end — plain
+// HH:MM string comparison is safe here because both sides are always zero-padded 24-hour IST
+// and already confirmed to be the same calendar date.
+function timeRangesOverlap(ev, date, startTime, endTime) {
+  if (String(ev.start || "").slice(0, 10) !== date) return false;
+  const evStart = String(ev.start || "").slice(11, 16);
+  const evEnd = String(ev.end || "").slice(11, 16);
+  if (!evStart || !evEnd) return false;
+  return startTime < evEnd && evStart < endTime;
+}
+
 // Read-only lookup, shared by the Calendar tab's own search and BB's find_meetings tool.
-async function findMeetings({ member, brand, date, query } = {}, deps = {}) {
+// Passing start_time/end_time alongside date is what lets a caller check one exact proposed
+// slot for a clash — computed here, rather than left to whoever's reading the results to eyeball
+// two lists of times against each other.
+async function findMeetings({ member, brand, date, query, start_time, end_time } = {}, deps = {}) {
   const get = deps.fbGet || fbGet;
   const events = (await get("calendarEvents")) || {};
   const wantedMember = member ? normName(member) : null;
   const wantedBrand = brand ? String(brand).trim().toLowerCase() : null;
   const wantedDate = date ? String(date).trim() : null;
   const wantedQuery = query ? String(query).trim().toLowerCase() : null;
+  const wantedStart = start_time ? String(start_time).trim() : null;
+  const wantedEnd = end_time ? String(end_time).trim() : null;
   const results = [];
   for (const [eventKey, ev] of Object.entries(events)) {
     if (!ev) continue;
     if (wantedMember && !(ev.knownAttendees || []).some((name) => normName(name) === wantedMember)) continue;
     if (wantedBrand && String(ev.brand || "").trim().toLowerCase() !== wantedBrand) continue;
     if (wantedDate && String(ev.start || "").slice(0, 10) !== wantedDate) continue;
+    if (wantedDate && wantedStart && wantedEnd && !timeRangesOverlap(ev, wantedDate, wantedStart, wantedEnd)) continue;
     if (wantedQuery && !String(ev.title || "").toLowerCase().includes(wantedQuery)) continue;
     results.push({
       eventKey, title: ev.title || null, start: ev.start || null, end: ev.end || null,
@@ -410,4 +427,4 @@ async function findMeetings({ member, brand, date, query } = {}, deps = {}) {
   return results;
 }
 
-module.exports = { createMeeting, updateMeeting, findMeetings, KIND_LABEL, KIND_EMOJI };
+module.exports = { createMeeting, updateMeeting, findMeetings, timeRangesOverlap, KIND_LABEL, KIND_EMOJI };
