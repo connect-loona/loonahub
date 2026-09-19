@@ -10,7 +10,7 @@ const path = require("path");
 const { HUB, RTDB_URL, req, check, finish } = require("../harness/shared");
 const {
   TASK_ACTION_TOOLS, executeTaskAction, findTasks, createTask, updateTask, looksLikeConfirmation,
-  VALID_STATUSES, VALID_PRIORITIES,
+  resolveAssignedBy, VALID_STATUSES, VALID_PRIORITIES,
 } = require(path.join(HUB, "netlify/functions/lib/strategy/bb-task-actions"));
 
 (async () => {
@@ -29,6 +29,8 @@ const {
   check("exactly the three intended tools are exposed", TASK_ACTION_TOOLS.map((t) => t.name).join() === "find_tasks,create_task,update_task", TASK_ACTION_TOOLS.map((t) => t.name));
   check("create_task requires a member and a task", JSON.stringify(TASK_ACTION_TOOLS.find((t) => t.name === "create_task").input_schema.required) === '["member","task"]');
   check("update_task requires a task_id", TASK_ACTION_TOOLS.find((t) => t.name === "update_task").input_schema.required.includes("task_id"));
+  check("create_task exposes due_time, overseers and assigned_by, matching Hub's own Add Task form", ["due_time", "overseers", "assigned_by"].every((k) => k in TASK_ACTION_TOOLS.find((t) => t.name === "create_task").input_schema.properties), TASK_ACTION_TOOLS.find((t) => t.name === "create_task").input_schema.properties);
+  check("update_task exposes due_time and overseers too", ["due_time", "overseers"].every((k) => k in TASK_ACTION_TOOLS.find((t) => t.name === "update_task").input_schema.properties), TASK_ACTION_TOOLS.find((t) => t.name === "update_task").input_schema.properties);
 
   // ---- find_tasks: read-only, always allowed, never needs confirmation ----
   await req("PUT", `${RTDB_URL}/tasks.json`, {
@@ -170,6 +172,34 @@ const {
   check("gokul_approval is set on the task itself", afterBothGates.body.gokul_approval === "pending", afterBothGates.body);
   const approvalsAfterBoth = Object.values(((await req("GET", `${RTDB_URL}/approvals.json`)) || {}).body || {});
   check("AND a real /approvals record is pushed for Ankita, independently of Gokul's own sign-off", approvalsAfterBoth.some((r) => r.taskKey === "d5" && r.assigner === "Ankita"), approvalsAfterBoth);
+
+  // ---- assigned_by matches Hub's own Add Task form default (lnResolveAssignedBy in index.html):
+  // "Myself" when self-assigned, otherwise the real asker, never a literal "BB" that nobody's
+  // approval queue could ever route to ----
+  check("assigning to yourself reads as \"Myself\", matching the manual form", resolveAssignedBy("Gokul", "Gokul", undefined) === "Myself");
+  check("assigning to someone else defaults to the real asker's name", resolveAssignedBy("Priya", "Gokul", undefined) === "Gokul");
+  check("an explicit assigned_by override is honored over the default", resolveAssignedBy("Priya", "Gokul", "Ricky") === "Ricky");
+  check("with nobody confirmed and no override, it falls back to BB rather than crashing", resolveAssignedBy("Priya", undefined, undefined) === "BB");
+
+  const selfAssigned = await createTask({ member: "Gokul", task: "Review the deck" }, { speakerName: "Gokul" });
+  check("create_task actually writes \"Myself\" for a self-assigned task, not \"BB\"", selfAssigned.assigned_by === "Myself", selfAssigned);
+  const delegated = await createTask({ member: "Priya", task: "Book the studio" }, { speakerName: "Gokul" });
+  check("create_task writes the real asker as assigned_by for a delegated task", delegated.assigned_by === "Gokul", delegated);
+
+  // ---- due_time and overseers: the other two Add Task fields Hub's manual form has that BB's
+  // tools were missing entirely ----
+  const withDeadline = await createTask({ member: "Priya", task: "Submit the brief", due_date: "2026-10-10", due_time: "18:00", overseers: ["Gokul", "Gokul", " "] }, { speakerName: "Gokul" });
+  check("due_time is written alongside due_date", withDeadline.due_time === "18:00", withDeadline);
+  check("overseers are written, deduplicated and trimmed", withDeadline.overseers.length === 1 && withDeadline.overseers[0] === "Gokul", withDeadline.overseers);
+  const noExtras = await createTask({ member: "Priya", task: "Quick note" }, { speakerName: "Gokul" });
+  check("due_time defaults to empty rather than being left undefined", noExtras.due_time === "", noExtras);
+  check("overseers defaults to an empty array, not undefined", Array.isArray(noExtras.overseers) && noExtras.overseers.length === 0, noExtras);
+
+  const updatedDeadline = await updateTask({ task_id: noExtras.id, due_time: "12:30", overseers: ["Ricky"] }, { speakerName: "Gokul" });
+  check("update_task can set a due_time", updatedDeadline.due_time === "12:30", updatedDeadline);
+  check("update_task replaces the full overseers list rather than appending to it", updatedDeadline.overseers.length === 1 && updatedDeadline.overseers[0] === "Ricky", updatedDeadline.overseers);
+  const afterDeadlineUpdate = await req("GET", `${RTDB_URL}/tasks/${noExtras.id}.json`);
+  check("both changes actually landed on the live board", afterDeadlineUpdate.body.due_time === "12:30" && JSON.stringify(afterDeadlineUpdate.body.overseers) === '["Ricky"]', afterDeadlineUpdate.body);
 
   // ---- A personal task never gets a brand attached, even if one is supplied ----
   const personal = await createTask({ member: "Priya", task: "Book a dentist appointment", brand: "Casa Waters", is_personal: true }, { speakerName: "Priya" });

@@ -65,16 +65,19 @@ const TASK_ACTION_TOOLS = [
   },
   {
     name: "create_task",
-    description: "Add a new task to Loona Hub's task board. Only call this after you have already told the team exactly what you are about to create and they have explicitly confirmed it in their NEXT message — never on the same message that first proposes it.",
+    description: "Add a new task to Loona Hub's task board. Only call this after you have already told the team exactly what you are about to create and they have explicitly confirmed it in their NEXT message — never on the same message that first proposes it. Make sure you actually have every field Hub's own Add Task form asks for before you propose it — who it's for, the brand, the description, priority, and due date — asking for whatever's missing rather than guessing.",
     input_schema: {
       type: "object",
       properties: {
         member: { type: "string", description: "Who the task is assigned to, by first name, exactly as it appears in Hub's team directory." },
         task: { type: "string", description: "The task description." },
-        brand: { type: "string", description: "The brand this task is for. Omit for a personal/internal task." },
+        brand: { type: "string", description: "The brand this task is for. Use \"Loona\" for internal work that isn't personal and isn't tied to any client brand — omit only for a genuinely personal to-do." },
         priority: { type: "string", enum: VALID_PRIORITIES },
         due_date: { type: "string", description: "YYYY-MM-DD. Omit if there is no due date." },
+        due_time: { type: "string", description: "HH:MM, 24-hour. Optional — only set this when it's a real deadline moment, not just a date, matching Hub's own due-time field (it triggers a deadline reminder). Never invent one; only set it if actually given a time." },
         is_personal: { type: "boolean", description: "True for a personal to-do rather than brand work." },
+        overseers: { type: "array", items: { type: "string" }, description: "Anyone who should be looped in on this task for visibility only (Hub's own \"loop in\" option on the Add Task form), by first name — never the assignee themself. Ask whether anyone should be looped in; don't assume the answer is no." },
+        assigned_by: { type: "string", description: "Who is actually assigning this task, by first name. Defaults to whoever is asking you to create it (or \"Myself\" if they're assigning it to their own name) exactly like Hub's own form — only set this when they are clearly creating it on someone else's behalf as a different assigner." },
       },
       required: ["member", "task"],
     },
@@ -89,13 +92,28 @@ const TASK_ACTION_TOOLS = [
         status: { type: "string", enum: VALID_STATUSES },
         due_date: { type: "string", description: "YYYY-MM-DD, or an empty string to clear it." },
         due_date_reason: { type: "string", description: "Why the date is moving. Required whenever due_date is being changed by anyone other than Gokul — ask them for it before calling this if you don't already have it." },
+        due_time: { type: "string", description: "HH:MM, 24-hour, or an empty string to clear it." },
         priority: { type: "string", enum: VALID_PRIORITIES },
         task: { type: "string", description: "A revised task description." },
+        overseers: { type: "array", items: { type: "string" }, description: "The FULL list of who should be looped in — only pass this when who's looped in is itself what's changing; it replaces the existing list rather than adding to it." },
       },
       required: ["task_id"],
     },
   },
 ];
+
+// Mirrors lnResolveAssignedBy() in index.html exactly: assigning to yourself always reads as
+// "Myself" regardless of who's speaking, an explicit assigner overrides that, and otherwise the
+// assigner defaults to whoever is actually asking BB to do this — never a literal "BB", which
+// isn't a real person Hub's own approval routing (statusApprovalGates below) could ever notify.
+function resolveAssignedBy(member, speakerName, explicitAssignedBy) {
+  const assignee = String(member || "").trim();
+  const speaker = String(speakerName || "").trim();
+  if (assignee && speaker && normName(assignee) === normName(speaker)) return "Myself";
+  const explicit = String(explicitAssignedBy || "").trim();
+  if (explicit) return explicit;
+  return speaker || "BB";
+}
 
 // Assignees who don't represent a real person to route an approval to — matches the exact
 // carve-out updateStatus() has in index.html for a self-assigned or calendar-generated task.
@@ -150,7 +168,7 @@ async function findTasks({ member, assigned_by: assignedBy, overseer, brand, sta
   return results;
 }
 
-async function createTask({ member, task, brand, priority, due_date, is_personal }, ctx = {}, deps = {}) {
+async function createTask({ member, task, brand, priority, due_date, due_time, is_personal, overseers, assigned_by }, ctx = {}, deps = {}) {
   const push = deps.fbPush || fbPush;
   const name = String(member || "").trim();
   const description = String(task || "").trim();
@@ -165,7 +183,9 @@ async function createTask({ member, task, brand, priority, due_date, is_personal
     priority: VALID_PRIORITIES.includes(priority) ? priority : "Medium",
     status: "Not Started",
     due_date: due_date ? String(due_date).trim() : "",
-    assigned_by: "BB",
+    due_time: due_time ? String(due_time).trim() : "",
+    assigned_by: resolveAssignedBy(name, ctx.speakerName, assigned_by),
+    overseers: Array.isArray(overseers) ? [...new Set(overseers.map((o) => String(o || "").trim()).filter(Boolean))] : [],
     created_at: new Date().toISOString(),
     assigned_on: fmtStamp(),
     created_by: `BB (asked by ${ctx.speakerName || "the team"})`,
@@ -180,7 +200,7 @@ async function createTask({ member, task, brand, priority, due_date, is_personal
   return { id, ...record };
 }
 
-async function updateTask({ task_id, status, due_date, due_date_reason, priority, task }, ctx = {}, deps = {}) {
+async function updateTask({ task_id, status, due_date, due_date_reason, due_time, priority, task, overseers }, ctx = {}, deps = {}) {
   const get = deps.fbGet || fbGet;
   const update = deps.fbUpdate || fbUpdate;
   const push = deps.fbPush || fbPush;
@@ -255,6 +275,8 @@ async function updateTask({ task_id, status, due_date, due_date_reason, priority
 
   if (priority) patch.priority = priority;
   if (task) patch.task = String(task).trim();
+  if (due_time !== undefined) patch.due_time = String(due_time).trim();
+  if (overseers !== undefined) patch.overseers = Array.isArray(overseers) ? [...new Set(overseers.map((o) => String(o || "").trim()).filter(Boolean))] : [];
   await update(`tasks/${id}`, patch);
   return { id, ...existing, ...patch, notes: notes.length ? notes : undefined };
 }
@@ -280,5 +302,5 @@ async function executeTaskAction(name, input, ctx = {}, deps = {}) {
 
 module.exports = {
   TASK_ACTION_TOOLS, executeTaskAction, findTasks, createTask, updateTask, looksLikeConfirmation,
-  VALID_STATUSES, VALID_PRIORITIES,
+  resolveAssignedBy, VALID_STATUSES, VALID_PRIORITIES,
 };

@@ -234,5 +234,21 @@ const MEMBERS = {
     check("find_meetings filters by a text query against the title", byQuery.length === 1, byQuery);
   }
 
+  // ---- findMeetings: an exact time-slot check, for spotting a conflict before booking ----
+  {
+    const store = makeStore({
+      calendarEvents: {
+        e1: { title: "Diwali shoot planning", start: "2026-10-05T15:00:00+05:30", end: "2026-10-05T15:30:00+05:30", knownAttendees: ["Ankita"] },
+        e2: { title: "Unrelated day", start: "2026-10-06T15:00:00+05:30", end: "2026-10-06T15:30:00+05:30", knownAttendees: ["Ankita"] },
+      },
+    });
+    const overlapping = await findMeetings({ date: "2026-10-05", start_time: "15:15", end_time: "15:45" }, { fbGet: store.fbGet });
+    check("a slot that overlaps an existing meeting on that date is returned", overlapping.length === 1 && overlapping[0].title === "Diwali shoot planning", overlapping);
+    const adjacent = await findMeetings({ date: "2026-10-05", start_time: "15:30", end_time: "16:00" }, { fbGet: store.fbGet });
+    check("a back-to-back slot that only touches the boundary is not a conflict", adjacent.length === 0, adjacent);
+    const differentDay = await findMeetings({ date: "2026-10-06", start_time: "15:00", end_time: "15:30" }, { fbGet: store.fbGet });
+    check("the same time on a different date is unaffected", differentDay.length === 1 && differentDay[0].title === "Unrelated day", differentDay);
+  }
+
   finish();
 })().catch((error) => { console.error("FATAL:", error, error.stack); process.exit(1); });
