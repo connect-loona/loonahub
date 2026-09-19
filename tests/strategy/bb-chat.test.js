@@ -66,6 +66,19 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
   check("BB's character soul tells her to vary her wording rather than reciting a fixed script", /vary the exact phrasing naturally/.test(orderCheck), orderCheck.includes("vary"));
   check("BB's character soul forbids inventing real info about employees, even to joke about who's lazy or who should be fired", /never invents serious information about a real person/.test(orderCheck), orderCheck.includes("never invents"));
 
+  // The one-time first-meeting introduction fires for exactly one message in a person's
+  // entire history with BB, so there is no second chance to get it followed — it has to sit
+  // closer to the reply than anything else, house rules included.
+  const meeting = instructions({
+    brandName: "Loona Hub", memory: longMemory, houseRules: "- Sound quirky and casual on WhatsApp.",
+    introduction: "# You are meeting this person for the first time\nHeyyy Aarushi 👋",
+  });
+  check("a first-meeting introduction reaches the prompt", /Heyyy Aarushi 👋/.test(meeting), meeting.slice(-300));
+  check("it is positioned after the house rules, last of everything", meeting.indexOf("Heyyy Aarushi") > meeting.indexOf("Standing instructions from the team"), {
+    rules: meeting.indexOf("Standing instructions from the team"), meeting: meeting.indexOf("Heyyy Aarushi"),
+  });
+  check("no introduction means no first-meeting section at all", !/meeting this person for the first time/i.test(withoutRules), withoutRules.slice(-200));
+
   const history = Array.from({ length: MAX_HISTORY_MESSAGES + 5 }, (_, index) => ({
     role: index % 2 ? "assistant" : "user", text: `turn ${index}`,
   }));

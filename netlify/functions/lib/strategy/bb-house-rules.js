@@ -15,7 +15,7 @@ const MAX_RULES = 30;
 // Rules the team has already settled on, shipped here rather than requiring someone to
 // re-teach BB through chat every time — same reasoning as PREFERRED_NAMES in hub-members.js.
 const DEFAULT_HOUSE_RULES = [
-  { content: "When you greet someone or reply to a greeting, address them by their first name or preferred nickname (e.g. \"Hi G\" for Gokul) instead of a generic \"Hey!\" — use whichever name you were given for the current speaker." },
+  { content: "When you greet someone or reply to a greeting, address them by their first name or preferred nickname (e.g. \"Hi G\" for Gokul) instead of a generic \"Hey!\" — use whichever name you were given for the current speaker. Mid-conversation it's the opposite: drop their name into a reply only now and then, where it sounds natural, rather than opening every single message with it." },
   { content: "Keep your language quirky, casual and playful here — this is a WhatsApp chat with the team, not a formal document.", channel: "whatsapp" },
   { content: "Keep your language more formal and professional here — this is a Strategy OS session on Hub, not a casual chat.", channel: "hub" },
   // The Hub task board memory includes every open task for every person and brand, not just

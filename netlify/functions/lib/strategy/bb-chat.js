@@ -43,8 +43,9 @@ function houseRulesBlock(houseRules) {
   ].join("\n");
 }
 
-function instructions({ brandName, memory, speaker, houseRules }) {
+function instructions({ brandName, memory, speaker, houseRules, introduction }) {
   const rules = houseRulesBlock(houseRules);
+  const meeting = introduction && String(introduction).trim();
   return [
     LOONA_SOUL,
     "---",
@@ -84,6 +85,10 @@ function instructions({ brandName, memory, speaker, houseRules }) {
     BB_CONVERSATION_SOUL,
     ...(rules ? ["---", rules] : []),
     "Apply BB's character above, and any standing instructions with it, to the reply you are about to write, regardless of everything before it.",
+    // Dead last, after even the house rules. This one fires for exactly one message in a
+    // person's entire history with BB — there is no second chance to get it followed, so it
+    // sits closest of all to where she starts writing.
+    ...(meeting ? ["---", meeting] : []),
   ].join("\n");
 }
 
@@ -126,7 +131,7 @@ function answerText(response) {
   return { answer: answer.slice(0, MAX_ANSWER_CHARS) };
 }
 
-async function askBBWithOpenAI({ brandName, message, memory, history, attachments, speaker, houseRules }) {
+async function askBBWithOpenAI({ brandName, message, memory, history, attachments, speaker, houseRules, introduction }) {
   if (!process.env.OPENAI_API_KEY) {
     const error = new Error("OPENAI_API_KEY is required for BB fallback.");
     error.name = "ConfigurationError";
@@ -142,7 +147,7 @@ async function askBBWithOpenAI({ brandName, message, memory, history, attachment
   const agent = new Agent({
     name: "BB Loona",
     model,
-    instructions: instructions({ brandName, memory, speaker, houseRules }),
+    instructions: instructions({ brandName, memory, speaker, houseRules, introduction }),
     tools: [webSearchTool({ searchContextSize: "low" })],
   });
   const result = await run(agent, `${turns}\n\nTeam: ${message}${attachmentNote}`, { maxTurns: 4 });
@@ -210,7 +215,7 @@ async function extractMemoryNoteSafe(input, deps = {}) {
   catch (error) { console.error("Could not extract a memory note from this BB exchange:", error.message || error); return null; }
 }
 
-async function askBB({ brandName, message, memory, history, attachments, speaker, houseRules }, deps = {}) {
+async function askBB({ brandName, message, memory, history, attachments, speaker, houseRules, introduction }, deps = {}) {
   const asked = String(message || "").trim().slice(0, MAX_MESSAGE_CHARS);
   if (!asked) throw new Error("BB needs a message.");
 
@@ -242,7 +247,7 @@ async function askBB({ brandName, message, memory, history, attachments, speaker
     const response = await client.messages.create({
       model,
       max_tokens: 1000,
-      system: instructions({ brandName, memory, speaker, houseRules }),
+      system: instructions({ brandName, memory, speaker, houseRules, introduction }),
       tools: /\b(current|today|latest|website|web|news|search|competitor|trend|moon)\b/i.test(asked) ? [{ type: "web_search_20260209", name: "web_search", max_uses: 2 }] : [],
       messages,
     });
@@ -254,7 +259,7 @@ async function askBB({ brandName, message, memory, history, attachments, speaker
     if (!isProviderError(error) || (deps.client && !deps.openAIFallback)) throw error;
     console.warn(`BB Sonnet unavailable; using OpenAI fallback: ${error.message || error}`);
     const fallback = deps.openAIFallback || askBBWithOpenAI;
-    return fallback({ brandName, message: asked, memory, history, attachments, speaker, houseRules });
+    return fallback({ brandName, message: asked, memory, history, attachments, speaker, houseRules, introduction });
   }
 }
 

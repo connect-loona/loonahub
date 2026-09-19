@@ -3,6 +3,7 @@ import store from "./lib/strategy/store.js";
 import bbChat from "./lib/strategy/bb-chat.js";
 import bbHouseRules from "./lib/strategy/bb-house-rules.js";
 import whatsappThreadMemory from "./lib/strategy/whatsapp-thread-memory.js";
+import bbIntroductions from "./lib/strategy/bb-introductions.js";
 import whatsapp from "./lib/strategy/whatsapp.js";
 import apiUsage from "./lib/strategy/api-usage.js";
 import hubMembers from "./lib/strategy/hub-members.js";
@@ -17,6 +18,7 @@ const { loadGlobalBrain } = store;
 const { askBB, extractMemoryNoteSafe, MAX_HISTORY_MESSAGES } = bbChat;
 const { loadHouseRulesText, saveHouseRuleSafe } = bbHouseRules;
 const { loadThreadSummary, threadSummaryPromptText, updateThreadSummarySafe } = whatsappThreadMemory;
+const { hasMetSafe, markMetSafe, introductionPromptText } = bbIntroductions;
 const { sendWhatsAppText } = whatsapp;
 const { recordApiUsage } = apiUsage;
 const { findHubMemberByPhone } = hubMembers;
@@ -94,14 +96,19 @@ export default async function (request) {
       .map(([, value]) => value)
       .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")))
       .slice(-MAX_HISTORY_MESSAGES);
-    const [globalBrain, houseRules, previousThreadSummary] = await Promise.all([
+    const [globalBrain, houseRules, previousThreadSummary, alreadyMet] = await Promise.all([
       loadGlobalBrain(),
       loadHouseRulesText("whatsapp").catch((error) => { console.error("Could not load BB's house rules:", error.message); return null; }),
       loadThreadSummary(from).catch((error) => { console.error("Could not load WhatsApp thread context:", error.message); return null; }),
+      hasMetSafe(from),
     ]);
     const memory = [GLOBAL_MEMORY_NOTE, globalBrain, threadSummaryPromptText(previousThreadSummary)].filter(Boolean).join("\n\n");
-    const result = await askBB({ brandName: "Loona Hub", message: text, memory, history, attachments: [], speaker, houseRules });
+    const introduction = alreadyMet ? null : introductionPromptText(speaker);
+    const result = await askBB({ brandName: "Loona Hub", message: text, memory, history, attachments: [], speaker, houseRules, introduction });
     await sendWhatsAppText({ to: from, text: result.answer, accessToken: process.env.WHATSAPP_ACCESS_TOKEN, phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID });
+    // Only once the introduction has actually reached them — recording the meeting any
+    // earlier would quietly cost this person the only first greeting they ever get.
+    if (introduction) await markMetSafe(from, speaker);
     await fbUpdate(messagePath, { status: "answered", error: null });
     await fbSet(`${path}/${messageKey}-reply`, { role: "assistant", text: result.answer, actor: "BB Loona", createdAt: new Date().toISOString(), replyTo: messageKey });
     await recordWhatsAppBBUsage(from, speaker, messageId, "succeeded", result.provider || "Anthropic", result.model);
