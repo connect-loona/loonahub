@@ -26,23 +26,33 @@ const PREFERRED_NAMES = {
   "9946008112": "G",
 };
 
-// Returns { name } for the Hub teammate whose /members.mobile matches this phone number, or
-// null if nobody on the roster has it on file. Matched on the LAST 10 digits so a number
-// saved with or without the country code (or with a leading 0) still resolves the same way.
-// The name returned is first-name-only (or the hand-maintained preferred name above) — BB
-// addresses people casually, not by their full Hub Employee Directory name.
+// Returns { name, rosterName } for the Hub teammate whose /members.mobile matches this phone
+// number, or null if nobody on the roster has it on file. Matched on the LAST 10 digits so a
+// number saved with or without the country code (or with a leading 0) still resolves the same
+// way. `name` is what BB calls them in conversation — first-name-only, or the hand-maintained
+// preferred name above. `rosterName` is always their real first name as /members has it,
+// regardless of any nickname override, because a nickname is a conversational nicety, not an
+// identity — code elsewhere (task/calendar actions) matches this against /members by exact
+// name to decide who's allowed to do what, and has to use the name actually on file, not
+// whatever BB happens to call them. Concretely: PREFERRED_NAMES turns Gokul into "G" so BB
+// addresses him casually, but a task/meeting write attributed to (or an approval-gate check
+// for) "G" would never match his real "Gokul" roster entry — this is exactly the bug that
+// surfaced as BB being told her own organizer name "isn't on the team roster at all" while
+// trying to book a meeting on his behalf.
 async function findHubMemberByPhone(phone) {
   const wanted = digitsOnly(phone).slice(-10);
   if (wanted.length !== 10) return null;
 
-  const preferred = PREFERRED_NAMES[wanted];
-  if (preferred) return { name: preferred };
-
   const members = (await fbGet("members")) || {};
+  let rosterName = null;
   for (const record of Object.values(members)) {
     if (!record || !record.name) continue;
-    if (digitsOnly(record.mobile).slice(-10) === wanted) return { name: firstName(record.name) };
+    if (digitsOnly(record.mobile).slice(-10) === wanted) { rosterName = firstName(record.name); break; }
   }
+
+  const preferred = PREFERRED_NAMES[wanted];
+  if (preferred) return { name: preferred, rosterName: rosterName || preferred };
+  if (rosterName) return { name: rosterName, rosterName };
   return null;
 }
 
