@@ -179,6 +179,28 @@
 [functions."overdue-tasks-daily"]
   schedule = "45 4 * * *"
 
+# BB's three standing daily messages to the team, over WhatsApp — the ones Gokul used to type
+# by hand. Each has its own function only because Netlify schedules a cron per function; all
+# three share lib/strategy/digest-run.js. Times are IST, which is what the team works to.
+#
+# Note on delivery: WhatsApp only lets a business send free-form text inside the 24-hour
+# window that opens when that person last messaged BB. These rely on the team messaging her
+# daily to keep those windows open. When one has closed, the send is refused and runDigest
+# posts the affected numbers to Gokul's Loona Board rather than failing quietly.
+
+# "What was due yesterday and still isn't done, and what's on for today." 04:30 UTC = 10:00 IST.
+[functions."bb-digest-morning"]
+  schedule = "30 4 * * *"
+
+# Midday nudge — what has actually moved since this morning. 06:30 UTC = 12:00 IST.
+[functions."bb-digest-midday"]
+  schedule = "30 6 * * *"
+
+# End of day: what closed, what didn't, and BB's read on how the day went.
+# 13:00 UTC = 18:30 IST.
+[functions."bb-digest-evening"]
+  schedule = "0 13 * * *"
+
 # Set these in Netlify → Site settings → Environment variables (NOT in code):
 #   PETPOOJA_CLIENT_ID
 #   PETPOOJA_CLIENT_SECRET
