@@ -39,6 +39,15 @@ const { loadHouseRulesText, saveHouseRuleSafe, DEFAULT_HOUSE_RULES } = require(p
   check("it explicitly says not to silently drop someone to keep the reply shorter", /never silently drop someone/.test(whatsappDefault || ""), whatsappDefault);
   check("it requires including tasks with no due date or a future due date too", /no due date or a due date later than today/.test(whatsappDefault || ""), whatsappDefault);
 
+  // WhatsApp's Business API means BB can only ever reply, never message first — a default
+  // rule should tell her to keep the conversation alive with a hook, and only on WhatsApp.
+  check("a default rule tells her to end WhatsApp replies with a follow-up hook", /can only ever reply.*never message someone first/s.test(whatsappDefault || ""), whatsappDefault);
+  check("the follow-up-hook default is scoped to WhatsApp, not Hub", !/can only ever reply/.test(hubDefault || ""), hubDefault);
+
+  // Naming the real blocker (who a task is waiting on) is what makes a status answer useful.
+  check("a default rule requires explaining the real blocker on a status update, not just the status label", /Ankita hasn't approved it yet/.test(whatsappDefault || ""), whatsappDefault);
+  check("that default reaches the hub channel too", /Ankita hasn't approved it yet/.test(hubDefault || ""), hubDefault);
+
   // ---- Rules taught through conversation layer on top of the defaults ----
   await saveHouseRuleSafe("When Chinmay asks who you are, add a bit more edge and banter.", "Gokul");
   const withTaught = await loadHouseRulesText("whatsapp");

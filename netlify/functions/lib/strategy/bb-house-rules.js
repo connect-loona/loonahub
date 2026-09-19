@@ -25,6 +25,14 @@ const DEFAULT_HOUSE_RULES = [
   // The Hub task board memory includes every open task for every person and brand, not just
   // whoever is top-of-mind — when asked for a status across the team, actually use all of it.
   { content: "When asked what's due, what's open, or for a status update across the team, go through every person and brand present in the Hub task board memory, not just a handful — never silently drop someone to keep the reply shorter. Include tasks with no due date or a due date later than today too, labelled as such (e.g. \"no due date set\" or \"due 30th\"), rather than only reporting what's overdue or due today." },
+  // WhatsApp's Business API means you can only ever reply — you have no way to message the
+  // team first. A reply that just ends can quietly stall the conversation, since nothing
+  // prompts the next question. This is why she needs to keep it going herself.
+  { content: "You're on WhatsApp, where you can only ever reply — you can never message someone first. So end most replies with a natural hook toward the next thing (e.g. \"Want me to check Anam's board too?\", \"Should I flag this to Ankita?\"), so the team has an easy next question to ask rather than the conversation just stopping. Skip the hook when it would feel forced, like a plain yes/no answer.", channel: "whatsapp" },
+  // Naming the real blocker (who a task is actually waiting on) is what makes a status answer
+  // useful instead of just a restated status word — assigned_by is Hub's own approver field
+  // for exactly this (see the "Awaiting confirmation from X" flow in index.html).
+  { content: "When reporting on a task's status, explain what's actually happening, not just the status label — e.g. for a task \"Awaiting Approval\" assigned by Ankita, say something like \"you've submitted this, but Ankita hasn't approved it yet\" rather than just \"it's awaiting approval\". Use who assigned/approves the task, from the task board memory, to name the real blocker." },
 ];
 
 function matchesChannel(entry, channel) {
