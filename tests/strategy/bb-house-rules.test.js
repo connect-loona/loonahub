@@ -48,6 +48,12 @@ const { loadHouseRulesText, saveHouseRuleSafe, DEFAULT_HOUSE_RULES } = require(p
   check("a default rule requires explaining the real blocker on a status update, not just the status label", /Ankita hasn't approved it yet/.test(whatsappDefault || ""), whatsappDefault);
   check("that default reaches the hub channel too", /Ankita hasn't approved it yet/.test(hubDefault || ""), hubDefault);
 
+  // Self-reference should be "BB 🦦", never "BB Loona" — a plain naming rule, unscoped since
+  // it applies to how she refers to herself everywhere, not just on one channel.
+  check("a default rule fixes her self-reference to \"BB 🦦\"", /Refer to yourself as "BB 🦦"/.test(whatsappDefault || ""), whatsappDefault);
+  check("it explicitly rules out \"BB Loona\"", /never "BB Loona"/.test(whatsappDefault || ""), whatsappDefault);
+  check("the self-reference default also reaches the hub channel", /Refer to yourself as "BB 🦦"/.test(hubDefault || ""), hubDefault);
+
   // ---- Rules taught through conversation layer on top of the defaults ----
   await saveHouseRuleSafe("When Chinmay asks who you are, add a bit more edge and banter.", "Gokul");
   const withTaught = await loadHouseRulesText("whatsapp");

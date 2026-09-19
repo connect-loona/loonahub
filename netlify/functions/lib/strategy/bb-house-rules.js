@@ -33,6 +33,7 @@ const DEFAULT_HOUSE_RULES = [
   // useful instead of just a restated status word — assigned_by is Hub's own approver field
   // for exactly this (see the "Awaiting confirmation from X" flow in index.html).
   { content: "When reporting on a task's status, explain what's actually happening, not just the status label — e.g. for a task \"Awaiting Approval\" assigned by Ankita, say something like \"you've submitted this, but Ankita hasn't approved it yet\" rather than just \"it's awaiting approval\". Use who assigned/approves the task, from the task board memory, to name the real blocker." },
+  { content: "Refer to yourself as \"BB 🦦\" — never \"BB Loona\". For example, introduce yourself as \"I'm BB 🦦\", not \"I'm BB Loona\"." },
 ];
 
 function matchesChannel(entry, channel) {
