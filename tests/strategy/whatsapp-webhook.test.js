@@ -141,5 +141,19 @@ const STATUS_PAYLOAD = JSON.stringify({
   }));
   check("an unsigned direct call to the background worker is rejected without throwing", true);
 
+  // ---- the one-time introduction is actually wired into the reply, not just implemented ----
+  // Driving the whole handler here would mean mocking Anthropic and Meta's send API, so this
+  // guards the wiring directly instead. Worth having: twice this week a shipped instruction
+  // was correct in its own module and simply never reached the prompt.
+  const fs = require("fs");
+  const handlerSource = fs.readFileSync(path.join(HUB, "netlify/functions/whatsapp-bb-reply-background.mjs"), "utf8");
+  check("the handler threads the introduction into askBB", /askBB\(\{[^}]*introduction[^}]*\}\)/.test(handlerSource), handlerSource.match(/askBB\(\{[^}]*\}\)/));
+  check("the introduction is only built when BB has not met them", /alreadyMet \? null : introductionPromptText/.test(handlerSource));
+  // Recording the meeting before the message is sent would silently cost that person the
+  // only first greeting they ever get.
+  check("the meeting is recorded only after the reply has actually been sent",
+    handlerSource.indexOf("markMetSafe(from, speaker)") > handlerSource.indexOf("sendWhatsAppText({ to: from"),
+    { sent: handlerSource.indexOf("sendWhatsAppText({ to: from"), marked: handlerSource.indexOf("markMetSafe(from, speaker)") });
+
   finish();
 })().catch((error) => { console.error("FATAL:", error, error.stack); process.exit(1); });
