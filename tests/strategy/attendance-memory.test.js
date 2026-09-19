@@ -33,6 +33,12 @@ function today() { return new Date().toISOString().slice(0, 10); }
   check("someone still checked in with no check-out yet is shown without one", /Karnik: checked in at 9:00 AM\./.test(text || ""), text);
   check("a payroll fine field is never surfaced even when present on the record", !/lateFine|leaveBalance|₹|200\b/.test(text || ""), text);
   check("the memory block itself warns against inferring payroll figures", /never mention or infer a fine, leave balance, salary/i.test(text || ""), text);
+  // A real production incident: BB was asked when someone punched in, wasn't named in this
+  // block, and — instead of saying she didn't have it — fabricated a specific "hasn't checked
+  // in yet, running late" narrative built on top of a real but unrelated leave request. These
+  // two lines are the direct fix.
+  check("BB is told absence from this list is not evidence someone hasn't checked in", /is NOT evidence they haven't checked in/.test(text || ""), text);
+  check("BB is told never to blend a leave\\/flexible-timing request into an attendance claim", /never tells you whether or when someone physically checked in/.test(text || ""), text);
 
   await fbSet(`loona_attendance/${today()}`, { e1: { n: "Nobody Checked In Today" } });
   const noTimeYet = await loadAttendanceText();

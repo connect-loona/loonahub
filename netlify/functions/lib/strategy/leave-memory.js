@@ -57,6 +57,7 @@ async function loadLeaveText(deps = {}) {
   return [
     "# Leave and WFH requests (recent and upcoming)",
     "Dates, type and status only — never a leave balance, a paid/unpaid split, or any other figure. That math lives elsewhere and is not something you have access to.",
+    "This is a request someone filed, not a record of what actually happened today — it never tells you whether or when someone physically checked in, or that they are running late. Never turn an approved flexible-timing/WFH/leave request into a claim about someone's current whereabouts or arrival status; if asked when someone checked in, answer from today's attendance data if you have it, and say plainly if you don't, rather than inferring it from a request filed here.",
     ...lines,
   ].join("\n");
 }
