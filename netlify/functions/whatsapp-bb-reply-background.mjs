@@ -191,7 +191,7 @@ export default async function (request) {
     // only ever verifies against Hub's own /members roster by phone, the same identity signal
     // Hub's own login gives askBB, so a WhatsApp-confirmed write (or a WhatsApp-confirmed
     // meeting booked as that verified person) is exactly as trustworthy as one confirmed on Hub.
-    const result = await askBB({ brandName: "Loona Hub", message: askedText, memory, history, attachments: visionAttachment ? [visionAttachment] : [], speaker, houseRules, introduction, taskActions: true, calendarActions: true });
+    const result = await askBB({ brandName: "Loona Hub", message: askedText, memory, history, attachments: visionAttachment ? [visionAttachment] : [], speaker, houseRules, introduction, taskActions: true, calendarActions: true, emailActions: true });
     await sendWhatsAppText({ to: from, text: result.answer, ...replyCreds });
     // Only once the introduction has actually reached them — recording the meeting any
     // earlier would quietly cost this person the only first greeting they ever get.

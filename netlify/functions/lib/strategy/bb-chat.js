@@ -10,10 +10,12 @@ const { BB_LOONA_SOUL, LOONA_SOUL, BB_CONVERSATION_SOUL } = require("./souls-dat
 const { isProviderError } = require("./runtime-failover");
 const { TASK_ACTION_TOOLS, executeTaskAction, looksLikeConfirmation } = require("./bb-task-actions");
 const { CALENDAR_ACTION_TOOLS, executeCalendarAction } = require("./bb-calendar-actions");
+const { EMAIL_ACTION_TOOLS, executeEmailAction } = require("./bb-email-actions");
 
 const MAX_TOOL_ITERATIONS = 4;
 const TASK_TOOL_NAMES = new Set(TASK_ACTION_TOOLS.map((tool) => tool.name));
 const CALENDAR_TOOL_NAMES = new Set(CALENDAR_ACTION_TOOLS.map((tool) => tool.name));
+const EMAIL_TOOL_NAMES = new Set(EMAIL_ACTION_TOOLS.map((tool) => tool.name));
 
 const MAX_MESSAGE_CHARS = 4000;
 const MAX_HISTORY_MESSAGES = 12;
@@ -106,11 +108,29 @@ function calendarActionsBlock() {
   ].join("\n");
 }
 
-function instructions({ brandName, memory, speaker, houseRules, introduction, taskActions, calendarActions }) {
+// Drafting an email is lower-stakes than a Calendar invite or a task write — nothing is visible
+// to anyone until a real person opens their own Drafts folder and hits send — but it still
+// writes into a real inbox, so it sits alongside the other action blocks, last of all.
+function emailActionsBlock() {
+  return [
+    "# Drafting emails from Loona Hub",
+    "You can create a real Gmail draft using draft_email. This only ever creates a DRAFT, sitting unsent in the sender's own Drafts folder — nothing is ever sent from here, and there is no send action available to you at all.",
+    "You are always the sender yourself — the draft is created in whoever is actually talking to you right now's own Gmail, never someone else's, and you never ask whose inbox to draft it in.",
+    "Write the actual email yourself — suggest a real subject line and the full body text, don't ask the team to write it for you. Then confirm the recipients, anyone to cc, and your drafted subject and text with them, and wait. Do not call draft_email on the message where you first propose it, even if the team's message reads like an instruction to just do it now. Only call it once they reply confirming, in their next message. Ask whether anyone should be cc'd — don't assume the answer is no.",
+    "If draft_email comes back saying it needs confirmation, that means you tried to act before they confirmed — show them what you were about to draft and wait, rather than treating it as already created.",
+    "If draft_email comes back with ok: false and an error (not needsConfirmation), the draft was NOT created — tell the team plainly that it didn't go through and relay the actual reason from the error, rather than saying it's drafted or ready.",
+    "Recipients and cc can be a Hub teammate's first name or a real external email address. Never invent an email address for someone whose actual address you don't know.",
+    "If anyone asks what you can do here, say plainly: you can draft an email for them to review and send themselves, but you can never send one yourself.",
+    "Never touch payroll, salary, fines, leave balances or any other financial or HR-sensitive information through this.",
+  ].join("\n");
+}
+
+function instructions({ brandName, memory, speaker, houseRules, introduction, taskActions, calendarActions, emailActions }) {
   const rules = houseRulesBlock(houseRules);
   const meeting = introduction && String(introduction).trim();
   const actions = taskActions ? taskActionsBlock() : null;
   const calendarBlock = calendarActions ? calendarActionsBlock() : null;
+  const emailBlock = emailActions ? emailActionsBlock() : null;
   return [
     LOONA_SOUL,
     "---",
@@ -156,6 +176,7 @@ function instructions({ brandName, memory, speaker, houseRules, introduction, ta
     ...(meeting ? ["---", meeting] : []),
     ...(actions ? ["---", actions] : []),
     ...(calendarBlock ? ["---", calendarBlock] : []),
+    ...(emailBlock ? ["---", emailBlock] : []),
   ].join("\n");
 }
 
@@ -283,11 +304,13 @@ async function extractMemoryNoteSafe(input, deps = {}) {
 }
 
 // Routes a tool_use block to whichever action family actually owns that tool name — BB can
-// have task-board tools and calendar tools available in the same turn, and each family's own
-// executor (executeTaskAction/executeCalendarAction) already knows nothing about the other.
+// have task-board, calendar and email tools available in the same turn, and each family's own
+// executor (executeTaskAction/executeCalendarAction/executeEmailAction) already knows nothing
+// about the others.
 async function executeToolCall(name, input, ctx, deps) {
   if (TASK_TOOL_NAMES.has(name)) return executeTaskAction(name, input, ctx, deps);
   if (CALENDAR_TOOL_NAMES.has(name)) return executeCalendarAction(name, input, ctx, deps);
+  if (EMAIL_TOOL_NAMES.has(name)) return executeEmailAction(name, input, ctx, deps);
   throw new Error(`Unknown tool "${name}".`);
 }
 
@@ -326,7 +349,7 @@ async function runToolLoop({ client, model, system, tools, messages, response, c
   return current;
 }
 
-async function askBB({ brandName, message, memory, history, attachments, speaker, houseRules, introduction, taskActions, calendarActions }, deps = {}) {
+async function askBB({ brandName, message, memory, history, attachments, speaker, houseRules, introduction, taskActions, calendarActions, emailActions }, deps = {}) {
   const asked = String(message || "").trim().slice(0, MAX_MESSAGE_CHARS);
   if (!asked) throw new Error("BB needs a message.");
 
@@ -354,12 +377,13 @@ async function askBB({ brandName, message, memory, history, attachments, speaker
   // gives a near-immediate conversational first token; an explicit BB override is still
   // available for a workspace that deliberately wants a different model.
   const model = process.env.STRATEGY_BB_MODEL || "claude-sonnet-4-5-20250929";
-  const system = instructions({ brandName, memory, speaker, houseRules, introduction, taskActions, calendarActions });
-  const usesTools = taskActions || calendarActions;
+  const system = instructions({ brandName, memory, speaker, houseRules, introduction, taskActions, calendarActions, emailActions });
+  const usesTools = taskActions || calendarActions || emailActions;
   const tools = [
     ...(/\b(current|today|latest|website|web|news|search|competitor|trend|moon)\b/i.test(asked) ? [{ type: "web_search_20260209", name: "web_search", max_uses: 2 }] : []),
     ...(taskActions ? TASK_ACTION_TOOLS : []),
     ...(calendarActions ? CALENDAR_ACTION_TOOLS : []),
+    ...(emailActions ? EMAIL_ACTION_TOOLS : []),
   ];
   try {
     let response = await client.messages.create({ model, max_tokens: 1000, system, tools, messages });
