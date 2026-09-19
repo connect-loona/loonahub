@@ -18435,7 +18435,11 @@
             const who = mine ? 'BB 🦦' : (m.actor || 'Them');
             return '<div style="align-self:' + (mine ? 'flex-start' : 'flex-end') + ';max-width:80%">'
               + '<div style="color:var(--muted);font-size:10px;margin-bottom:2px">' + escHtml(who) + ' · ' + escHtml(String(m.createdAt || '').slice(0, 16).replace('T', ' ')) + '</div>'
-              + '<div style="padding:8px 10px;border-radius:10px;background:' + (mine ? 'var(--border,#eee)' : '#dcf8c6') + ';white-space:pre-wrap;font-size:13px">' + escHtml(m.text || '') + '</div>'
+              // The teammate's bubble sets its own colour pair. Its WhatsApp green is a fixed
+              // light colour, so it cannot inherit the page's text colour the way BB's
+              // var(--border) bubble safely can — on Hub's dark theme that inherited colour is
+              // near-white, which left every incoming message invisible on the green.
+              + '<div style="padding:8px 10px;border-radius:10px;' + (mine ? 'background:var(--border,#eee)' : 'background:#dcf8c6;color:#111') + ';white-space:pre-wrap;font-size:13px">' + escHtml(m.text || '') + '</div>'
               + '</div>';
           }).join('')
           + '</div>';
