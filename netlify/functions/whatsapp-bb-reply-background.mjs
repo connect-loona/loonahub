@@ -2,6 +2,7 @@ import firebase from "./lib/strategy/firebase.js";
 import store from "./lib/strategy/store.js";
 import bbChat from "./lib/strategy/bb-chat.js";
 import bbHouseRules from "./lib/strategy/bb-house-rules.js";
+import whatsappThreadMemory from "./lib/strategy/whatsapp-thread-memory.js";
 import whatsapp from "./lib/strategy/whatsapp.js";
 import apiUsage from "./lib/strategy/api-usage.js";
 import hubMembers from "./lib/strategy/hub-members.js";
@@ -15,6 +16,7 @@ const { fbGet, fbSet, fbUpdate, fbPush, fbSafeKey } = firebase;
 const { loadGlobalBrain } = store;
 const { askBB, extractMemoryNoteSafe, MAX_HISTORY_MESSAGES } = bbChat;
 const { loadHouseRulesText, saveHouseRuleSafe } = bbHouseRules;
+const { loadThreadSummary, threadSummaryPromptText, updateThreadSummarySafe } = whatsappThreadMemory;
 const { sendWhatsAppText } = whatsapp;
 const { recordApiUsage } = apiUsage;
 const { findHubMemberByPhone } = hubMembers;
@@ -92,11 +94,12 @@ export default async function (request) {
       .map(([, value]) => value)
       .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")))
       .slice(-MAX_HISTORY_MESSAGES);
-    const [globalBrain, houseRules] = await Promise.all([
+    const [globalBrain, houseRules, previousThreadSummary] = await Promise.all([
       loadGlobalBrain(),
       loadHouseRulesText("whatsapp").catch((error) => { console.error("Could not load BB's house rules:", error.message); return null; }),
+      loadThreadSummary(from).catch((error) => { console.error("Could not load WhatsApp thread context:", error.message); return null; }),
     ]);
-    const memory = [GLOBAL_MEMORY_NOTE, globalBrain].filter(Boolean).join("\n\n");
+    const memory = [GLOBAL_MEMORY_NOTE, globalBrain, threadSummaryPromptText(previousThreadSummary)].filter(Boolean).join("\n\n");
     const result = await askBB({ brandName: "Loona Hub", message: text, memory, history, attachments: [], speaker, houseRules });
     await sendWhatsAppText({ to: from, text: result.answer, accessToken: process.env.WHATSAPP_ACCESS_TOKEN, phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID });
     await fbUpdate(messagePath, { status: "answered", error: null });
@@ -105,6 +108,7 @@ export default async function (request) {
     const note = await extractMemoryNoteSafe({ userMessage: text, bbAnswer: result.answer });
     if (note && note.type === "rule") await saveHouseRuleSafe(note.text, actor);
     else if (note) await saveMemoryNoteSafe(note.text, actor);
+    await updateThreadSummarySafe({ from, previousSummary: previousThreadSummary, userMessage: text, bbAnswer: result.answer });
   } catch (error) {
     await fbUpdate(messagePath, { status: "failed", error: error.message || String(error) });
     await recordWhatsAppBBUsage(from, speaker, messageId, "failed", null, null);
