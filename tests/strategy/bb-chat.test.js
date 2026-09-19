@@ -41,6 +41,17 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
   const withoutRules = instructions({ brandName: "RRO Foods", memory: null });
   check("no house rules yields no such section at all", !/Standing instructions from the team/.test(withoutRules), withoutRules);
 
+  // The rules must come AFTER Mani's memory block, not before it. Memory can run to
+  // thousands of characters of brand fact, and a short behavioural note stated once near the
+  // top of a long system prompt is exactly what a model lets slide by the time it starts
+  // actually writing — this is the literal bug that let a shipped house rule (address people
+  // by name, sound casual on WhatsApp) go unfollowed in production.
+  const longMemory = "- Fact.\n".repeat(500);
+  const orderCheck = instructions({ brandName: "RRO Foods", memory: longMemory, houseRules: "- Sound quirky and casual on WhatsApp." });
+  const memoryIndex = orderCheck.indexOf("Mani's current memory");
+  const rulesIndex = orderCheck.indexOf("Standing instructions from the team");
+  check("house rules are positioned after Mani's memory block, closest to the reply BB is about to write", rulesIndex > memoryIndex, { memoryIndex, rulesIndex });
+
   const history = Array.from({ length: MAX_HISTORY_MESSAGES + 5 }, (_, index) => ({
     role: index % 2 ? "assistant" : "user", text: `turn ${index}`,
   }));
