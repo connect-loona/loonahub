@@ -31,7 +31,7 @@ const TODAY = "2026-09-13";
 
   // ---- Against a real board ----
   await req("PUT", `${RTDB_URL}/tasks.json`, {
-    t1: { task: "Shoot the Diwali reel", member: "Anjali", brand: "RRO Foods", status: "In Progress", due_date: "2026-09-20", created_at: "2026-09-10T00:00:00Z" },
+    t1: { task: "Shoot the Diwali reel", member: "Anjali", brand: "RRO Foods", status: "Awaiting Approval", assigned_by: "Ankita", due_date: "2026-09-20", created_at: "2026-09-10T00:00:00Z" },
     t2: { task: "Write October captions", member: "Vishnu", brand: "RRO Foods", status: "Not Started", priority: "High", due_date: "2026-09-30", created_at: "2026-09-12T00:00:00Z" },
     t3: { task: "Send September report", member: "Anjali", brand: "RRO Foods", status: "Completed", created_at: "2026-09-01T00:00:00Z" },
     t4: { task: "Fix the pack shot", member: "Rahul", brand: "RRO Foods", status: "Not Started", due_date: "2026-09-05", created_at: "2026-09-02T00:00:00Z" },
@@ -67,6 +67,9 @@ const TODAY = "2026-09-13";
   check("open tasks carry who has them and what state they're in",
     /Write October captions — Vishnu \(Not Started/.test(text), text);
   check("a high-priority task says so", /high priority/.test(text), text);
+  // Hub's own approval flow treats assigned_by as the approver too — carrying it through here
+  // is what lets BB name who a task is actually waiting on, not just repeat the status word.
+  check("a task naming who assigned/approves it says so", /Shoot the Diwali reel — Anjali \(Awaiting Approval, due 2026-09-20, assigned by Ankita\)/.test(text), text);
   check("overdue work gets its own heading", /## Already overdue/.test(text) && /Fix the pack shot/.test(text), text);
   // Without this the agents would happily treat a task title as a content idea to write about.
   check("it is framed as context, not as a brief",
@@ -81,6 +84,7 @@ const TODAY = "2026-09-13";
 
   const hubText = hubTaskBoardToPromptText(allActivity);
   check("the Hub-wide board names which brand each task belongs to, since it's no longer implicit", /Casa brand deck — Casa Waters · Priya/.test(hubText), hubText);
+  check("the Hub-wide board also names who assigned/approves a task", /Shoot the Diwali reel — RRO Foods · Anjali \(Awaiting Approval, due 2026-09-20, assigned by Ankita\)/.test(hubText), hubText);
   check("it's clearly labelled as spanning every brand", /all brands/i.test(hubText), hubText.slice(0, 100));
   check("it's framed as the live board, not a brief, same as the per-brand version", /not a brief/.test(hubText), hubText);
 
@@ -94,7 +98,7 @@ const TODAY = "2026-09-13";
 
   // Re-seed for the per-brand "nobody" checks below, which expect the same board as before.
   await req("PUT", `${RTDB_URL}/tasks.json`, {
-    t1: { task: "Shoot the Diwali reel", member: "Anjali", brand: "RRO Foods", status: "In Progress", due_date: "2026-09-20", created_at: "2026-09-10T00:00:00Z" },
+    t1: { task: "Shoot the Diwali reel", member: "Anjali", brand: "RRO Foods", status: "Awaiting Approval", assigned_by: "Ankita", due_date: "2026-09-20", created_at: "2026-09-10T00:00:00Z" },
     t2: { task: "Write October captions", member: "Vishnu", brand: "RRO Foods", status: "Not Started", priority: "High", due_date: "2026-09-30", created_at: "2026-09-12T00:00:00Z" },
     t3: { task: "Send September report", member: "Anjali", brand: "RRO Foods", status: "Completed", created_at: "2026-09-01T00:00:00Z" },
     t4: { task: "Fix the pack shot", member: "Rahul", brand: "RRO Foods", status: "Not Started", due_date: "2026-09-05", created_at: "2026-09-02T00:00:00Z" },

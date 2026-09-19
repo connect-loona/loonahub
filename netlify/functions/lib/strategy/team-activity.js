@@ -44,7 +44,11 @@ function describe(task) {
   const status = task.status || "Not Started";
   const due = task.due_date ? `, due ${task.due_date}` : "";
   const priority = task.priority && task.priority !== "Medium" ? `, ${String(task.priority).toLowerCase()} priority` : "";
-  return `- ${task.task || "(untitled task)"} — ${who} (${status}${due}${priority})`;
+  // Hub's own approval flow treats assigned_by as the approver too ("Awaiting confirmation
+  // from ${assigned_by}") — carrying it through here is what lets BB name who a task is
+  // actually waiting on instead of just repeating a status word back.
+  const assignedBy = task.assigned_by ? `, assigned by ${task.assigned_by}` : "";
+  return `- ${task.task || "(untitled task)"} — ${who} (${status}${due}${priority}${assignedBy})`;
 }
 
 // Everything the board knows about this brand, as a structure the caller can render or count.
@@ -128,7 +132,8 @@ function describeHubWide(task) {
   const brand = task.brand || "no brand";
   const due = task.due_date ? `, due ${task.due_date}` : "";
   const priority = task.priority && task.priority !== "Medium" ? `, ${String(task.priority).toLowerCase()} priority` : "";
-  return `- ${task.task || "(untitled task)"} — ${brand} · ${who} (${status}${due}${priority})`;
+  const assignedBy = task.assigned_by ? `, assigned by ${task.assigned_by}` : "";
+  return `- ${task.task || "(untitled task)"} — ${brand} · ${who} (${status}${due}${priority}${assignedBy})`;
 }
 
 function hubTaskBoardToPromptText(activity) {
