@@ -138,6 +138,12 @@ const TODAY = "2026-09-13";
   check("task history includes a task_removed event, so a cleared task is still recallable", /Old deferred thing/.test(history || ""), history);
   check("task history excludes raw bb_conversation events, same as the other event feeds", !/unrelated/.test(history || ""), history);
   check("task history excludes events older than the 3-month window", !/outside the 3-month window/.test(history || ""), history);
+  // A real production bug: BB presented stale, since-cleared tasks from this exact feed as
+  // though they were open items on someone's current board. This block now has to say, in its
+  // own text, that it must never be read that way.
+  check("task history warns it is a changelog, not the current board", /NOT the current board/.test(history), history);
+  check("task history forbids treating an entry as a currently open/due task", /Never list one of these as something currently due, open, or on someone's plate/.test(history), history);
+  check("task history points BB at the live board or find_tasks for \"what's open right now\"", /use the live Hub task board above, or find_tasks — never this/.test(history), history);
 
   await fbSet("mani_events", null);
   const emptyHistory = await loadTaskHistoryText();

@@ -179,8 +179,8 @@ async function loadTaskHistoryText(deps = {}) {
     return `- ${when}${actor}: ${event.summary || "Task activity"}`;
   });
   return [
-    `# Task history (last ${TASK_HISTORY_MONTHS} months, including tasks since cleared from the live board)`,
-    "Hub clears a task off the live board once it's been dealt with — this history survives that, so a task's existence and outcome stay recallable after it's gone from the board above.",
+    `# Task history (last ${TASK_HISTORY_MONTHS} months — a changelog, NOT the current board)`,
+    "This is a log of changes, not a list of what's currently open — it mixes tasks that are still on the live board today with ones since cleared or removed from it entirely, and nothing here tells you which is which. Never list one of these as something currently due, open, or on someone's plate, and never state a status or due date from here as still true — it was only true at the moment that entry happened. Use it strictly to answer \"did X ever happen\" or \"what happened to task Y\" questions. For \"what's open right now\" or anyone's own current board, use the live Hub task board above, or find_tasks — never this.",
     ...lines,
   ].join("\n");
 }
