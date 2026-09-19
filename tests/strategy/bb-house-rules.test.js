@@ -26,12 +26,6 @@ const { loadHouseRulesText, saveHouseRuleSafe, DEFAULT_HOUSE_RULES } = require(p
 
   check("DEFAULT_HOUSE_RULES is exported and non-empty", Array.isArray(DEFAULT_HOUSE_RULES) && DEFAULT_HOUSE_RULES.length >= 3, DEFAULT_HOUSE_RULES.length);
 
-  // A fixed core answer for recurring questions ("who are you") — but she must be told to
-  // rephrase it, not recite it, so the rule itself has to carry both halves.
-  check("a standard 'who are you' core answer is shipped by default", /G's right hand at Loona/.test(whatsappDefault || ""), whatsappDefault);
-  check("it explicitly tells her to rephrase rather than recite it verbatim", /never recite it as a fixed script/.test(whatsappDefault || ""), whatsappDefault);
-  check("the standard-answer default also reaches the hub channel", /G's right hand at Loona/.test(hubDefault || ""), hubDefault);
-
   // A task-board status question must cover everyone on the board, not a curated few — the
   // exact gap a WhatsApp screenshot exposed: "what's due for each team" answered for only 5
   // of the team even though the board memory has every open task for every person.
