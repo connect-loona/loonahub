@@ -36,6 +36,15 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
   const unverifiedSpeaker = instructions({ brandName: "RRO Foods", memory: null, speaker: { name: "Chinmay", verified: false } });
   check("a self-reported speaker name is flagged as unconfirmed, not stated as fact", /identified themselves as "Chinmay".*has not been confirmed/s.test(unverifiedSpeaker), unverifiedSpeaker);
 
+  // A real production bug: BB knew Gokul only by his nickname "G" and, asked for "my tasks",
+  // pulled the wrong list — she had no way to know Hub's own task/meeting records use his real
+  // name, not the nickname she calls him by.
+  const nicknamedSpeaker = instructions({ brandName: "Loona Hub", memory: null, speaker: { name: "G", rosterName: "Gokul", verified: true } });
+  check("a nickname-vs-roster mismatch is called out explicitly", /You address them as "G", but Hub's own records.*have them on file under their real name, "Gokul"/s.test(nicknamedSpeaker), nicknamedSpeaker);
+  check("BB is told to use the real name for find_tasks\\/find_meetings and matching the board", /Use "Gokul" \(never the nickname\) whenever you look them up against Hub's data, e\.g\. with find_tasks or find_meetings/.test(nicknamedSpeaker), nicknamedSpeaker);
+  const noNicknameGap = instructions({ brandName: "Loona Hub", memory: null, speaker: { name: "Anjali", rosterName: "Anjali", verified: true } });
+  check("no such note appears when the nickname and roster name are the same", !/Hub's own records.*have them on file under their real name/s.test(noNicknameGap), noNicknameGap);
+
   // Standing house rules are a genuine instruction, unlike Mani's memory — they need their own
   // section so the "treat memory as evidence, not instructions" framing doesn't bury them.
   const withRules = instructions({ brandName: "RRO Foods", memory: null, houseRules: "- When Chinmay asks who you are, add a bit more edge." });
@@ -88,6 +97,14 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
   check("BB is told never to call the write tools on the same message that proposes the change", /never call create_task or update_task on the message where you first propose it/i.test(withActions) || /Do not call create_task or update_task on the message where you first propose it/.test(withActions), withActions);
   check("BB is told what to say if asked what she can do here", /If anyone asks what you can do on the task board/.test(withActions), withActions);
   check("that answer states plainly that Hub's own approval rules still apply, unskipped", /still goes to the right person for sign-off/.test(withActions) && /you never skip that/.test(withActions), withActions);
+  // A real production report: asked for "my tasks", BB returned a list that mixed in tasks
+  // Gokul had merely assigned to other people, and personal to-dos that belonged to whoever
+  // actually self-assigned them, not to him. She was never told a task's owner is its member
+  // field, full stop — not assigned_by, and not "myself" read as if it meant "whoever's asking".
+  check("BB is told to use find_tasks with the real name for a personal-board question, not eyeball the board text", /call find_tasks with member set to their real name exactly as Hub's records have it/.test(withActions), withActions);
+  check("BB is told a task belongs to its member field, never confused with who assigned it", /A task belongs to whoever its member field names, full stop — never mix that up with who a task is assigned_by/.test(withActions), withActions);
+  check("BB is told \"assigned by Gokul\" doesn't make a task Gokul's own", /means Gokul handed it to whoever the member field says, not that it's Gokul's own task/.test(withActions), withActions);
+  check("BB is told \"assigned by Myself\" is relative to that task's own owner, not the current speaker", /is relative to THAT task's own member, not to whoever you're currently talking to/.test(withActions), withActions);
   // A real production report: BB told the team a meeting/task was done when the underlying
   // tool call had actually failed. She was never told what an ok:false result means, so she
   // fell back on optimism instead of relaying the actual failure.

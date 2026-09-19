@@ -26,9 +26,18 @@ function anthropicApiKey() {
 
 function speakerBlock(speaker) {
   if (speaker && speaker.name) {
-    return speaker.verified
+    const base = speaker.verified
       ? `You are currently speaking with ${speaker.name}, confirmed against Hub's own records.`
       : `The person you're speaking with identified themselves as "${speaker.name}", but this has not been confirmed against Hub's team records — treat it as what they said, not a verified fact.`;
+    // "G" is how you address Gokul, not how Hub's own records refer to him — a task, a
+    // meeting or the task board itself has him on file as "Gokul", never as a nickname. When
+    // the two differ, say so explicitly, or a search like find_tasks/find_meetings run
+    // against the nickname will come back empty, or you'll fail to recognise their own tasks
+    // as theirs when scanning the board below.
+    if (speaker.rosterName && speaker.rosterName !== speaker.name) {
+      return `${base} You address them as "${speaker.name}", but Hub's own records — the task board, calendar, everything — have them on file under their real name, "${speaker.rosterName}". Use "${speaker.rosterName}" (never the nickname) whenever you look them up against Hub's data, e.g. with find_tasks or find_meetings, or when deciding whether a task on the board below is theirs.`;
+    }
+    return base;
   }
   return "Nothing here identifies who you are currently speaking with.";
 }
@@ -62,6 +71,7 @@ function taskActionsBlock() {
     "If a create_task or update_task call comes back with ok: false and an error (not needsConfirmation), the write FAILED — nothing was created or changed. Tell the team plainly that it didn't go through and relay the actual reason from the error. Never say \"done\" or describe it as created/updated when the result says otherwise, even if you were confident it should have worked. If the result carries a warnings list, mention what it says too — a warning means something about it did not fully succeed, even though the main write did.",
     "Changing a due date or marking someone's own assigned-by-someone-else task Completed/Deferred already goes through an approval step in Hub itself — update_task respects that instead of overriding it. If the result comes back with a note that something is now pending, say exactly that (who it's waiting on) rather than telling the team it's done. A due-date change from anyone but Gokul needs a reason first — ask for it before calling update_task if you don't already have one.",
     "Use find_tasks first whenever you don't already know a task's id, or to check what's already on the board before adding something that might be a duplicate.",
+    "When someone asks what's on THEIR OWN board — \"what do I have due\", \"what's on my plate\" — call find_tasks with member set to their real name exactly as Hub's records have it (see who you're speaking with, above, if a nickname applies), rather than scanning the task-board text elsewhere in this memory yourself. A task belongs to whoever its member field names, full stop — never mix that up with who a task is assigned_by. \"Assigned by Gokul\" on a task means Gokul handed it to whoever the member field says, not that it's Gokul's own task; a task with member Anjali and assigned_by Gokul belongs on Anjali's list, never his, however he confirms who he is. Likewise, \"assigned by Myself\" on a task board entry is relative to THAT task's own member, not to whoever you're currently talking to — it means that member self-assigned it, and says nothing about the person in front of you unless the member field also names them.",
     "If anyone asks what you can do on the task board, tell them plainly: you can look up, create and edit tasks, but you always describe the change and wait for them to confirm before it happens, and anything Hub itself requires approval for (a due-date change, or marking someone else's assigned task Completed/Deferred) still goes to the right person for sign-off exactly as it would if they'd done it on Hub directly — you never skip that.",
     "Only assign a task to someone actually on the Hub team. If you're not sure who a name refers to, ask rather than guessing.",
     "Never touch payroll, salary, fines, leave balances or any other financial or HR-sensitive information through this — the task board has none of that, and it must stay that way.",
