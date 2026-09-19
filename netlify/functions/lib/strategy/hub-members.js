@@ -82,4 +82,22 @@ async function loadTeamDirectoryText() {
   return lines.length ? ["# Hub team directory", ...lines].join("\n") : null;
 }
 
-module.exports = { findHubMemberByPhone, loadTeamDirectoryText };
+// The name-lookup counterpart to findHubMemberByPhone, for BB acting on the task board where
+// the team names someone rather than a phone number identifying them. Matched against the
+// active roster only (the same /inactive_members exclusion loadTeamDirectoryText applies) —
+// returns null on no match OR more than one match, since guessing which "Priya" was meant is
+// worse than asking. First-name-only match, case-insensitive, since that's how the team and
+// BB both refer to each other.
+async function findHubMemberByName(name) {
+  const wanted = firstName(name).toLowerCase();
+  if (!wanted) return null;
+  const [members, inactiveRaw] = await Promise.all([fbGet("members"), fbGet("inactive_members")]);
+  const inactiveNames = new Set(Array.isArray(inactiveRaw) ? inactiveRaw : Object.values(inactiveRaw || {}));
+  const matches = Object.values(members || {})
+    .filter((record) => record && record.name && !inactiveNames.has(record.name))
+    .filter((record) => firstName(record.name).toLowerCase() === wanted);
+  if (matches.length !== 1) return null;
+  return { name: firstName(matches[0].name) };
+}
+
+module.exports = { findHubMemberByPhone, findHubMemberByName, loadTeamDirectoryText };

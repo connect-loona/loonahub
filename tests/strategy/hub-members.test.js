@@ -6,7 +6,7 @@ process.env.FIREBASE_DB_URL = require("../harness/shared").RTDB_URL;
 const path = require("path");
 const { HUB, check, finish } = require("../harness/shared");
 const { fbSet } = require(path.join(HUB, "netlify/functions/lib/strategy/firebase"));
-const { findHubMemberByPhone, loadTeamDirectoryText } = require(path.join(HUB, "netlify/functions/lib/strategy/hub-members"));
+const { findHubMemberByPhone, findHubMemberByName, loadTeamDirectoryText } = require(path.join(HUB, "netlify/functions/lib/strategy/hub-members"));
 
 (async () => {
   await fbSet("members", null);
@@ -40,6 +40,34 @@ const { findHubMemberByPhone, loadTeamDirectoryText } = require(path.join(HUB, "
   await fbSet("members", null);
   const emptyRoster = await findHubMemberByPhone("+919004799134");
   check("an empty roster finds nothing rather than throwing", emptyRoster === null, emptyRoster);
+
+  // ---- findHubMemberByName: for BB acting on the task board, where the team names someone ----
+  await fbSet("inactive_members", null);
+  await fbSet("members", {
+    m1: { name: "Chinmay", mobile: "+91 90047 99134" },
+    m2: { name: "Priya Sharma", mobile: "+91 98765 43210" },
+    m3: { name: "Priya Nair", mobile: "+91 98765 00000" },
+    m4: { name: "Vishnu", mobile: "+91 90000 11111" },
+  });
+  await fbSet("inactive_members", ["Vishnu"]);
+
+  const byName = await findHubMemberByName("chinmay");
+  check("a name matches case-insensitively", byName && byName.name === "Chinmay", byName);
+
+  const byFirstNameOnly = await findHubMemberByName("Priya");
+  check("more than one active person sharing a first name is refused rather than guessed", byFirstNameOnly === null, byFirstNameOnly);
+
+  const inactive = await findHubMemberByName("Vishnu");
+  check("an inactive teammate is not matched by name either", inactive === null, inactive);
+
+  const noSuchName = await findHubMemberByName("Someone Nobody Knows");
+  check("a name nobody on the roster has finds nothing", noSuchName === null, noSuchName);
+
+  const emptyName = await findHubMemberByName("");
+  check("an empty name finds nothing rather than throwing", emptyName === null, emptyName);
+
+  await fbSet("members", null);
+  await fbSet("inactive_members", null);
 
   // ---- loadTeamDirectoryText: what BB/Mani may know about the team in general ----
   await fbSet("inactive_members", null);

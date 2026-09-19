@@ -8,6 +8,12 @@
 
 const { BB_LOONA_SOUL, LOONA_SOUL, BB_CONVERSATION_SOUL } = require("./souls-data");
 const { isProviderError } = require("./runtime-failover");
+const { TASK_ACTION_TOOLS, executeTaskAction, looksLikeConfirmation } = require("./bb-task-actions");
+const { CALENDAR_ACTION_TOOLS, executeCalendarAction } = require("./bb-calendar-actions");
+
+const MAX_TOOL_ITERATIONS = 4;
+const TASK_TOOL_NAMES = new Set(TASK_ACTION_TOOLS.map((tool) => tool.name));
+const CALENDAR_TOOL_NAMES = new Set(CALENDAR_ACTION_TOOLS.map((tool) => tool.name));
 
 const MAX_MESSAGE_CHARS = 4000;
 const MAX_HISTORY_MESSAGES = 12;
@@ -43,9 +49,48 @@ function houseRulesBlock(houseRules) {
   ].join("\n");
 }
 
-function instructions({ brandName, memory, speaker, houseRules, introduction }) {
+// BB acting on the task board is higher-stakes than her introduction — a wrong greeting is a
+// small embarrassment, a wrong write is visible to the whole team — so this sits even later
+// than the introduction block, dead last of everything, closest of all to where she starts
+// writing the reply.
+function taskActionsBlock() {
+  return [
+    "# Acting on Loona Hub's task board",
+    "You can look up, create and edit tasks on Hub's task board using find_tasks, create_task and update_task.",
+    "Before you create or change anything, say back exactly what you are about to do — the task, who it's for, the brand if any, due date and priority if any, or exactly what field you're about to change and to what — in plain language, and wait. Do not call create_task or update_task on the message where you first propose it, even if the team's message reads like an instruction to just do it now. Only call it once they reply confirming, in their next message.",
+    "If a create_task or update_task call comes back saying it needs confirmation, that means you tried to act before they confirmed — tell them what you were about to do and wait, rather than treating it as already done.",
+    "Changing a due date or marking someone's own assigned-by-someone-else task Completed/Deferred already goes through an approval step in Hub itself — update_task respects that instead of overriding it. If the result comes back with a note that something is now pending, say exactly that (who it's waiting on) rather than telling the team it's done. A due-date change from anyone but Gokul needs a reason first — ask for it before calling update_task if you don't already have one.",
+    "Use find_tasks first whenever you don't already know a task's id, or to check what's already on the board before adding something that might be a duplicate.",
+    "If anyone asks what you can do on the task board, tell them plainly: you can look up, create and edit tasks, but you always describe the change and wait for them to confirm before it happens, and anything Hub itself requires approval for (a due-date change, or marking someone else's assigned task Completed/Deferred) still goes to the right person for sign-off exactly as it would if they'd done it on Hub directly — you never skip that.",
+    "Only assign a task to someone actually on the Hub team. If you're not sure who a name refers to, ask rather than guessing.",
+    "Never touch payroll, salary, fines, leave balances or any other financial or HR-sensitive information through this — the task board has none of that, and it must stay that way.",
+  ].join("\n");
+}
+
+// Scheduling sends a real Google Calendar invite to real inboxes, possibly including people
+// outside Loona entirely — higher-stakes than a task-board write, so this sits even later than
+// taskActionsBlock, closest of all to where BB starts writing.
+function calendarActionsBlock() {
+  return [
+    "# Scheduling meetings on Loona Hub's calendar",
+    "You can look up, schedule and reschedule meetings using find_meetings, schedule_meeting and update_meeting. schedule_meeting sends a REAL Google Calendar invite to everyone on it and, for a plain video meeting, generates a Meet link automatically — this is not a draft or a preview, the invite actually lands in people's inboxes the moment you call it.",
+    "You are always the organizer yourself — you book it as whoever is actually talking to you right now, never as someone else, and you never ask who to book it under.",
+    "Before you book or change anything, say back exactly what you are about to do — title, date, time, who's being invited — in plain language, and wait. Do not call schedule_meeting or update_meeting on the message where you first propose it, even if the team's message reads like an instruction to just do it now. Only call it once they reply confirming, in their next message.",
+    "If a schedule_meeting or update_meeting call comes back saying it needs confirmation, that means you tried to act before they confirmed — tell them what you were about to do and wait, rather than treating it as already booked.",
+    "For update_meeting, only set the fields that are actually changing. Leaving a field out keeps whatever is currently on the calendar for it — the tool never blanks out the time, the attendee list or anything else just because a field wasn't mentioned. Only pass attendees at all when the attendee list itself is what's changing.",
+    "Only the meeting's own organizer or Gokul may reschedule or edit it — if update_meeting refuses for that reason, say so plainly rather than trying again or pretending it went through.",
+    "Use find_meetings first whenever you don't already have a meeting's event_key, or to check the calendar for a clash before booking something new.",
+    "A plain meeting gets a Meet link automatically. Use physical_meeting or shoot instead, with a location, for anything happening in person — neither of those gets a virtual link.",
+    "If anyone asks what you can do here, say plainly: you can look up, book and reschedule meetings, always describing it and waiting for confirmation first, always as the real organizer talking to you (never someone else), and always subject to the same organizer-or-Gokul rule Hub itself enforces for edits.",
+    "Only invite people actually on the Hub team by name, or a real external email address given to you directly. Never invent an email address, and never touch payroll, salary, fines, leave balances or any other financial or HR-sensitive information through this.",
+  ].join("\n");
+}
+
+function instructions({ brandName, memory, speaker, houseRules, introduction, taskActions, calendarActions }) {
   const rules = houseRulesBlock(houseRules);
   const meeting = introduction && String(introduction).trim();
+  const actions = taskActions ? taskActionsBlock() : null;
+  const calendarBlock = calendarActions ? calendarActionsBlock() : null;
   return [
     LOONA_SOUL,
     "---",
@@ -89,6 +134,8 @@ function instructions({ brandName, memory, speaker, houseRules, introduction }) 
     // person's entire history with BB — there is no second chance to get it followed, so it
     // sits closest of all to where she starts writing.
     ...(meeting ? ["---", meeting] : []),
+    ...(actions ? ["---", actions] : []),
+    ...(calendarBlock ? ["---", calendarBlock] : []),
   ].join("\n");
 }
 
@@ -215,7 +262,51 @@ async function extractMemoryNoteSafe(input, deps = {}) {
   catch (error) { console.error("Could not extract a memory note from this BB exchange:", error.message || error); return null; }
 }
 
-async function askBB({ brandName, message, memory, history, attachments, speaker, houseRules, introduction }, deps = {}) {
+// Routes a tool_use block to whichever action family actually owns that tool name — BB can
+// have task-board tools and calendar tools available in the same turn, and each family's own
+// executor (executeTaskAction/executeCalendarAction) already knows nothing about the other.
+async function executeToolCall(name, input, ctx, deps) {
+  if (TASK_TOOL_NAMES.has(name)) return executeTaskAction(name, input, ctx, deps);
+  if (CALENDAR_TOOL_NAMES.has(name)) return executeCalendarAction(name, input, ctx, deps);
+  throw new Error(`Unknown tool "${name}".`);
+}
+
+// Executes the client-side action tools a tool_use response asked for, feeds each result back,
+// and repeats until BB stops calling tools or the iteration cap is hit. Capped rather than
+// open-ended so a confused model chaining tool calls cannot turn one chat message into an
+// unbounded number of Anthropic calls; the forced final no-tools call is the safety net against
+// hitting that cap with nothing but tool_use blocks and no text to actually show the team.
+async function runToolLoop({ client, model, system, tools, messages, response, ctx, deps }) {
+  let current = response;
+  let iterations = 0;
+  while (current.stop_reason === "tool_use" && iterations < MAX_TOOL_ITERATIONS) {
+    iterations += 1;
+    messages.push({ role: "assistant", content: current.content });
+    const toolResults = [];
+    for (const block of current.content) {
+      if (block.type !== "tool_use") continue;
+      let result;
+      try { result = await executeToolCall(block.name, block.input, ctx, deps); }
+      catch (error) { result = { ok: false, error: error.message || String(error) }; }
+      toolResults.push({ type: "tool_result", tool_use_id: block.id, content: JSON.stringify(result) });
+    }
+    messages.push({ role: "user", content: toolResults });
+    current = await client.messages.create({ model, max_tokens: 1000, system, tools, messages });
+  }
+  if (current.stop_reason === "tool_use") {
+    messages.push({ role: "assistant", content: current.content });
+    messages.push({
+      role: "user",
+      content: current.content
+        .filter((block) => block.type === "tool_use")
+        .map((block) => ({ type: "tool_result", tool_use_id: block.id, content: JSON.stringify({ ok: false, error: "Too many tool calls in one turn — answer the team with what you already have." }) })),
+    });
+    current = await client.messages.create({ model, max_tokens: 1000, system, tools: [], messages });
+  }
+  return current;
+}
+
+async function askBB({ brandName, message, memory, history, attachments, speaker, houseRules, introduction, taskActions, calendarActions }, deps = {}) {
   const asked = String(message || "").trim().slice(0, MAX_MESSAGE_CHARS);
   if (!asked) throw new Error("BB needs a message.");
 
@@ -243,14 +334,22 @@ async function askBB({ brandName, message, memory, history, attachments, speaker
   // gives a near-immediate conversational first token; an explicit BB override is still
   // available for a workspace that deliberately wants a different model.
   const model = process.env.STRATEGY_BB_MODEL || "claude-sonnet-4-5-20250929";
+  const system = instructions({ brandName, memory, speaker, houseRules, introduction, taskActions, calendarActions });
+  const usesTools = taskActions || calendarActions;
+  const tools = [
+    ...(/\b(current|today|latest|website|web|news|search|competitor|trend|moon)\b/i.test(asked) ? [{ type: "web_search_20260209", name: "web_search", max_uses: 2 }] : []),
+    ...(taskActions ? TASK_ACTION_TOOLS : []),
+    ...(calendarActions ? CALENDAR_ACTION_TOOLS : []),
+  ];
   try {
-    const response = await client.messages.create({
-      model,
-      max_tokens: 1000,
-      system: instructions({ brandName, memory, speaker, houseRules, introduction }),
-      tools: /\b(current|today|latest|website|web|news|search|competitor|trend|moon)\b/i.test(asked) ? [{ type: "web_search_20260209", name: "web_search", max_uses: 2 }] : [],
-      messages,
-    });
+    let response = await client.messages.create({ model, max_tokens: 1000, system, tools, messages });
+    if (usesTools) {
+      // Confirmation is checked against this turn's own message only — never a stored
+      // proposal — so a stale earlier "yes" can never authorise a write it never actually
+      // agreed to.
+      const ctx = { confirmed: looksLikeConfirmation(asked), speakerName: speaker && speaker.verified ? speaker.name : null };
+      response = await runToolLoop({ client, model, system, tools, messages, response, ctx, deps });
+    }
     return { ...answerText(response), provider: "Anthropic", model };
   } catch (error) {
     // A quota, billing, timeout or provider outage must not take BB offline. The fallback
@@ -263,4 +362,4 @@ async function askBB({ brandName, message, memory, history, attachments, speaker
   }
 }
 
-module.exports = { askBB, instructions, cleanHistory, attachmentBlocks, askBBWithOpenAI, extractMemoryNote, extractMemoryNoteSafe, MAX_MESSAGE_CHARS, MAX_HISTORY_MESSAGES, MAX_MEMORY_CHARS };
+module.exports = { askBB, instructions, cleanHistory, attachmentBlocks, askBBWithOpenAI, extractMemoryNote, extractMemoryNoteSafe, MAX_MESSAGE_CHARS, MAX_HISTORY_MESSAGES, MAX_MEMORY_CHARS, MAX_TOOL_ITERATIONS };
