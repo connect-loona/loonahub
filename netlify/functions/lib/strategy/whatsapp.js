@@ -54,6 +54,56 @@ function extractIncomingText(payload) {
   return { from, text, messageId: String(message.id || ""), contactName };
 }
 
+// The image/PDF counterpart to extractIncomingText — same webhook payload, but Meta puts an
+// image or document message under message.image/message.document instead of message.text,
+// with the caption (if any) nested one level in rather than being the whole message body.
+// Kept as a separate function rather than folded into extractIncomingText so a plain text
+// message's contract (always has non-empty text, never has media fields) doesn't change for
+// the callers that already depend on it.
+const MEDIA_MESSAGE_TYPES = new Set(["image", "document"]);
+
+function extractIncomingMedia(payload) {
+  const value = payload && payload.entry && payload.entry[0] && payload.entry[0].changes && payload.entry[0].changes[0] && payload.entry[0].changes[0].value;
+  const message = value && Array.isArray(value.messages) ? value.messages[0] : null;
+  if (!message || !MEDIA_MESSAGE_TYPES.has(message.type)) return null;
+  const media = message[message.type] || {};
+  const from = digitsOnly(message.from);
+  const mediaId = String(media.id || "");
+  if (!from || !mediaId) return null;
+  const contactName = (value.contacts && value.contacts[0] && value.contacts[0].profile && value.contacts[0].profile.name) || "";
+  return {
+    from,
+    // A caption is optional — an image or PDF sent with nothing typed alongside it is a
+    // normal thing to do, so this is allowed to come back empty; the caller decides what a
+    // caption-less attachment means rather than this function inventing text that was never
+    // actually sent.
+    text: String(media.caption || "").trim(),
+    messageId: String(message.id || ""),
+    contactName,
+    mediaId,
+    mimeType: String(media.mime_type || "").split(";")[0].trim().toLowerCase(),
+    // Meta gives documents a real filename; images never carry one.
+    filename: media.filename ? String(media.filename) : null,
+  };
+}
+
+// Meta's media download is a two-step handshake: the webhook only ever gives you an opaque
+// media id, never the bytes or a public URL — first resolve that id to a short-lived signed
+// URL, then fetch the URL itself, both authenticated the same way a message send is.
+async function fetchWhatsAppMedia({ mediaId, accessToken, fetchImpl = fetch }) {
+  if (!accessToken) throw new Error("WHATSAPP_ACCESS_TOKEN is required to download WhatsApp media.");
+  const lookup = await fetchImpl(`https://graph.facebook.com/${WHATSAPP_API_VERSION}/${mediaId}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!lookup.ok) throw new Error(`WhatsApp media lookup failed (HTTP ${lookup.status}).`);
+  const meta = await lookup.json().catch(() => ({}));
+  if (!meta.url) throw new Error("WhatsApp media lookup returned no download URL.");
+  const download = await fetchImpl(meta.url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!download.ok) throw new Error(`WhatsApp media download failed (HTTP ${download.status}).`);
+  const buffer = Buffer.from(await download.arrayBuffer());
+  return { buffer, contentType: String(meta.mime_type || "").split(";")[0].trim().toLowerCase() };
+}
+
 async function sendWhatsAppText({ to, text, accessToken, phoneNumberId, fetchImpl = fetch }) {
   if (!accessToken || !phoneNumberId) throw new Error("WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID are required to reply on WhatsApp.");
   const response = await fetchImpl(`https://graph.facebook.com/${WHATSAPP_API_VERSION}/${phoneNumberId}/messages`, {
@@ -68,6 +118,6 @@ async function sendWhatsAppText({ to, text, accessToken, phoneNumberId, fetchImp
 }
 
 module.exports = {
-  verifySignature, isAllowedNumber, extractIncomingText, sendWhatsAppText, digitsOnly,
-  WHATSAPP_TEXT_LIMIT, WHATSAPP_API_VERSION,
+  verifySignature, isAllowedNumber, extractIncomingText, extractIncomingMedia, fetchWhatsAppMedia,
+  sendWhatsAppText, digitsOnly, WHATSAPP_TEXT_LIMIT, WHATSAPP_API_VERSION,
 };

@@ -3,7 +3,7 @@
 // to a background function so this request can return to Meta immediately — Meta redelivers
 // a webhook it doesn't get a fast 200 for, and BB's own answer can take several seconds.
 "use strict";
-const { verifySignature, isAllowedNumber, extractIncomingText } = require("../lib/strategy/whatsapp");
+const { verifySignature, isAllowedNumber, extractIncomingText, extractIncomingMedia } = require("../lib/strategy/whatsapp");
 const { signedBackgroundHeaders } = require("../lib/strategy/background-auth");
 
 function siteBaseUrl(event) {
@@ -32,9 +32,12 @@ exports.handler = async (event) => {
   let payload;
   try { payload = JSON.parse(event.body || "{}"); } catch { return ACK; } // Meta still expects 200 for a payload it can't use.
 
-  const incoming = extractIncomingText(payload);
+  // A text message and an image/PDF are both "something for BB to answer" — extractIncomingMedia
+  // only runs when extractIncomingText found nothing, since a real text message never carries
+  // image/document fields for the other extractor to (wrongly) pick up.
+  const incoming = extractIncomingText(payload) || extractIncomingMedia(payload);
   if (!incoming) {
-    console.log("whatsapp-webhook: no actionable text message in this payload (status callback or unsupported message type).");
+    console.log("whatsapp-webhook: no actionable text or media message in this payload (status callback or unsupported message type).");
     return ACK;
   }
   // Not on the internal allowlist — acknowledge and do nothing more.
