@@ -18381,6 +18381,11 @@
     // it hides the section, and is not a substitute for a database rule.
     const MANI_WHATSAPP_PREFIX = 'whatsapp-';
 
+    // Which conversation is currently expanded, so tapping the same name again closes it and
+    // so a slow read for one thread cannot paint itself over another the reader has since
+    // opened. Reset whenever the list is rebuilt.
+    let maniOpenWhatsappId = null;
+
     function maniWhatsappVisible() {
       return currentUser === 'Gokul';
     }
@@ -18392,6 +18397,9 @@
       wrap.style.display = '';
       const list = document.getElementById('mani-whatsapp-threads');
       if (!list) return;
+      maniOpenWhatsappId = null;
+      const openBox = document.getElementById('mani-whatsapp-messages');
+      if (openBox) openBox.innerHTML = '';
       if (!_db) { list.innerHTML = '<div style="color:var(--muted);font-size:12px">Still connecting to Firebase — reopen this tab in a moment.</div>'; return; }
       list.innerHTML = '<div style="color:var(--muted);font-size:12px">Loading…</div>';
       _db.ref('strategy_bb_chats/global/threads').once('value', snap => {
@@ -18421,8 +18429,11 @@
     function maniOpenWhatsappThread(threadId) {
       const box = document.getElementById('mani-whatsapp-messages');
       if (!box || !_db || !maniWhatsappVisible()) return;
+      if (maniOpenWhatsappId === threadId) { maniOpenWhatsappId = null; box.innerHTML = ''; return; }
+      maniOpenWhatsappId = threadId;
       box.innerHTML = '<div style="color:var(--muted);font-size:12px">Loading…</div>';
       _db.ref('strategy_bb_chats/global/' + threadId + '/messages').once('value', snap => {
+        if (maniOpenWhatsappId !== threadId) return;
         const all = snap.val() || {};
         const messages = Object.keys(all).map(k => all[k]).filter(Boolean)
           .sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
@@ -18444,6 +18455,7 @@
           }).join('')
           + '</div>';
       }, () => {
+        if (maniOpenWhatsappId !== threadId) return;
         box.innerHTML = '<div style="color:var(--muted);font-size:12px">Could not load that conversation.</div>';
       });
     }
