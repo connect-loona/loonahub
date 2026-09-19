@@ -277,6 +277,24 @@ function fakeClient(log, reply = "That is a new recommendation, not something re
   check("a genuinely confirmed turn actually writes the task", pushedRecord && pushedRecord.writePath === "tasks", pushedRecord);
   check("the write is attributed to whoever actually confirmed it", pushedRecord && /Ankita/.test(pushedRecord.value.created_by), pushedRecord && pushedRecord.value);
 
+  // A real production bug: WhatsApp resolves Gokul to his nickname "G" for how BB addresses
+  // him, but a write has to be attributed to (and a schedule_meeting call has to book as) his
+  // real /members roster name — otherwise the roster lookup fails outright, which is exactly
+  // what happened. speaker.rosterName exists precisely to carry that real name through.
+  let nicknameVsRoster = null;
+  await askBB({
+    brandName: "Loona Hub", message: "Yes, add it.", memory: null, taskActions: true,
+    speaker: { name: "G", rosterName: "Gokul", verified: true },
+  }, {
+    client: sequencedClient([], [
+      { stop_reason: "tool_use", content: [{ type: "tool_use", id: "tu3b", name: "create_task", input: { member: "Anjali", task: "Shoot the Diwali reel" } }] },
+      { stop_reason: "end_turn", content: [{ type: "text", text: "Done." }] },
+    ]),
+    fbPush: async (writePath, value) => { nicknameVsRoster = value; return "newkey"; },
+  });
+  check("the write is attributed to the real roster name, not the conversational nickname", nicknameVsRoster && /Gokul/.test(nicknameVsRoster.created_by), nicknameVsRoster);
+  check("the nickname itself never leaks into the attribution", nicknameVsRoster && !/\(asked by G\)/.test(nicknameVsRoster.created_by), nicknameVsRoster);
+
   // A model that keeps calling tools forever must not turn one chat message into an unbounded
   // number of Anthropic calls, and must still end with something to actually show the team.
   const runawayResponses = Array.from({ length: MAX_TOOL_ITERATIONS + 1 }, (_, index) => (

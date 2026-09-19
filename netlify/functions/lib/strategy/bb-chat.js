@@ -349,7 +349,15 @@ async function askBB({ brandName, message, memory, history, attachments, speaker
       // Confirmation is checked against this turn's own message only — never a stored
       // proposal — so a stale earlier "yes" can never authorise a write it never actually
       // agreed to.
-      const ctx = { confirmed: looksLikeConfirmation(asked), speakerName: speaker && speaker.verified ? speaker.name : null };
+      //
+      // speakerName here is deliberately speaker.rosterName over speaker.name where the two
+      // differ — a nickname like "G" (see PREFERRED_NAMES in hub-members.js) is how BB
+      // addresses someone in conversation, but task/calendar actions match this name against
+      // Hub's own /members roster (to book a meeting as the real organizer, or to recognise
+      // Gokul for an approval-gate check), and a nickname will never match there. Getting this
+      // wrong is exactly what caused BB to be told her own organizer "isn't on the team
+      // roster at all" when booking a meeting on Gokul's behalf.
+      const ctx = { confirmed: looksLikeConfirmation(asked), speakerName: speaker && speaker.verified ? (speaker.rosterName || speaker.name) : null };
       response = await runToolLoop({ client, model, system, tools, messages, response, ctx, deps });
     }
     return { ...answerText(response), provider: "Anthropic", model };

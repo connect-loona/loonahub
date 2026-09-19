@@ -37,7 +37,11 @@ const { SAFE_BB_ATTACHMENT_TYPES, MAX_BB_ATTACHMENT_BYTES, saveBBAttachment } = 
 // teammate based on nothing more than that name appearing elsewhere in Hub-wide memory.
 async function resolveSpeaker(from, contactName) {
   const hubMatch = await findHubMemberByPhone(from).catch(() => null);
-  if (hubMatch) return { name: hubMatch.name, verified: true };
+  // rosterName carries through even though nothing here reads it directly — it's how
+  // askBB() knows who to actually book a meeting or attribute a task write as, since a
+  // nickname like "G" (see PREFERRED_NAMES in hub-members.js) is what BB calls someone in
+  // conversation, not their real /members roster entry.
+  if (hubMatch) return { name: hubMatch.name, rosterName: hubMatch.rosterName, verified: true };
   return { name: contactName || null, verified: false };
 }
 

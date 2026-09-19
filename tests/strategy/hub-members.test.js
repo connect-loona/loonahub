@@ -18,6 +18,7 @@ const { findHubMemberByPhone, findHubMemberByName, loadTeamDirectoryText } = req
 
   const exact = await findHubMemberByPhone("+919004799134");
   check("a phone number stored with spaces/plus matches a plain digit lookup", exact && exact.name === "Chinmay", exact);
+  check("rosterName matches the display name when there's no nickname override", exact && exact.rosterName === "Chinmay", exact);
 
   const noCountryCode = await findHubMemberByPhone("9004799134");
   check("the same person matches without a country code, by the last 10 digits", noCountryCode && noCountryCode.name === "Chinmay", noCountryCode);
@@ -30,9 +31,21 @@ const { findHubMemberByPhone, findHubMemberByName, loadTeamDirectoryText } = req
 
   const fullName = await findHubMemberByPhone("+919876543210");
   check("BB addresses someone by first name only, not their full Hub Directory name", fullName && fullName.name === "Priya", fullName);
+  check("rosterName is the same first name here too", fullName && fullName.rosterName === "Priya", fullName);
 
   const preferred = await findHubMemberByPhone("+919946008112");
   check("a hand-maintained nickname override wins over whatever Hub has on file", preferred && preferred.name === "G", preferred);
+  check("with no matching roster entry, rosterName falls back to the nickname rather than null", preferred && preferred.rosterName === "G", preferred);
+
+  // The actual bug this shape exists to prevent: BB calls him "G", but a task/meeting write
+  // has to be attributed to (and an approval-gate check has to recognise) his real roster name
+  // — a mismatch here is exactly what made BB tell Gokul his own organizer name "wasn't on
+  // the team roster at all" while trying to book a meeting on his behalf.
+  await fbSet("members/m4", { name: "Gokul Krishnan", mobile: "+91 99460 08112" });
+  const preferredWithRoster = await findHubMemberByPhone("+919946008112");
+  check("BB still addresses him by his nickname", preferredWithRoster && preferredWithRoster.name === "G", preferredWithRoster);
+  check("but his real roster first name is recovered underneath for identity checks", preferredWithRoster && preferredWithRoster.rosterName === "Gokul", preferredWithRoster);
+  await fbSet("members/m4", null);
 
   const malformed = await findHubMemberByPhone("garbage");
   check("an unusable input finds nothing rather than throwing", malformed === null, malformed);
