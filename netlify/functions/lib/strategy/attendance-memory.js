@@ -58,6 +58,8 @@ async function loadAttendanceText() {
   return [
     `# Today's attendance (${date})`,
     "Check-in/check-out times only, from Petpooja. Never mention or infer a fine, leave balance, salary or any other payroll figure — that data exists elsewhere and is not something you have access to.",
+    "This list only includes people this system has already recorded a punch for today, and may lag behind reality by up to an hour. If someone is not named below, that is NOT evidence they haven't checked in — never say or imply someone \"hasn't arrived yet\", \"isn't in yet\" or is late unless their own line below actually says so. If asked about someone who isn't named here, say plainly you don't have their check-in time, rather than guessing.",
+    "A leave, WFH or flexible-timing request elsewhere in your memory is a completely separate record from this one and never tells you whether or when someone physically checked in — do not blend the two into a single claim (e.g. do not turn \"has an approved flexible-timing request today\" into \"hasn't checked in yet, expected shortly\"). Report each source on its own terms.",
     ...lines,
   ].join("\n");
 }

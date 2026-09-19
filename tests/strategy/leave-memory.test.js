@@ -33,6 +33,11 @@ const TODAY = "2026-09-18";
   check("the reason is quoted", /Family function/.test(text), text);
   check("it's explicitly framed as having no financial figures", /balance/.test(text) && /paid\/unpaid/.test(text), text);
   check("no field looks like a rupee amount", !/₹|balance_after|paid_days/.test(text), text);
+  // The other half of the fix for BB inventing "hasn't checked in yet, running late" out of a
+  // real but unrelated flexible-timing/leave request — this file's own header now says
+  // explicitly that a filed request is not evidence of what actually happened today.
+  check("BB is told a leave/WFH request never tells her whether someone actually checked in", /never tells you whether or when someone physically checked in/.test(text), text);
+  check("BB is told not to turn a request into a claim about someone's current arrival status", /Never turn an approved flexible-timing\/WFH\/leave request into a claim about someone's current whereabouts or arrival status/.test(text), text);
 
   await req("PUT", `${RTDB_URL}/leave_requests.json`, null);
   finish();
