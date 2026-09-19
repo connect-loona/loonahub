@@ -3,7 +3,11 @@ import hubBrands from "./lib/strategy/hub-brands.js";
 import store from "./lib/strategy/store.js";
 import bbChat from "./lib/strategy/bb-chat.js";
 import bbHouseRules from "./lib/strategy/bb-house-rules.js";
-import visualAssets from "./lib/strategy/visual-assets.js";
+// Via the shim, never lib/strategy/visual-assets.js directly: the shim is what statically
+// imports @netlify/blobs and calls configureNetlifyStore(). Importing the bare module leaves
+// the store factory unset, and every attachment read then fails with "Netlify Blobs was not
+// configured for this Visual Studio function."
+import visualAssets from "./_shared/visual-blob-store.mjs";
 import maniEvents from "./lib/strategy/mani-events.js";
 import apiUsage from "./lib/strategy/api-usage.js";
 import { backgroundConfig, readSignedBackgroundBody } from "./lib/strategy/modern-background.mjs";
