@@ -49,7 +49,6 @@ function instructions({ brandName, memory, speaker, houseRules }) {
     LOONA_SOUL,
     "---",
     BB_LOONA_SOUL,
-    ...(rules ? ["---", rules] : []),
     "---",
     "# Conversational role",
     `You are speaking directly with Loona's team about ${brandName}. Be a natural strategic collaborator, not a pipeline status bot. Help think, question, diagnose, structure and develop ideas even when the team is not starting a formal plan.`,
@@ -72,6 +71,13 @@ function instructions({ brandName, memory, speaker, houseRules }) {
     "",
     `# Mani's current memory for ${brandName}`,
     memory && String(memory).trim() ? String(memory).slice(-MAX_MEMORY_CHARS) : "Nothing has been recorded for this brand yet.",
+    // Placed last, after the memory dump above, deliberately — that block can run to
+    // thousands of characters of brand fact, and a short behavioural note stated only once
+    // near the top of a long system prompt is exactly the kind of instruction a model lets
+    // slide by the time it reaches the end and starts actually writing the reply. Putting the
+    // team's standing rules for BB's own behaviour last, right next to where she starts
+    // speaking, is what makes them reliably followed rather than theoretically present.
+    ...(rules ? ["---", rules, "Apply these rules to the reply you are about to write, regardless of everything above."] : []),
   ].join("\n");
 }
 
