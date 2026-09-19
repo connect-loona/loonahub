@@ -45,6 +45,33 @@ const {
   const unconfirmedFind = await executeTaskAction("find_tasks", { brand: "Casa Waters" }, { confirmed: false });
   check("find_tasks runs even when the turn was not a confirmation — it's read-only", unconfirmedFind.ok && unconfirmedFind.results.length === 1, unconfirmedFind);
 
+  // ---- find_tasks: the three Hub Task Board sections — member, assigned_by, overseer are
+  // genuinely different questions and must never be conflated. ----
+  await req("PUT", `${RTDB_URL}/tasks.json`, {
+    d1: { task: "October Plan for MSR Academia", member: "Anam", brand: "MSR Academia", status: "Not Started", assigned_by: "Gokul" },
+    d2: { task: "Story ideas", member: "Saloni", brand: "Loona", status: "Changes Required", assigned_by: "Gokul" },
+    d3: { task: "ad video", member: "Gokul", brand: "Loona", status: "In Progress", assigned_by: "Myself" },
+    d4: { task: "LOONA BRANDING", member: "Muskan", brand: "Loona", status: "Awaiting Approval", assigned_by: "Ricky", overseers: ["Gokul"] },
+  });
+  const myBoard = await findTasks({ member: "Gokul" });
+  check("\"my board\" (member) returns only what's actually assigned to Gokul, not what he delegated", myBoard.length === 1 && myBoard[0].task === "ad video", myBoard);
+
+  const assignedToOthers = await findTasks({ assigned_by: "Gokul" });
+  check("\"assigned to others\" (assigned_by) returns what Gokul delegated, distinct from his own board", assignedToOthers.length === 2 && assignedToOthers.every((t) => ["October Plan for MSR Academia", "Story ideas"].includes(t.task)), assignedToOthers);
+  check("each result still names its real owner, so BB can never describe it as Gokul's own task", assignedToOthers.every((t) => t.member !== "Gokul"), assignedToOthers);
+
+  const overseeing = await findTasks({ overseer: "Gokul" });
+  check("\"overseeing\" (overseer) is a third, independent list — visibility only, not ownership or delegation", overseeing.length === 1 && overseeing[0].task === "LOONA BRANDING", overseeing);
+  check("an overseen task is neither on his board nor assigned by him", overseeing[0].member !== "Gokul" && overseeing[0].assigned_by !== "Gokul", overseeing[0]);
+
+  const withFullDetail = await findTasks({ member: "Muskan" });
+  check("results always carry assigned_by and overseers, so BB has what she needs to describe a task correctly", withFullDetail[0].assigned_by === "Ricky" && withFullDetail[0].overseers.includes("Gokul"), withFullDetail[0]);
+  await req("PUT", `${RTDB_URL}/tasks.json`, {
+    t1: { task: "Shoot the Diwali reel", member: "Anjali", brand: "RRO Foods", status: "Not Started" },
+    t2: { task: "Fix the pack shot", member: "Rahul", brand: "RRO Foods", status: "In Progress" },
+    t3: { task: "Casa brand deck", member: "Priya", brand: "Casa Waters", status: "Completed" },
+  });
+
   // ---- create_task and update_task are refused outright without a confirmed turn ----
   const blockedCreate = await executeTaskAction("create_task", { member: "Anjali", task: "New task" }, { confirmed: false });
   check("create_task is refused when the current message wasn't a confirmation", blockedCreate.ok === false && blockedCreate.needsConfirmation === true, blockedCreate);

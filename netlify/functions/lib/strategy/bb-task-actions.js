@@ -50,11 +50,13 @@ function looksLikeConfirmation(message) {
 const TASK_ACTION_TOOLS = [
   {
     name: "find_tasks",
-    description: "Search Loona Hub's live task board. Read-only — use it to look up a task's id before editing it, or to check what's already on the board before adding something that might be a duplicate. Returns only what is actually recorded; never call this expecting it to guess.",
+    description: "Search Loona Hub's live task board. Read-only — use it to look up a task's id before editing it, to check what's already on the board before adding something that might be a duplicate, or to answer any question about whose board has what. Hub's own Task Board page draws this exact same distinction, and you should too: member is whose task it actually is (use this for \"what's on my board\"); assigned_by is who delegated it to them (use this for \"what have I assigned to others\" — a task is never \"yours\" just because you assigned_by it); overseer is someone looped in for visibility only, neither the owner nor the delegator (use this for \"what am I overseeing\"). Returns only what is actually recorded; never call this expecting it to guess.",
     input_schema: {
       type: "object",
       properties: {
-        member: { type: "string", description: "Filter to tasks assigned to this person, by first name." },
+        member: { type: "string", description: "Filter to tasks actually assigned TO this person — this is whose task it is. By first name." },
+        assigned_by: { type: "string", description: "Filter to tasks this person delegated to someone else — this does NOT mean the task belongs to them. By first name, or \"Myself\"/\"Google Calendar\" for the same neutral values the board itself uses." },
+        overseer: { type: "string", description: "Filter to tasks this person is looped in on for visibility, without owning or having assigned them. By first name." },
         brand: { type: "string", description: "Filter to tasks under this brand." },
         status: { type: "string", description: "Filter to this exact status, e.g. \"Not Started\", \"In Progress\", \"Completed\"." },
         query: { type: "string", description: "Filter to tasks whose description contains this text (case-insensitive)." },
@@ -119,10 +121,12 @@ function statusApprovalGates(existing, status, speakerName) {
   return { assignerNeedsApproval, gokulNeedsApproval: !!existing.looped_in_gokul };
 }
 
-async function findTasks({ member, brand, status, query } = {}, deps = {}) {
+async function findTasks({ member, assigned_by: assignedBy, overseer, brand, status, query } = {}, deps = {}) {
   const get = deps.fbGet || fbGet;
   const tasks = (await get("tasks")) || {};
   const wantedMember = member ? String(member).trim().toLowerCase() : null;
+  const wantedAssignedBy = assignedBy ? String(assignedBy).trim().toLowerCase() : null;
+  const wantedOverseer = overseer ? String(overseer).trim().toLowerCase() : null;
   const wantedBrand = brand ? String(brand).trim().toLowerCase() : null;
   const wantedStatus = status ? String(status).trim().toLowerCase() : null;
   const wantedQuery = query ? String(query).trim().toLowerCase() : null;
@@ -130,13 +134,16 @@ async function findTasks({ member, brand, status, query } = {}, deps = {}) {
   for (const [id, task] of Object.entries(tasks)) {
     if (!task) continue;
     if (wantedMember && String(task.member || "").trim().toLowerCase() !== wantedMember) continue;
+    if (wantedAssignedBy && String(task.assigned_by || "").trim().toLowerCase() !== wantedAssignedBy) continue;
+    if (wantedOverseer && !(Array.isArray(task.overseers) ? task.overseers : []).some((name) => String(name || "").trim().toLowerCase() === wantedOverseer)) continue;
     if (wantedBrand && String(task.brand || "").trim().toLowerCase() !== wantedBrand) continue;
     if (wantedStatus && String(task.status || "").trim().toLowerCase() !== wantedStatus) continue;
     if (wantedQuery && !String(task.task || "").toLowerCase().includes(wantedQuery)) continue;
     results.push({
       id, member: task.member || null, brand: task.brand || null, task: task.task || null,
       status: task.status || null, priority: task.priority || null, due_date: task.due_date || null,
-      is_personal: !!task.is_personal,
+      is_personal: !!task.is_personal, assigned_by: task.assigned_by || null,
+      overseers: Array.isArray(task.overseers) ? task.overseers : [],
     });
     if (results.length >= MAX_FIND_RESULTS) break;
   }
