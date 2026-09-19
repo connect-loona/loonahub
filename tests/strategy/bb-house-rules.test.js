@@ -32,6 +32,13 @@ const { loadHouseRulesText, saveHouseRuleSafe, DEFAULT_HOUSE_RULES } = require(p
   check("it explicitly tells her to rephrase rather than recite it verbatim", /never recite it as a fixed script/.test(whatsappDefault || ""), whatsappDefault);
   check("the standard-answer default also reaches the hub channel", /G's right hand at Loona/.test(hubDefault || ""), hubDefault);
 
+  // A task-board status question must cover everyone on the board, not a curated few — the
+  // exact gap a WhatsApp screenshot exposed: "what's due for each team" answered for only 5
+  // of the team even though the board memory has every open task for every person.
+  check("a default rule requires covering every person/brand on a status question", /go through every person and brand/.test(whatsappDefault || ""), whatsappDefault);
+  check("it explicitly says not to silently drop someone to keep the reply shorter", /never silently drop someone/.test(whatsappDefault || ""), whatsappDefault);
+  check("it requires including tasks with no due date or a future due date too", /no due date or a due date later than today/.test(whatsappDefault || ""), whatsappDefault);
+
   // ---- Rules taught through conversation layer on top of the defaults ----
   await saveHouseRuleSafe("When Chinmay asks who you are, add a bit more edge and banter.", "Gokul");
   const withTaught = await loadHouseRulesText("whatsapp");
