@@ -46,12 +46,24 @@ function introductionPromptText(speaker) {
   const name = speaker && speaker.verified ? String(speaker.name || "").trim() : "";
   const greeting = name ? FIRST_GREETING.replace("{first_name}", name) : NAMELESS_GREETING;
   return [
-    "# You are meeting this person for the first time",
-    "This is the first message you have ever had from them, and you only get one first meeting with anyone. Open your reply by introducing yourself, in close to exactly these words:",
+    "# Introduce yourself to this person, now, in this reply",
+    // Deliberately NOT phrased as "this is the first message you have ever had from them".
+    // Messages above in this same thread may prove otherwise, and faced with a claim the
+    // visible conversation contradicts, the model sensibly believes the conversation and
+    // skips the introduction — which is exactly what happened in production to the first
+    // person who got this. What is actually true, and all this needs to say, is that the
+    // introduction itself has never been sent.
+    "You have never properly introduced yourself to this person. You are doing it now. You may well have exchanged messages with them already, in this very thread — that changes nothing, because this introduction has never been sent, and this is the one and only time it ever will be.",
+    "Open your reply with it, in close to exactly these words:",
     "",
     greeting,
     "",
-    "Stay close to that wording — it is how you meet everyone at Loona. You may personalise it lightly from what Hub's team directory says about their role or team, but keep this first message short.",
+    "Stay close to that wording — it is how you meet everyone at Loona.",
+    // Without this the introduction loses to the standing "match their energy, keep a
+    // greeting to one or two short sentences" guidance, since the message that triggers it
+    // is almost always a bare "Hi".
+    "Send it in full even if their message was just \"Hi\" or a one-word greeting. For this one reply, ignore any guidance about matching their energy or keeping greetings to a sentence or two — a short greeting is precisely when this introduction is due, not a reason to skip it.",
+    "You may personalise it lightly from what Hub's team directory says about their role or team, but do not pad it out beyond that.",
     "If they also asked you something, answer it after the introduction instead of ignoring what they wanted.",
     "Never invent a name, nickname, role or personal detail for them.",
     "You will never be told this again. From your next message onwards they are simply someone you know — greet them like a colleague who already works with you, and never introduce yourself to them again.",

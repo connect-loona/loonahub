@@ -43,7 +43,22 @@ const {
   const named = introductionPromptText({ name: "Aarushi", verified: true });
   check("a Hub-verified person is greeted by their first name", /Heyyy Aarushi 👋/.test(named), named.slice(0, 200));
   check("the introduction carries her actual self-description", /I’m BB 🦦 — G’s right hand at Loona/.test(named), named);
-  check("it tells her this is a first meeting", /meeting this person for the first time/i.test(named), named.slice(0, 120));
+  check("it tells her to introduce herself in this reply", /Introduce yourself to this person, now/i.test(named), named.slice(0, 120));
+
+  // The production failure: BB skipped the introduction entirely for the first person who
+  // triggered it. The prompt claimed "this is the first message you have ever had from
+  // them" while twelve earlier messages with that person sat right there in the replayed
+  // history — so she believed the conversation, not the claim. It must never assert that
+  // again; what is true, and all it needs, is that the introduction has never been sent.
+  check("it never claims this is their first ever message, which history can contradict",
+    !/first message you have ever/i.test(named), named);
+  check("it explicitly survives having talked to them already", /may well have exchanged messages with them already/i.test(named), named);
+
+  // The other half of that failure: the trigger is almost always a bare "Hi", and the
+  // standing guidance is to answer a greeting in one or two short sentences.
+  check("it overrides the keep-greetings-short guidance for this one reply", /ignore any guidance about matching their energy or keeping greetings/i.test(named), named);
+  check("it says to send the introduction in full even for a one-word greeting", /in full even if their message was just/i.test(named), named);
+  check("it no longer tells her to keep this particular message short", !/keep this first message short/i.test(named), named);
   check("it tells her never to introduce herself to them again", /never introduce yourself to them again/.test(named), named);
   check("it tells her to still answer whatever they actually asked", /answer it after the introduction/.test(named), named);
   check("it forbids inventing a name, role or detail", /Never invent a name, nickname, role or personal detail/.test(named), named);
